@@ -17,3 +17,565 @@ model User {
 
   @@map("users")
 }
+
+// ---------------------------------------------------------------------------
+// Domínio de cadastro de agências — Etapas 1 (Análise), 2 (Complementar) e 3
+// (Contrato). Modelado a partir de etapas/README.md. Ver schema.md para a
+// documentação completa de cada tabela e decisão de modelagem.
+//
+// Sem colunas JSON/JSONB: todo dado antes representado como JSON no sistema
+// de referência foi normalizado em colunas ou tabelas próprias.
+// ---------------------------------------------------------------------------
+
+model Cadastro {
+  id           String  @id @default(cuid())
+  cnpj         String  @unique
+  razaoSocial  String
+  nomeFantasia String?
+  email        String?
+  telefone     String?
+
+  analiseIaAt DateTime?
+
+  etapaAtual      EtapaCadastro @default(FICHA)
+  status          String?
+  dataSolicitacao DateTime?
+  uploadToken     String?       @unique
+
+  // Etapa 3 — Travel Link / SICA
+  sicaCodigo          String?
+  travelLinkCriado    Boolean   @default(false)
+  travelLinkCriadoEm  DateTime?
+  travelLinkCriadoPor String?
+
+  // Equipe responsável — referenciam staff interno; não detalhado nos docs
+  // de etapas 1-3, mantidos como identificadores simples.
+  baseId              String?
+  gestorResponsavel   String?
+  executivoId         String?
+  promotorResponsavel String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dadosReceita         DadosReceita?
+  gateValidacoes       GateValidacao[]
+  alertas              Alerta[]
+  usuarioMaster        UsuarioMaster?
+  complementar         CadastroComplementar?
+  representantesLegais RepresentanteLegal[]
+  documentos           Documento[]
+  contratos            Contrato[]
+  kanbanHistorico      KanbanHistorico[]
+  decisoesHumanas      DecisaoHumana[]
+  avancosForcados      AvancoForcado[]
+  notificacoes         Notificacao[]
+
+  @@map("cadastros")
+}
+
+// Cache normalizado da consulta à Receita Federal (CNPJ). Reconsultada e
+// sobrescrita a cada reavaliação do gate da Etapa 1.
+model DadosReceita {
+  id         String   @id @default(cuid())
+  cadastroId String   @unique
+  cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+
+  situacaoCadastral String
+  dataAbertura      DateTime
+  naturezaJuridica  String
+  porte             String?
+  capitalSocial     Decimal?  @db.Decimal(14, 2)
+  telefone          String?
+  email             String?
+  optanteSimples    Boolean   @default(false)
+  dataOpcaoSimples  DateTime?
+
+  enderecoId String?   @unique
+  endereco   Endereco? @relation(fields: [enderecoId], references: [id])
+
+  consultadoEm DateTime @default(now())
+
+  cnaes Cnae[]
+
+  @@map("dados_receita")
+}
+
+// CNAEs da empresa (principal + secundários), usados para checar
+// compatibilidade com turismo no gate da Etapa 1.
+model Cnae {
+  id             String       @id @default(cuid())
+  dadosReceitaId String
+  dadosReceita   DadosReceita @relation(fields: [dadosReceitaId], references: [id], onDelete: Cascade)
+  codigo         String
+  descricao      String
+  principal      Boolean      @default(false)
+
+  @@index([dadosReceitaId])
+  @@map("cnaes")
+}
+
+// Resultado do gate automático que bloqueia/libera a transição entre etapas
+// (ex.: fn_gate_etapa1_to_complementar). Uma linha por avaliação.
+model GateValidacao {
+  id             String        @id @default(cuid())
+  cadastroId     String
+  cadastro       Cadastro      @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  etapaAlvo      EtapaCadastro
+  liberado       Boolean
+  motivoBloqueio String?
+  avaliadoEm     DateTime      @default(now())
+
+  @@index([cadastroId])
+  @@map("gate_validacoes")
+}
+
+// Alertas levantados durante a análise (ex.: CNAE incompatível, CNPJ
+// inativo). Um cadastro pode acumular vários.
+model Alerta {
+  id          String    @id @default(cuid())
+  cadastroId  String
+  cadastro    Cadastro  @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  tipo        String
+  mensagem    String
+  criadoEm    DateTime  @default(now())
+  resolvidoEm DateTime?
+
+  @@index([cadastroId])
+  @@map("alertas")
+}
+
+// Credencial de acesso provisionada ao final da Etapa 3 (consumida pela
+// Etapa 4 — Usuário Master, fora do escopo detalhado destes docs).
+model UsuarioMaster {
+  id         String   @id @default(cuid())
+  cadastroId String   @unique
+  cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  nome       String
+  email      String
+  ativo      Boolean  @default(false)
+  criadoEm   DateTime @default(now())
+
+  @@map("usuarios_master")
+}
+
+model Endereco {
+  id          String  @id @default(cuid())
+  cep         String
+  logradouro  String
+  numero      String
+  complemento String?
+  bairro      String
+  cidade      String
+  uf          String
+
+  dadosReceita         DadosReceita?
+  cadastroComplementar CadastroComplementar?
+  representanteLegal   RepresentanteLegal?
+
+  @@map("enderecos")
+}
+
+model CadastroComplementar {
+  id         String   @id @default(cuid())
+  cadastroId String   @unique
+  cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+
+  // Passo 2 — Empresa
+  siteEmpresa       String?
+  telefoneComercial String?
+  emailOperacional  String?
+  emailComercial    String?
+  emailFinanceiro   String?
+
+  // CADASTUR — arquivo e IA bruta ficam em Documento/AnaliseIaDocumento;
+  // aqui só os campos extraídos usados para checar validade.
+  cadasturNumero       String?
+  cadasturDataCadastro DateTime?
+  cadasturValidade     DateTime?
+  cadasturSituacao     String?
+
+  // Passo 3 — Comercial. `clienteInternacional` não é persistido: é sempre
+  // o inverso de `resideBrasil` e deve ser derivado na aplicação.
+  resideBrasil Boolean?
+
+  // Passo 6 — Endereço da agência & Banco
+  tipoAgencia                 String?
+  enderecoAgenciaId           String?             @unique
+  enderecoAgencia             Endereco?           @relation(fields: [enderecoAgenciaId], references: [id])
+  enderecoAgenciaMesmoTitular Boolean?
+  socioVinculadoEnderecoId    String?
+  socioVinculadoEndereco      RepresentanteLegal? @relation("SocioVinculadoEndereco", fields: [socioVinculadoEnderecoId], references: [id])
+
+  bancoNo          String?
+  agenciaNo        String?
+  contaNo          String?
+  tipoConta        String?
+  favorecidoNome   String?
+  favorecidoDoc    String?
+  chavePix         String?
+  tipoChavePix     String?
+  tipoFaturamento  String?
+  percCorporativo  Decimal? @db.Decimal(5, 2)
+  percConvencional Decimal? @db.Decimal(5, 2)
+
+  // Passo 7 — Revisão / envio final
+  submetidoAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendasPercentuais VendaPercentual[]
+
+  @@map("cadastro_complementar")
+}
+
+// Substitui os dois JSONs paralelos `vendas_tipo`/`vendas_percentuais`: uma
+// linha por tipo de venda declarado, com seu percentual.
+model VendaPercentual {
+  id                     String               @id @default(cuid())
+  cadastroComplementarId String
+  cadastroComplementar   CadastroComplementar @relation(fields: [cadastroComplementarId], references: [id], onDelete: Cascade)
+  tipo                   TipoVenda
+  percentual             Decimal              @db.Decimal(5, 2)
+
+  @@unique([cadastroComplementarId, tipo])
+  @@map("venda_percentuais")
+}
+
+model RepresentanteLegal {
+  id         String   @id @default(cuid())
+  cadastroId String
+  cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+
+  nome            String
+  email           String?
+  telefone        String?
+  cpf             String?
+  cnpj            String?
+  isPj            Boolean            @default(false)
+  rg              String?
+  rgOrgaoEmissor  String?
+  dataNascimento  DateTime?
+  estadoCivil     String?
+  regimeBens      String?
+  nacionalidade   String?
+  cargo           String?
+  papel           PapelRepresentante @default(SOCIO)
+  ativo           Boolean            @default(true)
+  origem          String? // ex.: 'qsa_receita' | 'manual' | 'procuracao'
+  preenchidoPorIa Boolean            @default(false)
+
+  enderecoId String?   @unique
+  endereco   Endereco? @relation(fields: [enderecoId], references: [id])
+  conjuge    Conjuge?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentos                Documento[]
+  contratoSignatarios       ContratoSignatario[]
+  enderecosAgenciaVinculada CadastroComplementar[] @relation("SocioVinculadoEndereco")
+
+  @@index([cadastroId])
+  @@map("representantes_legais")
+}
+
+// Dados do cônjuge quando `estadoCivil = 'casado'` (Passo 5, PF).
+model Conjuge {
+  id                   String             @id @default(cuid())
+  representanteLegalId String             @unique
+  representanteLegal   RepresentanteLegal @relation(fields: [representanteLegalId], references: [id], onDelete: Cascade)
+  nome                 String
+  cpf                  String?
+  rg                   String?
+  nacionalidade        String?
+
+  @@map("conjuges")
+}
+
+model Documento {
+  id         String   @id @default(cuid())
+  cadastroId String
+  cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+
+  representanteLegalId String?
+  representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
+
+  tipo     TipoDocumento
+  fileName String
+  mimeType String
+
+  // Storage (GCS)
+  gcsPath   String
+  gcsBucket String
+  gcsSize   Int?
+  gcsMd5    String?
+
+  status           StatusDocumento @default(PENDENTE)
+  verificado       Boolean         @default(false)
+  reprovadoPor     String?
+  motivoReprovacao String?
+  reprovadoEm      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analiseIa AnaliseIaDocumento?
+
+  @@index([cadastroId])
+  @@map("documentos")
+}
+
+// Extração automática via IA sobre um documento (hoje: CADASTUR). Uma linha
+// por documento analisado.
+model AnaliseIaDocumento {
+  id          String    @id @default(cuid())
+  documentoId String    @unique
+  documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+
+  numeroCadastur       String?
+  razaoSocialExtraida  String?
+  dataCadastroExtraida DateTime?
+  dataValidadeExtraida DateTime?
+  situacaoExtraida     String?
+  cnaeExtraido         String?
+  scoreConfianca       Decimal?  @db.Decimal(5, 2)
+
+  processadoEm DateTime @default(now())
+
+  @@map("analises_ia_documentos")
+}
+
+model Contrato {
+  id         String   @id @default(cuid())
+  cadastroId String
+  cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+
+  status      StatusContrato @default(RASCUNHO)
+  // Gerado por trigger/sequência no banco: 'CT-' || ano || '-' || sequência.
+  numContrato String?        @unique
+
+  conteudoPreenchido String? @db.Text
+
+  geradoEm  DateTime?
+  geradoPor String?
+
+  leituraConfirmada    Boolean   @default(false)
+  leituraConfirmadaPor String?
+  leituraConfirmadaEm  DateTime?
+
+  d4signDocumentId   String?
+  contratoGcsPath    String? // PDF de rascunho/preview
+  pdfAssinadoGcsPath String? // PDF final assinado (setado só pelo webhook)
+  assinadoAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  signatarios ContratoSignatario[]
+
+  @@index([cadastroId])
+  @@map("contratos")
+}
+
+// Substitui o JSON `dados_preenchidos`: snapshot imutável dos dados de cada
+// signatário no momento em que o contrato foi gerado (o endereço é copiado
+// aqui em vez de referenciado, para não mudar se o sócio editar o endereço
+// depois). `totalSignatarios` é a contagem desta relação, não um campo
+// próprio.
+model ContratoSignatario {
+  id         String   @id @default(cuid())
+  contratoId String
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  representanteLegalId String?
+  representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
+  signatarioPadraoId   String?
+  signatarioPadrao     SignatarioPadrao?   @relation(fields: [signatarioPadraoId], references: [id])
+
+  nome           String
+  email          String?
+  cpf            String?
+  rg             String?
+  rgOrgaoEmissor String?
+  cargo          String?
+  nacionalidade  String?
+  estadoCivil    String?
+  dataNascimento DateTime?
+
+  cepSnapshot         String?
+  logradouroSnapshot  String?
+  numeroSnapshot      String?
+  complementoSnapshot String?
+  bairroSnapshot      String?
+  cidadeSnapshot      String?
+  ufSnapshot          String?
+
+  camposPendentes ContratoCampoPendente[]
+
+  @@index([contratoId])
+  @@map("contrato_signatarios")
+}
+
+// Substitui o JSON `campos_pendentes`: uma linha por campo obrigatório
+// ausente naquele signatário no momento da geração (`force: true` gera o
+// contrato mesmo assim, mas registra a pendência).
+model ContratoCampoPendente {
+  id                   String             @id @default(cuid())
+  contratoSignatarioId String
+  contratoSignatario   ContratoSignatario @relation(fields: [contratoSignatarioId], references: [id], onDelete: Cascade)
+  campo                String
+
+  @@map("contrato_campos_pendentes")
+}
+
+// Substitui o JSON `pendencias`: uma linha por pendência que foi
+// overridada quando alguém forçou o avanço de etapa com `force: true`.
+model AvancoForcado {
+  id                 String        @id @default(cuid())
+  cadastroId         String
+  cadastro           Cadastro      @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  etapaAlvo          EtapaCadastro
+  motivo             String
+  gateMotivoBloqueio String?
+  statusReal         String?
+  solicitadoPor      String?
+  autorizadoPor      String?
+  createdAt          DateTime      @default(now())
+
+  pendencias AvancoForcadoPendencia[]
+
+  @@index([cadastroId])
+  @@map("avancos_forcados")
+}
+
+model AvancoForcadoPendencia {
+  id              String        @id @default(cuid())
+  avancoForcadoId String
+  avancoForcado   AvancoForcado @relation(fields: [avancoForcadoId], references: [id], onDelete: Cascade)
+  descricao       String
+
+  @@map("avanco_forcado_pendencias")
+}
+
+model KanbanHistorico {
+  id                String         @id @default(cuid())
+  cadastroId        String
+  cadastro          Cadastro       @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  etapaAnterior     EtapaCadastro?
+  etapaNova         EtapaCadastro
+  usuarioEmail      String? // null/'sistema@d4sign' nas transições automáticas via trigger
+  origem            String?
+  observacao        String?
+  desbloqueioManual Boolean?
+  // Texto livre com detalhes da transição; não é um payload estruturado
+  // consultado por campo, então uma coluna de texto substitui o JSON.
+  detalhes          String?        @db.Text
+  createdAt         DateTime       @default(now())
+
+  @@index([cadastroId])
+  @@map("kanban_historico")
+}
+
+model DecisaoHumana {
+  id            String           @id @default(cuid())
+  cadastroId    String
+  cadastro      Cadastro         @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  etapa         EtapaDecisao
+  decisaoIa     String?
+  decisaoHumana ResultadoDecisao
+  justificativa String           @db.Text
+  usuarioEmail  String
+  modeloIa      String?
+  scoreIa       Float?
+  divergiu      Boolean?
+  createdAt     DateTime         @default(now())
+
+  @@index([cadastroId])
+  @@map("decisoes_humanas")
+}
+
+model Notificacao {
+  id         String   @id @default(cuid())
+  cadastroId String
+  cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  tipo       String
+  titulo     String
+  mensagem   String
+  createdAt  DateTime @default(now())
+
+  @@index([cadastroId])
+  @@map("notificacoes")
+}
+
+model SignatarioPadrao {
+  id       String  @id @default(cuid())
+  nome     String
+  cargo    String?
+  email    String
+  telefone String?
+  ativo    Boolean @default(true)
+  ordem    Int
+
+  contratoSignatarios ContratoSignatario[]
+
+  @@map("signatarios_padrao")
+}
+
+enum EtapaCadastro {
+  FICHA
+  COMPLEMENTAR
+  DOCUMENTOS
+  CONTRATO
+  CREDENCIAIS
+  RECUSADO
+}
+
+enum TipoDocumento {
+  CONTRATO_SOCIAL
+  CADASTUR
+  RG_CNPJ
+  COMPROVANTE_ENDERECO
+  COMPROVANTE_ENDERECO_AGENCIA
+  CERTIDAO_CASAMENTO
+  PROCURACAO
+}
+
+enum StatusDocumento {
+  PENDENTE
+  APROVADO
+  REPROVADO
+}
+
+enum StatusContrato {
+  RASCUNHO
+  ENVIADO
+  PROCESSANDO
+  VISUALIZADO
+  ASSINADO_AGENCIA
+  ASSINADO
+  REJEITADO
+  CANCELADO
+}
+
+enum EtapaDecisao {
+  ANALISE
+  COMPLEMENTAR
+}
+
+enum ResultadoDecisao {
+  APROVADO
+  REPROVADO
+}
+
+enum PapelRepresentante {
+  SOCIO
+  PROCURADOR
+}
+
+enum TipoVenda {
+  NACIONAL
+  INTERNACIONAL
+  TERRESTRE
+}
