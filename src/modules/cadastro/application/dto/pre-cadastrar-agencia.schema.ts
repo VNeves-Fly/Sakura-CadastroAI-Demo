@@ -3,7 +3,7 @@ import { z } from "zod";
 export const socioMetaSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório."),
   email: z.string().email("E-mail inválido."),
-  telefone: z.string().min(10, "Telefone inválido."),
+  telefone: z.string().min(6, "Telefone inválido."),
 });
 
 export const preCadastrarAgenciaMetaSchema = z.object({

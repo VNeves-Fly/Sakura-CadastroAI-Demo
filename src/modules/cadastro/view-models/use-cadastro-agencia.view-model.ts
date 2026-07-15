@@ -10,6 +10,8 @@ import {
   unmaskCnpj,
   validarCnpjComMensagem,
 } from "@/modules/cadastro/utils/cnpj.util";
+import { validarEmail } from "@/modules/shared/utils/email.util";
+import { maskTelefone, validarTelefone } from "@/modules/shared/utils/telefone.util";
 import {
   criarSocioVazio,
   type QsaResultView,
@@ -107,6 +109,10 @@ export function useCadastroAgenciaViewModel({ origem }: UseCadastroAgenciaOption
         if (i !== index) return socio;
         const atualizado = { ...socio, ...patch };
 
+        if ("telefone" in patch || "telefonePais" in patch) {
+          atualizado.telefone = maskTelefone(atualizado.telefone, atualizado.telefonePais);
+        }
+
         if ("nome" in patch) {
           atualizado.qsaStatus =
             qsaResult && atualizado.nome
@@ -131,7 +137,11 @@ export function useCadastroAgenciaViewModel({ origem }: UseCadastroAgenciaOption
 
   const socioValido = (socio: SocioFormValues) =>
     Boolean(
-      socio.nome && socio.email && socio.telefone && socio.rg && socio.qsaStatus !== "divergente",
+      socio.nome &&
+      validarEmail(socio.email) &&
+      validarTelefone(socio.telefone, socio.telefonePais) &&
+      socio.rg &&
+      socio.qsaStatus !== "divergente",
     );
 
   const canSubmit =

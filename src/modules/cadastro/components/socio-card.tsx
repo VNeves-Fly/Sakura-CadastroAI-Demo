@@ -1,7 +1,13 @@
 "use client";
 
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
-import { MailIcon, PhoneIcon } from "@/modules/cadastro/components/icons";
+import { MailIcon } from "@/modules/cadastro/components/icons";
+import { validarEmail } from "@/modules/shared/utils/email.util";
+import {
+  PAISES_TELEFONE,
+  paisTelefonePorCodigo,
+  validarTelefone,
+} from "@/modules/shared/utils/telefone.util";
 import type { QsaResultView, SocioFormValues } from "@/modules/cadastro/types/agencia.types";
 
 interface SocioCardProps {
@@ -31,6 +37,10 @@ export function SocioCard({
 }: SocioCardProps) {
   const mostrarCombobox = qsaResult !== null && !socio.modoManual;
   const numero = String(index + 1).padStart(2, "0");
+  const emailInvalido = socio.email.length > 0 && !validarEmail(socio.email);
+  const telefoneInvalido =
+    socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais);
+  const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
@@ -109,22 +119,41 @@ export function SocioCard({
               placeholder="socio@email.com"
             />
           </div>
+          {emailInvalido ? (
+            <span className="text-xs font-medium text-destructive">E-mail inválido.</span>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold uppercase tracking-wide text-foreground">
             Telefone<span className="text-destructive"> *</span>
           </label>
-          <div className="relative">
-            <PhoneIcon className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <div className="flex gap-2">
+            <select
+              value={socio.telefonePais}
+              onChange={(event) => onUpdate({ telefonePais: event.target.value })}
+              className="w-[6.5rem] shrink-0 rounded-full border border-input bg-background px-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/30"
+            >
+              {PAISES_TELEFONE.map((pais) => (
+                <option key={pais.codigo} value={pais.codigo}>
+                  {pais.bandeira} {pais.ddi || "Outro"}
+                </option>
+              ))}
+            </select>
             <input
               type="tel"
+              inputMode="numeric"
               value={socio.telefone}
               onChange={(event) => onUpdate({ telefone: event.target.value })}
-              className={`${INPUT_CLASSNAME} pl-9`}
-              placeholder="(11) 99999-9999"
+              className={`${INPUT_CLASSNAME} flex-1`}
+              placeholder={paisTelefone.placeholder}
             />
           </div>
+          {telefoneInvalido ? (
+            <span className="text-xs font-medium text-destructive">
+              Telefone incompleto para {paisTelefone.nome}.
+            </span>
+          ) : null}
         </div>
       </div>
 

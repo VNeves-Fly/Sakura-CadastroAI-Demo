@@ -1,4 +1,5 @@
 import { normalizarNome } from "@/modules/shared/utils/normalizar-nome";
+import { paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type {
   RawQsaResponse,
@@ -41,11 +42,16 @@ export const agenciaAdapter = {
     }
     formData.set("contratoSocial", params.contratoSocial);
 
-    const socioMeta = params.socios.map((socio) => ({
-      nome: socio.nome,
-      email: socio.email,
-      telefone: socio.telefone,
-    }));
+    const socioMeta = params.socios.map((socio) => {
+      const pais = paisTelefonePorCodigo(socio.telefonePais);
+      const ddi = pais.ddi ? `${pais.ddi} ` : "";
+
+      return {
+        nome: socio.nome,
+        email: socio.email,
+        telefone: `${ddi}${socio.telefone}`,
+      };
+    });
     formData.set("socios", JSON.stringify(socioMeta));
 
     params.socios.forEach((socio, index) => {

@@ -4,6 +4,7 @@ export interface SocioFormValues {
   nome: string;
   email: string;
   telefone: string;
+  telefonePais: string;
   rg: File | null;
   qsaStatus: QsaStatus;
   modoManual: boolean;
@@ -14,6 +15,7 @@ export function criarSocioVazio(): SocioFormValues {
     nome: "",
     email: "",
     telefone: "",
+    telefonePais: "BR",
     rg: null,
     qsaStatus: "idle",
     modoManual: false,
