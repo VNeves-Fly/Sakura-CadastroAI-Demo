@@ -37,3 +37,6 @@ next-env.d.ts
 
 # prisma
 prisma/dev.db
+
+# uploads locais (armazenamento de arquivos do módulo cadastro em dev)
+/uploads

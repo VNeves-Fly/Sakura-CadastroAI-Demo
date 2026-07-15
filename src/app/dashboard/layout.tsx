@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-        <span className="text-sm font-semibold text-slate-900">Cadastro IA Sakura</span>
+        <span className="text-sm font-semibold text-slate-900">Cadastro Sakura</span>
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-500">{session.user?.email}</span>
           <LogoutButton />
