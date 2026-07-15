@@ -49,6 +49,10 @@ bun run dev
 
 Acesse `http://localhost:3000`. O seed cria o usuário `admin@cadastro-ia-sakura.com` / `password123`.
 
+A documentação interativa da API (Swagger UI) fica em `http://localhost:3000/docs`,
+gerada a partir dos comentários `@swagger` nas rotas em `src/app/api/**/route.ts`
+(o JSON puro do spec fica em `http://localhost:3000/api/doc`).
+
 ### Scripts disponíveis
 
 | Script                            | Descrição                                       |
