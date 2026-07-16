@@ -13,9 +13,10 @@ import {
   unmaskCnpj,
   validarCnpjComMensagem,
 } from "@/modules/cadastro/utils/cnpj.util";
+import { maskTelefone } from "@/modules/shared/utils/telefone.util";
 
+// Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só.
 export const ETAPA_LABELS = [
-  "Documentos",
   "Empresa",
   "Comercial",
   "Representação",
@@ -28,15 +29,13 @@ interface UseCadastroWizardOptions {
   origem: string | null;
 }
 
-// Orquestra navegação entre os 7 passos (livre, sem bloqueio — a validação
-// de obrigatórios só acontece no envio final) e a lógica do Passo 1
-// (CNPJ + contrato social + consulta QSA).
+// Orquestra a revelação progressiva das seções (página única, sem
+// bloqueio de validação — só no envio final) e a lógica de campos da
+// seção Empresa (CNPJ + contrato social + consulta QSA + dados da
+// empresa).
 export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions) {
-  const etapaAtual = useCadastroWizardStore((state) => state.etapaAtual);
-  const maiorEtapaAlcancada = useCadastroWizardStore((state) => state.maiorEtapaAlcancada);
-  const irParaEtapa = useCadastroWizardStore((state) => state.irParaEtapa);
-  const proximaEtapa = useCadastroWizardStore((state) => state.proximaEtapa);
-  const etapaAnterior = useCadastroWizardStore((state) => state.etapaAnterior);
+  const secoesReveladas = useCadastroWizardStore((state) => state.secoesReveladas);
+  const avancarSecao = useCadastroWizardStore((state) => state.avancarSecao);
   const setOrigem = useCadastroWizardStore((state) => state.setOrigem);
 
   const cnpj = useCadastroWizardStore((state) => state.cnpj);
@@ -52,6 +51,28 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
   const setContratoSocial = useCadastroWizardStore((state) => state.setContratoSocial);
+
+  const siteEmpresa = useCadastroWizardStore((state) => state.siteEmpresa);
+  const semSite = useCadastroWizardStore((state) => state.semSite);
+  const telefoneComercial = useCadastroWizardStore((state) => state.telefoneComercial);
+  const telefoneComercialPais = useCadastroWizardStore((state) => state.telefoneComercialPais);
+  const semTelefoneComercial = useCadastroWizardStore((state) => state.semTelefoneComercial);
+  const emailOperacional = useCadastroWizardStore((state) => state.emailOperacional);
+  const emailComercial = useCadastroWizardStore((state) => state.emailComercial);
+  const emailFinanceiro = useCadastroWizardStore((state) => state.emailFinanceiro);
+  const resideBrasil = useCadastroWizardStore((state) => state.resideBrasil);
+
+  const setSiteEmpresa = useCadastroWizardStore((state) => state.setSiteEmpresa);
+  const setSemSite = useCadastroWizardStore((state) => state.setSemSite);
+  const setTelefoneComercialRaw = useCadastroWizardStore((state) => state.setTelefoneComercial);
+  const setTelefoneComercialPaisRaw = useCadastroWizardStore(
+    (state) => state.setTelefoneComercialPais,
+  );
+  const setSemTelefoneComercial = useCadastroWizardStore((state) => state.setSemTelefoneComercial);
+  const setEmailOperacional = useCadastroWizardStore((state) => state.setEmailOperacional);
+  const setEmailComercial = useCadastroWizardStore((state) => state.setEmailComercial);
+  const setEmailFinanceiro = useCadastroWizardStore((state) => state.setEmailFinanceiro);
+  const setResideBrasil = useCadastroWizardStore((state) => state.setResideBrasil);
 
   useEffect(() => {
     setOrigem(origem);
@@ -91,14 +112,25 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     void consultarQsaSeCompleto(mascarado);
   }
 
+  function setTelefoneComercial(valorDigitado: string) {
+    setTelefoneComercialRaw(maskTelefone(valorDigitado, telefoneComercialPais));
+  }
+
+  function setTelefoneComercialPais(pais: string) {
+    setTelefoneComercialPaisRaw(pais);
+    setTelefoneComercialRaw(maskTelefone(telefoneComercial, pais));
+  }
+
+  function usarEmailOperacionalParaTodos() {
+    setEmailComercial(emailOperacional);
+    setEmailFinanceiro(emailOperacional);
+  }
+
   return {
-    etapaAtual,
+    secoesReveladas,
     totalEtapas: TOTAL_ETAPAS,
-    maiorEtapaAlcancada,
     labels: ETAPA_LABELS,
-    irParaEtapa,
-    proximaEtapa,
-    etapaAnterior,
+    avancarSecao,
 
     cnpj,
     cnpjStatus,
@@ -108,5 +140,25 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     contratoSocial,
     setCnpj,
     setContratoSocial,
+
+    siteEmpresa,
+    semSite,
+    telefoneComercial,
+    telefoneComercialPais,
+    semTelefoneComercial,
+    emailOperacional,
+    emailComercial,
+    emailFinanceiro,
+    resideBrasil,
+    setSiteEmpresa,
+    setSemSite,
+    setTelefoneComercial,
+    setTelefoneComercialPais,
+    setSemTelefoneComercial,
+    setEmailOperacional,
+    setEmailComercial,
+    setEmailFinanceiro,
+    setResideBrasil,
+    usarEmailOperacionalParaTodos,
   };
 }

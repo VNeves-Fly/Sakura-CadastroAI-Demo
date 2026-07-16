@@ -10,6 +10,9 @@ export interface RawQsaResponse {
   razaoSocial: string;
   cnaeCompativel: boolean;
   socios: Array<{ nome: string }>;
+  dataAbertura: string;
+  telefoneReceita: string;
+  emailReceita: string;
 }
 
 export type CriarAgenciaResult =

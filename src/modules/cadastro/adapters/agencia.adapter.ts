@@ -20,6 +20,9 @@ export const agenciaAdapter = {
       razaoSocial: raw.razaoSocial,
       cnaeCompativel: raw.cnaeCompativel,
       nomesSocios: raw.socios.map((socio) => socio.nome),
+      dataAbertura: raw.dataAbertura,
+      telefoneReceita: raw.telefoneReceita,
+      emailReceita: raw.emailReceita,
     };
   },
 

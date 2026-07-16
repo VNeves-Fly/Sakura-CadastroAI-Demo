@@ -1,26 +1,26 @@
 interface WizardStepperProps {
-  etapaAtual: number;
+  secoesReveladas: number;
   totalEtapas: number;
-  maiorEtapaAlcancada: number;
   labels: string[];
-  onIrParaEtapa: (etapa: number) => void;
+  onClickSecao: (secao: number) => void;
 }
 
+// Indicador de progresso da página única: não existe mais "passo atual"
+// isolado — todas as seções reveladas ficam visíveis, empilhadas. Clicar
+// numa bolinha rola a página até aquela seção (só funciona pras já reveladas).
 export function WizardStepper({
-  etapaAtual,
+  secoesReveladas,
   totalEtapas,
-  maiorEtapaAlcancada,
   labels,
-  onIrParaEtapa,
+  onClickSecao,
 }: WizardStepperProps) {
-  const labelAtual = labels[etapaAtual - 1] ?? "";
-  const percentualConcluido = Math.round((etapaAtual / totalEtapas) * 100);
+  const percentualConcluido = Math.round((secoesReveladas / totalEtapas) * 100);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between text-sm">
         <span className="font-semibold text-foreground">
-          Passo {etapaAtual} de {totalEtapas} — {labelAtual}
+          Seção {secoesReveladas} de {totalEtapas} — {labels[secoesReveladas - 1] ?? ""}
         </span>
         <span className="text-muted-foreground">{percentualConcluido}% concluído</span>
       </div>
@@ -34,29 +34,29 @@ export function WizardStepper({
 
       <div className="hidden items-center justify-between sm:flex">
         {labels.map((label, index) => {
-          const etapa = index + 1;
-          const concluida =
-            etapa < maiorEtapaAlcancada || (etapa === maiorEtapaAlcancada && etapa < etapaAtual);
-          const ativa = etapa === etapaAtual;
+          const secao = index + 1;
+          const revelada = secao <= secoesReveladas;
+          const concluida = secao < secoesReveladas;
 
           return (
             <button
               key={label}
               type="button"
-              onClick={() => onIrParaEtapa(etapa)}
-              className="flex flex-col items-center gap-1"
+              disabled={!revelada}
+              onClick={() => onClickSecao(secao)}
+              className="flex flex-col items-center gap-1 disabled:cursor-not-allowed"
               title={label}
             >
               <span
                 className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${
-                  ativa
-                    ? "bg-primary text-primary-foreground"
-                    : concluida
-                      ? "bg-success text-success-foreground"
+                  concluida
+                    ? "bg-success text-success-foreground"
+                    : revelada
+                      ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
                 }`}
               >
-                {concluida ? "✓" : etapa}
+                {concluida ? "✓" : secao}
               </span>
             </button>
           );
