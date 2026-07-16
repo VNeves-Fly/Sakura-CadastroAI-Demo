@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import {
+  CONTRATO_STATUS_ASSINADO,
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
@@ -9,6 +10,7 @@ import {
   STATUS_RECUSADO,
   type AgenciaDetalhe,
   type AgenciaRepository,
+  type AnaliseContratos,
   type CadastrosKpis,
   type ContratoSignatarioData,
   type CreateAgenciaData,
@@ -201,6 +203,47 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       ativas,
       recusadas,
     };
+  }
+
+  async obterAnaliseContratos(dias: number): Promise<AnaliseContratos> {
+    const desde = new Date();
+    desde.setDate(desde.getDate() - (dias - 1));
+    desde.setHours(0, 0, 0, 0);
+
+    const contratos = await this.prisma.contrato.findMany({
+      where: { createdAt: { gte: desde } },
+      select: { status: true, signatarios: true, createdAt: true },
+    });
+
+    const porOrigem = { ia: 0, humano: 0 };
+    const porDiaMap = new Map<string, { assinados: number; pendentes: number }>();
+
+    for (let i = 0; i < dias; i++) {
+      const data = new Date(desde);
+      data.setDate(data.getDate() + i);
+      const chave = `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+      porDiaMap.set(chave, { assinados: 0, pendentes: 0 });
+    }
+
+    for (const contrato of contratos) {
+      const origem = extrairOrigemGeracao(contrato.signatarios);
+      if (origem === "ia") porOrigem.ia += 1;
+      if (origem === "humano") porOrigem.humano += 1;
+
+      const chave = `${String(contrato.createdAt.getDate()).padStart(2, "0")}/${String(contrato.createdAt.getMonth() + 1).padStart(2, "0")}`;
+      const balde = porDiaMap.get(chave);
+      if (balde) {
+        if (contrato.status === CONTRATO_STATUS_ASSINADO) balde.assinados += 1;
+        else balde.pendentes += 1;
+      }
+    }
+
+    const porDia = Array.from(porDiaMap.entries()).map(([dia, valores]) => ({
+      dia,
+      ...valores,
+    }));
+
+    return { porOrigem, porDia };
   }
 
   private toDomain(record: AgenciaRecord): Agencia {

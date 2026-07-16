@@ -5,6 +5,7 @@ import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
 import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
+import { ObterAnaliseContratosUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-contratos.use-case";
 import {
   AtualizarStatusCadastroUseCase,
   type AtualizarStatusCadastroInput,
@@ -60,5 +61,10 @@ export const cadastroAdminController = {
 
   recusarCadastro(id: string) {
     return this.atualizarStatus({ id, status: STATUS_RECUSADO });
+  },
+
+  obterAnaliseContratos(dias: number) {
+    const useCase = new ObterAnaliseContratosUseCase(agenciaRepository);
+    return useCase.execute(dias);
   },
 };

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
+import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
+import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -95,12 +97,15 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
 
-  const { items, total, kpis } = await cadastroAdminController.listarCadastros({
-    busca: searchParams.busca,
-    status: searchParams.status,
-    sortBy,
-    sortDir,
-  });
+  const [{ items, total, kpis }, analise] = await Promise.all([
+    cadastroAdminController.listarCadastros({
+      busca: searchParams.busca,
+      status: searchParams.status,
+      sortBy,
+      sortDir,
+    }),
+    cadastroAdminController.obterAnaliseContratos(14),
+  ]);
 
   const totalGeral = Object.values(kpis).reduce((soma, valor) => soma + valor, 0);
 
@@ -157,6 +162,14 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             </div>
           );
         })}
+      </div>
+
+      {/* Análise — IA x atendimento humano, fluxo de contratos por dia
+          (assinados x pendentes). Dado real de Contrato.createdAt/status/
+          signatarios, últimos 14 dias — nada estimado. */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <GraficoOrigemContrato ia={analise.porOrigem.ia} humano={analise.porOrigem.humano} />
+        <GraficoContratosPorDia porDia={analise.porDia} />
       </div>
 
       {/* Filtros. Executivo/Associação/Evento existem no produto original,
