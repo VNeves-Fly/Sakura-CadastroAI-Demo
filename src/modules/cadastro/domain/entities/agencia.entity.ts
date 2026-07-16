@@ -1,20 +1,18 @@
-import type { Socio } from "@/modules/cadastro/domain/entities/socio";
-
 export interface AgenciaProps {
   id: string;
   razaoSocial: string;
   cnpj: string;
-  etapaAtual: number;
-  status: string;
-  contratoSocialPath: string;
-  emailContato: string;
-  telefoneContato: string;
+  status: string | null;
+  email: string | null;
+  telefone: string | null;
   origem: string | null;
-  socios: Socio[];
   createdAt: Date;
   updatedAt: Date;
 }
 
+// Representa a agência no momento do pré-cadastro (Link 1). Persistida como
+// um `Cadastro` (mesma entidade que o Admin acompanha nas etapas 1-3) — não
+// existe mais uma tabela `agencias` separada.
 export class Agencia {
   private constructor(private readonly props: AgenciaProps) {}
 
@@ -34,35 +32,7 @@ export class Agencia {
     return this.props.cnpj;
   }
 
-  get etapaAtual(): number {
-    return this.props.etapaAtual;
-  }
-
   get status(): string {
-    return this.props.status;
-  }
-
-  get socios(): Socio[] {
-    return this.props.socios;
-  }
-
-  toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt"> & {
-    createdAt: string;
-    updatedAt: string;
-  } {
-    return {
-      id: this.props.id,
-      razaoSocial: this.props.razaoSocial,
-      cnpj: this.props.cnpj,
-      etapaAtual: this.props.etapaAtual,
-      status: this.props.status,
-      contratoSocialPath: this.props.contratoSocialPath,
-      emailContato: this.props.emailContato,
-      telefoneContato: this.props.telefoneContato,
-      origem: this.props.origem,
-      socios: this.props.socios,
-      createdAt: this.props.createdAt.toISOString(),
-      updatedAt: this.props.updatedAt.toISOString(),
-    };
+    return this.props.status ?? "em_analise";
   }
 }

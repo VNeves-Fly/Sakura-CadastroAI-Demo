@@ -34,6 +34,10 @@ model Cadastro {
   nomeFantasia String?
   email        String?
   telefone     String?
+  // Rastreio de origem do pré-cadastro (Link 1): slug de parceiro ou
+  // campanha/evento (ex.: `?evento=slug`). Não afeta nenhuma regra de
+  // negócio, só é exibido como tag na listagem do Admin.
+  origem       String?
 
   analiseIaAt DateTime?
 
@@ -91,8 +95,9 @@ model DadosReceita {
   optanteSimples    Boolean   @default(false)
   dataOpcaoSimples  DateTime?
 
-  enderecoId String?   @unique
-  endereco   Endereco? @relation(fields: [enderecoId], references: [id])
+  // FK fica do lado do Endereco (ver model Endereco) para que apagar
+  // DadosReceita cascateie a limpeza do endereço junto.
+  endereco Endereco?
 
   consultadoEm DateTime @default(now())
 
@@ -159,6 +164,16 @@ model UsuarioMaster {
   @@map("usuarios_master")
 }
 
+// Compartilhado por três donos mutuamente exclusivos (ver diagrama em
+// schema.md). O FK fica aqui, do lado do Endereco, e não do lado do dono:
+// um FK só cascateia do referenciado para quem referencia, nunca ao
+// contrário — se o dono guardasse `enderecoId`, apagar o dono (ex.: via
+// cascade a partir de Cadastro) nunca apagaria o Endereco junto, deixando
+// a linha órfã pra sempre. Com o FK invertido, apagar o dono cascateia
+// `onDelete: Cascade` até aqui. Exatamente um dos três *Id deve estar
+// preenchido por linha (owner exclusivo) — não expresso como CHECK porque
+// o Prisma não suporta isso nativamente ainda; é responsabilidade de quem
+// cria o Endereco preencher só um.
 model Endereco {
   id          String  @id @default(cuid())
   cep         String
@@ -169,9 +184,14 @@ model Endereco {
   cidade      String
   uf          String
 
-  dadosReceita         DadosReceita?
-  cadastroComplementar CadastroComplementar?
-  representanteLegal   RepresentanteLegal?
+  dadosReceitaId String?       @unique
+  dadosReceita   DadosReceita? @relation(fields: [dadosReceitaId], references: [id], onDelete: Cascade)
+
+  cadastroComplementarId String?               @unique
+  cadastroComplementar   CadastroComplementar? @relation(fields: [cadastroComplementarId], references: [id], onDelete: Cascade)
+
+  representanteLegalId String?             @unique
+  representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id], onDelete: Cascade)
 
   @@map("enderecos")
 }
@@ -201,8 +221,7 @@ model CadastroComplementar {
 
   // Passo 6 — Endereço da agência & Banco
   tipoAgencia                 String?
-  enderecoAgenciaId           String?             @unique
-  enderecoAgencia             Endereco?           @relation(fields: [enderecoAgenciaId], references: [id])
+  enderecoAgencia             Endereco?
   enderecoAgenciaMesmoTitular Boolean?
   socioVinculadoEnderecoId    String?
   socioVinculadoEndereco      RepresentanteLegal? @relation("SocioVinculadoEndereco", fields: [socioVinculadoEnderecoId], references: [id])
@@ -266,9 +285,8 @@ model RepresentanteLegal {
   origem          String? // ex.: 'qsa_receita' | 'manual' | 'procuracao'
   preenchidoPorIa Boolean            @default(false)
 
-  enderecoId String?   @unique
-  endereco   Endereco? @relation(fields: [enderecoId], references: [id])
-  conjuge    Conjuge?
+  endereco Endereco?
+  conjuge  Conjuge?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -578,21 +596,4 @@ enum TipoVenda {
   NACIONAL
   INTERNACIONAL
   TERRESTRE
-}
-
-model Agencia {
-  id                 String   @id @default(cuid())
-  razaoSocial        String
-  cnpj               String   @unique
-  etapaAtual         Int      @default(1)
-  status             String   @default("em_analise")
-  contratoSocialPath String
-  emailContato       String
-  telefoneContato    String
-  origem             String?
-  socios             Json
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@map("agencias")
 }

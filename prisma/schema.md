@@ -56,7 +56,18 @@ SignatarioPadrao (standalone, sem FK para Cadastro) ──1:N── ContratoSign
 exclusivos: o endereço da consulta à Receita (`DadosReceita`), o endereço da
 agência (`CadastroComplementar`) e o endereço de cada sócio
 (`RepresentanteLegal`). Em vez de repetir `cep`/`logradouro`/`numero`/... em
-três tabelas, o FK único (`@unique`) fica do lado do dono.
+três tabelas, o FK único (`@unique`) fica do lado do **Endereco**, apontando
+pro dono — não o contrário. Isso é proposital: um FK só cascateia do lado
+referenciado para quem referencia, nunca ao contrário; se o dono guardasse
+`enderecoId`, apagar o dono (ex.: via cascade a partir de `Cadastro`) nunca
+apagaria o `Endereco` associado, deixando a linha órfã pra sempre (era assim
+antes da migration `20260716021227_fix_endereco_orphan_fk_direction`). Com o
+FK invertido, `onDelete: Cascade` em cada uma das três relações garante que
+apagar o dono limpa o endereço junto. Exatamente um dos três
+`*Id` deve estar preenchido por linha — não expresso como `CHECK` porque o
+Prisma não suporta isso nativamente; é responsabilidade de quem cria o
+`Endereco` (sempre via nested write dentro da criação do dono) preencher só
+um.
 
 ## Tabelas
 
@@ -68,6 +79,7 @@ Entidade central — uma linha por agência em processo de cadastro.
 | ------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `cnpj`                                                              | `String` único       |                                                                                                                                        |
 | `razaoSocial`, `nomeFantasia`, `email`, `telefone`                  | `String?`            | dados básicos                                                                                                                          |
+| `origem`                                                            | `String?`            | rastreio de origem do pré-cadastro (Link 1) — slug de parceiro ou campanha/evento                                                      |
 | `etapaAtual`                                                        | enum `EtapaCadastro` | máquina de estados: `FICHA → COMPLEMENTAR → DOCUMENTOS → CONTRATO → CREDENCIAIS`, ou `RECUSADO`                                        |
 | `status`                                                            | `String?`            | livre (ex.: `'recusado'`); sem enum porque os docs não fecham o conjunto de valores                                                    |
 | `uploadToken`                                                       | `String?` único      | token do link público de preenchimento (`/cadastro-complementar/{token}`)                                                              |
@@ -323,3 +335,35 @@ Vale endurecer para enum assim que o conjunto de valores for confirmado.
   `etapas/`. `UsuarioMaster` existe em forma mínima só porque a Etapa 3
   provisiona esse acesso; o resto do fluxo de credenciais não foi
   modelado.
+
+## `Agencia` foi fundido em `Cadastro`
+
+Existiu por um tempo um model `Agencia` separado (tabela `agencias`),
+criado para o pré-cadastro público do Link 1 (`CAMPOS-LINK1-LINK2.md`),
+sem nenhuma FK para `Cadastro`. Isso reproduzia, no schema, a mesma
+agência em duas tabelas desconectadas — uma agência cadastrada pelo Link 1
+não tinha caminho de dados para aparecer no funil do Admin, que lê
+`Cadastro`. No Sakura original não existe essa duplicação: o submit do
+Link 1 grava direto na mesma tabela `cadastros` que o Admin acompanha.
+
+`Agencia` foi removida (migration `20260716014825_merge_agencia_into_cadastro`)
+e o pré-cadastro do Link 1 agora cria diretamente um `Cadastro`:
+
+- `contratoSocialPath` (era coluna solta em `Agencia`) → `Documento` com
+  `tipo: CONTRATO_SOCIAL`, `cadastroId` apontando pro `Cadastro` recém-criado.
+- `socios` (era `Json` em `Agencia` — a única coluna JSON que sobrava no
+  domínio) → uma linha em `RepresentanteLegal` por sócio (`papel: SOCIO`),
+  cada uma com seu próprio `Documento` (`tipo: RG_CNPJ`). `origem` em
+  `RepresentanteLegal` grava `'qsa_receita'` ou `'manual'` — mesma
+  semântica que já era usada pelo parecer do admin.
+- `emailContato`/`telefoneContato` → `Cadastro.email`/`Cadastro.telefone`
+  (já existiam; era exatamente o mesmo dado, "espelhado do primeiro
+  sócio" na versão original).
+- `origem` (rastreio de parceiro/evento) → nova coluna `Cadastro.origem`.
+- `etapaAtual`/`status` (era `Int`/`String` com defaults próprios em
+  `Agencia`) → usa os mesmos `EtapaCadastro.FICHA`/`status: null` que o
+  restante do funil.
+
+Resultado: uma agência criada pelo Link 1 já nasce como a mesma linha
+`Cadastro` que o Admin lista e abre no dossiê — sem sincronização manual,
+sem tabela paralela, sem JSON de sócios.

@@ -1,14 +1,28 @@
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
-import type { Socio } from "@/modules/cadastro/domain/entities/socio";
+
+export interface UploadedDocumentData {
+  fileName: string;
+  mimeType: string;
+  path: string;
+  size: number;
+}
+
+export interface CreateAgenciaSocioData {
+  nome: string;
+  email: string;
+  telefone: string;
+  origem: string;
+  rgDocumento: UploadedDocumentData;
+}
 
 export interface CreateAgenciaData {
   razaoSocial: string;
   cnpj: string;
-  contratoSocialPath: string;
-  emailContato: string;
-  telefoneContato: string;
+  email: string;
+  telefone: string;
   origem: string | null;
-  socios: Socio[];
+  contratoSocialDocumento: UploadedDocumentData;
+  socios: CreateAgenciaSocioData[];
 }
 
 export interface AgenciaRepository {
