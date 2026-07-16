@@ -43,12 +43,12 @@ export function SocioWizardCard({
   const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
+    <div className="border-border bg-card flex flex-col gap-4 rounded-2xl border p-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
           Sócio {numero}
           {socio.isRepresentante ? (
-            <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+            <span className="bg-primary/15 text-primary ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
               Representante
             </span>
           ) : null}
@@ -57,7 +57,7 @@ export function SocioWizardCard({
           <button
             type="button"
             onClick={onRemove}
-            className="text-xs font-medium text-destructive hover:underline"
+            className="text-destructive text-xs font-medium hover:underline"
           >
             Remover
           </button>
@@ -65,7 +65,7 @@ export function SocioWizardCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Nome completo<span className="text-destructive"> *</span>
         </label>
         <input
@@ -79,7 +79,7 @@ export function SocioWizardCard({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
             CPF<span className="text-destructive"> *</span>
           </label>
           <input
@@ -90,15 +90,15 @@ export function SocioWizardCard({
             placeholder="000.000.000-00"
           />
           {cpfStatus.mensagem ? (
-            <span className="text-xs font-medium text-destructive">{cpfStatus.mensagem}</span>
+            <span className="text-destructive text-xs font-medium">{cpfStatus.mensagem}</span>
           ) : null}
           {cpfStatus.valido ? (
-            <span className="text-xs font-medium text-success">✓ CPF válido</span>
+            <span className="text-success text-xs font-medium">✓ CPF válido</span>
           ) : null}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
             E-mail<span className="text-destructive"> *</span>
           </label>
           <input
@@ -109,20 +109,20 @@ export function SocioWizardCard({
             placeholder="socio@email.com"
           />
           {emailInvalido ? (
-            <span className="text-xs font-medium text-destructive">E-mail inválido.</span>
+            <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Telefone<span className="text-destructive"> *</span>
         </label>
         <div className="flex gap-2">
           <select
             value={socio.telefonePais}
             onChange={(event) => onUpdate({ telefonePais: event.target.value })}
-            className="w-[6.5rem] shrink-0 rounded-full border border-input bg-background px-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/30"
+            className="border-input bg-background text-foreground focus:border-primary focus:ring-ring/30 w-[6.5rem] shrink-0 rounded-full border px-2 text-sm outline-none focus:ring-2"
           >
             {PAISES_TELEFONE.map((pais) => (
               <option key={pais.codigo} value={pais.codigo}>
@@ -140,14 +140,14 @@ export function SocioWizardCard({
           />
         </div>
         {telefoneInvalido ? (
-          <span className="text-xs font-medium text-destructive">
+          <span className="text-destructive text-xs font-medium">
             Telefone incompleto para {paisTelefone.nome}.
           </span>
         ) : null}
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Estado Civil<span className="text-destructive"> *</span>
         </label>
         <select
@@ -167,7 +167,7 @@ export function SocioWizardCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           CEP<span className="text-destructive"> *</span>
         </label>
         <div className="flex gap-2">
@@ -182,7 +182,7 @@ export function SocioWizardCard({
             type="button"
             onClick={onBuscarCep}
             disabled={cepBuscando}
-            className="shrink-0 rounded-full border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-input text-foreground hover:bg-accent shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
           >
             {cepBuscando ? "Buscando..." : "Buscar"}
           </button>
@@ -190,7 +190,7 @@ export function SocioWizardCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Logradouro<span className="text-destructive"> *</span>
         </label>
         <input
@@ -203,7 +203,7 @@ export function SocioWizardCard({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
             Número<span className="text-destructive"> *</span>
           </label>
           <input
@@ -214,7 +214,7 @@ export function SocioWizardCard({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
             Bairro<span className="text-destructive"> *</span>
           </label>
           <input
@@ -225,7 +225,7 @@ export function SocioWizardCard({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
             UF<span className="text-destructive"> *</span>
           </label>
           <input
@@ -239,7 +239,7 @@ export function SocioWizardCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Cidade<span className="text-destructive"> *</span>
         </label>
         <input
@@ -259,7 +259,7 @@ export function SocioWizardCard({
         required
       />
 
-      <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+      <label className="text-foreground flex items-center gap-2 text-sm font-medium">
         <input type="checkbox" checked={socio.isRepresentante} onChange={onToggleRepresentante} />
         Este sócio é o representante legal (procurador)
       </label>
