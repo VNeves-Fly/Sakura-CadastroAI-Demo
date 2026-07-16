@@ -84,6 +84,15 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     (state) => state.setEnderecoBancoCepBuscando,
   );
 
+  const isSubmitting = useCadastroWizardStore((state) => state.isSubmitting);
+  const submitError = useCadastroWizardStore((state) => state.error);
+  const submitSuccess = useCadastroWizardStore((state) => state.success);
+  const submitDuplicado = useCadastroWizardStore((state) => state.duplicado);
+  const setSubmitting = useCadastroWizardStore((state) => state.setSubmitting);
+  const setSubmitError = useCadastroWizardStore((state) => state.setError);
+  const setSubmitSuccess = useCadastroWizardStore((state) => state.setSuccess);
+  const setSubmitDuplicado = useCadastroWizardStore((state) => state.setDuplicado);
+
   useEffect(() => {
     setOrigem(origem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -296,6 +305,56 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  const documentosPendentes: string[] = [];
+  if (!contratoSocial) documentosPendentes.push("Contrato Social da empresa");
+  socios.forEach((socio, index) => {
+    const rotulo = socio.nome || `Sócio ${index + 1}`;
+    if (!socio.rgArquivo) documentosPendentes.push(`RG ou CNH — ${rotulo}`);
+    if (socio.isRepresentante && !socio.procuracaoArquivo) {
+      documentosPendentes.push(`Procuração — ${rotulo} (representante)`);
+    }
+  });
+
+  async function submit() {
+    if (!contratoSocial || documentosPendentes.length > 0) {
+      setSubmitError("Anexe todos os documentos pendentes antes de enviar.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    const formData = agenciaAdapter.toFinalizarCadastroFormData({
+      cnpjMascarado: cnpj,
+      contratoSocial,
+      origem,
+      telefoneComercial,
+      telefoneComercialPais,
+      emailOperacional,
+      emailComercial,
+      emailFinanceiro,
+      socios,
+      enderecoBanco,
+    });
+
+    const raw = await agenciaService.criarAgencia(formData);
+    const resultado = agenciaAdapter.toSubmitResultView(raw);
+
+    setSubmitting(false);
+
+    if (resultado.success) {
+      setSubmitSuccess(true);
+      return;
+    }
+
+    if (resultado.duplicado) {
+      setSubmitDuplicado(true);
+      return;
+    }
+
+    setSubmitError(resultado.error ?? "Não foi possível enviar o cadastro.");
+  }
+
   return {
     secoesReveladas,
     totalEtapas: TOTAL_ETAPAS,
@@ -337,5 +396,12 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     enderecoBancoCepBuscando,
     updateEnderecoBanco,
     buscarCepEnderecoBanco,
+
+    documentosPendentes,
+    isSubmitting,
+    submitError,
+    submitSuccess,
+    submitDuplicado,
+    submit,
   };
 }

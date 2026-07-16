@@ -1,5 +1,4 @@
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
-import type { Socio } from "@/modules/cadastro/domain/entities/socio";
 
 export interface CreateAgenciaData {
   razaoSocial: string;
@@ -8,7 +7,9 @@ export interface CreateAgenciaData {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
-  socios: Socio[];
+  // Gravado atomicamente junto (CadastroComplementar), numa única
+  // escrita aninhada do Prisma — não existe intervalo entre os dois.
+  dadosComplementares: unknown;
 }
 
 export interface AgenciaRepository {

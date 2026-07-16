@@ -1,6 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
-import type { Socio } from "@/modules/cadastro/domain/entities/socio";
 import type {
   AgenciaRepository,
   CreateAgenciaData,
@@ -16,7 +15,6 @@ interface AgenciaRecord {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
-  socios: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +28,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   }
 
   async create(data: CreateAgenciaData): Promise<Agencia> {
+    // Escrita aninhada do Prisma: Agencia + CadastroComplementar são
+    // criados numa única operação atômica, sem intervalo entre os dois.
     const record = await this.prisma.agencia.create({
       data: {
         razaoSocial: data.razaoSocial,
@@ -38,7 +38,11 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         emailContato: data.emailContato,
         telefoneContato: data.telefoneContato,
         origem: data.origem,
-        socios: data.socios as unknown as object,
+        complementar: {
+          create: {
+            dadosPorPasso: data.dadosComplementares as object,
+          },
+        },
       },
     });
     return this.toDomain(record);
@@ -55,7 +59,6 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       emailContato: record.emailContato,
       telefoneContato: record.telefoneContato,
       origem: record.origem,
-      socios: record.socios as unknown as Socio[],
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });

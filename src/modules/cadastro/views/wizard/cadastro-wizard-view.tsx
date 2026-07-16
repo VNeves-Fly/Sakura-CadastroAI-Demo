@@ -9,6 +9,7 @@ import { Passo1Documentos } from "@/modules/cadastro/components/steps/passo1-doc
 import { Passo2Empresa } from "@/modules/cadastro/components/steps/passo2-empresa";
 import { Passo5Socios } from "@/modules/cadastro/components/steps/passo5-socios";
 import { Passo6EnderecoBanco } from "@/modules/cadastro/components/steps/passo6-endereco-banco";
+import { Passo7Revisao } from "@/modules/cadastro/components/steps/passo7-revisao";
 
 interface CadastroWizardViewProps {
   origem: string | null;
@@ -26,6 +27,32 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
   }
 
   const secoesVisiveis = Array.from({ length: wizard.secoesReveladas }, (_, index) => index + 1);
+
+  if (wizard.submitSuccess) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
+        <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-8 text-center shadow-xl shadow-sakura-900/5">
+          <h1 className="text-2xl font-semibold text-foreground">Cadastro enviado!</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Obrigado. Sua agência foi cadastrada e já está em análise pela nossa equipe.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (wizard.submitDuplicado) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
+        <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-8 text-center shadow-xl shadow-sakura-900/5">
+          <h1 className="text-2xl font-semibold text-foreground">Já Cadastrada</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Este CNPJ já possui um cadastro em andamento.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center gap-6 bg-background px-4 py-10">
@@ -77,12 +104,7 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
                   ) : null}
                   {numero === 2 ? <Passo5Socios {...wizard} /> : null}
                   {numero === 3 ? <Passo6EnderecoBanco {...wizard} /> : null}
-                  {numero > 3 ? (
-                    <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                      Seção &quot;{wizard.labels[numero - 1]}&quot; ainda não implementada nesta
-                      fase.
-                    </div>
-                  ) : null}
+                  {numero === 4 ? <Passo7Revisao {...wizard} /> : null}
 
                   {podeAvancar ? (
                     <button
