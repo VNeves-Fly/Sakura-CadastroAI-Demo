@@ -4,12 +4,13 @@ import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mo
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
+import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
 import {
   AtualizarStatusCadastroUseCase,
   type AtualizarStatusCadastroInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-status-cadastro.use-case";
 import {
-  STATUS_AGUARDANDO_VALIDACAO,
+  STATUS_AGUARDANDO_ATIVACAO,
   STATUS_ATIVO,
   STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
@@ -39,13 +40,18 @@ export const cadastroAdminController = {
     return useCase.execute(id);
   },
 
+  marcarContratoAssinado(id: string) {
+    const useCase = new MarcarContratoAssinadoUseCase(agenciaRepository);
+    return useCase.execute(id);
+  },
+
   atualizarStatus(input: AtualizarStatusCadastroInput) {
     const useCase = new AtualizarStatusCadastroUseCase(agenciaRepository);
     return useCase.execute(input);
   },
 
-  marcarContratoAssinado(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_VALIDACAO });
+  validarContrato(id: string) {
+    return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_ATIVACAO });
   },
 
   ativarCliente(id: string) {

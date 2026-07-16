@@ -56,6 +56,7 @@ export class AprovarCadastroComplementarUseCase implements UseCase<string, Agenc
     await this.agenciaRepository.criarContrato(id, {
       provedorId: contratoResult.provedorId,
       status: contratoResult.status,
+      origemGeracao: "humano",
       signatarios,
     });
 

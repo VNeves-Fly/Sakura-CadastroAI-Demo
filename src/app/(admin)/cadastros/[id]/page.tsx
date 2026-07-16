@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
-import { labelStatus } from "@/modules/admin/utils/status-cadastro.util";
+import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import {
   TIPO_CONTA_OPCOES,
@@ -11,6 +11,7 @@ import { parseDadosComplementares } from "@/modules/admin/types/detalhe-agencia.
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
@@ -20,7 +21,14 @@ import {
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
+  validarContratoAction,
 } from "./actions";
+
+function labelOrigemContrato(origem: "ia" | "humano" | null): string {
+  if (origem === "ia") return "gerado pela IA";
+  if (origem === "humano") return "gerado pelo analista";
+  return "origem desconhecida";
+}
 
 function labelEstadoCivil(valor: string): string {
   return ESTADO_CIVIL_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
@@ -63,7 +71,9 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
           <h1 className="text-foreground text-lg font-semibold">{agencia.razaoSocial}</h1>
           <p className="text-muted-foreground text-sm">{maskCnpj(agencia.cnpj)}</p>
         </div>
-        <span className="bg-muted text-foreground rounded-full px-3 py-1 text-sm font-medium">
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-medium ${classesBadgeStatus(agencia.status)}`}
+        >
           {labelStatus(agencia.status)}
         </span>
       </div>
@@ -246,9 +256,10 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
         {agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
           <div className="flex flex-col gap-3">
             <p className="text-muted-foreground text-sm">
-              Contrato gerado (provedor: {contratoAtual?.provedorId ?? "—"}) e enviado por e-mail
-              pros sócios assinarem. Sem integração real com o D4Sign ainda pra confirmar a
-              assinatura automaticamente — marque manualmente quando todos tiverem assinado.
+              Contrato {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)} (provedor:{" "}
+              {contratoAtual?.provedorId ?? "—"}) e enviado por e-mail pros sócios assinarem. Sem
+              integração real com o D4Sign ainda pra confirmar a assinatura automaticamente — marque
+              manualmente quando todos tiverem assinado.
             </p>
             <div className="flex flex-wrap gap-2">
               <form action={marcarContratoAssinadoAction.bind(null, agencia.id)}>
@@ -266,8 +277,36 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
         {agencia.status === STATUS_AGUARDANDO_VALIDACAO ? (
           <div className="flex flex-col gap-3">
             <p className="text-muted-foreground text-sm">
-              Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"}). Falta validar e
-              ativar o cliente.
+              Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
+              {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
+              assinado e valide antes de seguir pra ativação.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <form action={validarContratoAction.bind(null, agencia.id)}>
+                <button
+                  type="submit"
+                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                >
+                  Validar Contrato
+                </button>
+              </form>
+              <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                <button
+                  type="submit"
+                  className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                >
+                  Recusar
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : null}
+
+        {agencia.status === STATUS_AGUARDANDO_ATIVACAO ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-muted-foreground text-sm">
+              Contrato validado (provedor: {contratoAtual?.provedorId ?? "—"}). Falta só criar SICA,
+              Travel Link e usuário master e ativar o cliente.
             </p>
             <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
               <strong className="text-foreground">Não implementado ainda:</strong> criação de código

@@ -3,15 +3,18 @@ import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
   type AgenciaDetalhe,
   type AgenciaRepository,
   type CadastrosKpis,
+  type ContratoSignatarioData,
   type CreateAgenciaData,
   type ListarCadastrosFiltros,
   type ListarCadastrosResult,
+  type OrigemGeracaoContrato,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface AgenciaRecord {
@@ -26,6 +29,19 @@ interface AgenciaRecord {
   origem: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Contrato.signatarios é um Json solto no schema — guardamos aqui um
+// envelope { origemGeracao, lista } em vez de só o array, pra rastrear
+// quem gerou o contrato (IA ou analista) sem precisar de coluna nova.
+interface SignatariosEnvelope {
+  origemGeracao?: OrigemGeracaoContrato;
+  lista?: ContratoSignatarioData[];
+}
+
+function extrairOrigemGeracao(signatarios: unknown): OrigemGeracaoContrato | null {
+  const envelope = signatarios as SignatariosEnvelope | null;
+  return envelope?.origemGeracao ?? null;
 }
 
 export class PrismaAgenciaRepository implements AgenciaRepository {
@@ -51,6 +67,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         id: contrato.id,
         provedorId: contrato.provedorId,
         status: contrato.status,
+        origemGeracao: extrairOrigemGeracao(contrato.signatarios),
         createdAt: contrato.createdAt,
       })),
     };
@@ -80,7 +97,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
                 create: {
                   provedorId: data.contrato.provedorId,
                   status: data.contrato.status,
-                  signatarios: data.contrato.signatarios as object,
+                  signatarios: {
+                    origemGeracao: data.contrato.origemGeracao,
+                    lista: data.contrato.signatarios,
+                  } satisfies SignatariosEnvelope as object,
                 },
               },
             }
@@ -97,16 +117,28 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
 
   async criarContrato(
     agenciaId: string,
-    data: { provedorId: string; status: string; signatarios: unknown },
+    data: {
+      provedorId: string;
+      status: string;
+      origemGeracao: OrigemGeracaoContrato;
+      signatarios: ContratoSignatarioData[];
+    },
   ): Promise<void> {
     await this.prisma.contrato.create({
       data: {
         agenciaId,
         provedorId: data.provedorId,
         status: data.status,
-        signatarios: data.signatarios as object,
+        signatarios: {
+          origemGeracao: data.origemGeracao,
+          lista: data.signatarios,
+        } satisfies SignatariosEnvelope as object,
       },
     });
+  }
+
+  async atualizarStatusContrato(contratoId: string, status: string): Promise<void> {
+    await this.prisma.contrato.update({ where: { id: contratoId }, data: { status } });
   }
 
   async listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult> {
@@ -130,24 +162,45 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       this.prisma.agencia.findMany({
         where,
         orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
+        include: { contratos: { orderBy: { createdAt: "desc" }, take: 1 } },
       }),
       this.prisma.agencia.count({ where }),
     ]);
 
-    return { items: records.map((record) => this.toDomain(record)), total };
+    return {
+      items: records.map((record) => ({
+        agencia: this.toDomain(record),
+        origemContratoAtual: extrairOrigemGeracao(record.contratos[0]?.signatarios ?? null),
+      })),
+      total,
+    };
   }
 
   async obterKpis(): Promise<CadastrosKpis> {
-    const [emComplementar, aguardandoAssinatura, aguardandoValidacao, ativas, recusadas] =
-      await Promise.all([
-        this.prisma.agencia.count({ where: { status: STATUS_EM_COMPLEMENTAR } }),
-        this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_ASSINATURA } }),
-        this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_VALIDACAO } }),
-        this.prisma.agencia.count({ where: { status: STATUS_ATIVO } }),
-        this.prisma.agencia.count({ where: { status: STATUS_RECUSADO } }),
-      ]);
+    const [
+      emComplementar,
+      aguardandoAssinatura,
+      aguardandoValidacao,
+      aguardandoAtivacao,
+      ativas,
+      recusadas,
+    ] = await Promise.all([
+      this.prisma.agencia.count({ where: { status: STATUS_EM_COMPLEMENTAR } }),
+      this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_ASSINATURA } }),
+      this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_VALIDACAO } }),
+      this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_ATIVACAO } }),
+      this.prisma.agencia.count({ where: { status: STATUS_ATIVO } }),
+      this.prisma.agencia.count({ where: { status: STATUS_RECUSADO } }),
+    ]);
 
-    return { emComplementar, aguardandoAssinatura, aguardandoValidacao, ativas, recusadas };
+    return {
+      emComplementar,
+      aguardandoAssinatura,
+      aguardandoValidacao,
+      aguardandoAtivacao,
+      ativas,
+      recusadas,
+    };
   }
 
   private toDomain(record: AgenciaRecord): Agencia {

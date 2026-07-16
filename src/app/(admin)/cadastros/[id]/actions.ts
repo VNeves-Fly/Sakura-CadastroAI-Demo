@@ -16,6 +16,11 @@ export async function marcarContratoAssinadoAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
+export async function validarContratoAction(id: string) {
+  await cadastroAdminController.validarContrato(id);
+  revalidatePath(`/cadastros/${id}`);
+}
+
 export async function ativarClienteAction(id: string) {
   await cadastroAdminController.ativarCliente(id);
   revalidatePath(`/cadastros/${id}`);

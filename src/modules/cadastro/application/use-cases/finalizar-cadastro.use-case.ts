@@ -115,6 +115,7 @@ export class FinalizarCadastroUseCase implements UseCase<
         ? {
             provedorId: contratoResult.provedorId,
             status: contratoResult.status,
+            origemGeracao: "ia",
             signatarios,
           }
         : null,
