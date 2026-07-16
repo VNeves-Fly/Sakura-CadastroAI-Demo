@@ -1,9 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `agencias` table. If the table is not empty, all the data it contains will be lost.
-
-*/
 -- CreateEnum
 CREATE TYPE "EtapaCadastro" AS ENUM ('FICHA', 'COMPLEMENTAR', 'DOCUMENTOS', 'CONTRATO', 'CREDENCIAIS', 'RECUSADO');
 
@@ -28,14 +22,23 @@ CREATE TYPE "PapelRepresentante" AS ENUM ('SOCIO', 'PROCURADOR');
 -- CreateEnum
 CREATE TYPE "TipoVenda" AS ENUM ('NACIONAL', 'INTERNACIONAL', 'TERRESTRE');
 
--- DropTable
-DROP TABLE "agencias";
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "cadastros" (
     "id" TEXT NOT NULL,
-    "cnpj" TEXT NOT NULL,
-    "razaoSocial" TEXT NOT NULL,
+    "cnpj" TEXT,
+    "razaoSocial" TEXT,
     "nomeFantasia" TEXT,
     "email" TEXT,
     "telefone" TEXT,
@@ -52,6 +55,7 @@ CREATE TABLE "cadastros" (
     "baseId" TEXT,
     "gestorResponsavel" TEXT,
     "executivoId" TEXT,
+    "associacaoId" TEXT,
     "promotorResponsavel" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -63,16 +67,15 @@ CREATE TABLE "cadastros" (
 CREATE TABLE "dados_receita" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "situacaoCadastral" TEXT NOT NULL,
-    "dataAbertura" TIMESTAMP(3) NOT NULL,
-    "naturezaJuridica" TEXT NOT NULL,
+    "situacaoCadastral" TEXT,
+    "dataAbertura" TIMESTAMP(3),
+    "naturezaJuridica" TEXT,
     "porte" TEXT,
     "capitalSocial" DECIMAL(14,2),
     "telefone" TEXT,
     "email" TEXT,
     "optanteSimples" BOOLEAN NOT NULL DEFAULT false,
     "dataOpcaoSimples" TIMESTAMP(3),
-    "enderecoId" TEXT,
     "consultadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "dados_receita_pkey" PRIMARY KEY ("id")
@@ -82,8 +85,8 @@ CREATE TABLE "dados_receita" (
 CREATE TABLE "cnaes" (
     "id" TEXT NOT NULL,
     "dadosReceitaId" TEXT NOT NULL,
-    "codigo" TEXT NOT NULL,
-    "descricao" TEXT NOT NULL,
+    "codigo" TEXT,
+    "descricao" TEXT,
     "principal" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "cnaes_pkey" PRIMARY KEY ("id")
@@ -93,8 +96,8 @@ CREATE TABLE "cnaes" (
 CREATE TABLE "gate_validacoes" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "etapaAlvo" "EtapaCadastro" NOT NULL,
-    "liberado" BOOLEAN NOT NULL,
+    "etapaAlvo" "EtapaCadastro",
+    "liberado" BOOLEAN,
     "motivoBloqueio" TEXT,
     "avaliadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -105,8 +108,8 @@ CREATE TABLE "gate_validacoes" (
 CREATE TABLE "alertas" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "tipo" TEXT NOT NULL,
-    "mensagem" TEXT NOT NULL,
+    "tipo" TEXT,
+    "mensagem" TEXT,
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "resolvidoEm" TIMESTAMP(3),
 
@@ -117,8 +120,8 @@ CREATE TABLE "alertas" (
 CREATE TABLE "usuarios_master" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "nome" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
+    "nome" TEXT,
+    "email" TEXT,
     "ativo" BOOLEAN NOT NULL DEFAULT false,
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -128,13 +131,16 @@ CREATE TABLE "usuarios_master" (
 -- CreateTable
 CREATE TABLE "enderecos" (
     "id" TEXT NOT NULL,
-    "cep" TEXT NOT NULL,
-    "logradouro" TEXT NOT NULL,
-    "numero" TEXT NOT NULL,
+    "cep" TEXT,
+    "logradouro" TEXT,
+    "numero" TEXT,
     "complemento" TEXT,
-    "bairro" TEXT NOT NULL,
-    "cidade" TEXT NOT NULL,
-    "uf" TEXT NOT NULL,
+    "bairro" TEXT,
+    "cidade" TEXT,
+    "uf" TEXT,
+    "dadosReceitaId" TEXT,
+    "cadastroComplementarId" TEXT,
+    "representanteLegalId" TEXT,
 
     CONSTRAINT "enderecos_pkey" PRIMARY KEY ("id")
 );
@@ -154,7 +160,6 @@ CREATE TABLE "cadastro_complementar" (
     "cadasturSituacao" TEXT,
     "resideBrasil" BOOLEAN,
     "tipoAgencia" TEXT,
-    "enderecoAgenciaId" TEXT,
     "enderecoAgenciaMesmoTitular" BOOLEAN,
     "socioVinculadoEnderecoId" TEXT,
     "bancoNo" TEXT,
@@ -179,8 +184,8 @@ CREATE TABLE "cadastro_complementar" (
 CREATE TABLE "venda_percentuais" (
     "id" TEXT NOT NULL,
     "cadastroComplementarId" TEXT NOT NULL,
-    "tipo" "TipoVenda" NOT NULL,
-    "percentual" DECIMAL(5,2) NOT NULL,
+    "tipo" "TipoVenda",
+    "percentual" DECIMAL(5,2),
 
     CONSTRAINT "venda_percentuais_pkey" PRIMARY KEY ("id")
 );
@@ -189,7 +194,7 @@ CREATE TABLE "venda_percentuais" (
 CREATE TABLE "representantes_legais" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "nome" TEXT NOT NULL,
+    "nome" TEXT,
     "email" TEXT,
     "telefone" TEXT,
     "cpf" TEXT,
@@ -206,7 +211,6 @@ CREATE TABLE "representantes_legais" (
     "ativo" BOOLEAN NOT NULL DEFAULT true,
     "origem" TEXT,
     "preenchidoPorIa" BOOLEAN NOT NULL DEFAULT false,
-    "enderecoId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -217,7 +221,7 @@ CREATE TABLE "representantes_legais" (
 CREATE TABLE "conjuges" (
     "id" TEXT NOT NULL,
     "representanteLegalId" TEXT NOT NULL,
-    "nome" TEXT NOT NULL,
+    "nome" TEXT,
     "cpf" TEXT,
     "rg" TEXT,
     "nacionalidade" TEXT,
@@ -230,11 +234,11 @@ CREATE TABLE "documentos" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
     "representanteLegalId" TEXT,
-    "tipo" "TipoDocumento" NOT NULL,
-    "fileName" TEXT NOT NULL,
-    "mimeType" TEXT NOT NULL,
-    "gcsPath" TEXT NOT NULL,
-    "gcsBucket" TEXT NOT NULL,
+    "tipo" "TipoDocumento",
+    "fileName" TEXT,
+    "mimeType" TEXT,
+    "gcsPath" TEXT,
+    "gcsBucket" TEXT,
     "gcsSize" INTEGER,
     "gcsMd5" TEXT,
     "status" "StatusDocumento" NOT NULL DEFAULT 'PENDENTE',
@@ -292,7 +296,7 @@ CREATE TABLE "contrato_signatarios" (
     "contratoId" TEXT NOT NULL,
     "representanteLegalId" TEXT,
     "signatarioPadraoId" TEXT,
-    "nome" TEXT NOT NULL,
+    "nome" TEXT,
     "email" TEXT,
     "cpf" TEXT,
     "rg" TEXT,
@@ -316,7 +320,7 @@ CREATE TABLE "contrato_signatarios" (
 CREATE TABLE "contrato_campos_pendentes" (
     "id" TEXT NOT NULL,
     "contratoSignatarioId" TEXT NOT NULL,
-    "campo" TEXT NOT NULL,
+    "campo" TEXT,
 
     CONSTRAINT "contrato_campos_pendentes_pkey" PRIMARY KEY ("id")
 );
@@ -325,8 +329,8 @@ CREATE TABLE "contrato_campos_pendentes" (
 CREATE TABLE "avancos_forcados" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "etapaAlvo" "EtapaCadastro" NOT NULL,
-    "motivo" TEXT NOT NULL,
+    "etapaAlvo" "EtapaCadastro",
+    "motivo" TEXT,
     "gateMotivoBloqueio" TEXT,
     "statusReal" TEXT,
     "solicitadoPor" TEXT,
@@ -340,7 +344,7 @@ CREATE TABLE "avancos_forcados" (
 CREATE TABLE "avanco_forcado_pendencias" (
     "id" TEXT NOT NULL,
     "avancoForcadoId" TEXT NOT NULL,
-    "descricao" TEXT NOT NULL,
+    "descricao" TEXT,
 
     CONSTRAINT "avanco_forcado_pendencias_pkey" PRIMARY KEY ("id")
 );
@@ -350,7 +354,7 @@ CREATE TABLE "kanban_historico" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
     "etapaAnterior" "EtapaCadastro",
-    "etapaNova" "EtapaCadastro" NOT NULL,
+    "etapaNova" "EtapaCadastro",
     "usuarioEmail" TEXT,
     "origem" TEXT,
     "observacao" TEXT,
@@ -365,11 +369,11 @@ CREATE TABLE "kanban_historico" (
 CREATE TABLE "decisoes_humanas" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "etapa" "EtapaDecisao" NOT NULL,
+    "etapa" "EtapaDecisao",
     "decisaoIa" TEXT,
-    "decisaoHumana" "ResultadoDecisao" NOT NULL,
-    "justificativa" TEXT NOT NULL,
-    "usuarioEmail" TEXT NOT NULL,
+    "decisaoHumana" "ResultadoDecisao",
+    "justificativa" TEXT,
+    "usuarioEmail" TEXT,
     "modeloIa" TEXT,
     "scoreIa" DOUBLE PRECISION,
     "divergiu" BOOLEAN,
@@ -382,9 +386,9 @@ CREATE TABLE "decisoes_humanas" (
 CREATE TABLE "notificacoes" (
     "id" TEXT NOT NULL,
     "cadastroId" TEXT NOT NULL,
-    "tipo" TEXT NOT NULL,
-    "titulo" TEXT NOT NULL,
-    "mensagem" TEXT NOT NULL,
+    "tipo" TEXT,
+    "titulo" TEXT,
+    "mensagem" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "notificacoes_pkey" PRIMARY KEY ("id")
@@ -393,15 +397,18 @@ CREATE TABLE "notificacoes" (
 -- CreateTable
 CREATE TABLE "signatarios_padrao" (
     "id" TEXT NOT NULL,
-    "nome" TEXT NOT NULL,
+    "nome" TEXT,
     "cargo" TEXT,
-    "email" TEXT NOT NULL,
+    "email" TEXT,
     "telefone" TEXT,
     "ativo" BOOLEAN NOT NULL DEFAULT true,
-    "ordem" INTEGER NOT NULL,
+    "ordem" INTEGER,
 
     CONSTRAINT "signatarios_padrao_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cadastros_cnpj_key" ON "cadastros"("cnpj");
@@ -411,9 +418,6 @@ CREATE UNIQUE INDEX "cadastros_uploadToken_key" ON "cadastros"("uploadToken");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "dados_receita_cadastroId_key" ON "dados_receita"("cadastroId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "dados_receita_enderecoId_key" ON "dados_receita"("enderecoId");
 
 -- CreateIndex
 CREATE INDEX "cnaes_dadosReceitaId_idx" ON "cnaes"("dadosReceitaId");
@@ -428,19 +432,22 @@ CREATE INDEX "alertas_cadastroId_idx" ON "alertas"("cadastroId");
 CREATE UNIQUE INDEX "usuarios_master_cadastroId_key" ON "usuarios_master"("cadastroId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "cadastro_complementar_cadastroId_key" ON "cadastro_complementar"("cadastroId");
+CREATE UNIQUE INDEX "enderecos_dadosReceitaId_key" ON "enderecos"("dadosReceitaId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "cadastro_complementar_enderecoAgenciaId_key" ON "cadastro_complementar"("enderecoAgenciaId");
+CREATE UNIQUE INDEX "enderecos_cadastroComplementarId_key" ON "enderecos"("cadastroComplementarId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "enderecos_representanteLegalId_key" ON "enderecos"("representanteLegalId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cadastro_complementar_cadastroId_key" ON "cadastro_complementar"("cadastroId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "venda_percentuais_cadastroComplementarId_tipo_key" ON "venda_percentuais"("cadastroComplementarId", "tipo");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "representantes_legais_enderecoId_key" ON "representantes_legais"("enderecoId");
-
--- CreateIndex
-CREATE INDEX "representantes_legais_cadastroId_idx" ON "representantes_legais"("cadastroId");
+CREATE UNIQUE INDEX "representantes_legais_cadastroId_cpf_key" ON "representantes_legais"("cadastroId", "cpf");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "conjuges_representanteLegalId_key" ON "conjuges"("representanteLegalId");
@@ -476,9 +483,6 @@ CREATE INDEX "notificacoes_cadastroId_idx" ON "notificacoes"("cadastroId");
 ALTER TABLE "dados_receita" ADD CONSTRAINT "dados_receita_cadastroId_fkey" FOREIGN KEY ("cadastroId") REFERENCES "cadastros"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "dados_receita" ADD CONSTRAINT "dados_receita_enderecoId_fkey" FOREIGN KEY ("enderecoId") REFERENCES "enderecos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "cnaes" ADD CONSTRAINT "cnaes_dadosReceitaId_fkey" FOREIGN KEY ("dadosReceitaId") REFERENCES "dados_receita"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -491,10 +495,16 @@ ALTER TABLE "alertas" ADD CONSTRAINT "alertas_cadastroId_fkey" FOREIGN KEY ("cad
 ALTER TABLE "usuarios_master" ADD CONSTRAINT "usuarios_master_cadastroId_fkey" FOREIGN KEY ("cadastroId") REFERENCES "cadastros"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "cadastro_complementar" ADD CONSTRAINT "cadastro_complementar_cadastroId_fkey" FOREIGN KEY ("cadastroId") REFERENCES "cadastros"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "enderecos" ADD CONSTRAINT "enderecos_dadosReceitaId_fkey" FOREIGN KEY ("dadosReceitaId") REFERENCES "dados_receita"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "cadastro_complementar" ADD CONSTRAINT "cadastro_complementar_enderecoAgenciaId_fkey" FOREIGN KEY ("enderecoAgenciaId") REFERENCES "enderecos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "enderecos" ADD CONSTRAINT "enderecos_cadastroComplementarId_fkey" FOREIGN KEY ("cadastroComplementarId") REFERENCES "cadastro_complementar"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "enderecos" ADD CONSTRAINT "enderecos_representanteLegalId_fkey" FOREIGN KEY ("representanteLegalId") REFERENCES "representantes_legais"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cadastro_complementar" ADD CONSTRAINT "cadastro_complementar_cadastroId_fkey" FOREIGN KEY ("cadastroId") REFERENCES "cadastros"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "cadastro_complementar" ADD CONSTRAINT "cadastro_complementar_socioVinculadoEnderecoId_fkey" FOREIGN KEY ("socioVinculadoEnderecoId") REFERENCES "representantes_legais"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -504,9 +514,6 @@ ALTER TABLE "venda_percentuais" ADD CONSTRAINT "venda_percentuais_cadastroComple
 
 -- AddForeignKey
 ALTER TABLE "representantes_legais" ADD CONSTRAINT "representantes_legais_cadastroId_fkey" FOREIGN KEY ("cadastroId") REFERENCES "cadastros"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "representantes_legais" ADD CONSTRAINT "representantes_legais_enderecoId_fkey" FOREIGN KEY ("enderecoId") REFERENCES "enderecos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "conjuges" ADD CONSTRAINT "conjuges_representanteLegalId_fkey" FOREIGN KEY ("representanteLegalId") REFERENCES "representantes_legais"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -549,3 +556,4 @@ ALTER TABLE "decisoes_humanas" ADD CONSTRAINT "decisoes_humanas_cadastroId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "notificacoes" ADD CONSTRAINT "notificacoes_cadastroId_fkey" FOREIGN KEY ("cadastroId") REFERENCES "cadastros"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
