@@ -5,12 +5,10 @@ import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-ca
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import {
-  STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
-  STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface CadastrosPageProps {
@@ -93,6 +91,12 @@ function labelOrigemContrato(origem: "ia" | "humano" | null): string | null {
   return null;
 }
 
+// Painel "IA x Atendimento Humano" / "Contratos por Dia" — pronto
+// (componentes + query real), mas escondido do front por pedido do
+// usuário (2026-07-16): vai ser usado mais pra frente, não entra em
+// produção por enquanto. Reativar é só virar essa flag pra true.
+const ANALISE_HABILITADA = false;
+
 export default async function CadastrosPage({ searchParams }: CadastrosPageProps) {
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
@@ -104,10 +108,8 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
       sortBy,
       sortDir,
     }),
-    cadastroAdminController.obterAnaliseContratos(14),
+    ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
   ]);
-
-  const totalGeral = Object.values(kpis).reduce((soma, valor) => soma + valor, 0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,57 +122,34 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         </p>
       </div>
 
-      {/* KPIs — informativos, contados direto da tabela agencias. Cada
-          card mostra % do total geral + barra de progresso (dado real,
-          não decorativo). Sem card "Notificações" hoje: exigiria
-          rastrear documento/mensagem novos desde a última vez que o
-          analista "viu" a agência, o que não existe no schema ainda. */}
+      {/* KPIs — informativos, contados direto da tabela agencias. Cartão
+          único (sem cor por status, sem percentual) — o rótulo reserva
+          altura fixa (2 linhas) pra o número ficar sempre alinhado entre
+          os cards, mesmo quando um rótulo é mais curto que o outro. Sem
+          card "Notificações" hoje: exigiria rastrear documento/mensagem
+          novos desde a última vez que o analista "viu" a agência, o que
+          não existe no schema ainda. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {KPIS.map((kpi) => {
-          const valor = kpis[kpi.chave];
-          const percentual = totalGeral > 0 ? Math.round((valor / totalGeral) * 100) : 0;
-          const statusEquivalente =
-            kpi.chave === "emComplementar"
-              ? STATUS_EM_COMPLEMENTAR
-              : kpi.chave === "aguardandoAssinatura"
-                ? STATUS_AGUARDANDO_ASSINATURA
-                : kpi.chave === "aguardandoValidacao"
-                  ? STATUS_AGUARDANDO_VALIDACAO
-                  : kpi.chave === "aguardandoAtivacao"
-                    ? STATUS_AGUARDANDO_ATIVACAO
-                    : kpi.chave === "ativas"
-                      ? STATUS_ATIVO
-                      : STATUS_RECUSADO;
-          const cores = classesBadgeStatus(statusEquivalente);
-          const corBarra = cores.split(" ")[1] ?? "text-foreground";
-
-          return (
-            <div key={kpi.chave} className={`rounded-xl p-4 shadow-sm ${cores.split(" ")[0]}`}>
-              <span className="text-xs font-medium tracking-wide uppercase opacity-70">
-                {kpi.label}
-              </span>
-              <div className="mt-1 flex items-baseline justify-between">
-                <p className={`text-3xl font-bold ${corBarra}`}>{valor}</p>
-                <span className="text-xs font-medium opacity-70">{percentual}%</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full rounded-full bg-black/5">
-                <div
-                  className={`h-1.5 rounded-full ${corBarra.replace("text-", "bg-")}`}
-                  style={{ width: `${percentual}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
+        {KPIS.map((kpi) => (
+          <div key={kpi.chave} className="border-border bg-card rounded-xl border p-4 shadow-sm">
+            <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide uppercase">
+              {kpi.label}
+            </span>
+            <p className="text-primary mt-1 text-3xl font-bold">{kpis[kpi.chave]}</p>
+          </div>
+        ))}
       </div>
 
       {/* Análise — IA x atendimento humano, fluxo de contratos por dia
           (assinados x pendentes). Dado real de Contrato.createdAt/status/
-          signatarios, últimos 14 dias — nada estimado. */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <GraficoOrigemContrato ia={analise.porOrigem.ia} humano={analise.porOrigem.humano} />
-        <GraficoContratosPorDia porDia={analise.porDia} />
-      </div>
+          signatarios, últimos 14 dias — nada estimado. Escondida por
+          enquanto (ver ANALISE_HABILITADA acima). */}
+      {ANALISE_HABILITADA && analise ? (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <GraficoOrigemContrato ia={analise.porOrigem.ia} humano={analise.porOrigem.humano} />
+          <GraficoContratosPorDia porDia={analise.porDia} />
+        </div>
+      ) : null}
 
       {/* Filtros. Executivo/Associação/Evento existem no produto original,
           mas exigem conceitos (executivoId, associacaoId) que não existem
