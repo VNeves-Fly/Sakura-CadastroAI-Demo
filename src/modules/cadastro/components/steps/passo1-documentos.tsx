@@ -14,8 +14,6 @@ export function Passo1Documentos({
   avisoAlfanumerico,
   contratoSocial,
   setContratoSocial,
-  cadastur,
-  setCadastur,
   setCnpj,
 }: Passo1DocumentosProps) {
   return (
@@ -58,14 +56,6 @@ export function Passo1Documentos({
         onChange={setContratoSocial}
         helperText="Clique para anexar o PDF do contrato social atualizado"
         required
-      />
-
-      <FileDropInput
-        label="Certificado CADASTUR"
-        accept=".pdf,.jpg,.jpeg,.png"
-        file={cadastur}
-        onChange={setCadastur}
-        helperText="Opcional — acelera a análise se você já tiver o CADASTUR"
       />
     </div>
   );

@@ -30,7 +30,7 @@ interface UseCadastroWizardOptions {
 
 // Orquestra navegação entre os 7 passos (livre, sem bloqueio — a validação
 // de obrigatórios só acontece no envio final) e a lógica do Passo 1
-// (CNPJ + contrato social + CADASTUR + consulta QSA).
+// (CNPJ + contrato social + consulta QSA).
 export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions) {
   const etapaAtual = useCadastroWizardStore((state) => state.etapaAtual);
   const maiorEtapaAlcancada = useCadastroWizardStore((state) => state.maiorEtapaAlcancada);
@@ -45,7 +45,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const qsaResult = useCadastroWizardStore((state) => state.qsaResult);
   const avisoAlfanumerico = useCadastroWizardStore((state) => state.avisoAlfanumerico);
   const contratoSocial = useCadastroWizardStore((state) => state.contratoSocial);
-  const cadastur = useCadastroWizardStore((state) => state.cadastur);
 
   const setCnpjRaw = useCadastroWizardStore((state) => state.setCnpj);
   const setCnpjStatus = useCadastroWizardStore((state) => state.setCnpjStatus);
@@ -53,7 +52,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
   const setContratoSocial = useCadastroWizardStore((state) => state.setContratoSocial);
-  const setCadastur = useCadastroWizardStore((state) => state.setCadastur);
 
   useEffect(() => {
     setOrigem(origem);
@@ -108,9 +106,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     qsaResult,
     avisoAlfanumerico,
     contratoSocial,
-    cadastur,
     setCnpj,
     setContratoSocial,
-    setCadastur,
   };
 }

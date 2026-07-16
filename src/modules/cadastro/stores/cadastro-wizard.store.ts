@@ -20,7 +20,6 @@ interface CadastroWizardState {
   qsaResult: QsaResultView | null;
   avisoAlfanumerico: boolean;
   contratoSocial: File | null;
-  cadastur: File | null;
 
   // Submissão (passo 7)
   isSubmitting: boolean;
@@ -38,7 +37,6 @@ interface CadastroWizardState {
   setQsaResult: (result: QsaResultView | null) => void;
   setAvisoAlfanumerico: (aviso: boolean) => void;
   setContratoSocial: (file: File | null) => void;
-  setCadastur: (file: File | null) => void;
   setSubmitting: (isSubmitting: boolean) => void;
   setError: (error: string | null) => void;
   setSuccess: (success: boolean) => void;
@@ -57,7 +55,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   qsaResult: null,
   avisoAlfanumerico: false,
   contratoSocial: null,
-  cadastur: null,
 
   isSubmitting: false,
   error: null,
@@ -86,7 +83,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   setQsaResult: (qsaResult) => set({ qsaResult }),
   setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
   setContratoSocial: (contratoSocial) => set({ contratoSocial }),
-  setCadastur: (cadastur) => set({ cadastur }),
 
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
   setError: (error) => set({ error }),
@@ -103,7 +99,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
       qsaResult: null,
       avisoAlfanumerico: false,
       contratoSocial: null,
-      cadastur: null,
       isSubmitting: false,
       error: null,
       success: false,
