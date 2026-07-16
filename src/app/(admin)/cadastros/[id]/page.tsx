@@ -143,7 +143,7 @@ function TrilhaProgresso({ status, temContrato }: { status: string; temContrato:
                 <div className={`h-0.5 flex-1 ${concluida ? "bg-primary" : "bg-muted"}`} />
               ) : null}
             </div>
-            <span className="text-muted-foreground mt-1 line-clamp-1 max-w-[4.5rem] text-center text-[10px] font-medium tracking-wide uppercase">
+            <span className="text-muted-foreground mt-1 text-center text-[10px] font-medium whitespace-nowrap uppercase">
               {atual && recusado ? "Recusado" : etapa.label}
             </span>
           </div>
