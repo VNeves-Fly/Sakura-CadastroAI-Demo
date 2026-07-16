@@ -39,6 +39,10 @@ export class Agencia {
     return this.props.status;
   }
 
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
+
   toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt"> & {
     createdAt: string;
     updatedAt: string;

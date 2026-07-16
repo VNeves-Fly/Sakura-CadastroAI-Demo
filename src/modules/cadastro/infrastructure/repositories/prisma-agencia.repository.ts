@@ -1,8 +1,12 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import type {
   AgenciaRepository,
+  CadastrosFunil,
+  CadastrosKpis,
   CreateAgenciaData,
+  ListarCadastrosFiltros,
+  ListarCadastrosResult,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface AgenciaRecord {
@@ -53,6 +57,56 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       },
     });
     return this.toDomain(record);
+  }
+
+  async listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult> {
+    const where: Prisma.AgenciaWhereInput = {};
+
+    if (filtros.busca) {
+      const buscaLimpa = filtros.busca.trim();
+      const somenteDigitos = buscaLimpa.replace(/\D/g, "");
+      where.OR = [
+        { razaoSocial: { contains: buscaLimpa, mode: "insensitive" } },
+        { emailContato: { contains: buscaLimpa, mode: "insensitive" } },
+        ...(somenteDigitos ? [{ cnpj: { contains: somenteDigitos } }] : []),
+      ];
+    }
+
+    if (filtros.etapa !== undefined) {
+      where.etapaAtual = Array.isArray(filtros.etapa) ? { in: filtros.etapa } : filtros.etapa;
+    }
+
+    const [records, total] = await Promise.all([
+      this.prisma.agencia.findMany({
+        where,
+        orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
+      }),
+      this.prisma.agencia.count({ where }),
+    ]);
+
+    return { items: records.map((record) => this.toDomain(record)), total };
+  }
+
+  async obterKpis(): Promise<CadastrosKpis> {
+    const [emAnalise, reprovadas, aprovadas, aguardandoAprovacaoFinal] = await Promise.all([
+      this.prisma.agencia.count({ where: { etapaAtual: { in: [1, 2, 3, 4] } } }),
+      this.prisma.agencia.count({ where: { status: "recusado" } }),
+      this.prisma.agencia.count({ where: { status: "aprovado" } }),
+      this.prisma.agencia.count({ where: { etapaAtual: 5, status: { not: "aprovado" } } }),
+    ]);
+
+    return { emAnalise, reprovadas, aprovadas, aguardandoAprovacaoFinal };
+  }
+
+  async obterFunil(): Promise<CadastrosFunil> {
+    const [etapa1, etapa2, etapa3, etapa4] = await Promise.all([
+      this.prisma.agencia.count({ where: { etapaAtual: 1 } }),
+      this.prisma.agencia.count({ where: { etapaAtual: 2 } }),
+      this.prisma.agencia.count({ where: { etapaAtual: 3 } }),
+      this.prisma.agencia.count({ where: { etapaAtual: 4 } }),
+    ]);
+
+    return { etapa1, etapa2, etapa3, etapa4 };
   }
 
   private toDomain(record: AgenciaRecord): Agencia {
