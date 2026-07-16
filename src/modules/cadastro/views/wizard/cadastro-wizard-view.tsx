@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { animate } from "animejs";
 import { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import { WizardStepper } from "@/modules/cadastro/components/wizard-stepper";
 import { SecaoCard } from "@/modules/cadastro/components/secao-card";
@@ -21,10 +22,38 @@ interface CadastroWizardViewProps {
 export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
   const wizard = useCadastroWizardViewModel({ origem });
   const secaoRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const primeiraRenderizacao = useRef(true);
 
   function scrollParaSecao(secao: number) {
     secaoRefs.current[secao - 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+
+  // Anima a entrada de cada seção nova revelada (fade + leve deslocamento
+  // vertical) e rola até ela — só pula a animação (não o scroll) se o
+  // usuário pediu menos movimento no SO. A primeira seção, no carregamento
+  // inicial da página, só recebe o fade — sem scroll, pra não pular a tela.
+  useEffect(() => {
+    const el = secaoRefs.current[wizard.secoesReveladas - 1];
+    if (!el) return;
+
+    const reduzMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ehPrimeira = primeiraRenderizacao.current;
+    primeiraRenderizacao.current = false;
+
+    if (reduzMovimento) {
+      if (!ehPrimeira) el.scrollIntoView({ behavior: "auto", block: "start" });
+      return;
+    }
+
+    animate(el, {
+      opacity: [0, 1],
+      translateY: [16, 0],
+      duration: 420,
+      ease: "outQuad",
+    });
+
+    if (!ehPrimeira) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [wizard.secoesReveladas]);
 
   const secoesVisiveis = Array.from({ length: wizard.secoesReveladas }, (_, index) => index + 1);
 
