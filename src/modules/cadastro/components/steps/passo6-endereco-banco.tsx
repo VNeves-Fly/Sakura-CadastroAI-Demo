@@ -37,7 +37,7 @@ export function Passo6EnderecoBanco({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-bold text-foreground">
+        <label className="text-foreground text-sm font-bold">
           Endereço da agência é o mesmo de um sócio?
         </label>
         <div className="flex gap-2">
@@ -77,7 +77,7 @@ export function Passo6EnderecoBanco({
         ) : null}
 
         {enderecoBanco.enderecoMesmoSocio && socioVinculado ? (
-          <div className="rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground">
+          <div className="border-border bg-muted text-foreground rounded-xl border px-4 py-2.5 text-sm">
             {socioVinculado.logradouro
               ? `${socioVinculado.logradouro}, ${socioVinculado.numero || "s/n"} — ${socioVinculado.bairro}, ${socioVinculado.cidade}/${socioVinculado.uf}`
               : "Preencha o endereço do sócio na Seção Sócios pra usar aqui."}
@@ -88,7 +88,7 @@ export function Passo6EnderecoBanco({
       {enderecoManual ? (
         <>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-bold text-foreground">
+            <label className="text-foreground text-sm font-bold">
               CEP<span className="text-destructive"> *</span>
             </label>
             <div className="flex gap-2">
@@ -103,7 +103,7 @@ export function Passo6EnderecoBanco({
                 type="button"
                 onClick={buscarCepEnderecoBanco}
                 disabled={enderecoBancoCepBuscando}
-                className="shrink-0 rounded-full border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                className="border-input text-foreground hover:bg-accent shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {enderecoBancoCepBuscando ? "Buscando..." : "Buscar"}
               </button>
@@ -111,7 +111,7 @@ export function Passo6EnderecoBanco({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-bold text-foreground">
+            <label className="text-foreground text-sm font-bold">
               Logradouro<span className="text-destructive"> *</span>
             </label>
             <input
@@ -124,7 +124,7 @@ export function Passo6EnderecoBanco({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground">
+              <label className="text-foreground text-sm font-medium">
                 Número<span className="text-destructive"> *</span>
               </label>
               <input
@@ -135,7 +135,7 @@ export function Passo6EnderecoBanco({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground">Complemento</label>
+              <label className="text-foreground text-sm font-medium">Complemento</label>
               <input
                 type="text"
                 value={enderecoBanco.complemento}
@@ -144,7 +144,7 @@ export function Passo6EnderecoBanco({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground">
+              <label className="text-foreground text-sm font-medium">
                 Bairro<span className="text-destructive"> *</span>
               </label>
               <input
@@ -158,7 +158,7 @@ export function Passo6EnderecoBanco({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label className="text-sm font-medium text-foreground">
+              <label className="text-foreground text-sm font-medium">
                 Cidade<span className="text-destructive"> *</span>
               </label>
               <input
@@ -169,7 +169,7 @@ export function Passo6EnderecoBanco({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground">
+              <label className="text-foreground text-sm font-medium">
                 UF<span className="text-destructive"> *</span>
               </label>
               <input
@@ -184,9 +184,9 @@ export function Passo6EnderecoBanco({
         </>
       ) : null}
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
+      <div className="border-border bg-card flex flex-col gap-4 rounded-2xl border p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
             Dados Bancários
           </span>
           <div className="flex gap-1">
@@ -208,7 +208,7 @@ export function Passo6EnderecoBanco({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-foreground">
+          <label className="text-foreground text-sm font-bold">
             Banco<span className="text-destructive"> *</span>
           </label>
           {bancoInternacional ? (
@@ -239,7 +239,7 @@ export function Passo6EnderecoBanco({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <label className="text-foreground text-sm font-medium">
               {bancoInternacional ? "Routing / Branch Code" : "Agência"}
               <span className="text-destructive"> *</span>
             </label>
@@ -251,7 +251,7 @@ export function Passo6EnderecoBanco({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <label className="text-foreground text-sm font-medium">
               {bancoInternacional ? "Conta / IBAN" : "Conta (com dígito)"}
               <span className="text-destructive"> *</span>
             </label>
@@ -263,7 +263,7 @@ export function Passo6EnderecoBanco({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <label className="text-foreground text-sm font-medium">
               Tipo de Conta<span className="text-destructive"> *</span>
             </label>
             <select
@@ -285,7 +285,7 @@ export function Passo6EnderecoBanco({
 
         {bancoInternacional ? (
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <label className="text-foreground text-sm font-medium">
               SWIFT / BIC<span className="text-destructive"> *</span>
             </label>
             <input
@@ -300,7 +300,7 @@ export function Passo6EnderecoBanco({
           </div>
         ) : null}
 
-        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <label className="text-foreground flex items-center gap-2 text-sm font-medium">
           <input
             type="checkbox"
             checked={enderecoBanco.favorecidoEhEmpresa}
@@ -311,7 +311,7 @@ export function Passo6EnderecoBanco({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <label className="text-foreground text-sm font-medium">
               Nome do Favorecido<span className="text-destructive"> *</span>
             </label>
             <input
@@ -323,7 +323,7 @@ export function Passo6EnderecoBanco({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <label className="text-foreground text-sm font-medium">
               CPF/CNPJ do Favorecido<span className="text-destructive"> *</span>
             </label>
             <input

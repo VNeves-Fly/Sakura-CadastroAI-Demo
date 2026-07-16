@@ -69,7 +69,7 @@ export function FileDropInput({
     <div className="flex flex-col gap-1">
       <label
         htmlFor={inputId}
-        className="text-xs font-bold uppercase tracking-wide text-foreground"
+        className="text-foreground text-xs font-bold tracking-wide uppercase"
       >
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
@@ -82,12 +82,12 @@ export function FileDropInput({
         onDragLeave={() => setIsDraggingOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-6 text-center text-sm transition hover:border-primary hover:bg-accent ${
+        className={`group hover:border-primary hover:bg-accent flex cursor-pointer flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-6 text-center text-sm transition ${
           isDraggingOver ? "border-primary bg-accent" : "border-input bg-background"
         }`}
       >
         <span
-          className={`transition group-hover:text-primary ${
+          className={`group-hover:text-primary transition ${
             isDraggingOver ? "text-primary" : "text-muted-foreground"
           }`}
         >
@@ -107,13 +107,13 @@ export function FileDropInput({
               event.stopPropagation();
               onChange(null);
             }}
-            className="text-xs font-medium text-destructive hover:underline"
+            className="text-destructive text-xs font-medium hover:underline"
           >
             Remover
           </button>
         ) : null}
       </div>
-      {erro ? <span className="text-xs font-medium text-destructive">{erro}</span> : null}
+      {erro ? <span className="text-destructive text-xs font-medium">{erro}</span> : null}
       <input
         ref={inputRef}
         id={inputId}

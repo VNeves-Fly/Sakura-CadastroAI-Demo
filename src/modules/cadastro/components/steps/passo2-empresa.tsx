@@ -41,7 +41,7 @@ export function Passo2Empresa({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-bold text-foreground">
+        <label className="text-foreground text-sm font-bold">
           Telefone Comercial
           {semTelefoneComercial ? null : <span className="text-destructive"> *</span>}
         </label>
@@ -50,7 +50,7 @@ export function Passo2Empresa({
             value={telefoneComercialPais}
             disabled={semTelefoneComercial}
             onChange={(event) => setTelefoneComercialPais(event.target.value)}
-            className="w-[6.5rem] shrink-0 rounded-full border border-input bg-background px-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-input bg-background text-foreground focus:border-primary focus:ring-ring/30 w-[6.5rem] shrink-0 rounded-full border px-2 text-sm outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {PAISES_TELEFONE.map((pais) => (
               <option key={pais.codigo} value={pais.codigo}>
@@ -69,11 +69,11 @@ export function Passo2Empresa({
           />
         </div>
         {telefoneInvalido ? (
-          <span className="text-xs font-medium text-destructive">
+          <span className="text-destructive text-xs font-medium">
             Telefone incompleto para {paisTelefone.nome}.
           </span>
         ) : null}
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <label className="text-muted-foreground flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={semTelefoneComercial}
@@ -83,22 +83,22 @@ export function Passo2Empresa({
         </label>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
+      <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
             E-mails
           </span>
           <button
             type="button"
             onClick={usarEmailOperacionalParaTodos}
-            className="text-xs font-semibold text-primary hover:underline"
+            className="text-primary text-xs font-semibold hover:underline"
           >
             Usar o mesmo para todos
           </button>
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-foreground">
+          <label className="text-foreground text-sm font-bold">
             E-mail responsável operacional<span className="text-destructive"> *</span>
           </label>
           <input
@@ -109,12 +109,12 @@ export function Passo2Empresa({
             placeholder="operacional@empresa.com"
           />
           {emailOperacionalInvalido ? (
-            <span className="text-xs font-medium text-destructive">E-mail inválido.</span>
+            <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-foreground">
+          <label className="text-foreground text-sm font-bold">
             E-mail setor comercial<span className="text-destructive"> *</span>
           </label>
           <input
@@ -125,12 +125,12 @@ export function Passo2Empresa({
             placeholder="comercial@empresa.com"
           />
           {emailComercialInvalido ? (
-            <span className="text-xs font-medium text-destructive">E-mail inválido.</span>
+            <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-foreground">
+          <label className="text-foreground text-sm font-bold">
             E-mail setor financeiro<span className="text-destructive"> *</span>
           </label>
           <input
@@ -141,14 +141,14 @@ export function Passo2Empresa({
             placeholder="financeiro@empresa.com"
           />
           {emailFinanceiroInvalido ? (
-            <span className="text-xs font-medium text-destructive">E-mail inválido.</span>
+            <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
         </div>
       </div>
 
       {qsaResult ? (
-        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
-          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4">
+          <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
             Dados da Receita Federal
           </span>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -165,12 +165,12 @@ export function Passo2Empresa({
 function ReceitaCampo({ label, valor }: { label: string; valor: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+      <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
         {label}
       </span>
-      <div className="flex flex-col gap-1.5 rounded-2xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground">
+      <div className="border-border bg-muted text-foreground flex flex-col gap-1.5 rounded-2xl border px-4 py-2.5 text-sm">
         <span className="break-words">{valor}</span>
-        <span className="w-fit rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold uppercase text-success">
+        <span className="bg-success/15 text-success w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
           Recebido
         </span>
       </div>

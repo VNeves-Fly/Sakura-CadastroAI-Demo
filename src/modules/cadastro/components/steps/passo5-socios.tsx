@@ -21,14 +21,14 @@ export function Passo5Socios({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground min-w-0 flex-1 text-sm">
           Preencha os dados do sócio — assim que a consulta à Receita Federal resolver, o nome é
           pré-preenchido automaticamente.
         </p>
         <button
           type="button"
           onClick={addSocio}
-          className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          className="text-primary flex shrink-0 items-center gap-1.5 text-sm font-semibold hover:underline"
         >
           <PersonPlusIcon />
           Adicionar sócio

@@ -19,15 +19,15 @@ export function WizardStepper({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
-        <span className="min-w-0 truncate font-semibold text-foreground">
+        <span className="text-foreground min-w-0 truncate font-semibold">
           Seção {secoesReveladas} de {totalEtapas} — {labels[secoesReveladas - 1] ?? ""}
         </span>
-        <span className="shrink-0 text-muted-foreground">{percentualConcluido}% concluído</span>
+        <span className="text-muted-foreground shrink-0">{percentualConcluido}% concluído</span>
       </div>
 
-      <div className="h-2 w-full rounded-full bg-muted">
+      <div className="bg-muted h-2 w-full rounded-full">
         <div
-          className="h-2 rounded-full bg-primary transition-all"
+          className="bg-primary h-2 rounded-full transition-all"
           style={{ width: `${percentualConcluido}%` }}
         />
       </div>
