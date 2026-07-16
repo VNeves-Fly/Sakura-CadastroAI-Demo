@@ -1,12 +1,12 @@
-import { CadastroAgenciaView } from "@/modules/cadastro/views/link1/cadastro-agencia-view";
+import { CadastroWizardView } from "@/modules/cadastro/views/wizard/cadastro-wizard-view";
 
-interface CadastroAgenciaPageProps {
+interface CadastroWizardPageProps {
   params: { slug: string };
   searchParams: { evento?: string };
 }
 
-export default function CadastroAgenciaPage({ params, searchParams }: CadastroAgenciaPageProps) {
+export default function CadastroWizardPage({ params, searchParams }: CadastroWizardPageProps) {
   const origem = searchParams.evento ? `Evento: ${searchParams.evento}` : params.slug;
 
-  return <CadastroAgenciaView origem={origem} />;
+  return <CadastroWizardView origem={origem} />;
 }

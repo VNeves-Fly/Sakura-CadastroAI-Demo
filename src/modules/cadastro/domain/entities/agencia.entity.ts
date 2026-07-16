@@ -1,18 +1,17 @@
 export interface AgenciaProps {
   id: string;
-  razaoSocial: string | null;
-  cnpj: string | null;
-  status: string | null;
-  email: string | null;
-  telefone: string | null;
+  razaoSocial: string;
+  cnpj: string;
+  etapaAtual: number;
+  status: string;
+  contratoSocialPath: string;
+  emailContato: string;
+  telefoneContato: string;
   origem: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-// Representa a agência no momento do pré-cadastro (Link 1). Persistida como
-// um `Cadastro` (mesma entidade que o Admin acompanha nas etapas 1-3) — não
-// existe mais uma tabela `agencias` separada.
 export class Agencia {
   private constructor(private readonly props: AgenciaProps) {}
 
@@ -24,15 +23,50 @@ export class Agencia {
     return this.props.id;
   }
 
-  get razaoSocial(): string | null {
+  get razaoSocial(): string {
     return this.props.razaoSocial;
   }
 
-  get cnpj(): string | null {
+  get cnpj(): string {
     return this.props.cnpj;
   }
 
+  get etapaAtual(): number {
+    return this.props.etapaAtual;
+  }
+
   get status(): string {
-    return this.props.status ?? "em_analise";
+    return this.props.status;
+  }
+
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
+
+  get contratoSocialPath(): string {
+    return this.props.contratoSocialPath;
+  }
+
+  get emailContato(): string {
+    return this.props.emailContato;
+  }
+
+  toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt"> & {
+    createdAt: string;
+    updatedAt: string;
+  } {
+    return {
+      id: this.props.id,
+      razaoSocial: this.props.razaoSocial,
+      cnpj: this.props.cnpj,
+      etapaAtual: this.props.etapaAtual,
+      status: this.props.status,
+      contratoSocialPath: this.props.contratoSocialPath,
+      emailContato: this.props.emailContato,
+      telefoneContato: this.props.telefoneContato,
+      origem: this.props.origem,
+      createdAt: this.props.createdAt.toISOString(),
+      updatedAt: this.props.updatedAt.toISOString(),
+    };
   }
 }

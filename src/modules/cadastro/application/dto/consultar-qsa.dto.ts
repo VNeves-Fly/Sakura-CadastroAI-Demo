@@ -7,4 +7,7 @@ export interface ConsultarQsaOutput {
   razaoSocial: string;
   cnaeCompativel: boolean;
   socios: Array<{ nome: string }>;
+  dataAbertura: string;
+  telefoneReceita: string;
+  emailReceita: string;
 }

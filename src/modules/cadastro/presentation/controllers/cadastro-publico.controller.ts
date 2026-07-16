@@ -2,24 +2,32 @@ import { prisma } from "@/modules/shared/infrastructure/prisma/client";
 import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-agencia.repository";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { MockQsaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-qsa-consulta.adapter";
-import { PreCadastrarAgenciaUseCase } from "@/modules/cadastro/application/use-cases/pre-cadastrar-agencia.use-case";
+import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
+import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
+import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
 import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/consultar-qsa.use-case";
-import type { PreCadastrarAgenciaInput } from "@/modules/cadastro/application/dto/pre-cadastrar-agencia.dto";
+import type { FinalizarCadastroInput } from "@/modules/cadastro/application/dto/finalizar-cadastro.dto";
 
 // Composition root do módulo cadastro (área pública): única camada que
-// conhece Prisma/filesystem/QSA concretos. QsaConsultaService hoje aponta
-// pro mock (ver MockQsaConsultaService) até existir integração real com a
-// Receita Federal — trocar a implementação aqui não afeta use-cases/domain.
+// conhece Prisma/filesystem/QSA/D4Sign/IA concretos. QsaConsultaService,
+// ContratoAssinaturaService e AnaliseIaService hoje apontam pros mocks
+// (ver MockQsaConsultaService, MockD4SignService, MockAnaliseIaService)
+// até existir integração real — trocar a implementação aqui não afeta
+// use-cases/domain.
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const fileStorage = new LocalFileStorage();
 const qsaConsultaService = new MockQsaConsultaService();
+const contratoAssinaturaService = new MockD4SignService();
+const analiseIaService = new MockAnaliseIaService();
 
 export const cadastroPublicoController = {
-  preCadastrarAgencia(input: PreCadastrarAgenciaInput) {
-    const useCase = new PreCadastrarAgenciaUseCase(
+  finalizarCadastro(input: FinalizarCadastroInput) {
+    const useCase = new FinalizarCadastroUseCase(
       agenciaRepository,
       fileStorage,
       qsaConsultaService,
+      contratoAssinaturaService,
+      analiseIaService,
     );
     return useCase.execute(input);
   },
