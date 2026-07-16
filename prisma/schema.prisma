@@ -579,3 +579,20 @@ enum TipoVenda {
   INTERNACIONAL
   TERRESTRE
 }
+
+model Agencia {
+  id                 String   @id @default(cuid())
+  razaoSocial        String
+  cnpj               String   @unique
+  etapaAtual         Int      @default(1)
+  status             String   @default("em_analise")
+  contratoSocialPath String
+  emailContato       String
+  telefoneContato    String
+  origem             String?
+  socios             Json
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("agencias")
+}
