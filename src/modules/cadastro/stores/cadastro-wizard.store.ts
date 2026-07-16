@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { QsaResultView } from "@/modules/cadastro/types/agencia.types";
-import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
+import {
+  criarSocioWizardVazio,
+  type SocioWizardFormValues,
+} from "@/modules/cadastro/types/socio-wizard.types";
 import {
   criarEnderecoBancoVazio,
   type EnderecoBancoFormValues,
@@ -95,7 +98,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   emailComercial: "",
   emailFinanceiro: "",
 
-  socios: [],
+  socios: [criarSocioWizardVazio()],
   socioCepBuscando: null,
 
   enderecoBanco: criarEnderecoBancoVazio(),
@@ -151,7 +154,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
       emailOperacional: "",
       emailComercial: "",
       emailFinanceiro: "",
-      socios: [],
+      socios: [criarSocioWizardVazio()],
       socioCepBuscando: null,
       enderecoBanco: criarEnderecoBancoVazio(),
       enderecoBancoCepBuscando: false,

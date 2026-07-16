@@ -29,7 +29,7 @@ export const BANCOS_BRASILEIROS = [
 ];
 
 export interface EnderecoBancoFormValues {
-  enderecoMesmoSocio: boolean | null;
+  enderecoMesmoSocio: boolean;
   socioEnderecoVinculado: number | null;
   cep: string;
   logradouro: string;
@@ -52,7 +52,7 @@ export interface EnderecoBancoFormValues {
 
 export function criarEnderecoBancoVazio(): EnderecoBancoFormValues {
   return {
-    enderecoMesmoSocio: null,
+    enderecoMesmoSocio: false,
     socioEnderecoVinculado: null,
     cep: "",
     logradouro: "",

@@ -32,9 +32,10 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
         <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-8 text-center shadow-xl shadow-sakura-900/5">
-          <h1 className="text-2xl font-semibold text-foreground">Cadastro enviado!</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Contrato gerado!</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Obrigado. Sua agência foi cadastrada e já está em análise pela nossa equipe.
+            Seu cadastro foi enviado e o contrato já foi gerado. Cada sócio vai receber um e-mail do
+            D4Sign com o link pra assinatura.
           </p>
         </div>
       </div>

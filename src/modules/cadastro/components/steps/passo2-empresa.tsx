@@ -61,7 +61,7 @@ export function Passo2Empresa({
             value={telefoneComercial}
             disabled={semTelefoneComercial}
             onChange={(event) => setTelefoneComercial(event.target.value)}
-            className={`${INPUT_CLASSNAME} flex-1`}
+            className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
             placeholder={paisTelefone.placeholder}
           />
         </div>
@@ -81,7 +81,7 @@ export function Passo2Empresa({
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             E-mails
           </span>

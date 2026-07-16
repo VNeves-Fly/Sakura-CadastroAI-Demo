@@ -20,9 +20,10 @@ export function Passo5Socios({
 }: Passo5SociosProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Pré-preenchido a partir da consulta à Receita Federal — confira e complete os dados.
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+          Preencha os dados do sócio — assim que a consulta à Receita Federal resolver, o nome é
+          pré-preenchido automaticamente.
         </p>
         <button
           type="button"
@@ -33,13 +34,6 @@ export function Passo5Socios({
           Adicionar sócio
         </button>
       </div>
-
-      {socios.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Nenhum sócio ainda — complete o CNPJ na Seção Empresa pra pré-preencher automaticamente,
-          ou adicione manualmente.
-        </div>
-      ) : null}
 
       {socios.map((socio, index) => (
         <SocioWizardCard

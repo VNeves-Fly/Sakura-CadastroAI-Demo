@@ -98,14 +98,16 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origem]);
 
-  // Por padrão só 1 sócio aparece, pré-preenchido com o primeiro nome
-  // trazido pela consulta QSA (Seção Empresa) assim que ela resolve —
-  // os demais sócios do QSA não são adicionados automaticamente; o
-  // usuário inclui mais via "Adicionar sócio". Só roda na primeira vez,
-  // pra não sobrescrever edições já feitas.
+  // Por padrão já existe 1 card de sócio (em branco, ver store) pra deixar
+  // claro que o form existe mesmo antes do CNPJ ser preenchido. Quando a
+  // consulta QSA resolve, só preenchemos o nome desse primeiro card — e
+  // só se ele ainda estiver vazio, pra não sobrescrever edição já feita.
+  // Os demais sócios do QSA não são adicionados automaticamente; o
+  // usuário inclui mais via "Adicionar sócio".
   useEffect(() => {
-    if (qsaResult && socios.length === 0) {
-      setSocios([criarSocioWizardVazio(qsaResult.nomesSocios[0] ?? "")]);
+    const primeiroSocio = socios[0];
+    if (qsaResult && primeiroSocio && !primeiroSocio.nome) {
+      updateSocio(0, { nome: qsaResult.nomesSocios[0] ?? "" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qsaResult]);

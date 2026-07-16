@@ -78,8 +78,9 @@ export function Passo6EnderecoBanco({
 
         {enderecoBanco.enderecoMesmoSocio && socioVinculado ? (
           <div className="rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground">
-            {socioVinculado.logradouro || "—"}, {socioVinculado.numero || "s/n"} —{" "}
-            {socioVinculado.bairro}, {socioVinculado.cidade}/{socioVinculado.uf}
+            {socioVinculado.logradouro
+              ? `${socioVinculado.logradouro}, ${socioVinculado.numero || "s/n"} — ${socioVinculado.bairro}, ${socioVinculado.cidade}/${socioVinculado.uf}`
+              : "Preencha o endereço do sócio na Seção Sócios pra usar aqui."}
           </div>
         ) : null}
       </div>
@@ -93,7 +94,7 @@ export function Passo6EnderecoBanco({
                 type="text"
                 value={enderecoBanco.cep}
                 onChange={(event) => updateEnderecoBanco({ cep: event.target.value })}
-                className={`${INPUT_CLASSNAME} flex-1`}
+                className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
                 placeholder="00000-000"
               />
               <button
@@ -178,7 +179,7 @@ export function Passo6EnderecoBanco({
       ) : null}
 
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             Dados Bancários
           </span>

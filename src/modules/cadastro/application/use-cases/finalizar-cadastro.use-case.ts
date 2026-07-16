@@ -3,6 +3,7 @@ import { ConflictError } from "@/modules/shared/domain/errors";
 import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
+import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type {
   FinalizarCadastroInput,
   FinalizarCadastroOutput,
@@ -16,6 +17,7 @@ export class FinalizarCadastroUseCase implements UseCase<
     private readonly agenciaRepository: AgenciaRepository,
     private readonly fileStorage: FileStorage,
     private readonly qsaConsultaService: QsaConsultaService,
+    private readonly contratoAssinaturaService: ContratoAssinaturaService,
   ) {}
 
   async execute(input: FinalizarCadastroInput): Promise<FinalizarCadastroOutput> {
@@ -63,6 +65,19 @@ export class FinalizarCadastroUseCase implements UseCase<
       }),
     );
 
+    // Chamado antes de gravar no banco: se o D4Sign falhar, nada é
+    // persistido — evita ficar com uma agência salva sem contrato.
+    const signatarios = socios.map((socio) => ({
+      nome: socio.nome,
+      email: socio.email,
+      cpf: socio.cpf,
+    }));
+    const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
+      cnpj: input.cnpj,
+      razaoSocial,
+      signatarios,
+    });
+
     const agencia = await this.agenciaRepository.create({
       razaoSocial,
       cnpj: input.cnpj,
@@ -80,6 +95,11 @@ export class FinalizarCadastroUseCase implements UseCase<
         socios,
         enderecoBanco: input.enderecoBanco,
       },
+      contrato: {
+        provedorId: contratoResult.provedorId,
+        status: contratoResult.status,
+        signatarios,
+      },
     });
 
     return {
@@ -87,6 +107,7 @@ export class FinalizarCadastroUseCase implements UseCase<
       cnpj: agencia.cnpj,
       razaoSocial: agencia.razaoSocial,
       status: agencia.status,
+      contratoStatus: contratoResult.status,
     };
   }
 }

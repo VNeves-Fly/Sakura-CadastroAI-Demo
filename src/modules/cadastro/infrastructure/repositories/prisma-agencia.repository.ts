@@ -28,8 +28,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   }
 
   async create(data: CreateAgenciaData): Promise<Agencia> {
-    // Escrita aninhada do Prisma: Agencia + CadastroComplementar são
-    // criados numa única operação atômica, sem intervalo entre os dois.
+    // Escrita aninhada do Prisma: Agencia + CadastroComplementar + Contrato
+    // são criados numa única operação atômica, sem intervalo entre eles.
     const record = await this.prisma.agencia.create({
       data: {
         razaoSocial: data.razaoSocial,
@@ -41,6 +41,13 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         complementar: {
           create: {
             dadosPorPasso: data.dadosComplementares as object,
+          },
+        },
+        contratos: {
+          create: {
+            provedorId: data.contrato.provedorId,
+            status: data.contrato.status,
+            signatarios: data.contrato.signatarios as object,
           },
         },
       },

@@ -83,7 +83,9 @@ export function FileDropInput({
           <UploadIcon />
         </span>
 
-        <span className={file ? "text-foreground" : "text-muted-foreground"}>
+        <span
+          className={`w-full break-words ${file ? "text-foreground" : "text-muted-foreground"}`}
+        >
           {file ? file.name : (helperText ?? "Clique ou arraste o arquivo aqui")}
         </span>
 

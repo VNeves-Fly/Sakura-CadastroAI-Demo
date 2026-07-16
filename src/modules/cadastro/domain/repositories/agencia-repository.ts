@@ -7,9 +7,14 @@ export interface CreateAgenciaData {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
-  // Gravado atomicamente junto (CadastroComplementar), numa única
-  // escrita aninhada do Prisma — não existe intervalo entre os dois.
+  // Gravado atomicamente junto (CadastroComplementar e Contrato), numa
+  // única escrita aninhada do Prisma — não existe intervalo entre eles.
   dadosComplementares: unknown;
+  contrato: {
+    provedorId: string;
+    status: string;
+    signatarios: unknown;
+  };
 }
 
 export interface AgenciaRepository {

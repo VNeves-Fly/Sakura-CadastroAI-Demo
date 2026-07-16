@@ -135,7 +135,7 @@ export function SocioWizardCard({
             inputMode="numeric"
             value={socio.telefone}
             onChange={(event) => onUpdate({ telefone: event.target.value })}
-            className={`${INPUT_CLASSNAME} flex-1`}
+            className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
             placeholder={paisTelefone.placeholder}
           />
         </div>
@@ -173,7 +173,7 @@ export function SocioWizardCard({
             type="text"
             value={socio.cep}
             onChange={(event) => onUpdate({ cep: event.target.value })}
-            className={`${INPUT_CLASSNAME} flex-1`}
+            className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
             placeholder="00000-000"
           />
           <button

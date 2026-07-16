@@ -58,4 +58,5 @@ export interface FinalizarCadastroOutput {
   cnpj: string;
   razaoSocial: string;
   status: string;
+  contratoStatus: string;
 }
