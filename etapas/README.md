@@ -5,3 +5,4 @@ Mapeamento detalhado das Etapas 1, 2 e 3 do fluxo de onboarding de agências: da
 - [Etapa 1 — Análise](./etapa-1.md)
 - [Etapa 2 — Complementar](./etapa-2.md)
 - [Etapa 3 — Contrato](./etapa-3.md)
+- [Campos nullable vs. obrigatórios](./nullable.md)
