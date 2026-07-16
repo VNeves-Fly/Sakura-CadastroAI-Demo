@@ -53,6 +53,62 @@ function formatarEndereco(endereco: {
   return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
 }
 
+const ETAPAS_PIPELINE = [
+  { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
+  { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
+  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
+  { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
+  { status: STATUS_ATIVO, label: "Ativo" },
+];
+
+// Trilha só informativa — o fluxo é sequencial (o analista não navega
+// livremente entre etapas, cada uma libera a próxima por uma ação real),
+// então não é clicável, só mostra onde a agência está agora. "Recusado"
+// não é uma etapa da trilha (é uma saída do fluxo normal): usamos a
+// existência de um Contrato como sinal real de onde a recusa aconteceu
+// (com contrato = recusado depois de enviado; sem contrato = recusado
+// ainda em Complementar) em vez de inventar um campo novo pra isso.
+function TrilhaProgresso({ status, temContrato }: { status: string; temContrato: boolean }) {
+  const recusado = status === STATUS_RECUSADO;
+  const indiceAtual = recusado
+    ? temContrato
+      ? 1
+      : 0
+    : ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === status);
+
+  return (
+    <div className="flex items-start">
+      {ETAPAS_PIPELINE.map((etapa, index) => {
+        const concluida = index < indiceAtual;
+        const atual = index === indiceAtual;
+        return (
+          <div key={etapa.status} className="flex flex-1 flex-col items-center last:flex-none">
+            <div className="flex w-full items-center">
+              <span
+                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  atual && recusado
+                    ? "bg-destructive text-destructive-foreground"
+                    : concluida || atual
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {concluida ? "✓" : index + 1}
+              </span>
+              {index < ETAPAS_PIPELINE.length - 1 ? (
+                <div className={`h-0.5 flex-1 ${concluida ? "bg-primary" : "bg-muted"}`} />
+              ) : null}
+            </div>
+            <span className="text-muted-foreground mt-1 line-clamp-1 max-w-[4.5rem] text-center text-[10px] font-medium tracking-wide uppercase">
+              {atual && recusado ? "Recusado" : etapa.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default async function DossieAgenciaPage({ params }: { params: { id: string } }) {
   const detalhe = await cadastroAdminController.obterDetalhe(params.id).catch(() => null);
 
@@ -76,6 +132,10 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
         >
           {labelStatus(agencia.status)}
         </span>
+      </div>
+
+      <div className="border-border bg-card rounded-2xl border p-5">
+        <TrilhaProgresso status={agencia.status} temContrato={contratoAtual !== null} />
       </div>
 
       {!dados ? (

@@ -91,6 +91,19 @@ export interface AgenciaDetalhe {
   contratos: ContratoDetalhe[];
 }
 
+// Ponto diário do gráfico de fluxo de contratos — só dado real, contado
+// a partir de Contrato.createdAt/status (nada estimado).
+export interface AnaliseContratosPorDia {
+  dia: string; // "dd/MM"
+  assinados: number;
+  pendentes: number;
+}
+
+export interface AnaliseContratos {
+  porOrigem: { ia: number; humano: number };
+  porDia: AnaliseContratosPorDia[];
+}
+
 export interface AgenciaRepository {
   findByCnpj(cnpj: string): Promise<Agencia | null>;
   obterDetalhe(id: string): Promise<AgenciaDetalhe | null>;
@@ -108,4 +121,5 @@ export interface AgenciaRepository {
   atualizarStatusContrato(contratoId: string, status: string): Promise<void>;
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;
+  obterAnaliseContratos(dias: number): Promise<AnaliseContratos>;
 }
