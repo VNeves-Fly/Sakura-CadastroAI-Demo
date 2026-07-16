@@ -74,6 +74,11 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setEmailFinanceiro = useCadastroWizardStore((state) => state.setEmailFinanceiro);
   const setResideBrasil = useCadastroWizardStore((state) => state.setResideBrasil);
 
+  const vendasTipos = useCadastroWizardStore((state) => state.vendasTipos);
+  const vendasPercentuais = useCadastroWizardStore((state) => state.vendasPercentuais);
+  const setVendasTipos = useCadastroWizardStore((state) => state.setVendasTipos);
+  const setVendasPercentuais = useCadastroWizardStore((state) => state.setVendasPercentuais);
+
   useEffect(() => {
     setOrigem(origem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -126,6 +131,50 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setEmailFinanceiro(emailOperacional);
   }
 
+  function toggleVendaTipo(tipo: string) {
+    const jaSelecionado = vendasTipos.includes(tipo);
+    const novosTipos = jaSelecionado
+      ? vendasTipos.filter((atual) => atual !== tipo)
+      : [...vendasTipos, tipo];
+
+    const parteIgual = novosTipos.length > 0 ? 100 / novosTipos.length : 0;
+    const novosPercentuais: Record<string, number> = {};
+    novosTipos.forEach((atual) => {
+      novosPercentuais[atual] = parteIgual;
+    });
+
+    setVendasTipos(novosTipos);
+    setVendasPercentuais(novosPercentuais);
+  }
+
+  function setVendaPercentual(tipoAlterado: string, valorDigitado: number) {
+    const clamped = Math.max(0, Math.min(100, valorDigitado));
+    const outros = vendasTipos.filter((tipo) => tipo !== tipoAlterado);
+
+    if (outros.length === 0) {
+      setVendasPercentuais({ [tipoAlterado]: 100 });
+      return;
+    }
+
+    const somaOutrosAtual = outros.reduce((soma, tipo) => soma + (vendasPercentuais[tipo] ?? 0), 0);
+    const restante = 100 - clamped;
+    const novosPercentuais: Record<string, number> = { [tipoAlterado]: clamped };
+
+    if (somaOutrosAtual === 0) {
+      const parteIgual = restante / outros.length;
+      outros.forEach((tipo) => {
+        novosPercentuais[tipo] = parteIgual;
+      });
+    } else {
+      outros.forEach((tipo) => {
+        const atual = vendasPercentuais[tipo] ?? 0;
+        novosPercentuais[tipo] = (atual / somaOutrosAtual) * restante;
+      });
+    }
+
+    setVendasPercentuais(novosPercentuais);
+  }
+
   return {
     secoesReveladas,
     totalEtapas: TOTAL_ETAPAS,
@@ -160,5 +209,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setEmailFinanceiro,
     setResideBrasil,
     usarEmailOperacionalParaTodos,
+
+    vendasTipos,
+    vendasPercentuais,
+    toggleVendaTipo,
+    setVendaPercentual,
   };
 }

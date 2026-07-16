@@ -33,6 +33,10 @@ interface CadastroWizardState {
   emailFinanceiro: string;
   resideBrasil: boolean | null;
 
+  // Passo 3 — Comercial
+  vendasTipos: string[];
+  vendasPercentuais: Record<string, number>;
+
   // Submissão (passo 7)
   isSubmitting: boolean;
   error: string | null;
@@ -57,6 +61,9 @@ interface CadastroWizardState {
   setEmailComercial: (email: string) => void;
   setEmailFinanceiro: (email: string) => void;
   setResideBrasil: (reside: boolean | null) => void;
+
+  setVendasTipos: (tipos: string[]) => void;
+  setVendasPercentuais: (percentuais: Record<string, number>) => void;
 
   setSubmitting: (isSubmitting: boolean) => void;
   setError: (error: string | null) => void;
@@ -86,6 +93,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   emailFinanceiro: "",
   resideBrasil: null,
 
+  vendasTipos: [],
+  vendasPercentuais: {},
+
   isSubmitting: false,
   error: null,
   success: false,
@@ -113,6 +123,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   setEmailFinanceiro: (emailFinanceiro) => set({ emailFinanceiro }),
   setResideBrasil: (resideBrasil) => set({ resideBrasil }),
 
+  setVendasTipos: (vendasTipos) => set({ vendasTipos }),
+  setVendasPercentuais: (vendasPercentuais) => set({ vendasPercentuais }),
+
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
   setError: (error) => set({ error }),
   setSuccess: (success) => set({ success }),
@@ -136,6 +149,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
       emailComercial: "",
       emailFinanceiro: "",
       resideBrasil: null,
+      vendasTipos: [],
+      vendasPercentuais: {},
       isSubmitting: false,
       error: null,
       success: false,
