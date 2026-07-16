@@ -1,7 +1,7 @@
 export interface AgenciaProps {
   id: string;
-  razaoSocial: string;
-  cnpj: string;
+  razaoSocial: string | null;
+  cnpj: string | null;
   status: string | null;
   email: string | null;
   telefone: string | null;
@@ -24,11 +24,11 @@ export class Agencia {
     return this.props.id;
   }
 
-  get razaoSocial(): string {
+  get razaoSocial(): string | null {
     return this.props.razaoSocial;
   }
 
-  get cnpj(): string {
+  get cnpj(): string | null {
     return this.props.cnpj;
   }
 

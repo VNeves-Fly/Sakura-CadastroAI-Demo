@@ -12,8 +12,8 @@ const LOCAL_BUCKET = "local";
 
 interface CadastroRecord {
   id: string;
-  razaoSocial: string;
-  cnpj: string;
+  razaoSocial: string | null;
+  cnpj: string | null;
   status: string | null;
   email: string | null;
   telefone: string | null;
@@ -57,6 +57,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           email: data.email,
           telefone: data.telefone,
           origem: data.origem,
+          executivoId: data.executivoId,
+          associacaoId: data.associacaoId,
           documentos: {
             create: [toDocumentoCreateInput(data.contratoSocialDocumento, "CONTRATO_SOCIAL")],
           },

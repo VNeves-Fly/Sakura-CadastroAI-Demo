@@ -11,6 +11,8 @@ export const preCadastrarAgenciaMetaSchema = z.object({
     .string()
     .regex(/^[A-Z0-9]{12}\d{2}$/, "CNPJ inválido. Verifique os caracteres digitados."),
   origem: z.string().trim().min(1).optional(),
+  executivoId: z.string().trim().min(1).optional(),
+  associacaoId: z.string().trim().min(1).optional(),
   socios: z.array(socioMetaSchema).min(1, "Adicione ao menos um sócio."),
 });
 

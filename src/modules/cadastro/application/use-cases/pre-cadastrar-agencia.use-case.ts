@@ -88,6 +88,8 @@ export class PreCadastrarAgenciaUseCase implements UseCase<
       email: primeiroSocio.email,
       telefone: primeiroSocio.telefone,
       origem: input.origem,
+      executivoId: input.executivoId,
+      associacaoId: input.associacaoId,
       contratoSocialDocumento: {
         fileName: input.contratoSocial.originalName,
         mimeType: input.contratoSocial.mimeType,

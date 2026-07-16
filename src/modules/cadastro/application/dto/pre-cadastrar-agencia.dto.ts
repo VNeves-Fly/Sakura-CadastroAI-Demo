@@ -16,11 +16,13 @@ export interface PreCadastrarAgenciaInput {
   contratoSocial: UploadedFileInput;
   socios: SocioInput[];
   origem: string | null;
+  executivoId: string | null;
+  associacaoId: string | null;
 }
 
 export interface PreCadastrarAgenciaOutput {
   id: string;
-  cnpj: string;
-  razaoSocial: string;
+  cnpj: string | null;
+  razaoSocial: string | null;
   status: string;
 }

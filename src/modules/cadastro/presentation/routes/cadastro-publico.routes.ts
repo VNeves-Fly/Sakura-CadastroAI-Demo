@@ -30,10 +30,20 @@ export async function createAgenciaRoute(request: Request) {
     const socioMetaRaw = formData.get("socios");
     const socioMeta = typeof socioMetaRaw === "string" ? JSON.parse(socioMetaRaw) : [];
     const origemRaw = formData.get("origem");
+    const executivoIdRaw = formData.get("executivoId");
+    const associacaoIdRaw = formData.get("associacaoId");
 
     const parsedMeta = preCadastrarAgenciaMetaSchema.safeParse({
       cnpj: formData.get("cnpj"),
       origem: typeof origemRaw === "string" && origemRaw.length > 0 ? origemRaw : undefined,
+      executivoId:
+        typeof executivoIdRaw === "string" && executivoIdRaw.length > 0
+          ? executivoIdRaw
+          : undefined,
+      associacaoId:
+        typeof associacaoIdRaw === "string" && associacaoIdRaw.length > 0
+          ? associacaoIdRaw
+          : undefined,
       socios: socioMeta,
     });
 
@@ -67,6 +77,8 @@ export async function createAgenciaRoute(request: Request) {
     const agencia = await cadastroPublicoController.preCadastrarAgencia({
       cnpj: parsedMeta.data.cnpj,
       origem: parsedMeta.data.origem ?? null,
+      executivoId: parsedMeta.data.executivoId ?? null,
+      associacaoId: parsedMeta.data.associacaoId ?? null,
       contratoSocial: await toUploadedFile(contratoSocialFile),
       socios,
     });

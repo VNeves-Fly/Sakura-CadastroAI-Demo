@@ -21,6 +21,8 @@ export interface CreateAgenciaData {
   email: string;
   telefone: string;
   origem: string | null;
+  executivoId: string | null;
+  associacaoId: string | null;
   contratoSocialDocumento: UploadedDocumentData;
   socios: CreateAgenciaSocioData[];
 }

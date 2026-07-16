@@ -29,8 +29,8 @@ model User {
 
 model Cadastro {
   id           String  @id @default(cuid())
-  cnpj         String  @unique
-  razaoSocial  String
+  cnpj         String? @unique
+  razaoSocial  String?
   nomeFantasia String?
   email        String?
   telefone     String?
@@ -57,6 +57,7 @@ model Cadastro {
   baseId              String?
   gestorResponsavel   String?
   executivoId         String?
+  associacaoId        String?
   promotorResponsavel String?
 
   createdAt DateTime @default(now())
@@ -85,9 +86,9 @@ model DadosReceita {
   cadastroId String   @unique
   cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
 
-  situacaoCadastral String
-  dataAbertura      DateTime
-  naturezaJuridica  String
+  situacaoCadastral String?
+  dataAbertura      DateTime?
+  naturezaJuridica  String?
   porte             String?
   capitalSocial     Decimal?  @db.Decimal(14, 2)
   telefone          String?
@@ -112,8 +113,8 @@ model Cnae {
   id             String       @id @default(cuid())
   dadosReceitaId String
   dadosReceita   DadosReceita @relation(fields: [dadosReceitaId], references: [id], onDelete: Cascade)
-  codigo         String
-  descricao      String
+  codigo         String?
+  descricao      String?
   principal      Boolean      @default(false)
 
   @@index([dadosReceitaId])
@@ -123,13 +124,13 @@ model Cnae {
 // Resultado do gate automático que bloqueia/libera a transição entre etapas
 // (ex.: fn_gate_etapa1_to_complementar). Uma linha por avaliação.
 model GateValidacao {
-  id             String        @id @default(cuid())
+  id             String         @id @default(cuid())
   cadastroId     String
-  cadastro       Cadastro      @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
-  etapaAlvo      EtapaCadastro
-  liberado       Boolean
+  cadastro       Cadastro       @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  etapaAlvo      EtapaCadastro?
+  liberado       Boolean?
   motivoBloqueio String?
-  avaliadoEm     DateTime      @default(now())
+  avaliadoEm     DateTime       @default(now())
 
   @@index([cadastroId])
   @@map("gate_validacoes")
@@ -141,8 +142,8 @@ model Alerta {
   id          String    @id @default(cuid())
   cadastroId  String
   cadastro    Cadastro  @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
-  tipo        String
-  mensagem    String
+  tipo        String?
+  mensagem    String?
   criadoEm    DateTime  @default(now())
   resolvidoEm DateTime?
 
@@ -156,8 +157,8 @@ model UsuarioMaster {
   id         String   @id @default(cuid())
   cadastroId String   @unique
   cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
-  nome       String
-  email      String
+  nome       String?
+  email      String?
   ativo      Boolean  @default(false)
   criadoEm   DateTime @default(now())
 
@@ -176,13 +177,13 @@ model UsuarioMaster {
 // cria o Endereco preencher só um.
 model Endereco {
   id          String  @id @default(cuid())
-  cep         String
-  logradouro  String
-  numero      String
+  cep         String?
+  logradouro  String?
+  numero      String?
   complemento String?
-  bairro      String
-  cidade      String
-  uf          String
+  bairro      String?
+  cidade      String?
+  uf          String?
 
   dadosReceitaId String?       @unique
   dadosReceita   DadosReceita? @relation(fields: [dadosReceitaId], references: [id], onDelete: Cascade)
@@ -255,8 +256,8 @@ model VendaPercentual {
   id                     String               @id @default(cuid())
   cadastroComplementarId String
   cadastroComplementar   CadastroComplementar @relation(fields: [cadastroComplementarId], references: [id], onDelete: Cascade)
-  tipo                   TipoVenda
-  percentual             Decimal              @db.Decimal(5, 2)
+  tipo                   TipoVenda?
+  percentual             Decimal?             @db.Decimal(5, 2)
 
   @@unique([cadastroComplementarId, tipo])
   @@map("venda_percentuais")
@@ -267,7 +268,7 @@ model RepresentanteLegal {
   cadastroId String
   cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
 
-  nome            String
+  nome            String?
   email           String?
   telefone        String?
   cpf             String?
@@ -295,7 +296,10 @@ model RepresentanteLegal {
   contratoSignatarios       ContratoSignatario[]
   enderecosAgenciaVinculada CadastroComplementar[] @relation("SocioVinculadoEndereco")
 
-  @@index([cadastroId])
+  // NULL em `cpf` não conflita entre si no Postgres, então sócios PJ (que
+  // usam `cnpj` no lugar) continuam podendo repetir no mesmo cadastro; a
+  // unicidade só entra em vigor quando o CPF é de fato preenchido.
+  @@unique([cadastroId, cpf])
   @@map("representantes_legais")
 }
 
@@ -304,7 +308,7 @@ model Conjuge {
   id                   String             @id @default(cuid())
   representanteLegalId String             @unique
   representanteLegal   RepresentanteLegal @relation(fields: [representanteLegalId], references: [id], onDelete: Cascade)
-  nome                 String
+  nome                 String?
   cpf                  String?
   rg                   String?
   nacionalidade        String?
@@ -320,13 +324,13 @@ model Documento {
   representanteLegalId String?
   representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
 
-  tipo     TipoDocumento
-  fileName String
-  mimeType String
+  tipo     TipoDocumento?
+  fileName String?
+  mimeType String?
 
   // Storage (GCS)
-  gcsPath   String
-  gcsBucket String
+  gcsPath   String?
+  gcsBucket String?
   gcsSize   Int?
   gcsMd5    String?
 
@@ -412,7 +416,7 @@ model ContratoSignatario {
   signatarioPadraoId   String?
   signatarioPadrao     SignatarioPadrao?   @relation(fields: [signatarioPadraoId], references: [id])
 
-  nome           String
+  nome           String?
   email          String?
   cpf            String?
   rg             String?
@@ -443,7 +447,7 @@ model ContratoCampoPendente {
   id                   String             @id @default(cuid())
   contratoSignatarioId String
   contratoSignatario   ContratoSignatario @relation(fields: [contratoSignatarioId], references: [id], onDelete: Cascade)
-  campo                String
+  campo                String?
 
   @@map("contrato_campos_pendentes")
 }
@@ -451,16 +455,16 @@ model ContratoCampoPendente {
 // Substitui o JSON `pendencias`: uma linha por pendência que foi
 // overridada quando alguém forçou o avanço de etapa com `force: true`.
 model AvancoForcado {
-  id                 String        @id @default(cuid())
+  id                 String         @id @default(cuid())
   cadastroId         String
-  cadastro           Cadastro      @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
-  etapaAlvo          EtapaCadastro
-  motivo             String
+  cadastro           Cadastro       @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  etapaAlvo          EtapaCadastro?
+  motivo             String?
   gateMotivoBloqueio String?
   statusReal         String?
   solicitadoPor      String?
   autorizadoPor      String?
-  createdAt          DateTime      @default(now())
+  createdAt          DateTime       @default(now())
 
   pendencias AvancoForcadoPendencia[]
 
@@ -472,7 +476,7 @@ model AvancoForcadoPendencia {
   id              String        @id @default(cuid())
   avancoForcadoId String
   avancoForcado   AvancoForcado @relation(fields: [avancoForcadoId], references: [id], onDelete: Cascade)
-  descricao       String
+  descricao       String?
 
   @@map("avanco_forcado_pendencias")
 }
@@ -482,7 +486,7 @@ model KanbanHistorico {
   cadastroId        String
   cadastro          Cadastro       @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
   etapaAnterior     EtapaCadastro?
-  etapaNova         EtapaCadastro
+  etapaNova         EtapaCadastro?
   usuarioEmail      String? // null/'sistema@d4sign' nas transições automáticas via trigger
   origem            String?
   observacao        String?
@@ -497,18 +501,18 @@ model KanbanHistorico {
 }
 
 model DecisaoHumana {
-  id            String           @id @default(cuid())
+  id            String            @id @default(cuid())
   cadastroId    String
-  cadastro      Cadastro         @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
-  etapa         EtapaDecisao
+  cadastro      Cadastro          @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
+  etapa         EtapaDecisao?
   decisaoIa     String?
-  decisaoHumana ResultadoDecisao
-  justificativa String           @db.Text
-  usuarioEmail  String
+  decisaoHumana ResultadoDecisao?
+  justificativa String?           @db.Text
+  usuarioEmail  String?
   modeloIa      String?
   scoreIa       Float?
   divergiu      Boolean?
-  createdAt     DateTime         @default(now())
+  createdAt     DateTime          @default(now())
 
   @@index([cadastroId])
   @@map("decisoes_humanas")
@@ -518,9 +522,9 @@ model Notificacao {
   id         String   @id @default(cuid())
   cadastroId String
   cadastro   Cadastro @relation(fields: [cadastroId], references: [id], onDelete: Cascade)
-  tipo       String
-  titulo     String
-  mensagem   String
+  tipo       String?
+  titulo     String?
+  mensagem   String?
   createdAt  DateTime @default(now())
 
   @@index([cadastroId])
@@ -529,12 +533,12 @@ model Notificacao {
 
 model SignatarioPadrao {
   id       String  @id @default(cuid())
-  nome     String
+  nome     String?
   cargo    String?
-  email    String
+  email    String?
   telefone String?
   ativo    Boolean @default(true)
-  ordem    Int
+  ordem    Int?
 
   contratoSignatarios ContratoSignatario[]
 
