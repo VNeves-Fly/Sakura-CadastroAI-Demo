@@ -1,11 +1,28 @@
 import { httpCreated, httpError, httpOk } from "@/modules/shared/presentation/http-response";
-import { ConflictError, DomainError, NotFoundError } from "@/modules/shared/domain/errors";
+import {
+  ConflictError,
+  DomainError,
+  NotFoundError,
+  RateLimitError,
+} from "@/modules/shared/domain/errors";
+import { obterIpCliente, verificarRateLimit } from "@/modules/shared/infrastructure/rate-limiter";
 import { cadastroPublicoController } from "@/modules/cadastro/presentation/controllers/cadastro-publico.controller";
 import { finalizarCadastroMetaSchema } from "@/modules/cadastro/application/dto/finalizar-cadastro.schema";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import type { UploadedFileInput } from "@/modules/cadastro/application/dto/finalizar-cadastro.dto";
 
+// Envio do cadastro: poucas tentativas por IP bastam num fluxo legítimo
+// (o usuário preenche uma vez só); limite generoso o bastante pra reenvio
+// depois de corrigir um erro de validação.
+const RATE_LIMIT_SUBMIT = { limite: 5, janelaMs: 10 * 60 * 1000 };
+// Consulta QSA dispara a cada CNPJ completo digitado — mais frequente,
+// limite mais folgado.
+const RATE_LIMIT_QSA = { limite: 30, janelaMs: 60 * 1000 };
+
 function mapErrorToResponse(error: unknown) {
+  if (error instanceof RateLimitError) {
+    return httpError(error.message, 429);
+  }
   if (error instanceof NotFoundError) {
     return httpError(error.message, 404);
   }
@@ -29,6 +46,11 @@ function parseJsonField(value: FormDataEntryValue | null): unknown {
 
 export async function createAgenciaRoute(request: Request) {
   try {
+    const chaveRateLimit = `cadastro-agencia:${obterIpCliente(request)}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_SUBMIT)) {
+      throw new RateLimitError();
+    }
+
     const formData = await request.formData();
 
     const origemRaw = formData.get("origem");
@@ -124,6 +146,11 @@ export async function createAgenciaRoute(request: Request) {
 
 export async function consultarQsaRoute(request: Request) {
   try {
+    const chaveRateLimit = `cadastro-qsa:${obterIpCliente(request)}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_QSA)) {
+      throw new RateLimitError();
+    }
+
     const body = await request.json();
     const cnpj = typeof body?.cnpj === "string" ? body.cnpj : "";
 

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { QsaResultView } from "@/modules/cadastro/types/agencia.types";
 import {
   criarSocioWizardVazio,
@@ -82,90 +83,128 @@ interface CadastroWizardState {
   reset: () => void;
 }
 
-export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
-  secoesReveladas: 1,
-  origem: null,
-
-  cnpj: "",
-  cnpjStatus: { valido: false, mensagem: null },
-  qsaChecking: false,
-  qsaResult: null,
-  avisoAlfanumerico: false,
-  contratoSocial: null,
-
-  telefoneComercial: "",
-  telefoneComercialPais: "BR",
-  semTelefoneComercial: false,
-  emailOperacional: "",
-  emailComercial: "",
-  emailFinanceiro: "",
-
-  socios: [criarSocioWizardVazio()],
-  socioCepBuscando: null,
-
-  enderecoBanco: criarEnderecoBancoVazio(),
-  enderecoBancoCepBuscando: false,
-
-  isSubmitting: false,
-  error: null,
-  success: false,
-  precisaRevisaoManual: false,
-  duplicado: false,
-
-  setOrigem: (origem) => set({ origem }),
-
-  avancarSecao: () =>
-    set((state) => ({ secoesReveladas: Math.min(state.secoesReveladas + 1, TOTAL_ETAPAS) })),
-
-  setCnpj: (cnpj) => set({ cnpj }),
-  setCnpjStatus: (cnpjStatus) => set({ cnpjStatus }),
-  setQsaChecking: (qsaChecking) => set({ qsaChecking }),
-  setQsaResult: (qsaResult) => set({ qsaResult }),
-  setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
-  setContratoSocial: (contratoSocial) => set({ contratoSocial }),
-
-  setTelefoneComercial: (telefoneComercial) => set({ telefoneComercial }),
-  setTelefoneComercialPais: (telefoneComercialPais) => set({ telefoneComercialPais }),
-  setSemTelefoneComercial: (semTelefoneComercial) => set({ semTelefoneComercial }),
-  setEmailOperacional: (emailOperacional) => set({ emailOperacional }),
-  setEmailComercial: (emailComercial) => set({ emailComercial }),
-  setEmailFinanceiro: (emailFinanceiro) => set({ emailFinanceiro }),
-
-  setSocios: (socios) => set({ socios }),
-  setSocioCepBuscando: (socioCepBuscando) => set({ socioCepBuscando }),
-
-  setEnderecoBanco: (enderecoBanco) => set({ enderecoBanco }),
-  setEnderecoBancoCepBuscando: (enderecoBancoCepBuscando) => set({ enderecoBancoCepBuscando }),
-
-  setSubmitting: (isSubmitting) => set({ isSubmitting }),
-  setError: (error) => set({ error }),
-  setSuccess: (success) => set({ success }),
-  setPrecisaRevisaoManual: (precisaRevisaoManual) => set({ precisaRevisaoManual }),
-  setDuplicado: (duplicado) => set({ duplicado }),
-
-  reset: () =>
-    set({
+// Autosave do rascunho em localStorage — a cada mudança de estado (campo
+// digitado, seção avançada), salva o formulário pra não perder o
+// progresso se o usuário fechar a aba sem terminar. Arquivos (File) não
+// são serializáveis: ficam de fora do que é persistido (partialize),
+// então contrato social/RG/procuração precisam ser reanexados se o
+// rascunho for restaurado — o resto do formulário volta preenchido.
+// Quando o cadastro é enviado com sucesso, o rascunho salvo é limpo (ver
+// `submit()` no view-model) porque nesse ponto os dados já estão
+// persistidos de verdade no banco.
+export const useCadastroWizardStore = create<CadastroWizardState>()(
+  persist(
+    (set) => ({
       secoesReveladas: 1,
+      origem: null,
+
       cnpj: "",
       cnpjStatus: { valido: false, mensagem: null },
       qsaChecking: false,
       qsaResult: null,
       avisoAlfanumerico: false,
       contratoSocial: null,
+
       telefoneComercial: "",
       telefoneComercialPais: "BR",
       semTelefoneComercial: false,
       emailOperacional: "",
       emailComercial: "",
       emailFinanceiro: "",
+
       socios: [criarSocioWizardVazio()],
       socioCepBuscando: null,
+
       enderecoBanco: criarEnderecoBancoVazio(),
       enderecoBancoCepBuscando: false,
+
       isSubmitting: false,
       error: null,
       success: false,
       precisaRevisaoManual: false,
       duplicado: false,
+
+      setOrigem: (origem) => set({ origem }),
+
+      avancarSecao: () =>
+        set((state) => ({ secoesReveladas: Math.min(state.secoesReveladas + 1, TOTAL_ETAPAS) })),
+
+      setCnpj: (cnpj) => set({ cnpj }),
+      setCnpjStatus: (cnpjStatus) => set({ cnpjStatus }),
+      setQsaChecking: (qsaChecking) => set({ qsaChecking }),
+      setQsaResult: (qsaResult) => set({ qsaResult }),
+      setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
+      setContratoSocial: (contratoSocial) => set({ contratoSocial }),
+
+      setTelefoneComercial: (telefoneComercial) => set({ telefoneComercial }),
+      setTelefoneComercialPais: (telefoneComercialPais) => set({ telefoneComercialPais }),
+      setSemTelefoneComercial: (semTelefoneComercial) => set({ semTelefoneComercial }),
+      setEmailOperacional: (emailOperacional) => set({ emailOperacional }),
+      setEmailComercial: (emailComercial) => set({ emailComercial }),
+      setEmailFinanceiro: (emailFinanceiro) => set({ emailFinanceiro }),
+
+      setSocios: (socios) => set({ socios }),
+      setSocioCepBuscando: (socioCepBuscando) => set({ socioCepBuscando }),
+
+      setEnderecoBanco: (enderecoBanco) => set({ enderecoBanco }),
+      setEnderecoBancoCepBuscando: (enderecoBancoCepBuscando) => set({ enderecoBancoCepBuscando }),
+
+      setSubmitting: (isSubmitting) => set({ isSubmitting }),
+      setError: (error) => set({ error }),
+      setSuccess: (success) => set({ success }),
+      setPrecisaRevisaoManual: (precisaRevisaoManual) => set({ precisaRevisaoManual }),
+      setDuplicado: (duplicado) => set({ duplicado }),
+
+      reset: () =>
+        set({
+          secoesReveladas: 1,
+          cnpj: "",
+          cnpjStatus: { valido: false, mensagem: null },
+          qsaChecking: false,
+          qsaResult: null,
+          avisoAlfanumerico: false,
+          contratoSocial: null,
+          telefoneComercial: "",
+          telefoneComercialPais: "BR",
+          semTelefoneComercial: false,
+          emailOperacional: "",
+          emailComercial: "",
+          emailFinanceiro: "",
+          socios: [criarSocioWizardVazio()],
+          socioCepBuscando: null,
+          enderecoBanco: criarEnderecoBancoVazio(),
+          enderecoBancoCepBuscando: false,
+          isSubmitting: false,
+          error: null,
+          success: false,
+          precisaRevisaoManual: false,
+          duplicado: false,
+        }),
     }),
-}));
+    {
+      name: "sakura-cadastro-wizard-draft",
+      partialize: (state) => ({
+        secoesReveladas: state.secoesReveladas,
+        origem: state.origem,
+        cnpj: state.cnpj,
+        cnpjStatus: state.cnpjStatus,
+        qsaResult: state.qsaResult,
+        avisoAlfanumerico: state.avisoAlfanumerico,
+        telefoneComercial: state.telefoneComercial,
+        telefoneComercialPais: state.telefoneComercialPais,
+        semTelefoneComercial: state.semTelefoneComercial,
+        emailOperacional: state.emailOperacional,
+        emailComercial: state.emailComercial,
+        emailFinanceiro: state.emailFinanceiro,
+        // Arquivos não são serializáveis — persiste o resto do sócio e
+        // deixa os anexos nulos (usuário reanexa se restaurar o rascunho).
+        socios: state.socios.map((socio) => ({
+          ...socio,
+          rgArquivo: null,
+          procuracaoArquivo: null,
+        })),
+        enderecoBanco: state.enderecoBanco,
+      }),
+    },
+  ),
+);
