@@ -1,4 +1,6 @@
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { Building2, Users, Landmark, FileSignature, type LucideIcon } from "lucide-react";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
@@ -51,6 +53,48 @@ function formatarEndereco(endereco: {
 }): string {
   if (!endereco.logradouro) return "—";
   return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
+}
+
+// Cabeçalho de seção com ícone + rótulo na cor de marca — mesmo tratamento
+// cromático em todas as seções do dossiê (Empresa, Sócios, Endereço & Banco,
+// Contrato), seguindo a paleta do mapa-redesign-sakura.html.
+function SecaoHeader({ icon: Icon, titulo }: { icon: LucideIcon; titulo: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <Icon className="text-primary size-4" />
+      <h2 className="text-primary text-xs font-bold tracking-wide uppercase">{titulo}</h2>
+    </div>
+  );
+}
+
+// Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
+// de marca (em vez do cinza neutro anterior) e valor em destaque.
+function Campo({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-primary/70 text-[11px] font-bold tracking-wide uppercase">{label}</dt>
+      <dd className="text-foreground mt-0.5 text-sm font-medium break-words">{children}</dd>
+    </div>
+  );
+}
+
+// Referência de arquivo (contrato social, RG, procuração) em destaque —
+// mesmo tratamento de "código"/citação usado no mapa-redesign-sakura.html
+// (fundo tintado + cor de marca + monoespaçada).
+function Arquivo({ path }: { path: string }) {
+  return (
+    <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
+      {path.split("/").pop()}
+    </span>
+  );
 }
 
 const ETAPAS_PIPELINE = [
@@ -122,16 +166,61 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-5">
-        <div>
-          <h1 className="text-foreground text-lg font-semibold">{agencia.razaoSocial}</h1>
-          <p className="text-muted-foreground text-sm">{maskCnpj(agencia.cnpj)}</p>
+      <div className="border-sakura-200 from-sakura-50 flex flex-col gap-3 rounded-2xl border bg-gradient-to-br via-white to-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="from-sakura-600 to-sakura-400 bg-gradient-to-r bg-clip-text text-2xl font-bold tracking-wide text-transparent uppercase">
+            {agencia.razaoSocial}
+          </h1>
+          <div className="flex items-center gap-2">
+            <span
+              className="border-primary/30 bg-primary/10 text-primary rounded-full border border-dashed px-3 py-1 text-xs font-semibold"
+              title="Executivo — sem fonte de dado real ainda, aguardando modelagem no backend"
+            >
+              Executivo: —
+            </span>
+            <span
+              className="border-primary/30 bg-primary/10 text-primary rounded-full border border-dashed px-3 py-1 text-xs font-semibold"
+              title="Gestor — sem fonte de dado real ainda, aguardando modelagem no backend"
+            >
+              Gestor: —
+            </span>
+            <span
+              className="border-primary/30 bg-primary/10 text-primary rounded-full border border-dashed px-3 py-1 text-xs font-semibold"
+              title="Base — sem fonte de dado real ainda, aguardando modelagem no backend"
+            >
+              Base: —
+            </span>
+          </div>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-medium ${classesBadgeStatus(agencia.status)}`}
-        >
-          {labelStatus(agencia.status)}
-        </span>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-0.5 text-sm">
+            <span>
+              <span className="text-muted-foreground">E-mail:</span>{" "}
+              <span className="text-foreground font-medium">{agencia.emailContato}</span>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Telefone:</span>{" "}
+              <span className="text-foreground font-medium">
+                {dados?.empresa.telefoneComercial || "—"}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground font-medium">CNPJ:</span>
+            <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-base font-bold">
+              {maskCnpj(agencia.cnpj)}
+            </span>
+          </p>
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-medium ${classesBadgeStatus(agencia.status)}`}
+          >
+            {labelStatus(agencia.status)}
+          </span>
+        </div>
       </div>
 
       <div className="border-border bg-card rounded-2xl border p-5">
@@ -144,56 +233,26 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
         </div>
       ) : (
         <>
-          <section className="border-border bg-card rounded-2xl border p-5">
-            <h2 className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-              Empresa
-            </h2>
-            <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">E-mail de Contato</dt>
-                <dd className="text-foreground font-medium break-words">{agencia.emailContato}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Telefone Comercial</dt>
-                <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.telefoneComercial || "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">E-mail Operacional</dt>
-                <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.emailOperacional}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">E-mail Comercial</dt>
-                <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.emailComercial}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">E-mail Financeiro</dt>
-                <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.emailFinanceiro}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Contrato Social</dt>
-                <dd className="text-foreground font-medium break-words">
-                  {agencia.contratoSocialPath.split("/").pop()}
-                </dd>
-              </div>
+          <section className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
+            <SecaoHeader icon={Building2} titulo="Empresa" />
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+              <Campo label="E-mail de Contato">{agencia.emailContato}</Campo>
+              <Campo label="Telefone Comercial">{dados.empresa.telefoneComercial || "—"}</Campo>
+              <Campo label="E-mail Operacional">{dados.empresa.emailOperacional}</Campo>
+              <Campo label="E-mail Comercial">{dados.empresa.emailComercial}</Campo>
+              <Campo label="E-mail Financeiro">{dados.empresa.emailFinanceiro}</Campo>
+              <Campo label="Contrato Social">
+                <Arquivo path={agencia.contratoSocialPath} />
+              </Campo>
             </dl>
           </section>
 
-          <section className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-5">
-            <h2 className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-              Sócios
-            </h2>
+          <section className="border-border bg-card border-l-primary/60 flex flex-col gap-3 rounded-2xl border border-l-4 p-5">
+            <SecaoHeader icon={Users} titulo="Sócios" />
             {dados.socios.map((socio, index) => (
               <div
                 key={index}
-                className="border-border bg-muted/40 flex flex-col gap-1.5 rounded-xl border px-4 py-3 text-sm"
+                className="border-border bg-muted/40 flex flex-col gap-2 rounded-xl border px-4 py-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <span className="text-foreground font-semibold">{socio.nome}</span>
@@ -203,88 +262,49 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                     </span>
                   ) : null}
                 </div>
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-muted-foreground">CPF</dt>
-                    <dd className="text-foreground">{socio.cpf}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">E-mail</dt>
-                    <dd className="text-foreground break-words">{socio.email}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Telefone</dt>
-                    <dd className="text-foreground">{socio.telefone}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Estado Civil</dt>
-                    <dd className="text-foreground">{labelEstadoCivil(socio.estadoCivil)}</dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-muted-foreground">Endereço</dt>
-                    <dd className="text-foreground">{formatarEndereco(socio.endereco)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">RG/CNH</dt>
-                    <dd className="text-foreground">{socio.rgPath.split("/").pop()}</dd>
-                  </div>
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                  <Campo label="CPF">{socio.cpf}</Campo>
+                  <Campo label="E-mail">{socio.email}</Campo>
+                  <Campo label="Telefone">{socio.telefone}</Campo>
+                  <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
+                  <Campo label="Endereço" className="sm:col-span-2">
+                    {formatarEndereco(socio.endereco)}
+                  </Campo>
+                  <Campo label="RG/CNH">
+                    <Arquivo path={socio.rgPath} />
+                  </Campo>
                   {socio.procuracaoPath ? (
-                    <div>
-                      <dt className="text-muted-foreground">Procuração</dt>
-                      <dd className="text-foreground">{socio.procuracaoPath.split("/").pop()}</dd>
-                    </div>
+                    <Campo label="Procuração">
+                      <Arquivo path={socio.procuracaoPath} />
+                    </Campo>
                   ) : null}
                 </dl>
               </div>
             ))}
           </section>
 
-          <section className="border-border bg-card rounded-2xl border p-5">
-            <h2 className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-              Endereço & Banco
-            </h2>
-            <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <dt className="text-muted-foreground">Endereço da Agência</dt>
-                <dd className="text-foreground font-medium">
-                  {formatarEndereco(dados.enderecoBanco.endereco)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Banco</dt>
-                <dd className="text-foreground font-medium">
-                  {dados.enderecoBanco.bancoNome} ({labelBancoPais(dados.enderecoBanco.bancoPais)})
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Tipo de Conta</dt>
-                <dd className="text-foreground font-medium">
-                  {labelTipoConta(dados.enderecoBanco.tipoConta)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Agência</dt>
-                <dd className="text-foreground font-medium">{dados.enderecoBanco.bancoAgencia}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Conta</dt>
-                <dd className="text-foreground font-medium">{dados.enderecoBanco.bancoConta}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-muted-foreground">Favorecido</dt>
-                <dd className="text-foreground font-medium break-words">
-                  {dados.enderecoBanco.favorecidoNome} — {dados.enderecoBanco.favorecidoDoc}
-                </dd>
-              </div>
+          <section className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
+            <SecaoHeader icon={Landmark} titulo="Endereço & Banco" />
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+              <Campo label="Endereço da Agência" className="sm:col-span-2">
+                {formatarEndereco(dados.enderecoBanco.endereco)}
+              </Campo>
+              <Campo label="Banco">
+                {dados.enderecoBanco.bancoNome} ({labelBancoPais(dados.enderecoBanco.bancoPais)})
+              </Campo>
+              <Campo label="Tipo de Conta">{labelTipoConta(dados.enderecoBanco.tipoConta)}</Campo>
+              <Campo label="Agência">{dados.enderecoBanco.bancoAgencia}</Campo>
+              <Campo label="Conta">{dados.enderecoBanco.bancoConta}</Campo>
+              <Campo label="Favorecido" className="sm:col-span-2">
+                {dados.enderecoBanco.favorecidoNome} — {dados.enderecoBanco.favorecidoDoc}
+              </Campo>
             </dl>
           </section>
         </>
       )}
 
-      <section className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-5">
-        <h2 className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-          Contrato
-        </h2>
+      <section className="border-border bg-card border-l-primary/60 flex flex-col gap-3 rounded-2xl border border-l-4 p-5">
+        <SecaoHeader icon={FileSignature} titulo="Contrato" />
 
         {agencia.status === STATUS_EM_COMPLEMENTAR ? (
           <div className="flex flex-col gap-3">
