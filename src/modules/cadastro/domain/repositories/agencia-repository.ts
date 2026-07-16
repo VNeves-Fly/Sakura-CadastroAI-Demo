@@ -1,4 +1,7 @@
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
+import type { OrigemGeracaoContrato } from "@/modules/cadastro/domain/enums";
+
+export type { OrigemGeracaoContrato };
 
 // Ciclo de vida completo da agência (decisão do usuário, 2026-07-16):
 // 1. em_complementar        — IA reprovou, sem contrato ainda, analista revisa manualmente.
@@ -17,8 +20,6 @@ export const STATUS_RECUSADO = "recusado";
 // Agencia) — controla só o ciclo "gerado → assinado".
 export const CONTRATO_STATUS_AGUARDANDO_ASSINATURA = "aguardando_assinatura";
 export const CONTRATO_STATUS_ASSINADO = "assinado";
-
-export type OrigemGeracaoContrato = "ia" | "humano";
 
 export interface ContratoSignatarioData {
   nome: string;

@@ -1,0 +1,49 @@
+export interface SignatarioPadraoProps {
+  id: string;
+  nome: string | null;
+  cargo: string | null;
+  email: string | null;
+  telefone: string | null;
+  ativo: boolean;
+  ordem: number | null;
+}
+
+export class SignatarioPadrao {
+  private constructor(private readonly props: SignatarioPadraoProps) {}
+
+  static create(props: SignatarioPadraoProps): SignatarioPadrao {
+    return new SignatarioPadrao(props);
+  }
+
+  get id(): string {
+    return this.props.id;
+  }
+
+  get nome(): string | null {
+    return this.props.nome;
+  }
+
+  get cargo(): string | null {
+    return this.props.cargo;
+  }
+
+  get email(): string | null {
+    return this.props.email;
+  }
+
+  get telefone(): string | null {
+    return this.props.telefone;
+  }
+
+  get ativo(): boolean {
+    return this.props.ativo;
+  }
+
+  get ordem(): number | null {
+    return this.props.ordem;
+  }
+
+  toJSON(): SignatarioPadraoProps {
+    return { ...this.props };
+  }
+}
