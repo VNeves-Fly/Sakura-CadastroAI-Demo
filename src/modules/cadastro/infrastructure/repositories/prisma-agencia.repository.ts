@@ -1,4 +1,9 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import {
+  StatusAgencia as PrismaStatusAgencia,
+  StatusContrato as PrismaStatusContrato,
+  TipoDocumento,
+} from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import {
   CONTRATO_STATUS_ASSINADO,
@@ -11,12 +16,15 @@ import {
   type AgenciaDetalhe,
   type AgenciaRepository,
   type AnaliseContratos,
+  type CadastroComplementarDetalhe,
   type CadastrosKpis,
   type ContratoSignatarioData,
   type CreateAgenciaData,
+  type EnderecoData,
   type ListarCadastrosFiltros,
   type ListarCadastrosResult,
   type OrigemGeracaoContrato,
+  type RepresentanteLegalDetalhe,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface AgenciaRecord {
@@ -33,17 +41,109 @@ interface AgenciaRecord {
   updatedAt: Date;
 }
 
-// Contrato.signatarios é um Json solto no schema — guardamos aqui um
-// envelope { origemGeracao, lista } em vez de só o array, pra rastrear
-// quem gerou o contrato (IA ou analista) sem precisar de coluna nova.
-interface SignatariosEnvelope {
-  origemGeracao?: OrigemGeracaoContrato;
-  lista?: ContratoSignatarioData[];
+const ENDERECO_VAZIO: EnderecoData = {
+  cep: "",
+  logradouro: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+  cidade: "",
+  uf: "",
+};
+
+interface EnderecoRecord {
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
 }
 
-function extrairOrigemGeracao(signatarios: unknown): OrigemGeracaoContrato | null {
-  const envelope = signatarios as SignatariosEnvelope | null;
-  return envelope?.origemGeracao ?? null;
+function enderecoToDomain(record: EnderecoRecord | null): EnderecoData {
+  if (!record) return ENDERECO_VAZIO;
+  return {
+    cep: record.cep ?? "",
+    logradouro: record.logradouro ?? "",
+    numero: record.numero ?? "",
+    complemento: record.complemento ?? "",
+    bairro: record.bairro ?? "",
+    cidade: record.cidade ?? "",
+    uf: record.uf ?? "",
+  };
+}
+
+interface RepresentanteLegalRecord {
+  id: string;
+  nome: string;
+  cpf: string;
+  email: string;
+  telefone: string;
+  estadoCivil: string;
+  isRepresentanteLegal: boolean;
+  endereco: EnderecoRecord | null;
+  documentos: { tipo: string; gcsPath: string }[];
+}
+
+function representanteToDomain(record: RepresentanteLegalRecord): RepresentanteLegalDetalhe {
+  const rg = record.documentos.find((documento) => documento.tipo === TipoDocumento.RG_CNPJ);
+  const procuracao = record.documentos.find(
+    (documento) => documento.tipo === TipoDocumento.PROCURACAO,
+  );
+
+  return {
+    id: record.id,
+    nome: record.nome,
+    cpf: record.cpf,
+    email: record.email,
+    telefone: record.telefone,
+    estadoCivil: record.estadoCivil,
+    isRepresentanteLegal: record.isRepresentanteLegal,
+    endereco: enderecoToDomain(record.endereco),
+    rgPath: rg?.gcsPath ?? "",
+    procuracaoPath: procuracao?.gcsPath ?? null,
+  };
+}
+
+interface CadastroComplementarRecord {
+  telefoneComercial: string | null;
+  emailOperacional: string | null;
+  emailComercial: string | null;
+  emailFinanceiro: string | null;
+  enderecoAgencia: EnderecoRecord | null;
+  enderecoAgenciaMesmoTitular: boolean | null;
+  socioVinculadoEnderecoId: string | null;
+  bancoPais: string | null;
+  bancoNome: string | null;
+  bancoAgencia: string | null;
+  bancoConta: string | null;
+  bancoSwift: string | null;
+  tipoConta: string | null;
+  favorecidoEhEmpresa: boolean | null;
+  favorecidoNome: string | null;
+  favorecidoDoc: string | null;
+}
+
+function complementarToDomain(record: CadastroComplementarRecord): CadastroComplementarDetalhe {
+  return {
+    telefoneComercial: record.telefoneComercial,
+    emailOperacional: record.emailOperacional,
+    emailComercial: record.emailComercial,
+    emailFinanceiro: record.emailFinanceiro,
+    enderecoAgencia: enderecoToDomain(record.enderecoAgencia),
+    enderecoAgenciaMesmoTitular: record.enderecoAgenciaMesmoTitular,
+    socioVinculadoEnderecoId: record.socioVinculadoEnderecoId,
+    bancoPais: record.bancoPais,
+    bancoNome: record.bancoNome,
+    bancoAgencia: record.bancoAgencia,
+    bancoConta: record.bancoConta,
+    bancoSwift: record.bancoSwift,
+    tipoConta: record.tipoConta,
+    favorecidoEhEmpresa: record.favorecidoEhEmpresa,
+    favorecidoNome: record.favorecidoNome,
+    favorecidoDoc: record.favorecidoDoc,
+  };
 }
 
 export class PrismaAgenciaRepository implements AgenciaRepository {
@@ -57,63 +157,159 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   async obterDetalhe(id: string): Promise<AgenciaDetalhe | null> {
     const record = await this.prisma.agencia.findUnique({
       where: { id },
-      include: { complementar: true, contratos: { orderBy: { createdAt: "desc" } } },
+      include: {
+        complementar: { include: { enderecoAgencia: true } },
+        representantesLegais: { include: { endereco: true, documentos: true } },
+        contratos: { orderBy: { createdAt: "desc" } },
+      },
     });
 
     if (!record) return null;
 
     return {
       agencia: this.toDomain(record),
-      dadosComplementares: record.complementar?.dadosPorPasso ?? null,
+      complementar: record.complementar ? complementarToDomain(record.complementar) : null,
+      representantesLegais: record.representantesLegais.map(representanteToDomain),
       contratos: record.contratos.map((contrato) => ({
         id: contrato.id,
         provedorId: contrato.provedorId,
         status: contrato.status,
-        origemGeracao: extrairOrigemGeracao(contrato.signatarios),
+        origemGeracao: contrato.origemGeracao as OrigemGeracaoContrato,
         createdAt: contrato.createdAt,
       })),
     };
   }
 
   async create(data: CreateAgenciaData): Promise<Agencia> {
-    // Escrita aninhada do Prisma: Agencia + CadastroComplementar (+
-    // Contrato, quando a IA já aprovou) são criados numa única operação
-    // atômica, sem intervalo entre eles.
-    const record = await this.prisma.agencia.create({
-      data: {
-        razaoSocial: data.razaoSocial,
-        cnpj: data.cnpj,
-        status: data.status,
-        contratoSocialPath: data.contratoSocialPath,
-        emailContato: data.emailContato,
-        telefoneContato: data.telefoneContato,
-        origem: data.origem,
-        complementar: {
-          create: {
-            dadosPorPasso: data.dadosComplementares as object,
+    // Transação: Agencia + sócios (RepresentanteLegal) são criados
+    // primeiro pra existirem ids reais, depois CadastroComplementar (que
+    // pode referenciar um sócio via FK real) e, se a IA já aprovou, o
+    // Contrato + signatários — tudo dentro da mesma transação, sem
+    // intervalo visível entre as escritas.
+    return this.prisma.$transaction(async (tx) => {
+      const agencia = await tx.agencia.create({
+        data: {
+          razaoSocial: data.razaoSocial,
+          cnpj: data.cnpj,
+          status: data.status as PrismaStatusAgencia,
+          contratoSocialPath: data.contratoSocialPath,
+          emailContato: data.emailContato,
+          telefoneContato: data.telefoneContato,
+          origem: data.origem,
+          representantesLegais: {
+            create: data.socios.map((socio) => ({
+              nome: socio.nome,
+              cpf: socio.cpf,
+              email: socio.email,
+              telefone: socio.telefone,
+              estadoCivil: socio.estadoCivil,
+              isRepresentanteLegal: socio.isRepresentanteLegal,
+              endereco: { create: socio.endereco },
+            })),
           },
         },
-        ...(data.contrato
-          ? {
-              contratos: {
-                create: {
-                  provedorId: data.contrato.provedorId,
-                  status: data.contrato.status,
-                  signatarios: {
-                    origemGeracao: data.contrato.origemGeracao,
-                    lista: data.contrato.signatarios,
-                  } satisfies SignatariosEnvelope as object,
-                },
-              },
-            }
-          : {}),
-      },
+        include: { representantesLegais: true },
+      });
+
+      // Documento exige `agenciaId` (não só `representanteLegalId`), então
+      // não dá pra aninhar dentro do `create` de RepresentanteLegal acima
+      // (Prisma não infere FK de um relacionamento irmão dois níveis
+      // abaixo) — gravado à parte, correlacionando por CPF (único por
+      // agência) em vez de índice, já que a ordem de retorno de um nested
+      // create não é garantida.
+      const socioRecordPorCpf = new Map(
+        agencia.representantesLegais.map((record) => [record.cpf, record]),
+      );
+
+      await tx.documento.createMany({
+        data: data.socios.flatMap((socio) => {
+          const socioRecord = socioRecordPorCpf.get(socio.cpf);
+          if (!socioRecord) return [];
+
+          const documentos: {
+            agenciaId: string;
+            representanteLegalId: string;
+            tipo: TipoDocumento;
+            gcsPath: string;
+          }[] = [
+            {
+              agenciaId: agencia.id,
+              representanteLegalId: socioRecord.id,
+              tipo: TipoDocumento.RG_CNPJ,
+              gcsPath: socio.rgPath,
+            },
+          ];
+
+          if (socio.procuracaoPath) {
+            documentos.push({
+              agenciaId: agencia.id,
+              representanteLegalId: socioRecord.id,
+              tipo: TipoDocumento.PROCURACAO,
+              gcsPath: socio.procuracaoPath,
+            });
+          }
+
+          return documentos;
+        }),
+      });
+
+      const socioVinculado =
+        data.enderecoBanco.socioEnderecoVinculadoIndex !== null
+          ? data.socios[data.enderecoBanco.socioEnderecoVinculadoIndex]
+          : null;
+      const socioVinculadoId = socioVinculado
+        ? (socioRecordPorCpf.get(socioVinculado.cpf)?.id ?? null)
+        : null;
+
+      await tx.cadastroComplementar.create({
+        data: {
+          agenciaId: agencia.id,
+          telefoneComercial: data.empresa.telefoneComercial,
+          emailOperacional: data.empresa.emailOperacional,
+          emailComercial: data.empresa.emailComercial,
+          emailFinanceiro: data.empresa.emailFinanceiro,
+          enderecoAgenciaMesmoTitular: data.enderecoBanco.enderecoMesmoSocio,
+          socioVinculadoEnderecoId: socioVinculadoId,
+          enderecoAgencia: { create: data.enderecoBanco.endereco },
+          bancoPais: data.enderecoBanco.bancoPais,
+          bancoNome: data.enderecoBanco.bancoNome,
+          bancoAgencia: data.enderecoBanco.bancoAgencia,
+          bancoConta: data.enderecoBanco.bancoConta,
+          bancoSwift: data.enderecoBanco.bancoSwift,
+          tipoConta: data.enderecoBanco.tipoConta,
+          favorecidoEhEmpresa: data.enderecoBanco.favorecidoEhEmpresa,
+          favorecidoNome: data.enderecoBanco.favorecidoNome,
+          favorecidoDoc: data.enderecoBanco.favorecidoDoc,
+        },
+      });
+
+      if (data.contrato) {
+        await tx.contrato.create({
+          data: {
+            agenciaId: agencia.id,
+            provedorId: data.contrato.provedorId,
+            status: data.contrato.status as PrismaStatusContrato,
+            origemGeracao: data.contrato.origemGeracao,
+            signatarios: {
+              create: data.contrato.signatarios.map((signatario) => ({
+                nome: signatario.nome,
+                email: signatario.email,
+                cpf: signatario.cpf,
+              })),
+            },
+          },
+        });
+      }
+
+      return this.toDomain(agencia);
     });
-    return this.toDomain(record);
   }
 
   async atualizarStatus(id: string, status: string): Promise<Agencia> {
-    const record = await this.prisma.agencia.update({ where: { id }, data: { status } });
+    const record = await this.prisma.agencia.update({
+      where: { id },
+      data: { status: status as PrismaStatusAgencia },
+    });
     return this.toDomain(record);
   }
 
@@ -130,17 +326,24 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       data: {
         agenciaId,
         provedorId: data.provedorId,
-        status: data.status,
+        status: data.status as PrismaStatusContrato,
+        origemGeracao: data.origemGeracao,
         signatarios: {
-          origemGeracao: data.origemGeracao,
-          lista: data.signatarios,
-        } satisfies SignatariosEnvelope as object,
+          create: data.signatarios.map((signatario) => ({
+            nome: signatario.nome,
+            email: signatario.email,
+            cpf: signatario.cpf,
+          })),
+        },
       },
     });
   }
 
   async atualizarStatusContrato(contratoId: string, status: string): Promise<void> {
-    await this.prisma.contrato.update({ where: { id: contratoId }, data: { status } });
+    await this.prisma.contrato.update({
+      where: { id: contratoId },
+      data: { status: status as PrismaStatusContrato },
+    });
   }
 
   async listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult> {
@@ -157,7 +360,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     }
 
     if (filtros.status !== undefined) {
-      where.status = Array.isArray(filtros.status) ? { in: filtros.status } : filtros.status;
+      where.status = Array.isArray(filtros.status)
+        ? { in: filtros.status as PrismaStatusAgencia[] }
+        : (filtros.status as PrismaStatusAgencia);
     }
 
     const [records, total] = await Promise.all([
@@ -172,7 +377,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return {
       items: records.map((record) => ({
         agencia: this.toDomain(record),
-        origemContratoAtual: extrairOrigemGeracao(record.contratos[0]?.signatarios ?? null),
+        origemContratoAtual: (record.contratos[0]?.origemGeracao as OrigemGeracaoContrato) ?? null,
       })),
       total,
     };
@@ -187,12 +392,20 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       ativas,
       recusadas,
     ] = await Promise.all([
-      this.prisma.agencia.count({ where: { status: STATUS_EM_COMPLEMENTAR } }),
-      this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_ASSINATURA } }),
-      this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_VALIDACAO } }),
-      this.prisma.agencia.count({ where: { status: STATUS_AGUARDANDO_ATIVACAO } }),
-      this.prisma.agencia.count({ where: { status: STATUS_ATIVO } }),
-      this.prisma.agencia.count({ where: { status: STATUS_RECUSADO } }),
+      this.prisma.agencia.count({
+        where: { status: STATUS_EM_COMPLEMENTAR as PrismaStatusAgencia },
+      }),
+      this.prisma.agencia.count({
+        where: { status: STATUS_AGUARDANDO_ASSINATURA as PrismaStatusAgencia },
+      }),
+      this.prisma.agencia.count({
+        where: { status: STATUS_AGUARDANDO_VALIDACAO as PrismaStatusAgencia },
+      }),
+      this.prisma.agencia.count({
+        where: { status: STATUS_AGUARDANDO_ATIVACAO as PrismaStatusAgencia },
+      }),
+      this.prisma.agencia.count({ where: { status: STATUS_ATIVO as PrismaStatusAgencia } }),
+      this.prisma.agencia.count({ where: { status: STATUS_RECUSADO as PrismaStatusAgencia } }),
     ]);
 
     return {
@@ -212,7 +425,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
 
     const contratos = await this.prisma.contrato.findMany({
       where: { createdAt: { gte: desde } },
-      select: { status: true, signatarios: true, createdAt: true },
+      select: { status: true, origemGeracao: true, createdAt: true },
     });
 
     const porOrigem = { ia: 0, humano: 0 };
@@ -226,9 +439,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     }
 
     for (const contrato of contratos) {
-      const origem = extrairOrigemGeracao(contrato.signatarios);
-      if (origem === "ia") porOrigem.ia += 1;
-      if (origem === "humano") porOrigem.humano += 1;
+      if (contrato.origemGeracao === "ia") porOrigem.ia += 1;
+      if (contrato.origemGeracao === "humano") porOrigem.humano += 1;
 
       const chave = `${String(contrato.createdAt.getDate()).padStart(2, "0")}/${String(contrato.createdAt.getMonth() + 1).padStart(2, "0")}`;
       const balde = porDiaMap.get(chave);

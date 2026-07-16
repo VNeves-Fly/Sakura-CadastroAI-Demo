@@ -7,7 +7,6 @@ import {
   TIPO_CONTA_OPCOES,
   BANCO_PAIS_OPCOES,
 } from "@/modules/cadastro/types/endereco-banco.types";
-import { parseDadosComplementares } from "@/modules/admin/types/detalhe-agencia.types";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -116,8 +115,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
     notFound();
   }
 
-  const { agencia, dadosComplementares, contratos } = detalhe;
-  const dados = parseDadosComplementares(dadosComplementares);
+  const { agencia, complementar, representantesLegais, contratos } = detalhe;
   const contratoAtual = contratos[0] ?? null;
 
   return (
@@ -138,7 +136,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
         <TrilhaProgresso status={agencia.status} temContrato={contratoAtual !== null} />
       </div>
 
-      {!dados ? (
+      {!complementar ? (
         <div className="border-border bg-card text-muted-foreground rounded-2xl border p-6 text-sm">
           Dados complementares não encontrados pra esta agência.
         </div>
@@ -156,25 +154,25 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
               <div>
                 <dt className="text-muted-foreground">Telefone Comercial</dt>
                 <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.telefoneComercial || "—"}
+                  {complementar.telefoneComercial || "—"}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">E-mail Operacional</dt>
                 <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.emailOperacional}
+                  {complementar.emailOperacional}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">E-mail Comercial</dt>
                 <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.emailComercial}
+                  {complementar.emailComercial}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">E-mail Financeiro</dt>
                 <dd className="text-foreground font-medium break-words">
-                  {dados.empresa.emailFinanceiro}
+                  {complementar.emailFinanceiro}
                 </dd>
               </div>
               <div>
@@ -190,14 +188,14 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
             <h2 className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
               Sócios
             </h2>
-            {dados.socios.map((socio, index) => (
+            {representantesLegais.map((socio) => (
               <div
-                key={index}
+                key={socio.id}
                 className="border-border bg-muted/40 flex flex-col gap-1.5 rounded-xl border px-4 py-3 text-sm"
               >
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <span className="text-foreground font-semibold">{socio.nome}</span>
-                  {socio.isRepresentante ? (
+                  {socio.isRepresentanteLegal ? (
                     <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
                       Representante legal
                     </span>
@@ -247,33 +245,33 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground">Endereço da Agência</dt>
                 <dd className="text-foreground font-medium">
-                  {formatarEndereco(dados.enderecoBanco.endereco)}
+                  {formatarEndereco(complementar.enderecoAgencia)}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Banco</dt>
                 <dd className="text-foreground font-medium">
-                  {dados.enderecoBanco.bancoNome} ({labelBancoPais(dados.enderecoBanco.bancoPais)})
+                  {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Tipo de Conta</dt>
                 <dd className="text-foreground font-medium">
-                  {labelTipoConta(dados.enderecoBanco.tipoConta)}
+                  {labelTipoConta(complementar.tipoConta ?? "")}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Agência</dt>
-                <dd className="text-foreground font-medium">{dados.enderecoBanco.bancoAgencia}</dd>
+                <dd className="text-foreground font-medium">{complementar.bancoAgencia}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Conta</dt>
-                <dd className="text-foreground font-medium">{dados.enderecoBanco.bancoConta}</dd>
+                <dd className="text-foreground font-medium">{complementar.bancoConta}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground">Favorecido</dt>
                 <dd className="text-foreground font-medium break-words">
-                  {dados.enderecoBanco.favorecidoNome} — {dados.enderecoBanco.favorecidoDoc}
+                  {complementar.favorecidoNome} — {complementar.favorecidoDoc}
                 </dd>
               </div>
             </dl>

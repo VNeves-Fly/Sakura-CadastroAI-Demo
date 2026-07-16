@@ -8,22 +8,6 @@ import {
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 
-interface DadosComplementaresSocio {
-  nome: string;
-  email: string;
-  cpf: string;
-}
-
-function extrairSocios(dadosComplementares: unknown): DadosComplementaresSocio[] {
-  const socios = (dadosComplementares as { socios?: unknown } | null)?.socios;
-  if (!Array.isArray(socios)) return [];
-
-  return socios.map((socio) => {
-    const item = socio as Partial<DadosComplementaresSocio>;
-    return { nome: item.nome ?? "", email: item.email ?? "", cpf: item.cpf ?? "" };
-  });
-}
-
 // Ação do analista: um caso que a IA mandou pra fila "em_complementar"
 // (algo pareceu errado) foi revisado manualmente e está tudo certo —
 // aprova na mão, gera e envia o contrato (mesma integração D4Sign do
@@ -45,7 +29,11 @@ export class AprovarCadastroComplementarUseCase implements UseCase<string, Agenc
       throw new ConflictError("Este cadastro não está na fila de complementar.");
     }
 
-    const signatarios = extrairSocios(detalhe.dadosComplementares);
+    const signatarios = detalhe.representantesLegais.map((socio) => ({
+      nome: socio.nome,
+      email: socio.email,
+      cpf: socio.cpf,
+    }));
 
     const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
       cnpj: detalhe.agencia.cnpj,
