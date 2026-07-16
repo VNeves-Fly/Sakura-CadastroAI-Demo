@@ -1,19 +1,17 @@
 "use client";
 
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
-import { validarEmail } from "@/modules/shared/utils/email.util";
-import {
-  PAISES_TELEFONE,
-  paisTelefonePorCodigo,
-  validarTelefone,
-} from "@/modules/shared/utils/telefone.util";
-import { validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
+import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
-import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
+import type {
+  SocioWizardFormValues,
+  SocioWizardValidacao,
+} from "@/modules/cadastro/types/socio-wizard.types";
 
 interface SocioWizardCardProps {
   index: number;
   socio: SocioWizardFormValues;
+  validacao: SocioWizardValidacao;
   podeRemover: boolean;
   cepBuscando: boolean;
   onUpdate: (patch: Partial<SocioWizardFormValues>) => void;
@@ -28,6 +26,7 @@ const INPUT_CLASSNAME =
 export function SocioWizardCard({
   index,
   socio,
+  validacao,
   podeRemover,
   cepBuscando,
   onUpdate,
@@ -36,10 +35,7 @@ export function SocioWizardCard({
   onBuscarCep,
 }: SocioWizardCardProps) {
   const numero = String(index + 1).padStart(2, "0");
-  const cpfStatus = validarCpfComMensagem(socio.cpf);
-  const emailInvalido = socio.email.length > 0 && !validarEmail(socio.email);
-  const telefoneInvalido =
-    socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais);
+  const { cpfStatus, emailInvalido, telefoneInvalido, rgErro, procuracaoErro } = validacao;
   const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
 
   return (
@@ -254,6 +250,7 @@ export function SocioWizardCard({
         label="RG ou CNH"
         accept=".pdf,.jpg,.jpeg,.png"
         file={socio.rgArquivo}
+        erro={rgErro}
         onChange={(file) => onUpdate({ rgArquivo: file })}
         helperText="Foto ou PDF do documento"
         required
@@ -269,6 +266,7 @@ export function SocioWizardCard({
           label="Procuração Válida"
           accept=".pdf,.jpg,.jpeg,.png"
           file={socio.procuracaoArquivo}
+          erro={procuracaoErro}
           onChange={(file) => onUpdate({ procuracaoArquivo: file })}
           helperText="Analisada por IA no envio final"
           required

@@ -3,14 +3,26 @@
 import { SocioWizardCard } from "@/modules/cadastro/components/socio-wizard-card";
 import { PersonPlusIcon } from "@/modules/cadastro/components/icons";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import type { SocioWizardValidacao } from "@/modules/cadastro/types/socio-wizard.types";
 
 type Passo5SociosProps = ReturnType<typeof useCadastroWizardViewModel>;
+
+// sociosValidacao é sempre calculado a partir do mesmo array de socios
+// (mesmo tamanho); o fallback só existe pra satisfazer o tipo.
+const VALIDACAO_VAZIA: SocioWizardValidacao = {
+  cpfStatus: { valido: false, mensagem: null },
+  emailInvalido: false,
+  telefoneInvalido: false,
+  rgErro: null,
+  procuracaoErro: null,
+};
 
 // Componente apenas de renderização: recebe estado e callbacks do
 // ViewModel do wizard via props. Sócios vêm pré-preenchidos do QSA
 // (Seção Empresa); o representante é só um sócio com a flag marcada.
 export function Passo5Socios({
   socios,
+  sociosValidacao,
   socioCepBuscando,
   addSocio,
   removeSocio,
@@ -40,6 +52,7 @@ export function Passo5Socios({
           key={index}
           index={index}
           socio={socio}
+          validacao={sociosValidacao[index] ?? VALIDACAO_VAZIA}
           podeRemover={socios.length > 1}
           cepBuscando={socioCepBuscando === index}
           onUpdate={(patch) => updateSocio(index, patch)}

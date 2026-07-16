@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  PAISES_TELEFONE,
-  paisTelefonePorCodigo,
-  validarTelefone,
-} from "@/modules/shared/utils/telefone.util";
-import { validarEmail } from "@/modules/shared/utils/email.util";
+import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
 type Passo2EmpresaProps = ReturnType<typeof useCadastroWizardViewModel>;
@@ -20,9 +15,13 @@ export function Passo2Empresa({
   telefoneComercial,
   telefoneComercialPais,
   semTelefoneComercial,
+  telefoneComercialInvalido,
   emailOperacional,
   emailComercial,
   emailFinanceiro,
+  emailOperacionalInvalido,
+  emailComercialInvalido,
+  emailFinanceiroInvalido,
   setTelefoneComercial,
   setTelefoneComercialPais,
   setSemTelefoneComercial,
@@ -32,11 +31,6 @@ export function Passo2Empresa({
   usarEmailOperacionalParaTodos,
 }: Passo2EmpresaProps) {
   const paisTelefone = paisTelefonePorCodigo(telefoneComercialPais);
-  const telefoneInvalido =
-    telefoneComercial.length > 0 && !validarTelefone(telefoneComercial, telefoneComercialPais);
-  const emailOperacionalInvalido = emailOperacional.length > 0 && !validarEmail(emailOperacional);
-  const emailComercialInvalido = emailComercial.length > 0 && !validarEmail(emailComercial);
-  const emailFinanceiroInvalido = emailFinanceiro.length > 0 && !validarEmail(emailFinanceiro);
 
   return (
     <div className="flex flex-col gap-5">
@@ -68,7 +62,7 @@ export function Passo2Empresa({
             placeholder={paisTelefone.placeholder}
           />
         </div>
-        {telefoneInvalido ? (
+        {telefoneComercialInvalido ? (
           <span className="text-destructive text-xs font-medium">
             Telefone incompleto para {paisTelefone.nome}.
           </span>

@@ -13,6 +13,7 @@ export function Passo1Documentos({
   qsaChecking,
   avisoAlfanumerico,
   contratoSocial,
+  contratoSocialErro,
   setContratoSocial,
   setCnpj,
 }: Passo1DocumentosProps) {
@@ -53,6 +54,7 @@ export function Passo1Documentos({
         label="Contrato Social da Empresa"
         accept=".pdf,.jpg,.jpeg,.png"
         file={contratoSocial}
+        erro={contratoSocialErro}
         onChange={setContratoSocial}
         helperText="Clique para anexar o PDF do contrato social atualizado"
         required

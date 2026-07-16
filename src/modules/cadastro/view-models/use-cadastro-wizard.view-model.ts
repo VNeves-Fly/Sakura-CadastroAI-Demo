@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   useCadastroWizardStore,
   TOTAL_ETAPAS,
 } from "@/modules/cadastro/stores/cadastro-wizard.store";
 import { agenciaAdapter } from "@/modules/cadastro/adapters/agencia.adapter";
+import { cepAdapter } from "@/modules/cadastro/adapters/cep.adapter";
 import { agenciaService } from "@/modules/cadastro/services/agencia.service";
 import {
   isCnpjAlfanumerico,
@@ -13,9 +14,11 @@ import {
   unmaskCnpj,
   validarCnpjComMensagem,
 } from "@/modules/cadastro/utils/cnpj.util";
-import { maskTelefone } from "@/modules/shared/utils/telefone.util";
-import { maskCpf } from "@/modules/cadastro/utils/cpf.util";
-import { maskCep, unmaskCep } from "@/modules/cadastro/utils/cep.util";
+import { maskTelefone, validarTelefone } from "@/modules/shared/utils/telefone.util";
+import { validarEmail } from "@/modules/shared/utils/email.util";
+import { maskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
+import { maskCep } from "@/modules/cadastro/utils/cep.util";
+import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import { cepService } from "@/modules/cadastro/services/cep.service";
 import { criarSocioWizardVazio } from "@/modules/cadastro/types/socio-wizard.types";
 import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
@@ -52,7 +55,15 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setQsaChecking = useCadastroWizardStore((state) => state.setQsaChecking);
   const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
-  const setContratoSocial = useCadastroWizardStore((state) => state.setContratoSocial);
+  const setContratoSocialRaw = useCadastroWizardStore((state) => state.setContratoSocial);
+
+  // Erros de validação de arquivo (regra em arquivo-upload.util.ts,
+  // compartilhada com a validação real do backend) — vivem aqui, não nos
+  // componentes de upload, que só exibem o que o ViewModel decidir.
+  const [contratoSocialErro, setContratoSocialErro] = useState<string | null>(null);
+  const [sociosArquivoErros, setSociosArquivoErros] = useState<
+    Record<number, { rg: string | null; procuracao: string | null }>
+  >({});
 
   const telefoneComercial = useCadastroWizardStore((state) => state.telefoneComercial);
   const telefoneComercialPais = useCadastroWizardStore((state) => state.telefoneComercialPais);
@@ -124,7 +135,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   }, [qsaResult]);
 
   async function consultarQsaSeCompleto(cnpjMascarado: string) {
-    const cnpjLimpo = unmaskCnpj(cnpjMascarado);
+    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
 
     if (cnpjLimpo.length < 14) {
       setQsaResult(null);
@@ -151,6 +162,20 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     } finally {
       setQsaChecking(false);
     }
+  }
+
+  // Valida antes de aceitar o arquivo (mesma regra que o backend reaplica
+  // na rota) — a View só recebe o resultado já decidido, nunca a regra em si.
+  function setContratoSocial(file: File | null) {
+    if (!file) {
+      setContratoSocialErro(null);
+      setContratoSocialRaw(null);
+      return;
+    }
+
+    const erro = validarArquivoUpload(file, "Contrato Social");
+    setContratoSocialErro(erro);
+    setContratoSocialRaw(erro ? null : file);
   }
 
   function setCnpj(valorDigitado: string) {
@@ -180,25 +205,53 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
   function removeSocio(index: number) {
     setSocios(socios.filter((_, i) => i !== index));
+    // Índices deslocam depois da remoção — mais simples limpar os erros de
+    // arquivo do que tentar realinhar o mapa (reaparecem se o usuário
+    // reanexar um arquivo inválido).
+    setSociosArquivoErros({});
   }
 
   function updateSocio(index: number, patch: Partial<SocioWizardFormValues>) {
+    const patchValidado = { ...patch };
+
+    const SEM_ERRO_ARQUIVO = { rg: null, procuracao: null };
+
+    if ("rgArquivo" in patch) {
+      const arquivo = patch.rgArquivo ?? null;
+      const erro = arquivo ? validarArquivoUpload(arquivo, "RG ou CNH") : null;
+      setSociosArquivoErros((atual) => ({
+        ...atual,
+        [index]: { ...(atual[index] ?? SEM_ERRO_ARQUIVO), rg: erro },
+      }));
+      patchValidado.rgArquivo = erro ? null : arquivo;
+    }
+
+    if ("procuracaoArquivo" in patch) {
+      const arquivo = patch.procuracaoArquivo ?? null;
+      const erro = arquivo ? validarArquivoUpload(arquivo, "Procuração") : null;
+      setSociosArquivoErros((atual) => ({
+        ...atual,
+        [index]: { ...(atual[index] ?? SEM_ERRO_ARQUIVO), procuracao: erro },
+      }));
+      patchValidado.procuracaoArquivo = erro ? null : arquivo;
+    }
+
     setSocios(
       socios.map((socio, i) => {
         if (i !== index) return socio;
-        const atualizado = { ...socio, ...patch };
+        const atualizado = { ...socio, ...patchValidado };
 
-        if ("cpf" in patch && patch.cpf !== undefined) {
-          atualizado.cpf = maskCpf(patch.cpf);
+        if ("cpf" in patchValidado && patchValidado.cpf !== undefined) {
+          atualizado.cpf = maskCpf(patchValidado.cpf);
         }
-        if ("telefone" in patch && patch.telefone !== undefined) {
-          atualizado.telefone = maskTelefone(patch.telefone, atualizado.telefonePais);
+        if ("telefone" in patchValidado && patchValidado.telefone !== undefined) {
+          atualizado.telefone = maskTelefone(patchValidado.telefone, atualizado.telefonePais);
         }
-        if ("telefonePais" in patch && patch.telefonePais !== undefined) {
-          atualizado.telefone = maskTelefone(atualizado.telefone, patch.telefonePais);
+        if ("telefonePais" in patchValidado && patchValidado.telefonePais !== undefined) {
+          atualizado.telefone = maskTelefone(atualizado.telefone, patchValidado.telefonePais);
         }
-        if ("cep" in patch && patch.cep !== undefined) {
-          atualizado.cep = maskCep(patch.cep);
+        if ("cep" in patchValidado && patchValidado.cep !== undefined) {
+          atualizado.cep = maskCep(patchValidado.cep);
         }
 
         return atualizado;
@@ -219,13 +272,14 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     const socio = socios[index];
     if (!socio) return;
 
-    const cepLimpo = unmaskCep(socio.cep);
+    const cepLimpo = cepAdapter.toBuscaCepInput(socio.cep);
     if (cepLimpo.length !== 8) return;
 
     setSocioCepBuscando(index);
 
     try {
-      const endereco = await cepService.buscar(cepLimpo);
+      const raw = await cepService.buscar(cepLimpo);
+      const endereco = cepAdapter.toEnderecoView(raw);
 
       if (endereco) {
         updateSocio(index, {
@@ -301,13 +355,14 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   }
 
   async function buscarCepEnderecoBanco() {
-    const cepLimpo = unmaskCep(enderecoBanco.cep);
+    const cepLimpo = cepAdapter.toBuscaCepInput(enderecoBanco.cep);
     if (cepLimpo.length !== 8) return;
 
     setEnderecoBancoCepBuscando(true);
 
     try {
-      const endereco = await cepService.buscar(cepLimpo);
+      const raw = await cepService.buscar(cepLimpo);
+      const endereco = cepAdapter.toEnderecoView(raw);
 
       if (endereco) {
         updateEnderecoBanco({
@@ -321,6 +376,23 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       setEnderecoBancoCepBuscando(false);
     }
   }
+
+  // Validação de campo é decidida aqui (única fonte de verdade), nunca
+  // pelos componentes de apresentação — eles só recebem o resultado.
+  const telefoneComercialInvalido =
+    telefoneComercial.length > 0 && !validarTelefone(telefoneComercial, telefoneComercialPais);
+  const emailOperacionalInvalido = emailOperacional.length > 0 && !validarEmail(emailOperacional);
+  const emailComercialInvalido = emailComercial.length > 0 && !validarEmail(emailComercial);
+  const emailFinanceiroInvalido = emailFinanceiro.length > 0 && !validarEmail(emailFinanceiro);
+
+  const sociosValidacao = socios.map((socio, index) => ({
+    cpfStatus: validarCpfComMensagem(socio.cpf),
+    emailInvalido: socio.email.length > 0 && !validarEmail(socio.email),
+    telefoneInvalido:
+      socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais),
+    rgErro: sociosArquivoErros[index]?.rg ?? null,
+    procuracaoErro: sociosArquivoErros[index]?.procuracao ?? null,
+  }));
 
   const documentosPendentes: string[] = [];
   if (!contratoSocial) documentosPendentes.push("Contrato Social da empresa");
@@ -393,15 +465,20 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     qsaResult,
     avisoAlfanumerico,
     contratoSocial,
+    contratoSocialErro,
     setCnpj,
     setContratoSocial,
 
     telefoneComercial,
     telefoneComercialPais,
     semTelefoneComercial,
+    telefoneComercialInvalido,
     emailOperacional,
     emailComercial,
     emailFinanceiro,
+    emailOperacionalInvalido,
+    emailComercialInvalido,
+    emailFinanceiroInvalido,
     setTelefoneComercial,
     setTelefoneComercialPais,
     setSemTelefoneComercial,
@@ -411,6 +488,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     usarEmailOperacionalParaTodos,
 
     socios,
+    sociosValidacao,
     socioCepBuscando,
     addSocio,
     removeSocio,

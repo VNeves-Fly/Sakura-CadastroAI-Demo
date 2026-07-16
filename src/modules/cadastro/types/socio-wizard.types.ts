@@ -1,3 +1,5 @@
+import type { validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
+
 export const ESTADO_CIVIL_OPCOES = [
   { valor: "solteiro", label: "Solteiro(a)" },
   { valor: "casado", label: "Casado(a)" },
@@ -25,6 +27,16 @@ export interface SocioWizardFormValues {
   rgArquivo: File | null;
   isRepresentante: boolean;
   procuracaoArquivo: File | null;
+}
+
+// Resultado de validação de um sócio — calculado no ViewModel (única
+// fonte de verdade), consumido pelo SocioWizardCard só pra exibir.
+export interface SocioWizardValidacao {
+  cpfStatus: ReturnType<typeof validarCpfComMensagem>;
+  emailInvalido: boolean;
+  telefoneInvalido: boolean;
+  rgErro: string | null;
+  procuracaoErro: string | null;
 }
 
 export function criarSocioWizardVazio(nome = ""): SocioWizardFormValues {
