@@ -332,6 +332,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       origem,
       telefoneComercial,
       telefoneComercialPais,
+      semTelefoneComercial,
       emailOperacional,
       emailComercial,
       emailFinanceiro,
@@ -339,22 +340,26 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       enderecoBanco,
     });
 
-    const raw = await agenciaService.criarAgencia(formData);
-    const resultado = agenciaAdapter.toSubmitResultView(raw);
+    try {
+      const raw = await agenciaService.criarAgencia(formData);
+      const resultado = agenciaAdapter.toSubmitResultView(raw);
 
-    setSubmitting(false);
+      if (resultado.success) {
+        setSubmitSuccess(true);
+        return;
+      }
 
-    if (resultado.success) {
-      setSubmitSuccess(true);
-      return;
+      if (resultado.duplicado) {
+        setSubmitDuplicado(true);
+        return;
+      }
+
+      setSubmitError(resultado.error ?? "Não foi possível enviar o cadastro.");
+    } catch {
+      setSubmitError("Falha de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setSubmitting(false);
     }
-
-    if (resultado.duplicado) {
-      setSubmitDuplicado(true);
-      return;
-    }
-
-    setSubmitError(resultado.error ?? "Não foi possível enviar o cadastro.");
   }
 
   return {

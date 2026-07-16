@@ -36,6 +36,7 @@ export const agenciaAdapter = {
     origem: string | null;
     telefoneComercial: string;
     telefoneComercialPais: string;
+    semTelefoneComercial: boolean;
     emailOperacional: string;
     emailComercial: string;
     emailFinanceiro: string;
@@ -53,6 +54,7 @@ export const agenciaAdapter = {
       "telefoneComercial",
       telefoneComDdi(params.telefoneComercial, params.telefoneComercialPais),
     );
+    formData.set("semTelefoneComercial", String(params.semTelefoneComercial));
     formData.set("emailOperacional", params.emailOperacional);
     formData.set("emailComercial", params.emailComercial);
     formData.set("emailFinanceiro", params.emailFinanceiro);

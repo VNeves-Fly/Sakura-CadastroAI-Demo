@@ -41,7 +41,10 @@ export function Passo2Empresa({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-bold text-foreground">Telefone Comercial</label>
+        <label className="text-sm font-bold text-foreground">
+          Telefone Comercial
+          {semTelefoneComercial ? null : <span className="text-destructive"> *</span>}
+        </label>
         <div className="flex gap-2">
           <select
             value={telefoneComercialPais}
@@ -96,7 +99,7 @@ export function Passo2Empresa({
 
         <div className="flex flex-col gap-1">
           <label className="text-sm font-bold text-foreground">
-            E-mail responsável operacional
+            E-mail responsável operacional<span className="text-destructive"> *</span>
           </label>
           <input
             type="email"
@@ -111,7 +114,9 @@ export function Passo2Empresa({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-foreground">E-mail setor comercial</label>
+          <label className="text-sm font-bold text-foreground">
+            E-mail setor comercial<span className="text-destructive"> *</span>
+          </label>
           <input
             type="email"
             value={emailComercial}
@@ -125,7 +130,9 @@ export function Passo2Empresa({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-foreground">E-mail setor financeiro</label>
+          <label className="text-sm font-bold text-foreground">
+            E-mail setor financeiro<span className="text-destructive"> *</span>
+          </label>
           <input
             type="email"
             value={emailFinanceiro}

@@ -88,7 +88,9 @@ export function Passo6EnderecoBanco({
       {enderecoManual ? (
         <>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-bold text-foreground">CEP</label>
+            <label className="text-sm font-bold text-foreground">
+              CEP<span className="text-destructive"> *</span>
+            </label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -122,7 +124,9 @@ export function Passo6EnderecoBanco({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground">Número</label>
+              <label className="text-sm font-medium text-foreground">
+                Número<span className="text-destructive"> *</span>
+              </label>
               <input
                 type="text"
                 value={enderecoBanco.numero}
@@ -140,7 +144,9 @@ export function Passo6EnderecoBanco({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground">Bairro</label>
+              <label className="text-sm font-medium text-foreground">
+                Bairro<span className="text-destructive"> *</span>
+              </label>
               <input
                 type="text"
                 value={enderecoBanco.bairro}

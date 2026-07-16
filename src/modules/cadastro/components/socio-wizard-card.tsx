@@ -167,7 +167,9 @@ export function SocioWizardCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold uppercase tracking-wide text-foreground">CEP</label>
+        <label className="text-xs font-bold uppercase tracking-wide text-foreground">
+          CEP<span className="text-destructive"> *</span>
+        </label>
         <div className="flex gap-2">
           <input
             type="text"
@@ -202,7 +204,7 @@ export function SocioWizardCard({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold uppercase tracking-wide text-foreground">
-            Número
+            Número<span className="text-destructive"> *</span>
           </label>
           <input
             type="text"
@@ -213,7 +215,7 @@ export function SocioWizardCard({
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold uppercase tracking-wide text-foreground">
-            Bairro
+            Bairro<span className="text-destructive"> *</span>
           </label>
           <input
             type="text"

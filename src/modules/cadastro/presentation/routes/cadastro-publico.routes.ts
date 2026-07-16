@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { httpCreated, httpError, httpOk } from "@/modules/shared/presentation/http-response";
 import { ConflictError, DomainError, NotFoundError } from "@/modules/shared/domain/errors";
 import { cadastroPublicoController } from "@/modules/cadastro/presentation/controllers/cadastro-publico.controller";
 import { finalizarCadastroMetaSchema } from "@/modules/cadastro/application/dto/finalizar-cadastro.schema";
+import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import type { UploadedFileInput } from "@/modules/cadastro/application/dto/finalizar-cadastro.dto";
 
 function mapErrorToResponse(error: unknown) {
@@ -37,6 +37,7 @@ export async function createAgenciaRoute(request: Request) {
       cnpj: formData.get("cnpj"),
       origem: typeof origemRaw === "string" && origemRaw.length > 0 ? origemRaw : undefined,
       telefoneComercial: formData.get("telefoneComercial") ?? "",
+      semTelefoneComercial: formData.get("semTelefoneComercial") === "true",
       emailOperacional: formData.get("emailOperacional") ?? "",
       emailComercial: formData.get("emailComercial") ?? "",
       emailFinanceiro: formData.get("emailFinanceiro") ?? "",
@@ -45,13 +46,19 @@ export async function createAgenciaRoute(request: Request) {
     });
 
     if (!parsedMeta.success) {
-      return NextResponse.json({ error: parsedMeta.error.flatten() }, { status: 422 });
+      const mensagens = [...new Set(parsedMeta.error.issues.map((issue) => issue.message))];
+      return httpError(mensagens.join(" ") || "Dados inválidos.", 422);
     }
 
     const contratoSocialFile = formData.get("contratoSocial");
 
     if (!(contratoSocialFile instanceof File)) {
       return httpError("Contrato social é obrigatório.", 422);
+    }
+
+    const erroContratoSocial = validarArquivoUpload(contratoSocialFile, "Contrato Social");
+    if (erroContratoSocial) {
+      return httpError(erroContratoSocial, 422);
     }
 
     const socios = await Promise.all(
@@ -62,10 +69,25 @@ export async function createAgenciaRoute(request: Request) {
           throw new DomainError(`RG ou CNH do sócio ${index + 1} é obrigatório.`);
         }
 
+        const erroRg = validarArquivoUpload(rgFile, `RG ou CNH do sócio ${index + 1}`);
+        if (erroRg) {
+          throw new DomainError(erroRg);
+        }
+
         const procuracaoFile = formData.get(`socio-${index}-procuracao`);
 
         if (socioMetaItem.isRepresentante && !(procuracaoFile instanceof File)) {
           throw new DomainError(`Procuração do sócio ${index + 1} (representante) é obrigatória.`);
+        }
+
+        if (procuracaoFile instanceof File) {
+          const erroProcuracao = validarArquivoUpload(
+            procuracaoFile,
+            `Procuração do sócio ${index + 1}`,
+          );
+          if (erroProcuracao) {
+            throw new DomainError(erroProcuracao);
+          }
         }
 
         return {
