@@ -9,6 +9,7 @@ export interface QsaResultView {
 
 export interface SubmitResultView {
   success: boolean;
+  precisaRevisaoManual?: boolean;
   duplicado?: boolean;
   agenciaId?: string;
   error?: string;

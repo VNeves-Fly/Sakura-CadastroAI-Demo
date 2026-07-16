@@ -87,10 +87,14 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const isSubmitting = useCadastroWizardStore((state) => state.isSubmitting);
   const submitError = useCadastroWizardStore((state) => state.error);
   const submitSuccess = useCadastroWizardStore((state) => state.success);
+  const submitPrecisaRevisaoManual = useCadastroWizardStore((state) => state.precisaRevisaoManual);
   const submitDuplicado = useCadastroWizardStore((state) => state.duplicado);
   const setSubmitting = useCadastroWizardStore((state) => state.setSubmitting);
   const setSubmitError = useCadastroWizardStore((state) => state.setError);
   const setSubmitSuccess = useCadastroWizardStore((state) => state.setSuccess);
+  const setSubmitPrecisaRevisaoManual = useCadastroWizardStore(
+    (state) => state.setPrecisaRevisaoManual,
+  );
   const setSubmitDuplicado = useCadastroWizardStore((state) => state.setDuplicado);
 
   useEffect(() => {
@@ -345,6 +349,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       const resultado = agenciaAdapter.toSubmitResultView(raw);
 
       if (resultado.success) {
+        setSubmitPrecisaRevisaoManual(Boolean(resultado.precisaRevisaoManual));
         setSubmitSuccess(true);
         return;
       }
@@ -408,6 +413,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     isSubmitting,
     submitError,
     submitSuccess,
+    submitPrecisaRevisaoManual,
     submitDuplicado,
     submit,
   };

@@ -17,12 +17,12 @@ export function Passo7Revisao(wizard: Passo7RevisaoProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-muted-foreground text-sm">
         Confira se todos os documentos foram anexados antes de gerar o contrato.
       </p>
 
       {documentosPendentes.length > 0 ? (
-        <div className="rounded-xl bg-warning/15 px-4 py-3 text-sm text-warning">
+        <div className="bg-warning/15 text-warning rounded-xl px-4 py-3 text-sm">
           <p className="font-semibold">Documentos pendentes:</p>
           <ul className="mt-1 list-disc pl-5">
             {documentosPendentes.map((documento) => (
@@ -31,7 +31,7 @@ export function Passo7Revisao(wizard: Passo7RevisaoProps) {
           </ul>
         </div>
       ) : (
-        <div className="rounded-xl bg-success/15 px-4 py-3 text-sm font-medium text-success">
+        <div className="bg-success/15 text-success rounded-xl px-4 py-3 text-sm font-medium">
           ✓ Todos os documentos foram anexados.
         </div>
       )}
@@ -40,10 +40,10 @@ export function Passo7Revisao(wizard: Passo7RevisaoProps) {
         type="button"
         onClick={() => setModalAberto(true)}
         disabled={documentosPendentes.length > 0 || isSubmitting}
-        className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-sakura-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="bg-primary text-primary-foreground hover:bg-sakura-600 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
       >
         <BriefcaseIcon />
-        Revisar e Criar Contrato
+        Revisar e Enviar Cadastro
       </button>
 
       <RevisaoContratoModal

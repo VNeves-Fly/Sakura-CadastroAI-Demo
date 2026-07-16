@@ -1,9 +1,14 @@
 import type { UseCase } from "@/modules/shared/application/use-case";
 import { ConflictError } from "@/modules/shared/domain/errors";
-import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
+import {
+  STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_EM_COMPLEMENTAR,
+  type AgenciaRepository,
+} from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
+import type { AnaliseIaService } from "@/modules/cadastro/domain/services/analise-ia-service";
 import type {
   FinalizarCadastroInput,
   FinalizarCadastroOutput,
@@ -18,6 +23,7 @@ export class FinalizarCadastroUseCase implements UseCase<
     private readonly fileStorage: FileStorage,
     private readonly qsaConsultaService: QsaConsultaService,
     private readonly contratoAssinaturaService: ContratoAssinaturaService,
+    private readonly analiseIaService: AnaliseIaService,
   ) {}
 
   async execute(input: FinalizarCadastroInput): Promise<FinalizarCadastroOutput> {
@@ -65,22 +71,32 @@ export class FinalizarCadastroUseCase implements UseCase<
       }),
     );
 
-    // Chamado antes de gravar no banco: se o D4Sign falhar, nada é
-    // persistido — evita ficar com uma agência salva sem contrato.
     const signatarios = socios.map((socio) => ({
       nome: socio.nome,
       email: socio.email,
       cpf: socio.cpf,
     }));
-    const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
-      cnpj: input.cnpj,
-      razaoSocial,
-      signatarios,
-    });
+
+    // A IA avalia o cadastro logo no envio: se achar algo errado, o caso
+    // vai pra fila "em_complementar" (revisão manual, sem contrato ainda
+    // — um analista entra em contato por telefone/e-mail); se estiver
+    // tudo certo, gera e envia o contrato na hora (fila
+    // "aguardando_assinatura"). Chamado antes de gravar no banco: se o
+    // D4Sign falhar quando a IA aprova, nada é persistido.
+    const analiseIa = await this.analiseIaService.avaliar({ cnpj: input.cnpj });
+
+    const contratoResult = analiseIa.aprovado
+      ? await this.contratoAssinaturaService.gerarEEnviar({
+          cnpj: input.cnpj,
+          razaoSocial,
+          signatarios,
+        })
+      : null;
 
     const agencia = await this.agenciaRepository.create({
       razaoSocial,
       cnpj: input.cnpj,
+      status: contratoResult ? STATUS_AGUARDANDO_ASSINATURA : STATUS_EM_COMPLEMENTAR,
       contratoSocialPath,
       emailContato: input.emailOperacional,
       telefoneContato: input.telefoneComercial,
@@ -95,11 +111,13 @@ export class FinalizarCadastroUseCase implements UseCase<
         socios,
         enderecoBanco: input.enderecoBanco,
       },
-      contrato: {
-        provedorId: contratoResult.provedorId,
-        status: contratoResult.status,
-        signatarios,
-      },
+      contrato: contratoResult
+        ? {
+            provedorId: contratoResult.provedorId,
+            status: contratoResult.status,
+            signatarios,
+          }
+        : null,
     });
 
     return {
@@ -107,7 +125,8 @@ export class FinalizarCadastroUseCase implements UseCase<
       cnpj: agencia.cnpj,
       razaoSocial: agencia.razaoSocial,
       status: agencia.status,
-      contratoStatus: contratoResult.status,
+      precisaRevisaoManual: !analiseIa.aprovado,
+      contratoStatus: contratoResult?.status ?? null,
     };
   }
 }

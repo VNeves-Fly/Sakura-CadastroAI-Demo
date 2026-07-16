@@ -1,26 +1,47 @@
 import Link from "next/link";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import { labelStatus } from "@/modules/admin/utils/status-cadastro.util";
+import {
+  STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_VALIDACAO,
+  STATUS_EM_COMPLEMENTAR,
+} from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface CadastrosPageProps {
   searchParams: {
     busca?: string;
-    etapa?: string;
+    status?: string;
     sort?: string;
     dir?: string;
   };
 }
 
-const FUNIL_ETAPAS = [
-  { numero: 1, label: "Análise", sublabel: "ficha em análise", chave: "etapa1" as const },
-  { numero: 2, label: "Complementar", sublabel: "docs e complemento", chave: "etapa2" as const },
-  { numero: 3, label: "Contrato", sublabel: "em assinatura", chave: "etapa3" as const },
-  { numero: 4, label: "Usuário Master", sublabel: "criar credenciais", chave: "etapa4" as const },
+// Filas clicáveis — substituem o funil numérico de 5 etapas (decisão do
+// usuário, 2026-07-16): a IA avalia o cadastro no envio e decide entre
+// "em_complementar" (revisão manual) ou "aguardando_assinatura" (já
+// aprovado, contrato enviado). "aguardando_validacao" só existe depois
+// que os sócios assinam.
+const FILAS = [
+  {
+    status: STATUS_EM_COMPLEMENTAR,
+    label: "Em Complementar",
+    sublabel: "IA sinalizou revisão",
+  },
+  {
+    status: STATUS_AGUARDANDO_ASSINATURA,
+    label: "Aguardando Assinatura",
+    sublabel: "contrato enviado aos sócios",
+  },
+  {
+    status: STATUS_AGUARDANDO_VALIDACAO,
+    label: "Aguardando Validação",
+    sublabel: "contrato assinado, falta validar",
+  },
 ];
 
 const COLUNAS_ORDENAVEIS = [
   { chave: "razaoSocial" as const, label: "Agência" },
-  { chave: "etapaAtual" as const, label: "Etapa" },
   { chave: "createdAt" as const, label: "Cadastro" },
 ];
 
@@ -49,16 +70,12 @@ function construirHref(
 }
 
 export default async function CadastrosPage({ searchParams }: CadastrosPageProps) {
-  const etapaFiltro = searchParams.etapa ? Number(searchParams.etapa) : undefined;
-  const sortBy =
-    searchParams.sort === "etapaAtual" || searchParams.sort === "razaoSocial"
-      ? searchParams.sort
-      : "createdAt";
+  const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
 
-  const { items, total, kpis, funil } = await cadastroAdminController.listarCadastros({
+  const { items, total, kpis } = await cadastroAdminController.listarCadastros({
     busca: searchParams.busca,
-    etapa: etapaFiltro,
+    status: searchParams.status,
     sortBy,
     sortDir,
   });
@@ -69,30 +86,36 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           coluna "Notificações" hoje: exigiria rastrear documento/mensagem
           novos desde a última vez que o analista "viu" a agência, o que
           não existe no schema ainda. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="border-l-primary border-border bg-card rounded-xl border-y border-r border-l-4 px-4 py-3 shadow-sm">
           <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            Em Análise
+            Em Complementar
           </span>
-          <p className="text-foreground text-3xl font-bold">{kpis.emAnalise}</p>
+          <p className="text-foreground text-3xl font-bold">{kpis.emComplementar}</p>
         </div>
-        <div className="border-destructive/30 bg-destructive/5 rounded-xl border px-4 py-3 shadow-sm">
+        <div className="border-border bg-card rounded-xl border px-4 py-3 shadow-sm">
           <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            Reprovadas
+            Aguard. Assinatura
           </span>
-          <p className="text-destructive text-3xl font-bold">{kpis.reprovadas}</p>
-        </div>
-        <div className="border-success/30 bg-success/5 rounded-xl border px-4 py-3 shadow-sm">
-          <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            Aprovadas
-          </span>
-          <p className="text-success text-3xl font-bold">{kpis.aprovadas}</p>
+          <p className="text-foreground text-3xl font-bold">{kpis.aguardandoAssinatura}</p>
         </div>
         <div className="border-warning/30 bg-warning/5 rounded-xl border px-4 py-3 shadow-sm">
           <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            Aguard. Aprovação Final
+            Aguard. Validação
           </span>
-          <p className="text-warning text-3xl font-bold">{kpis.aguardandoAprovacaoFinal}</p>
+          <p className="text-warning text-3xl font-bold">{kpis.aguardandoValidacao}</p>
+        </div>
+        <div className="border-success/30 bg-success/5 rounded-xl border px-4 py-3 shadow-sm">
+          <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            Ativas
+          </span>
+          <p className="text-success text-3xl font-bold">{kpis.ativas}</p>
+        </div>
+        <div className="border-destructive/30 bg-destructive/5 rounded-xl border px-4 py-3 shadow-sm">
+          <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            Recusadas
+          </span>
+          <p className="text-destructive text-3xl font-bold">{kpis.recusadas}</p>
         </div>
       </div>
 
@@ -102,8 +125,8 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           feita pelo backend. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <form className="flex-1" action="/cadastros" method="GET">
-          {searchParams.etapa ? (
-            <input type="hidden" name="etapa" value={searchParams.etapa} />
+          {searchParams.status ? (
+            <input type="hidden" name="status" value={searchParams.status} />
           ) : null}
           {searchParams.sort ? <input type="hidden" name="sort" value={searchParams.sort} /> : null}
           {searchParams.dir ? <input type="hidden" name="dir" value={searchParams.dir} /> : null}
@@ -118,48 +141,42 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         <div className="flex gap-2">
           <select
             disabled
-            className="border-input bg-muted text-muted-foreground rounded-full border px-3 py-2 text-sm disabled:cursor-not-allowed"
+            className="border-input bg-muted text-muted-foreground cursor-not-allowed rounded-full border px-3 py-2 text-sm"
           >
             <option>Executivo</option>
           </select>
           <select
             disabled
-            className="border-input bg-muted text-muted-foreground rounded-full border px-3 py-2 text-sm disabled:cursor-not-allowed"
+            className="border-input bg-muted text-muted-foreground cursor-not-allowed rounded-full border px-3 py-2 text-sm"
           >
             <option>Associação</option>
           </select>
           <select
             disabled
-            className="border-input bg-muted text-muted-foreground rounded-full border px-3 py-2 text-sm disabled:cursor-not-allowed"
+            className="border-input bg-muted text-muted-foreground cursor-not-allowed rounded-full border px-3 py-2 text-sm"
           >
             <option>Evento</option>
           </select>
         </div>
       </div>
 
-      {/* Funil de Etapas — clicar filtra a lista por aquela etapa; clicar
-          de novo na mesma remove o filtro. Etapa 5 (Aprovado) não entra
-          aqui — sai da listagem assim que a agência é arquivada. */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {FUNIL_ETAPAS.map((etapa) => {
-          const ativa = etapaFiltro === etapa.numero;
+      {/* Filas — clicar filtra a lista por aquele status; clicar de novo
+          na mesma remove o filtro. */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {FILAS.map((fila) => {
+          const ativa = searchParams.status === fila.status;
           return (
             <Link
-              key={etapa.numero}
-              href={construirHref(searchParams, {
-                etapa: ativa ? undefined : String(etapa.numero),
-              })}
+              key={fila.status}
+              href={construirHref(searchParams, { status: ativa ? undefined : fila.status })}
               className={`rounded-xl border px-4 py-3 shadow-sm transition ${
                 ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
               }`}
             >
               <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Etapa {etapa.numero} · {etapa.label}
+                {fila.label}
               </span>
-              <div className="mt-1 flex items-baseline justify-between">
-                <span className="text-muted-foreground text-xs">{etapa.sublabel}</span>
-                <span className="text-foreground text-lg font-bold">{funil[etapa.chave]}</span>
-              </div>
+              <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
             </Link>
           );
         })}
@@ -215,15 +232,14 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                       </Link>
                       <p className="text-muted-foreground text-xs">{maskCnpj(agencia.cnpj)}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="bg-muted text-foreground rounded-full px-2.5 py-0.5 text-xs font-medium">
-                        Etapa {agencia.etapaAtual}
-                      </span>
-                    </td>
                     <td className="text-muted-foreground px-4 py-3">
                       {formatarData(agencia.createdAt)} · {diasAtras(agencia.createdAt)}
                     </td>
-                    <td className="text-muted-foreground px-4 py-3">{agencia.status}</td>
+                    <td className="px-4 py-3">
+                      <span className="bg-muted text-foreground rounded-full px-2.5 py-0.5 text-xs font-medium">
+                        {labelStatus(agencia.status)}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

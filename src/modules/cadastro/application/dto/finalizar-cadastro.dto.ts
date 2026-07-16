@@ -58,5 +58,9 @@ export interface FinalizarCadastroOutput {
   cnpj: string;
   razaoSocial: string;
   status: string;
-  contratoStatus: string;
+  // true quando a IA sinalizou algo errado e o caso foi pra revisão
+  // manual (fila "em_complementar") — nesse caso contratoStatus é null,
+  // já que nenhum contrato foi gerado ainda.
+  precisaRevisaoManual: boolean;
+  contratoStatus: string | null;
 }

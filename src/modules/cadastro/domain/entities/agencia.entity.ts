@@ -43,6 +43,14 @@ export class Agencia {
     return this.props.createdAt;
   }
 
+  get contratoSocialPath(): string {
+    return this.props.contratoSocialPath;
+  }
+
+  get emailContato(): string {
+    return this.props.emailContato;
+  }
+
   toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt"> & {
     createdAt: string;
     updatedAt: string;

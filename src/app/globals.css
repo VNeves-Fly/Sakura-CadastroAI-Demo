@@ -33,16 +33,17 @@
     --chart-4: 38 92% 50%;
     --chart-5: 322 60% 70%;
 
-    /* Sidebar do Admin: clara, igual ao produto real (print de
-       referência) — segue o mesmo tema light/dark do resto do app. */
-    --sidebar: 0 0% 100%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 323 90% 51%;
+    /* Sidebar do Admin: sempre no tema "deep navy aviation" escuro,
+       conforme o estilo proposto em mapa-redesign-sakura.html —
+       independente do restante da página estar em light/dark. */
+    --sidebar: 215 50% 6%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 322 100% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 323 100% 96%;
-    --sidebar-accent-foreground: 323 90% 42%;
-    --sidebar-border: 323 30% 92%;
-    --sidebar-ring: 323 90% 51%;
+    --sidebar-accent: 215 25% 15%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 215 25% 18%;
+    --sidebar-ring: 322 100% 58%;
   }
 
   .dark {

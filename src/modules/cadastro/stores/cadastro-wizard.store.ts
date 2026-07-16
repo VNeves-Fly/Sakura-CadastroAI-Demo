@@ -49,6 +49,7 @@ interface CadastroWizardState {
   isSubmitting: boolean;
   error: string | null;
   success: boolean;
+  precisaRevisaoManual: boolean;
   duplicado: boolean;
 
   setOrigem: (origem: string | null) => void;
@@ -76,6 +77,7 @@ interface CadastroWizardState {
   setSubmitting: (isSubmitting: boolean) => void;
   setError: (error: string | null) => void;
   setSuccess: (success: boolean) => void;
+  setPrecisaRevisaoManual: (precisaRevisaoManual: boolean) => void;
   setDuplicado: (duplicado: boolean) => void;
   reset: () => void;
 }
@@ -107,6 +109,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   isSubmitting: false,
   error: null,
   success: false,
+  precisaRevisaoManual: false,
   duplicado: false,
 
   setOrigem: (origem) => set({ origem }),
@@ -137,6 +140,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
   setError: (error) => set({ error }),
   setSuccess: (success) => set({ success }),
+  setPrecisaRevisaoManual: (precisaRevisaoManual) => set({ precisaRevisaoManual }),
   setDuplicado: (duplicado) => set({ duplicado }),
 
   reset: () =>
@@ -161,6 +165,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
       isSubmitting: false,
       error: null,
       success: false,
+      precisaRevisaoManual: false,
       duplicado: false,
     }),
 }));

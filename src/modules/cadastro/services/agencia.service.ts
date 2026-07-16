@@ -3,6 +3,7 @@ export interface RawAgenciaResponse {
   cnpj: string;
   razaoSocial: string;
   status: string;
+  precisaRevisaoManual: boolean;
 }
 
 export interface RawQsaResponse {

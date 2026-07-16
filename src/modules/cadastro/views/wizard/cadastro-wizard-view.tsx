@@ -30,13 +30,25 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
 
   if (wizard.submitSuccess) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
-        <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-8 text-center shadow-xl shadow-sakura-900/5">
-          <h1 className="text-2xl font-semibold text-foreground">Contrato gerado!</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Seu cadastro foi enviado e o contrato já foi gerado. Cada sócio vai receber um e-mail do
-            D4Sign com o link pra assinatura.
-          </p>
+      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10">
+        <div className="border-border bg-card shadow-sakura-900/5 w-full max-w-md rounded-[2rem] border p-8 text-center shadow-xl">
+          {wizard.submitPrecisaRevisaoManual ? (
+            <>
+              <h1 className="text-foreground text-2xl font-semibold">Cadastro recebido!</h1>
+              <p className="text-muted-foreground mt-2 text-sm">
+                Identificamos um ponto que precisa de uma checagem manual. Um analista vai revisar
+                seu caso e entrar em contato por telefone e e-mail em breve.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-foreground text-2xl font-semibold">Contrato gerado!</h1>
+              <p className="text-muted-foreground mt-2 text-sm">
+                Seu cadastro foi enviado e o contrato já foi gerado. Cada sócio vai receber um
+                e-mail do D4Sign com o link pra assinatura.
+              </p>
+            </>
+          )}
         </div>
       </div>
     );
@@ -44,10 +56,10 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
 
   if (wizard.submitDuplicado) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
-        <div className="w-full max-w-md rounded-[2rem] border border-border bg-card p-8 text-center shadow-xl shadow-sakura-900/5">
-          <h1 className="text-2xl font-semibold text-foreground">Já Cadastrada</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10">
+        <div className="border-border bg-card shadow-sakura-900/5 w-full max-w-md rounded-[2rem] border p-8 text-center shadow-xl">
+          <h1 className="text-foreground text-2xl font-semibold">Já Cadastrada</h1>
+          <p className="text-muted-foreground mt-2 text-sm">
             Este CNPJ já possui um cadastro em andamento.
           </p>
         </div>
@@ -56,8 +68,8 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center gap-6 bg-background px-4 py-10">
-      <div className="w-full max-w-2xl rounded-[2rem] border border-border bg-card p-6 shadow-xl shadow-sakura-900/5 sm:p-10">
+    <div className="bg-background flex min-h-screen flex-col items-center gap-6 px-4 py-10">
+      <div className="border-border bg-card shadow-sakura-900/5 w-full max-w-2xl rounded-[2rem] border p-6 shadow-xl sm:p-10">
         <div className="mb-6 flex items-center justify-center">
           <Image
             src="/logos/logo-sakura-oficial.png"
@@ -111,7 +123,7 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
                     <button
                       type="button"
                       onClick={wizard.avancarSecao}
-                      className="w-fit self-end rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-sakura-600"
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit self-end rounded-full px-5 py-2.5 text-sm font-medium transition"
                     >
                       Continuar →
                     </button>
@@ -123,7 +135,7 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
         </div>
       </div>
 
-      <footer className="flex w-full max-w-2xl flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
+      <footer className="text-muted-foreground flex w-full max-w-2xl flex-col items-center justify-between gap-2 text-xs sm:flex-row">
         <span>© {new Date().getFullYear()} Sakura Consolidadora</span>
         <div className="flex items-center gap-4">
           <a href="/termos" className="hover:text-foreground hover:underline">
