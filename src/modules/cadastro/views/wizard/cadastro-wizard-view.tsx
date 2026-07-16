@@ -8,6 +8,7 @@ import { SecaoCard } from "@/modules/cadastro/components/secao-card";
 import { Passo1Documentos } from "@/modules/cadastro/components/steps/passo1-documentos";
 import { Passo2Empresa } from "@/modules/cadastro/components/steps/passo2-empresa";
 import { Passo5Socios } from "@/modules/cadastro/components/steps/passo5-socios";
+import { Passo6EnderecoBanco } from "@/modules/cadastro/components/steps/passo6-endereco-banco";
 
 interface CadastroWizardViewProps {
   origem: string | null;
@@ -75,7 +76,8 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
                     </div>
                   ) : null}
                   {numero === 2 ? <Passo5Socios {...wizard} /> : null}
-                  {numero > 2 ? (
+                  {numero === 3 ? <Passo6EnderecoBanco {...wizard} /> : null}
+                  {numero > 3 ? (
                     <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
                       Seção &quot;{wizard.labels[numero - 1]}&quot; ainda não implementada nesta
                       fase.

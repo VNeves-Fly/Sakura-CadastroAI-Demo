@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { QsaResultView } from "@/modules/cadastro/types/agencia.types";
 import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
+import {
+  criarEnderecoBancoVazio,
+  type EnderecoBancoFormValues,
+} from "@/modules/cadastro/types/endereco-banco.types";
 
 export const TOTAL_ETAPAS = 4;
 
@@ -23,8 +27,6 @@ interface CadastroWizardState {
   avisoAlfanumerico: boolean;
   contratoSocial: File | null;
 
-  siteEmpresa: string;
-  semSite: boolean;
   telefoneComercial: string;
   telefoneComercialPais: string;
   semTelefoneComercial: boolean;
@@ -35,6 +37,10 @@ interface CadastroWizardState {
   // Seção 2 — Sócios (representante é um sócio com flag isRepresentante)
   socios: SocioWizardFormValues[];
   socioCepBuscando: number | null;
+
+  // Seção 3 — Endereço & Banco
+  enderecoBanco: EnderecoBancoFormValues;
+  enderecoBancoCepBuscando: boolean;
 
   // Submissão (última seção)
   isSubmitting: boolean;
@@ -51,8 +57,6 @@ interface CadastroWizardState {
   setAvisoAlfanumerico: (aviso: boolean) => void;
   setContratoSocial: (file: File | null) => void;
 
-  setSiteEmpresa: (site: string) => void;
-  setSemSite: (semSite: boolean) => void;
   setTelefoneComercial: (telefone: string) => void;
   setTelefoneComercialPais: (pais: string) => void;
   setSemTelefoneComercial: (semTelefone: boolean) => void;
@@ -62,6 +66,9 @@ interface CadastroWizardState {
 
   setSocios: (socios: SocioWizardFormValues[]) => void;
   setSocioCepBuscando: (indice: number | null) => void;
+
+  setEnderecoBanco: (dados: EnderecoBancoFormValues) => void;
+  setEnderecoBancoCepBuscando: (buscando: boolean) => void;
 
   setSubmitting: (isSubmitting: boolean) => void;
   setError: (error: string | null) => void;
@@ -81,8 +88,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   avisoAlfanumerico: false,
   contratoSocial: null,
 
-  siteEmpresa: "",
-  semSite: false,
   telefoneComercial: "",
   telefoneComercialPais: "BR",
   semTelefoneComercial: false,
@@ -92,6 +97,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
 
   socios: [],
   socioCepBuscando: null,
+
+  enderecoBanco: criarEnderecoBancoVazio(),
+  enderecoBancoCepBuscando: false,
 
   isSubmitting: false,
   error: null,
@@ -110,8 +118,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
   setContratoSocial: (contratoSocial) => set({ contratoSocial }),
 
-  setSiteEmpresa: (siteEmpresa) => set({ siteEmpresa }),
-  setSemSite: (semSite) => set({ semSite }),
   setTelefoneComercial: (telefoneComercial) => set({ telefoneComercial }),
   setTelefoneComercialPais: (telefoneComercialPais) => set({ telefoneComercialPais }),
   setSemTelefoneComercial: (semTelefoneComercial) => set({ semTelefoneComercial }),
@@ -121,6 +127,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
 
   setSocios: (socios) => set({ socios }),
   setSocioCepBuscando: (socioCepBuscando) => set({ socioCepBuscando }),
+
+  setEnderecoBanco: (enderecoBanco) => set({ enderecoBanco }),
+  setEnderecoBancoCepBuscando: (enderecoBancoCepBuscando) => set({ enderecoBancoCepBuscando }),
 
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
   setError: (error) => set({ error }),
@@ -136,8 +145,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
       qsaResult: null,
       avisoAlfanumerico: false,
       contratoSocial: null,
-      siteEmpresa: "",
-      semSite: false,
       telefoneComercial: "",
       telefoneComercialPais: "BR",
       semTelefoneComercial: false,
@@ -146,6 +153,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
       emailFinanceiro: "",
       socios: [],
       socioCepBuscando: null,
+      enderecoBanco: criarEnderecoBancoVazio(),
+      enderecoBancoCepBuscando: false,
       isSubmitting: false,
       error: null,
       success: false,

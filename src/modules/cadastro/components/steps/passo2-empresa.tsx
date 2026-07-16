@@ -17,16 +17,12 @@ const INPUT_CLASSNAME =
 // ViewModel do wizard via props.
 export function Passo2Empresa({
   qsaResult,
-  siteEmpresa,
-  semSite,
   telefoneComercial,
   telefoneComercialPais,
   semTelefoneComercial,
   emailOperacional,
   emailComercial,
   emailFinanceiro,
-  setSiteEmpresa,
-  setSemSite,
   setTelefoneComercial,
   setTelefoneComercialPais,
   setSemTelefoneComercial,
@@ -44,26 +40,6 @@ export function Passo2Empresa({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-bold text-foreground">Site da Empresa</label>
-        <input
-          type="url"
-          value={siteEmpresa}
-          disabled={semSite}
-          onChange={(event) => setSiteEmpresa(event.target.value)}
-          className={INPUT_CLASSNAME}
-          placeholder="https://www.suaagencia.com.br"
-        />
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={semSite}
-            onChange={(event) => setSemSite(event.target.checked)}
-          />
-          Não possui site
-        </label>
-      </div>
-
       <div className="flex flex-col gap-1">
         <label className="text-sm font-bold text-foreground">Telefone Comercial</label>
         <div className="flex gap-2">

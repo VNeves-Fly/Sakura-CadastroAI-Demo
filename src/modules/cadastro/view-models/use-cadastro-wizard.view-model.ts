@@ -19,6 +19,7 @@ import { maskCep, unmaskCep } from "@/modules/cadastro/utils/cep.util";
 import { cepService } from "@/modules/cadastro/services/cep.service";
 import { criarSocioWizardVazio } from "@/modules/cadastro/types/socio-wizard.types";
 import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
+import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
 
 // Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só. A
 // seção Comercial foi removida e Representação virou uma flag dentro do
@@ -53,8 +54,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
   const setContratoSocial = useCadastroWizardStore((state) => state.setContratoSocial);
 
-  const siteEmpresa = useCadastroWizardStore((state) => state.siteEmpresa);
-  const semSite = useCadastroWizardStore((state) => state.semSite);
   const telefoneComercial = useCadastroWizardStore((state) => state.telefoneComercial);
   const telefoneComercialPais = useCadastroWizardStore((state) => state.telefoneComercialPais);
   const semTelefoneComercial = useCadastroWizardStore((state) => state.semTelefoneComercial);
@@ -62,8 +61,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const emailComercial = useCadastroWizardStore((state) => state.emailComercial);
   const emailFinanceiro = useCadastroWizardStore((state) => state.emailFinanceiro);
 
-  const setSiteEmpresa = useCadastroWizardStore((state) => state.setSiteEmpresa);
-  const setSemSite = useCadastroWizardStore((state) => state.setSemSite);
   const setTelefoneComercialRaw = useCadastroWizardStore((state) => state.setTelefoneComercial);
   const setTelefoneComercialPaisRaw = useCadastroWizardStore(
     (state) => state.setTelefoneComercialPais,
@@ -77,6 +74,15 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const socioCepBuscando = useCadastroWizardStore((state) => state.socioCepBuscando);
   const setSocios = useCadastroWizardStore((state) => state.setSocios);
   const setSocioCepBuscando = useCadastroWizardStore((state) => state.setSocioCepBuscando);
+
+  const enderecoBanco = useCadastroWizardStore((state) => state.enderecoBanco);
+  const enderecoBancoCepBuscando = useCadastroWizardStore(
+    (state) => state.enderecoBancoCepBuscando,
+  );
+  const setEnderecoBanco = useCadastroWizardStore((state) => state.setEnderecoBanco);
+  const setEnderecoBancoCepBuscando = useCadastroWizardStore(
+    (state) => state.setEnderecoBancoCepBuscando,
+  );
 
   useEffect(() => {
     setOrigem(origem);
@@ -208,6 +214,88 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  function maskDocumentoFavorecido(valorDigitado: string): string {
+    const digitos = valorDigitado.replace(/\D/g, "");
+    return digitos.length > 11 ? maskCnpj(digitos) : maskCpf(digitos);
+  }
+
+  // Nacional: só dígitos (+ traço do dígito verificador). Internacional:
+  // alfanumérico maiúsculo (agências/contas internacionais e IBAN usam letras).
+  function formatarContaBancaria(valorDigitado: string, bancoPais: string): string {
+    if (bancoPais === "internacional") {
+      return valorDigitado.replace(/[^A-Za-z0-9 ]/g, "").toUpperCase();
+    }
+    return valorDigitado.replace(/[^0-9-]/g, "");
+  }
+
+  function updateEnderecoBanco(patch: Partial<EnderecoBancoFormValues>) {
+    const atualizado = { ...enderecoBanco, ...patch };
+
+    if ("cep" in patch && patch.cep !== undefined) {
+      atualizado.cep = maskCep(patch.cep);
+    }
+
+    if ("enderecoMesmoSocio" in patch) {
+      if (patch.enderecoMesmoSocio && socios.length === 1) {
+        atualizado.socioEnderecoVinculado = 0;
+      }
+      if (!patch.enderecoMesmoSocio) {
+        atualizado.socioEnderecoVinculado = null;
+      }
+    }
+
+    if ("bancoPais" in patch && patch.bancoPais !== undefined) {
+      atualizado.bancoNome = "";
+      atualizado.bancoAgencia = formatarContaBancaria(atualizado.bancoAgencia, patch.bancoPais);
+      atualizado.bancoConta = formatarContaBancaria(atualizado.bancoConta, patch.bancoPais);
+    }
+
+    if ("bancoAgencia" in patch && patch.bancoAgencia !== undefined) {
+      atualizado.bancoAgencia = formatarContaBancaria(patch.bancoAgencia, atualizado.bancoPais);
+    }
+
+    if ("bancoConta" in patch && patch.bancoConta !== undefined) {
+      atualizado.bancoConta = formatarContaBancaria(patch.bancoConta, atualizado.bancoPais);
+    }
+
+    if ("favorecidoEhEmpresa" in patch && patch.favorecidoEhEmpresa) {
+      atualizado.favorecidoNome = qsaResult?.razaoSocial ?? "";
+      atualizado.favorecidoDoc = maskCnpj(unmaskCnpj(cnpj));
+    }
+
+    if (
+      "favorecidoDoc" in patch &&
+      patch.favorecidoDoc !== undefined &&
+      !atualizado.favorecidoEhEmpresa
+    ) {
+      atualizado.favorecidoDoc = maskDocumentoFavorecido(patch.favorecidoDoc);
+    }
+
+    setEnderecoBanco(atualizado);
+  }
+
+  async function buscarCepEnderecoBanco() {
+    const cepLimpo = unmaskCep(enderecoBanco.cep);
+    if (cepLimpo.length !== 8) return;
+
+    setEnderecoBancoCepBuscando(true);
+
+    try {
+      const endereco = await cepService.buscar(cepLimpo);
+
+      if (endereco) {
+        updateEnderecoBanco({
+          logradouro: endereco.logradouro,
+          bairro: endereco.bairro,
+          cidade: endereco.cidade,
+          uf: endereco.uf,
+        });
+      }
+    } finally {
+      setEnderecoBancoCepBuscando(false);
+    }
+  }
+
   return {
     secoesReveladas,
     totalEtapas: TOTAL_ETAPAS,
@@ -223,16 +311,12 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setCnpj,
     setContratoSocial,
 
-    siteEmpresa,
-    semSite,
     telefoneComercial,
     telefoneComercialPais,
     semTelefoneComercial,
     emailOperacional,
     emailComercial,
     emailFinanceiro,
-    setSiteEmpresa,
-    setSemSite,
     setTelefoneComercial,
     setTelefoneComercialPais,
     setSemTelefoneComercial,
@@ -248,5 +332,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     updateSocio,
     toggleRepresentante,
     buscarCepSocio,
+
+    enderecoBanco,
+    enderecoBancoCepBuscando,
+    updateEnderecoBanco,
+    buscarCepEnderecoBanco,
   };
 }
