@@ -19,18 +19,47 @@ model User {
 }
 
 model Agencia {
-  id                 String   @id @default(cuid())
+  id                 String                @id @default(cuid())
   razaoSocial        String
-  cnpj               String   @unique
-  etapaAtual         Int      @default(1)
-  status             String   @default("em_analise")
+  cnpj               String                @unique
+  etapaAtual         Int                   @default(1)
+  status             String                @default("em_analise")
   contratoSocialPath String
   emailContato       String
   telefoneContato    String
   origem             String?
-  socios             Json
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  complementar       CadastroComplementar?
+  contratos          Contrato[]
 
   @@map("agencias")
+}
+
+model CadastroComplementar {
+  id            String   @id @default(cuid())
+  agenciaId     String   @unique
+  agencia       Agencia  @relation(fields: [agenciaId], references: [id])
+  dadosPorPasso Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("cadastros_complementares")
+}
+
+// Fonte de verdade do status do contrato (rascunho/enviado/assinado/
+// cancelado) é este registro, não um campo solto na Agencia — combina
+// com o modelo já previsto pro dossiê do Admin (Etapa 3), que vai ler e
+// evoluir esses mesmos registros (fila de assinatura, histórico etc.).
+model Contrato {
+  id          String   @id @default(cuid())
+  agenciaId   String
+  agencia     Agencia  @relation(fields: [agenciaId], references: [id])
+  provedorId  String
+  status      String   @default("aguardando_assinatura")
+  signatarios Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("contratos")
 }

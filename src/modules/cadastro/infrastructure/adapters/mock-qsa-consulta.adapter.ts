@@ -14,11 +14,18 @@ export class MockQsaConsultaService implements QsaConsultaService {
     const seed = this.seedFromCnpj(cnpj);
     const quantidadeSocios = (seed % NOMES_MOCK.length) + 1;
 
+    const ano = 2000 + (seed % 24);
+    const mes = (seed % 12) + 1;
+    const dia = (seed % 28) + 1;
+
     return {
       cnpj,
       razaoSocial: `Agência ${cnpj.slice(0, 8)} Ltda`,
       cnaeCompativel: true,
       socios: NOMES_MOCK.slice(0, quantidadeSocios).map((nome) => ({ nome })),
+      dataAbertura: `${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`,
+      telefoneReceita: `(11) 3${String(1000 + (seed % 9000)).padStart(4, "0")}-${String(1000 + ((seed * 7) % 9000)).padStart(4, "0")}`,
+      emailReceita: `contato@empresa${cnpj.slice(0, 4)}.com.br`,
     };
   }
 

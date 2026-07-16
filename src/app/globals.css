@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 @layer base {
   :root {
@@ -26,6 +25,28 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+    --info: 199 89% 42%;
+    --pink-glow: 322 90% 45%;
+    --violet-glow: 220 80% 45%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --chart-1: 323 90% 51%;
+    --chart-2: 220 80% 55%;
+    --chart-3: 160 84% 39%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 322 60% 70%;
+
+    /* Sidebar do Admin: sempre no tema "deep navy aviation" escuro,
+       conforme o estilo proposto em mapa-redesign-sakura.html —
+       independente do restante da página estar em light/dark. */
+    --sidebar: 215 50% 6%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 322 100% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 15%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 215 25% 18%;
+    --sidebar-ring: 322 100% 58%;
   }
 
   .dark {
@@ -53,6 +74,22 @@
     --info: 199 89% 60%;
     --pink-glow: 322 90% 60%;
     --violet-glow: 220 80% 55%;
+    --popover: 215 40% 10%;
+    --popover-foreground: 210 20% 96%;
+    --chart-1: 322 100% 58%;
+    --chart-2: 220 80% 55%;
+    --chart-3: 158 64% 52%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 322 60% 70%;
+
+    --sidebar: 215 40% 10%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 322 100% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 15%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 215 25% 18%;
+    --sidebar-ring: 322 100% 58%;
   }
 
   * {

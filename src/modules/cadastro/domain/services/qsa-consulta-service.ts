@@ -7,6 +7,9 @@ export interface QsaResult {
   razaoSocial: string;
   cnaeCompativel: boolean;
   socios: QsaSocio[];
+  dataAbertura: string;
+  telefoneReceita: string;
+  emailReceita: string;
 }
 
 export interface QsaConsultaService {

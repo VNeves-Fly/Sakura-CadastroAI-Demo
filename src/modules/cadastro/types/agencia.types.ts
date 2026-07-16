@@ -1,35 +1,15 @@
-export type QsaStatus = "idle" | "confirmado" | "divergente";
-
-export interface SocioFormValues {
-  nome: string;
-  email: string;
-  telefone: string;
-  telefonePais: string;
-  rg: File | null;
-  qsaStatus: QsaStatus;
-  modoManual: boolean;
-}
-
-export function criarSocioVazio(): SocioFormValues {
-  return {
-    nome: "",
-    email: "",
-    telefone: "",
-    telefonePais: "BR",
-    rg: null,
-    qsaStatus: "idle",
-    modoManual: false,
-  };
-}
-
 export interface QsaResultView {
   razaoSocial: string;
   cnaeCompativel: boolean;
   nomesSocios: string[];
+  dataAbertura: string;
+  telefoneReceita: string;
+  emailReceita: string;
 }
 
 export interface SubmitResultView {
   success: boolean;
+  precisaRevisaoManual?: boolean;
   duplicado?: boolean;
   agenciaId?: string;
   error?: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type DragEvent } from "react";
+import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 
 interface FileDropInputProps {
   label: string;
@@ -44,14 +45,24 @@ export function FileDropInput({
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  function selecionarArquivo(candidato: File | null) {
+    if (!candidato) {
+      setErro(null);
+      onChange(null);
+      return;
+    }
+
+    const mensagemErro = validarArquivoUpload(candidato, label);
+    setErro(mensagemErro);
+    onChange(mensagemErro ? null : candidato);
+  }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setIsDraggingOver(false);
-    const droppedFile = event.dataTransfer.files[0];
-    if (droppedFile) {
-      onChange(droppedFile);
-    }
+    selecionarArquivo(event.dataTransfer.files[0] ?? null);
   }
 
   return (
@@ -83,7 +94,9 @@ export function FileDropInput({
           <UploadIcon />
         </span>
 
-        <span className={file ? "text-foreground" : "text-muted-foreground"}>
+        <span
+          className={`w-full break-words ${file ? "text-foreground" : "text-muted-foreground"}`}
+        >
           {file ? file.name : (helperText ?? "Clique ou arraste o arquivo aqui")}
         </span>
 
@@ -100,13 +113,14 @@ export function FileDropInput({
           </button>
         ) : null}
       </div>
+      {erro ? <span className="text-xs font-medium text-destructive">{erro}</span> : null}
       <input
         ref={inputRef}
         id={inputId}
         type="file"
         accept={accept}
         className="hidden"
-        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+        onChange={(event) => selecionarArquivo(event.target.files?.[0] ?? null)}
       />
     </div>
   );
