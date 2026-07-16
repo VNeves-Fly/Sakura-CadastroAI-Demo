@@ -25,7 +25,6 @@ export function Passo2Empresa({
   emailOperacional,
   emailComercial,
   emailFinanceiro,
-  resideBrasil,
   setSiteEmpresa,
   setSemSite,
   setTelefoneComercial,
@@ -34,7 +33,6 @@ export function Passo2Empresa({
   setEmailOperacional,
   setEmailComercial,
   setEmailFinanceiro,
-  setResideBrasil,
   usarEmailOperacionalParaTodos,
 }: Passo2EmpresaProps) {
   const paisTelefone = paisTelefonePorCodigo(telefoneComercialPais);
@@ -162,34 +160,6 @@ export function Passo2Empresa({
           {emailFinanceiroInvalido ? (
             <span className="text-xs font-medium text-destructive">E-mail inválido.</span>
           ) : null}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-bold text-foreground">A agência reside no Brasil?</label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setResideBrasil(true)}
-            className={`rounded-full border px-5 py-2 text-sm font-medium transition ${
-              resideBrasil === true
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-input text-foreground hover:bg-accent"
-            }`}
-          >
-            Sim
-          </button>
-          <button
-            type="button"
-            onClick={() => setResideBrasil(false)}
-            className={`rounded-full border px-5 py-2 text-sm font-medium transition ${
-              resideBrasil === false
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-input text-foreground hover:bg-accent"
-            }`}
-          >
-            Não
-          </button>
         </div>
       </div>
 

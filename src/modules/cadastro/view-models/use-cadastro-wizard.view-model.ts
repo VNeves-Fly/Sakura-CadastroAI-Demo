@@ -14,16 +14,17 @@ import {
   validarCnpjComMensagem,
 } from "@/modules/cadastro/utils/cnpj.util";
 import { maskTelefone } from "@/modules/shared/utils/telefone.util";
+import { maskCpf } from "@/modules/cadastro/utils/cpf.util";
+import { maskCep, unmaskCep } from "@/modules/cadastro/utils/cep.util";
+import { cepService } from "@/modules/cadastro/services/cep.service";
+import { criarSocioWizardVazio } from "@/modules/cadastro/types/socio-wizard.types";
+import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
 
-// Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só.
-export const ETAPA_LABELS = [
-  "Empresa",
-  "Comercial",
-  "Representação",
-  "Sócios",
-  "Endereço & Banco",
-  "Revisão",
-];
+// Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só. A
+// seção Comercial foi removida e Representação virou uma flag dentro do
+// form de Sócios (o procurador é tratado como um sócio, com slot extra
+// de procuração) — não é mais uma seção separada.
+export const ETAPA_LABELS = ["Empresa", "Sócios", "Endereço & Banco", "Revisão"];
 
 interface UseCadastroWizardOptions {
   origem: string | null;
@@ -60,7 +61,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const emailOperacional = useCadastroWizardStore((state) => state.emailOperacional);
   const emailComercial = useCadastroWizardStore((state) => state.emailComercial);
   const emailFinanceiro = useCadastroWizardStore((state) => state.emailFinanceiro);
-  const resideBrasil = useCadastroWizardStore((state) => state.resideBrasil);
 
   const setSiteEmpresa = useCadastroWizardStore((state) => state.setSiteEmpresa);
   const setSemSite = useCadastroWizardStore((state) => state.setSemSite);
@@ -72,17 +72,28 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setEmailOperacional = useCadastroWizardStore((state) => state.setEmailOperacional);
   const setEmailComercial = useCadastroWizardStore((state) => state.setEmailComercial);
   const setEmailFinanceiro = useCadastroWizardStore((state) => state.setEmailFinanceiro);
-  const setResideBrasil = useCadastroWizardStore((state) => state.setResideBrasil);
 
-  const vendasTipos = useCadastroWizardStore((state) => state.vendasTipos);
-  const vendasPercentuais = useCadastroWizardStore((state) => state.vendasPercentuais);
-  const setVendasTipos = useCadastroWizardStore((state) => state.setVendasTipos);
-  const setVendasPercentuais = useCadastroWizardStore((state) => state.setVendasPercentuais);
+  const socios = useCadastroWizardStore((state) => state.socios);
+  const socioCepBuscando = useCadastroWizardStore((state) => state.socioCepBuscando);
+  const setSocios = useCadastroWizardStore((state) => state.setSocios);
+  const setSocioCepBuscando = useCadastroWizardStore((state) => state.setSocioCepBuscando);
 
   useEffect(() => {
     setOrigem(origem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origem]);
+
+  // Por padrão só 1 sócio aparece, pré-preenchido com o primeiro nome
+  // trazido pela consulta QSA (Seção Empresa) assim que ela resolve —
+  // os demais sócios do QSA não são adicionados automaticamente; o
+  // usuário inclui mais via "Adicionar sócio". Só roda na primeira vez,
+  // pra não sobrescrever edições já feitas.
+  useEffect(() => {
+    if (qsaResult && socios.length === 0) {
+      setSocios([criarSocioWizardVazio(qsaResult.nomesSocios[0] ?? "")]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qsaResult]);
 
   async function consultarQsaSeCompleto(cnpjMascarado: string) {
     const cnpjLimpo = unmaskCnpj(cnpjMascarado);
@@ -131,48 +142,70 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setEmailFinanceiro(emailOperacional);
   }
 
-  function toggleVendaTipo(tipo: string) {
-    const jaSelecionado = vendasTipos.includes(tipo);
-    const novosTipos = jaSelecionado
-      ? vendasTipos.filter((atual) => atual !== tipo)
-      : [...vendasTipos, tipo];
-
-    const parteIgual = novosTipos.length > 0 ? 100 / novosTipos.length : 0;
-    const novosPercentuais: Record<string, number> = {};
-    novosTipos.forEach((atual) => {
-      novosPercentuais[atual] = parteIgual;
-    });
-
-    setVendasTipos(novosTipos);
-    setVendasPercentuais(novosPercentuais);
+  function addSocio() {
+    setSocios([...socios, criarSocioWizardVazio()]);
   }
 
-  function setVendaPercentual(tipoAlterado: string, valorDigitado: number) {
-    const clamped = Math.max(0, Math.min(100, valorDigitado));
-    const outros = vendasTipos.filter((tipo) => tipo !== tipoAlterado);
+  function removeSocio(index: number) {
+    setSocios(socios.filter((_, i) => i !== index));
+  }
 
-    if (outros.length === 0) {
-      setVendasPercentuais({ [tipoAlterado]: 100 });
-      return;
+  function updateSocio(index: number, patch: Partial<SocioWizardFormValues>) {
+    setSocios(
+      socios.map((socio, i) => {
+        if (i !== index) return socio;
+        const atualizado = { ...socio, ...patch };
+
+        if ("cpf" in patch && patch.cpf !== undefined) {
+          atualizado.cpf = maskCpf(patch.cpf);
+        }
+        if ("telefone" in patch && patch.telefone !== undefined) {
+          atualizado.telefone = maskTelefone(patch.telefone, atualizado.telefonePais);
+        }
+        if ("telefonePais" in patch && patch.telefonePais !== undefined) {
+          atualizado.telefone = maskTelefone(atualizado.telefone, patch.telefonePais);
+        }
+        if ("cep" in patch && patch.cep !== undefined) {
+          atualizado.cep = maskCep(patch.cep);
+        }
+
+        return atualizado;
+      }),
+    );
+  }
+
+  function toggleRepresentante(index: number) {
+    setSocios(
+      socios.map((socio, i) => ({
+        ...socio,
+        isRepresentante: i === index ? !socio.isRepresentante : false,
+      })),
+    );
+  }
+
+  async function buscarCepSocio(index: number) {
+    const socio = socios[index];
+    if (!socio) return;
+
+    const cepLimpo = unmaskCep(socio.cep);
+    if (cepLimpo.length !== 8) return;
+
+    setSocioCepBuscando(index);
+
+    try {
+      const endereco = await cepService.buscar(cepLimpo);
+
+      if (endereco) {
+        updateSocio(index, {
+          logradouro: endereco.logradouro,
+          bairro: endereco.bairro,
+          cidade: endereco.cidade,
+          uf: endereco.uf,
+        });
+      }
+    } finally {
+      setSocioCepBuscando(null);
     }
-
-    const somaOutrosAtual = outros.reduce((soma, tipo) => soma + (vendasPercentuais[tipo] ?? 0), 0);
-    const restante = 100 - clamped;
-    const novosPercentuais: Record<string, number> = { [tipoAlterado]: clamped };
-
-    if (somaOutrosAtual === 0) {
-      const parteIgual = restante / outros.length;
-      outros.forEach((tipo) => {
-        novosPercentuais[tipo] = parteIgual;
-      });
-    } else {
-      outros.forEach((tipo) => {
-        const atual = vendasPercentuais[tipo] ?? 0;
-        novosPercentuais[tipo] = (atual / somaOutrosAtual) * restante;
-      });
-    }
-
-    setVendasPercentuais(novosPercentuais);
   }
 
   return {
@@ -198,7 +231,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     emailOperacional,
     emailComercial,
     emailFinanceiro,
-    resideBrasil,
     setSiteEmpresa,
     setSemSite,
     setTelefoneComercial,
@@ -207,12 +239,14 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setEmailOperacional,
     setEmailComercial,
     setEmailFinanceiro,
-    setResideBrasil,
     usarEmailOperacionalParaTodos,
 
-    vendasTipos,
-    vendasPercentuais,
-    toggleVendaTipo,
-    setVendaPercentual,
+    socios,
+    socioCepBuscando,
+    addSocio,
+    removeSocio,
+    updateSocio,
+    toggleRepresentante,
+    buscarCepSocio,
   };
 }

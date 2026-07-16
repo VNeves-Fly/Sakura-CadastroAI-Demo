@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import type { QsaResultView } from "@/modules/cadastro/types/agencia.types";
+import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
 
-export const TOTAL_ETAPAS = 6;
+export const TOTAL_ETAPAS = 4;
 
 interface CnpjStatus {
   valido: boolean;
@@ -14,7 +15,7 @@ interface CadastroWizardState {
   secoesReveladas: number;
   origem: string | null;
 
-  // Passo 1 — Documentos
+  // Seção 1 — Empresa (documentos + dados da empresa)
   cnpj: string;
   cnpjStatus: CnpjStatus;
   qsaChecking: boolean;
@@ -22,7 +23,6 @@ interface CadastroWizardState {
   avisoAlfanumerico: boolean;
   contratoSocial: File | null;
 
-  // Passo 2 — Empresa
   siteEmpresa: string;
   semSite: boolean;
   telefoneComercial: string;
@@ -31,13 +31,12 @@ interface CadastroWizardState {
   emailOperacional: string;
   emailComercial: string;
   emailFinanceiro: string;
-  resideBrasil: boolean | null;
 
-  // Passo 3 — Comercial
-  vendasTipos: string[];
-  vendasPercentuais: Record<string, number>;
+  // Seção 2 — Sócios (representante é um sócio com flag isRepresentante)
+  socios: SocioWizardFormValues[];
+  socioCepBuscando: number | null;
 
-  // Submissão (passo 7)
+  // Submissão (última seção)
   isSubmitting: boolean;
   error: string | null;
   success: boolean;
@@ -60,10 +59,9 @@ interface CadastroWizardState {
   setEmailOperacional: (email: string) => void;
   setEmailComercial: (email: string) => void;
   setEmailFinanceiro: (email: string) => void;
-  setResideBrasil: (reside: boolean | null) => void;
 
-  setVendasTipos: (tipos: string[]) => void;
-  setVendasPercentuais: (percentuais: Record<string, number>) => void;
+  setSocios: (socios: SocioWizardFormValues[]) => void;
+  setSocioCepBuscando: (indice: number | null) => void;
 
   setSubmitting: (isSubmitting: boolean) => void;
   setError: (error: string | null) => void;
@@ -91,10 +89,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   emailOperacional: "",
   emailComercial: "",
   emailFinanceiro: "",
-  resideBrasil: null,
 
-  vendasTipos: [],
-  vendasPercentuais: {},
+  socios: [],
+  socioCepBuscando: null,
 
   isSubmitting: false,
   error: null,
@@ -121,10 +118,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
   setEmailOperacional: (emailOperacional) => set({ emailOperacional }),
   setEmailComercial: (emailComercial) => set({ emailComercial }),
   setEmailFinanceiro: (emailFinanceiro) => set({ emailFinanceiro }),
-  setResideBrasil: (resideBrasil) => set({ resideBrasil }),
 
-  setVendasTipos: (vendasTipos) => set({ vendasTipos }),
-  setVendasPercentuais: (vendasPercentuais) => set({ vendasPercentuais }),
+  setSocios: (socios) => set({ socios }),
+  setSocioCepBuscando: (socioCepBuscando) => set({ socioCepBuscando }),
 
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
   setError: (error) => set({ error }),
@@ -148,9 +144,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>((set) => ({
       emailOperacional: "",
       emailComercial: "",
       emailFinanceiro: "",
-      resideBrasil: null,
-      vendasTipos: [],
-      vendasPercentuais: {},
+      socios: [],
+      socioCepBuscando: null,
       isSubmitting: false,
       error: null,
       success: false,

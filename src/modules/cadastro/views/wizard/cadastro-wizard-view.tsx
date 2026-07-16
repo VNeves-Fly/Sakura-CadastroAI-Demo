@@ -7,7 +7,7 @@ import { WizardStepper } from "@/modules/cadastro/components/wizard-stepper";
 import { SecaoCard } from "@/modules/cadastro/components/secao-card";
 import { Passo1Documentos } from "@/modules/cadastro/components/steps/passo1-documentos";
 import { Passo2Empresa } from "@/modules/cadastro/components/steps/passo2-empresa";
-import { Passo3Comercial } from "@/modules/cadastro/components/steps/passo3-comercial";
+import { Passo5Socios } from "@/modules/cadastro/components/steps/passo5-socios";
 
 interface CadastroWizardViewProps {
   origem: string | null;
@@ -74,7 +74,7 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
                       <Passo2Empresa {...wizard} />
                     </div>
                   ) : null}
-                  {numero === 2 ? <Passo3Comercial {...wizard} /> : null}
+                  {numero === 2 ? <Passo5Socios {...wizard} /> : null}
                   {numero > 2 ? (
                     <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
                       Seção &quot;{wizard.labels[numero - 1]}&quot; ainda não implementada nesta
