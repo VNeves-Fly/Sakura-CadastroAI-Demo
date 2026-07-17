@@ -102,17 +102,24 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origem]);
 
-  // Por padrão já existe 1 card de sócio (em branco, ver store) pra deixar
-  // claro que o form existe mesmo antes do CNPJ ser preenchido. Quando a
-  // consulta QSA resolve, só preenchemos o nome desse primeiro card — e
-  // só se ele ainda estiver vazio, pra não sobrescrever edição já feita.
-  // Os demais sócios do QSA não são adicionados automaticamente; o
-  // usuário inclui mais via "Adicionar sócio".
+  // Quando a consulta QSA resolve, a Receita já trouxe todos os sócios da
+  // empresa — pré-preenchemos um card pra cada nome (o usuário só
+  // complementa CPF/e-mail/telefone/endereço/RG), em vez de exigir
+  // "Adicionar sócio" manualmente pra cada um. Nunca sobrescreve nome já
+  // preenchido nem remove sócio adicionado a mais pelo usuário.
   useEffect(() => {
-    const primeiroSocio = socios[0];
-    if (qsaResult && primeiroSocio && !primeiroSocio.nome) {
-      updateSocio(0, { nome: qsaResult.nomesSocios[0] ?? "" });
-    }
+    if (!qsaResult) return;
+
+    const atualizados = [...socios];
+    qsaResult.nomesSocios.forEach((nome, index) => {
+      if (!atualizados[index]) {
+        atualizados[index] = criarSocioWizardVazio();
+      }
+      if (!atualizados[index].nome) {
+        atualizados[index] = { ...atualizados[index], nome };
+      }
+    });
+    setSocios(atualizados);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qsaResult]);
 
@@ -137,6 +144,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     try {
       const raw = await agenciaService.consultarQsa(cnpjLimpo);
       setQsaResult(raw ? agenciaAdapter.toQsaResultView(raw) : null);
+    } catch {
+      // Consulta é best-effort (rate limit ou instabilidade da Receita não
+      // devem travar o preenchimento) — o usuário completa os campos manualmente.
+      setQsaResult(null);
     } finally {
       setQsaChecking(false);
     }
@@ -351,6 +362,9 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       if (resultado.success) {
         setSubmitPrecisaRevisaoManual(Boolean(resultado.precisaRevisaoManual));
         setSubmitSuccess(true);
+        // Cadastro já persistido de verdade no banco — o rascunho salvo
+        // localmente (autosave) não tem mais função, limpa.
+        void useCadastroWizardStore.persist.clearStorage();
         return;
       }
 

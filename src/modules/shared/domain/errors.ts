@@ -25,3 +25,10 @@ export class InvalidCredentialsError extends DomainError {
     this.name = "InvalidCredentialsError";
   }
 }
+
+export class RateLimitError extends DomainError {
+  constructor(message = "Muitas tentativas. Aguarde um momento antes de tentar de novo.") {
+    super(message);
+    this.name = "RateLimitError";
+  }
+}

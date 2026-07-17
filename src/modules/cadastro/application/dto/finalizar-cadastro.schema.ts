@@ -51,6 +51,14 @@ export const enderecoBancoMetaSchema = z
     }
   });
 
+// Os 3 e-mails da empresa são opcionais (decisão explícita do usuário) —
+// só validamos o formato quando algo for preenchido.
+const emailOpcionalSchema = z
+  .string()
+  .refine((valor) => valor.length === 0 || z.string().email().safeParse(valor).success, {
+    message: "E-mail inválido.",
+  });
+
 export const finalizarCadastroMetaSchema = z
   .object({
     cnpj: z
@@ -59,9 +67,9 @@ export const finalizarCadastroMetaSchema = z
     origem: z.string().trim().min(1).optional(),
     telefoneComercial: z.string(),
     semTelefoneComercial: z.boolean(),
-    emailOperacional: z.string().min(1, "E-mail é obrigatório.").email("E-mail inválido."),
-    emailComercial: z.string().min(1, "E-mail é obrigatório.").email("E-mail inválido."),
-    emailFinanceiro: z.string().min(1, "E-mail é obrigatório.").email("E-mail inválido."),
+    emailOperacional: emailOpcionalSchema,
+    emailComercial: emailOpcionalSchema,
+    emailFinanceiro: emailOpcionalSchema,
     socios: z.array(socioMetaSchema).min(1, "Adicione ao menos um sócio."),
     enderecoBanco: enderecoBancoMetaSchema,
   })

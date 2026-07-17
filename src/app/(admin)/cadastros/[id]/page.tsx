@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { Building2, Users, Landmark, FileSignature, type LucideIcon } from "lucide-react";
+import { Building2, Users, Landmark, FileSignature } from "lucide-react";
+import { SecaoColapsavel } from "./secao-colapsavel";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
@@ -52,18 +53,6 @@ function formatarEndereco(endereco: {
 }): string {
   if (!endereco.logradouro) return "—";
   return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
-}
-
-// Cabeçalho de seção com ícone + rótulo na cor de marca — mesmo tratamento
-// cromático em todas as seções do dossiê (Empresa, Sócios, Endereço & Banco,
-// Contrato), seguindo a paleta do mapa-redesign-sakura.html.
-function SecaoHeader({ icon: Icon, titulo }: { icon: LucideIcon; titulo: string }) {
-  return (
-    <div className="mb-3 flex items-center gap-2">
-      <Icon className="text-primary size-4" />
-      <h2 className="text-primary text-xs font-bold tracking-wide uppercase">{titulo}</h2>
-    </div>
-  );
 }
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
@@ -195,7 +184,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
           <div className="flex flex-col gap-0.5 text-sm">
             <span>
               <span className="text-muted-foreground">E-mail:</span>{" "}
-              <span className="text-foreground font-medium">{agencia.emailContato}</span>
+              <span className="text-foreground font-medium">{agencia.emailContato || "—"}</span>
             </span>
             <span>
               <span className="text-muted-foreground">Telefone:</span>{" "}
@@ -231,58 +220,57 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
         </div>
       ) : (
         <>
-          <section className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
-            <SecaoHeader icon={Building2} titulo="Empresa" />
+          <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-              <Campo label="E-mail de Contato">{agencia.emailContato}</Campo>
+              <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
               <Campo label="Telefone Comercial">{dados.empresa.telefoneComercial || "—"}</Campo>
-              <Campo label="E-mail Operacional">{dados.empresa.emailOperacional}</Campo>
-              <Campo label="E-mail Comercial">{dados.empresa.emailComercial}</Campo>
-              <Campo label="E-mail Financeiro">{dados.empresa.emailFinanceiro}</Campo>
+              <Campo label="E-mail Operacional">{dados.empresa.emailOperacional || "—"}</Campo>
+              <Campo label="E-mail Comercial">{dados.empresa.emailComercial || "—"}</Campo>
+              <Campo label="E-mail Financeiro">{dados.empresa.emailFinanceiro || "—"}</Campo>
               <Campo label="Contrato Social">
                 <Arquivo path={agencia.contratoSocialPath} />
               </Campo>
             </dl>
-          </section>
+          </SecaoColapsavel>
 
-          <section className="border-border bg-card border-l-primary/60 flex flex-col gap-3 rounded-2xl border border-l-4 p-5">
-            <SecaoHeader icon={Users} titulo="Sócios" />
-            {dados.socios.map((socio, index) => (
-              <div
-                key={index}
-                className="border-border bg-muted/40 flex flex-col gap-2 rounded-xl border px-4 py-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                  <span className="text-foreground font-semibold">{socio.nome}</span>
-                  {socio.isRepresentanteLegal ? (
-                    <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
-                      Representante legal
-                    </span>
-                  ) : null}
-                </div>
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-                  <Campo label="CPF">{socio.cpf}</Campo>
-                  <Campo label="E-mail">{socio.email}</Campo>
-                  <Campo label="Telefone">{socio.telefone}</Campo>
-                  <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
-                  <Campo label="Endereço" className="sm:col-span-2">
-                    {formatarEndereco(socio.endereco)}
-                  </Campo>
-                  <Campo label="RG/CNH">
-                    <Arquivo path={socio.rgPath} />
-                  </Campo>
-                  {socio.procuracaoPath ? (
-                    <Campo label="Procuração">
-                      <Arquivo path={socio.procuracaoPath} />
+          <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
+            <div className="flex flex-col gap-3">
+              {dados.socios.map((socio, index) => (
+                <div
+                  key={index}
+                  className="border-border bg-muted/40 flex flex-col gap-2 rounded-xl border px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <span className="text-foreground font-semibold">{socio.nome}</span>
+                    {socio.isRepresentante ? (
+                      <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
+                        Representante legal
+                      </span>
+                    ) : null}
+                  </div>
+                  <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                    <Campo label="CPF">{socio.cpf}</Campo>
+                    <Campo label="E-mail">{socio.email}</Campo>
+                    <Campo label="Telefone">{socio.telefone}</Campo>
+                    <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
+                    <Campo label="Endereço" className="sm:col-span-2">
+                      {formatarEndereco(socio.endereco)}
                     </Campo>
-                  ) : null}
-                </dl>
-              </div>
-            ))}
-          </section>
+                    <Campo label="RG/CNH">
+                      <Arquivo path={socio.rgPath} />
+                    </Campo>
+                    {socio.procuracaoPath ? (
+                      <Campo label="Procuração">
+                        <Arquivo path={socio.procuracaoPath} />
+                      </Campo>
+                    ) : null}
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </SecaoColapsavel>
 
-          <section className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
-            <SecaoHeader icon={Landmark} titulo="Endereço & Banco" />
+          <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <Campo label="Endereço da Agência" className="sm:col-span-2">
                 {formatarEndereco(dados.enderecoBanco.endereco)}
@@ -297,130 +285,175 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 {dados.enderecoBanco.favorecidoNome} — {dados.enderecoBanco.favorecidoDoc}
               </Campo>
             </dl>
-          </section>
+          </SecaoColapsavel>
         </>
       )}
 
-      <section className="border-border bg-card border-l-primary/60 flex flex-col gap-3 rounded-2xl border border-l-4 p-5">
-        <SecaoHeader icon={FileSignature} titulo="Contrato" />
+      <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />} defaultAberta>
+        <div className="flex flex-col gap-3">
+          {agencia.status === STATUS_EM_COMPLEMENTAR ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-muted-foreground text-sm">
+                A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
+                contrato foi criado ainda.
+              </p>
 
-        {agencia.status === STATUS_EM_COMPLEMENTAR ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-muted-foreground text-sm">
-              A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
-              contrato foi criado ainda.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <form action={aprovarComplementarAction.bind(null, agencia.id)}>
-                <button
-                  type="submit"
-                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                >
-                  Aprovar e Enviar Contrato
-                </button>
-              </form>
-              <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                <button
-                  type="submit"
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                >
-                  Recusar
-                </button>
-              </form>
+              {dados?.parecerIa ? (
+                <div className="border-warning/30 bg-warning/5 flex flex-col gap-3 rounded-xl border p-4 text-sm">
+                  <div>
+                    <span className="text-warning text-xs font-bold tracking-wide uppercase">
+                      Parecer da IA
+                    </span>
+                    <p className="text-foreground mt-1 font-medium">{dados.parecerIa.motivo}</p>
+                  </div>
+
+                  {dados.parecerIa.inconsistencias.length > 0 ? (
+                    <div>
+                      <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+                        Inconsistências encontradas
+                      </span>
+                      <ul className="text-foreground mt-1 list-disc space-y-1 pl-5">
+                        {dados.parecerIa.inconsistencias.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {dados.parecerIa.pontosAvaliar.length > 0 ? (
+                    <div>
+                      <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+                        Pontos a avaliar
+                      </span>
+                      <ul className="text-foreground mt-1 list-disc space-y-1 pl-5">
+                        {dados.parecerIa.pontosAvaliar.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+                      Como resolver
+                    </span>
+                    <p className="text-foreground mt-1">{dados.parecerIa.comoResolver}</p>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                <form action={aprovarComplementarAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                  >
+                    Aprovar e Enviar Contrato
+                  </button>
+                </form>
+                <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                  >
+                    Recusar
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-muted-foreground text-sm">
-              Contrato {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)} (provedor:{" "}
-              {contratoAtual?.provedorId ?? "—"}) e enviado por e-mail pros sócios assinarem. Sem
-              integração real com o D4Sign ainda pra confirmar a assinatura automaticamente — marque
-              manualmente quando todos tiverem assinado.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <form action={marcarContratoAssinadoAction.bind(null, agencia.id)}>
-                <button
-                  type="submit"
-                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                >
-                  Marcar como assinado
-                </button>
-              </form>
+          {agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-muted-foreground text-sm">
+                Contrato {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)} (provedor:{" "}
+                {contratoAtual?.provedorId ?? "—"}) e enviado por e-mail pros sócios assinarem. Sem
+                integração real com o D4Sign ainda pra confirmar a assinatura automaticamente —
+                marque manualmente quando todos tiverem assinado.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <form action={marcarContratoAssinadoAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                  >
+                    Marcar como assinado
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {agencia.status === STATUS_AGUARDANDO_VALIDACAO ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-muted-foreground text-sm">
-              Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
-              {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
-              assinado e valide antes de seguir pra ativação.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <form action={validarContratoAction.bind(null, agencia.id)}>
-                <button
-                  type="submit"
-                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                >
-                  Validar Contrato
-                </button>
-              </form>
-              <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                <button
-                  type="submit"
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                >
-                  Recusar
-                </button>
-              </form>
+          {agencia.status === STATUS_AGUARDANDO_VALIDACAO ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-muted-foreground text-sm">
+                Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
+                {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
+                assinado e valide antes de seguir pra ativação.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <form action={validarContratoAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                  >
+                    Validar Contrato
+                  </button>
+                </form>
+                <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                  >
+                    Recusar
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {agencia.status === STATUS_AGUARDANDO_ATIVACAO ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-muted-foreground text-sm">
-              Contrato validado (provedor: {contratoAtual?.provedorId ?? "—"}). Falta só criar SICA,
-              Travel Link e usuário master e ativar o cliente.
-            </p>
-            <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-              <strong className="text-foreground">Não implementado ainda:</strong> criação de código
-              SICA, Travel Link e credenciais de usuário master exigem campos novos no schema (não
-              existem hoje) — sinalizando aqui em vez de simular dado falso. O botão abaixo só ativa
-              o cliente, sem essas 3 etapas.
+          {agencia.status === STATUS_AGUARDANDO_ATIVACAO ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-muted-foreground text-sm">
+                Contrato validado (provedor: {contratoAtual?.provedorId ?? "—"}). Falta só criar
+                SICA, Travel Link e usuário master e ativar o cliente.
+              </p>
+              <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
+                <strong className="text-foreground">Não implementado ainda:</strong> criação de
+                código SICA, Travel Link e credenciais de usuário master exigem campos novos no
+                schema (não existem hoje) — sinalizando aqui em vez de simular dado falso. O botão
+                abaixo só ativa o cliente, sem essas 3 etapas.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <form action={ativarClienteAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                  >
+                    Ativar cliente
+                  </button>
+                </form>
+                <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                  >
+                    Recusar
+                  </button>
+                </form>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <form action={ativarClienteAction.bind(null, agencia.id)}>
-                <button
-                  type="submit"
-                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                >
-                  Ativar cliente
-                </button>
-              </form>
-              <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                <button
-                  type="submit"
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                >
-                  Recusar
-                </button>
-              </form>
-            </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {agencia.status === STATUS_ATIVO ? (
-          <p className="text-success text-sm font-medium">Cliente ativo.</p>
-        ) : null}
+          {agencia.status === STATUS_ATIVO ? (
+            <p className="text-success text-sm font-medium">Cliente ativo.</p>
+          ) : null}
 
-        {agencia.status === STATUS_RECUSADO ? (
-          <p className="text-destructive text-sm font-medium">Cadastro recusado.</p>
-        ) : null}
-      </section>
+          {agencia.status === STATUS_RECUSADO ? (
+            <p className="text-destructive text-sm font-medium">Cadastro recusado.</p>
+          ) : null}
+        </div>
+      </SecaoColapsavel>
     </div>
   );
 }
