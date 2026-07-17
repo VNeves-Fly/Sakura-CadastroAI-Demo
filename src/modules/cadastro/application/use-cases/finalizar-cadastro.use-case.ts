@@ -94,7 +94,17 @@ export class FinalizarCadastroUseCase implements UseCase<
     // tudo certo, gera e envia o contrato na hora (fila
     // "aguardando_assinatura"). Chamado antes de gravar no banco: se o
     // D4Sign falhar quando a IA aprova, nada é persistido.
-    const analiseIa = await this.analiseIaService.avaliar({ cnpj: input.cnpj });
+    const analiseIa = await this.analiseIaService.avaliar({
+      cnpj: input.cnpj,
+      razaoSocial,
+      contratoSocialPath,
+      socios: socios.map((socio) => ({
+        nome: socio.nome,
+        cpf: socio.cpf,
+        rgPath: socio.rgPath,
+        procuracaoPath: socio.procuracaoPath,
+      })),
+    });
 
     const contratoResult = analiseIa.aprovado
       ? await this.contratoAssinaturaService.gerarEEnviar({
