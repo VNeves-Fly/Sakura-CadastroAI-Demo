@@ -26,6 +26,53 @@ export interface ContratoSignatarioData {
   cpf: string;
 }
 
+export interface EnderecoData {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}
+
+export interface EmpresaData {
+  telefoneComercial: string;
+  emailOperacional: string;
+  emailComercial: string;
+  emailFinanceiro: string;
+}
+
+export interface SocioData {
+  nome: string;
+  cpf: string;
+  email: string;
+  telefone: string;
+  estadoCivil: string;
+  endereco: EnderecoData;
+  isRepresentanteLegal: boolean;
+  rgPath: string;
+  procuracaoPath: string | null;
+}
+
+export interface EnderecoBancoData {
+  enderecoMesmoSocio: boolean;
+  // Índice em `socios` (abaixo) do sócio dono do endereço vinculado — o
+  // repository resolve pro id real de RepresentanteLegal já criado antes
+  // de gravar o FK (ver PrismaAgenciaRepository.create).
+  socioEnderecoVinculadoIndex: number | null;
+  endereco: EnderecoData;
+  bancoPais: string;
+  bancoNome: string;
+  bancoAgencia: string;
+  bancoConta: string;
+  bancoSwift: string;
+  tipoConta: string;
+  favorecidoEhEmpresa: boolean;
+  favorecidoNome: string;
+  favorecidoDoc: string;
+}
+
 export interface CreateAgenciaData {
   razaoSocial: string;
   cnpj: string;
@@ -34,12 +81,14 @@ export interface CreateAgenciaData {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
-  // Gravado atomicamente junto (CadastroComplementar e, se houver,
-  // Contrato), numa única escrita aninhada do Prisma — não existe
-  // intervalo entre eles. Contrato só existe quando a IA já aprovou o
-  // cadastro (nesse caso o status inicial já é "aguardando_assinatura")
-  // — na fila "em_complementar" não há contrato ainda.
-  dadosComplementares: unknown;
+  // Gravado atomicamente junto (Agencia + sócios + CadastroComplementar
+  // e, se houver, Contrato), numa transação — não existe intervalo entre
+  // eles. Contrato só existe quando a IA já aprovou o cadastro (nesse
+  // caso o status inicial já é "aguardando_assinatura") — na fila
+  // "em_complementar" não há contrato ainda.
+  empresa: EmpresaData;
+  socios: SocioData[];
+  enderecoBanco: EnderecoBancoData;
   contrato: {
     provedorId: string;
     status: string;
@@ -81,13 +130,46 @@ export interface ContratoDetalhe {
   id: string;
   provedorId: string;
   status: string;
-  origemGeracao: OrigemGeracaoContrato | null;
+  origemGeracao: OrigemGeracaoContrato;
   createdAt: Date;
+}
+
+export interface RepresentanteLegalDetalhe {
+  id: string;
+  nome: string;
+  cpf: string;
+  email: string;
+  telefone: string;
+  estadoCivil: string;
+  isRepresentanteLegal: boolean;
+  endereco: EnderecoData;
+  rgPath: string;
+  procuracaoPath: string | null;
+}
+
+export interface CadastroComplementarDetalhe {
+  telefoneComercial: string | null;
+  emailOperacional: string | null;
+  emailComercial: string | null;
+  emailFinanceiro: string | null;
+  enderecoAgencia: EnderecoData;
+  enderecoAgenciaMesmoTitular: boolean | null;
+  socioVinculadoEnderecoId: string | null;
+  bancoPais: string | null;
+  bancoNome: string | null;
+  bancoAgencia: string | null;
+  bancoConta: string | null;
+  bancoSwift: string | null;
+  tipoConta: string | null;
+  favorecidoEhEmpresa: boolean | null;
+  favorecidoNome: string | null;
+  favorecidoDoc: string | null;
 }
 
 export interface AgenciaDetalhe {
   agencia: Agencia;
-  dadosComplementares: unknown;
+  complementar: CadastroComplementarDetalhe | null;
+  representantesLegais: RepresentanteLegalDetalhe[];
   contratos: ContratoDetalhe[];
 }
 
