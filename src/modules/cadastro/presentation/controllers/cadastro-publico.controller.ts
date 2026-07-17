@@ -5,22 +5,27 @@ import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-f
 import { MockQsaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-qsa-consulta.adapter";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
+import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter";
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
 import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/consultar-qsa.use-case";
 import type { FinalizarCadastroInput } from "@/modules/cadastro/application/dto/finalizar-cadastro.dto";
 
 // Composition root do módulo cadastro (área pública): única camada que
-// conhece Prisma/filesystem/QSA/D4Sign/IA concretos. QsaConsultaService,
-// ContratoAssinaturaService e AnaliseIaService hoje apontam pros mocks
-// (ver MockQsaConsultaService, MockD4SignService, MockAnaliseIaService)
-// até existir integração real — trocar a implementação aqui não afeta
-// use-cases/domain. FileStorage usa GCS quando GCS_BUCKET_NAME está
-// configurada, senão cai pro disco local (dev sem credencial de nuvem).
+// conhece Prisma/filesystem/QSA/D4Sign/IA concretos. QsaConsultaService e
+// ContratoAssinaturaService hoje apontam pros mocks (ver
+// MockQsaConsultaService, MockD4SignService) até existir integração real —
+// trocar a implementação aqui não afeta use-cases/domain. FileStorage usa
+// GCS quando GCS_BUCKET_NAME está configurada, senão cai pro disco local.
+// AnaliseIaService usa o agente real (agents.flysakura.com) quando
+// AGENCY_ANALYSIS_API_KEY está configurada, senão cai pro mock (checksum
+// do CNPJ).
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 const qsaConsultaService = new MockQsaConsultaService();
 const contratoAssinaturaService = new MockD4SignService();
-const analiseIaService = new MockAnaliseIaService();
+const analiseIaService = process.env.AGENCY_ANALYSIS_API_KEY
+  ? new FlysakuraAnaliseIaAdapter()
+  : new MockAnaliseIaService();
 
 export const cadastroPublicoController = {
   finalizarCadastro(input: FinalizarCadastroInput) {
