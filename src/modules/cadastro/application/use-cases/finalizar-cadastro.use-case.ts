@@ -10,9 +10,20 @@ import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { AnaliseIaService } from "@/modules/cadastro/domain/services/analise-ia-service";
 import type {
+  EnderecoInput,
   FinalizarCadastroInput,
   FinalizarCadastroOutput,
 } from "@/modules/cadastro/application/dto/finalizar-cadastro.dto";
+
+const ENDERECO_VAZIO: EnderecoInput = {
+  cep: "",
+  logradouro: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+  cidade: "",
+  uf: "",
+};
 
 export class FinalizarCadastroUseCase implements UseCase<
   FinalizarCadastroInput,
@@ -93,6 +104,15 @@ export class FinalizarCadastroUseCase implements UseCase<
         })
       : null;
 
+    // Quando o endereço da agência é "o mesmo do sócio", o formulário não
+    // manda um endereço próprio (`enderecoBanco.endereco` vem null) — copia
+    // do sócio vinculado, já que agora existe uma linha real de endereço
+    // por sócio pra copiar (antes ficava null dentro do JSON).
+    const enderecoAgencia =
+      (input.enderecoBanco.enderecoMesmoSocio
+        ? socios[input.enderecoBanco.socioEnderecoVinculado ?? -1]?.endereco
+        : input.enderecoBanco.endereco) ?? ENDERECO_VAZIO;
+
     const agencia = await this.agenciaRepository.create({
       razaoSocial,
       cnpj: input.cnpj,
@@ -101,15 +121,36 @@ export class FinalizarCadastroUseCase implements UseCase<
       emailContato: input.emailOperacional,
       telefoneContato: input.telefoneComercial,
       origem: input.origem,
-      dadosComplementares: {
-        empresa: {
-          telefoneComercial: input.telefoneComercial,
-          emailOperacional: input.emailOperacional,
-          emailComercial: input.emailComercial,
-          emailFinanceiro: input.emailFinanceiro,
-        },
-        socios,
-        enderecoBanco: input.enderecoBanco,
+      empresa: {
+        telefoneComercial: input.telefoneComercial,
+        emailOperacional: input.emailOperacional,
+        emailComercial: input.emailComercial,
+        emailFinanceiro: input.emailFinanceiro,
+      },
+      socios: socios.map((socio) => ({
+        nome: socio.nome,
+        cpf: socio.cpf,
+        email: socio.email,
+        telefone: socio.telefone,
+        estadoCivil: socio.estadoCivil,
+        endereco: socio.endereco,
+        isRepresentanteLegal: socio.isRepresentante,
+        rgPath: socio.rgPath,
+        procuracaoPath: socio.procuracaoPath,
+      })),
+      enderecoBanco: {
+        enderecoMesmoSocio: input.enderecoBanco.enderecoMesmoSocio,
+        socioEnderecoVinculadoIndex: input.enderecoBanco.socioEnderecoVinculado,
+        endereco: enderecoAgencia,
+        bancoPais: input.enderecoBanco.bancoPais,
+        bancoNome: input.enderecoBanco.bancoNome,
+        bancoAgencia: input.enderecoBanco.bancoAgencia,
+        bancoConta: input.enderecoBanco.bancoConta,
+        bancoSwift: input.enderecoBanco.bancoSwift,
+        tipoConta: input.enderecoBanco.tipoConta,
+        favorecidoEhEmpresa: input.enderecoBanco.favorecidoEhEmpresa,
+        favorecidoNome: input.enderecoBanco.favorecidoNome,
+        favorecidoDoc: input.enderecoBanco.favorecidoDoc,
       },
       contrato: contratoResult
         ? {
