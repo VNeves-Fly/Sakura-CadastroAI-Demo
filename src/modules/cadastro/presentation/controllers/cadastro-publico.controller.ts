@@ -1,6 +1,7 @@
 import { prisma } from "@/modules/shared/infrastructure/prisma/client";
 import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-agencia.repository";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
+import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 import { MockQsaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-qsa-consulta.adapter";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
@@ -13,9 +14,10 @@ import type { FinalizarCadastroInput } from "@/modules/cadastro/application/dto/
 // ContratoAssinaturaService e AnaliseIaService hoje apontam pros mocks
 // (ver MockQsaConsultaService, MockD4SignService, MockAnaliseIaService)
 // até existir integração real — trocar a implementação aqui não afeta
-// use-cases/domain.
+// use-cases/domain. FileStorage usa GCS quando GCS_BUCKET_NAME está
+// configurada, senão cai pro disco local (dev sem credencial de nuvem).
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
-const fileStorage = new LocalFileStorage();
+const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 const qsaConsultaService = new MockQsaConsultaService();
 const contratoAssinaturaService = new MockD4SignService();
 const analiseIaService = new MockAnaliseIaService();
