@@ -53,11 +53,21 @@ export class ReceitaWsQsaConsultaAdapter implements QsaConsultaService {
     if (response.status === 402 || response.status === 504) {
       return null;
     }
-    if (!response.ok) {
-      throw new Error(`ReceitaWS respondeu ${response.status}: ${await response.text()}`);
-    }
 
-    const resultado = (await response.json()) as ReceitaWsSuccess | ReceitaWsError;
+    // A spec do ReceitaWS documenta CNPJ inválido/rejeitado como resposta
+    // 200 com `status: "ERROR"`, mas na prática o serviço responde 400
+    // nesses casos — o corpo tem o mesmo formato `{status, message}`
+    // independente do HTTP status, então lemos o JSON antes de decidir se
+    // é erro de programação (não conseguimos nem parsear) ou só "sem dado".
+    const resultado = (await response.json().catch(() => null)) as
+      ReceitaWsSuccess | ReceitaWsError | null;
+
+    if (!resultado) {
+      throw new Error(`ReceitaWS respondeu ${response.status} sem corpo JSON válido.`);
+    }
+    if (!response.ok && resultado.status !== "ERROR") {
+      throw new Error(`ReceitaWS respondeu ${response.status}: ${JSON.stringify(resultado)}`);
+    }
     if (resultado.status !== "OK") {
       return null;
     }
