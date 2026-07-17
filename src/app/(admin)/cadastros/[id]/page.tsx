@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Building2, Users, Landmark, FileSignature } from "lucide-react";
 import { SecaoColapsavel } from "./secao-colapsavel";
 import { RevisaoDocumentosComplementar, type DocumentoRevisao } from "./revisao-documentos";
+import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
@@ -424,24 +425,11 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
                 assinado e valide antes de seguir pra ativação.
               </p>
-              <div className="flex flex-wrap gap-2">
-                <form action={validarContratoAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                  >
-                    Validar Contrato
-                  </button>
-                </form>
-                <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                  >
-                    Recusar
-                  </button>
-                </form>
-              </div>
+              <ValidacaoSicaTravelLink
+                agenciaId={agencia.id}
+                validarContratoAction={validarContratoAction}
+                recusarCadastroAction={recusarCadastroAction}
+              />
             </div>
           ) : null}
 
