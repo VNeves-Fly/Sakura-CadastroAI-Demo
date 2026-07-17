@@ -4,15 +4,23 @@ export interface TelefoneChat {
   whatsapp: boolean | null;
 }
 
-export interface SocioChat {
+export interface PessoaChat {
   nome: string;
   cpf: string;
-  telefones: TelefoneChat[];
   email: string;
+  telefone: TelefoneChat | null;
+  enderecoResumo: string | null;
+}
+
+export interface SocioChat extends PessoaChat {
   estadoCivil: string;
   estadoCivilLabel: string;
-  enderecoResumo: string | null;
   documentoNome: string | null;
+}
+
+export interface ProcuradorChat extends PessoaChat {
+  rgArquivoNome: string | null;
+  procuracaoArquivoNome: string | null;
 }
 
 export interface BancoChat {
@@ -26,13 +34,22 @@ export interface BancoChat {
 export interface ContextoChat {
   cnpj: string;
   razaoSocial: string;
+  contratoSocialNome: string | null;
+  telefoneComercial: TelefoneChat | null;
+  emailContato: string;
+  emailComercialDiferente: boolean;
+  emailComercial: string | null;
+  emailFinanceiroDiferente: boolean;
+  emailFinanceiro: string | null;
   socios: SocioChat[];
   socioAtualIndex: number | null;
+  temProcurador: boolean | null;
+  procurador: ProcuradorChat | null;
   enderecoSocioPendente: string | null;
+  enderecoProcuradorPendente: string | null;
   enderecoAgenciaPendente: string | null;
   enderecoAgenciaResumo: string | null;
   banco: BancoChat | null;
-  contratoSocialNome: string | null;
 }
 
 export type ChatMessage =
@@ -53,24 +70,36 @@ export interface CampoInlineForm {
 
 export type PendingTag =
   | "cnpj"
-  | "cpf"
+  | "contrato_social_empresa"
+  | "telefone_comercial_pergunta"
   | "tipo_telefone"
   | "telefone_celular"
   | "telefone_fixo"
   | "confirma_whatsapp"
-  | "mais_telefone"
-  | "email"
+  | "email_contato"
+  | "email_flags"
+  | "email_comercial"
+  | "email_financeiro"
   | "escolha_socio"
+  | "cpf"
+  | "email"
   | "estado_civil"
   | "endereco_socio"
   | "confirmar_endereco_socio"
   | "documento_socio"
+  | "tem_procurador"
+  | "procurador_nome"
+  | "cpf_procurador"
+  | "email_procurador"
+  | "endereco_procurador"
+  | "confirmar_endereco_procurador"
+  | "documento_rg_procurador"
+  | "documento_procuracao"
   | "endereco_mesmo_socio"
   | "endereco_qual_socio"
   | "endereco_agencia"
   | "confirmar_endereco_agencia"
   | "dados_bancarios"
-  | "contrato_social"
   | "confirmar_envio";
 
 export type PendingInput =

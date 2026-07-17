@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SwipeSwitch } from "./swipe-switch";
 import type { CampoInlineForm } from "./types";
 
 interface InlineFormCardProps {
@@ -24,7 +25,7 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
   }
 
   return (
-    <div className="mb-4 ml-9 max-w-[260px] rounded-2xl rounded-bl-none bg-white/10 p-4">
+    <div className="mb-4 ml-9 max-w-[85%] rounded-2xl rounded-bl-none bg-white/10 p-4">
       <span className="text-accent mb-3 block text-[10px] font-bold tracking-wide uppercase">
         {titulo}
       </span>
@@ -65,14 +66,14 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
               </select>
             ) : null}
             {campo.tipo === "checkbox" ? (
-              <label className="flex items-center gap-2 text-[11px] text-white/80">
-                <input
-                  type="checkbox"
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] text-white/80">{campo.label}</span>
+                <SwipeSwitch
+                  id={campo.nome}
                   checked={Boolean(valores[campo.nome])}
-                  onChange={(event) => atualizar(campo.nome, event.target.checked)}
+                  onChange={(valor) => atualizar(campo.nome, valor)}
                 />
-                {campo.label}
-              </label>
+              </div>
             ) : null}
           </div>
         ))}

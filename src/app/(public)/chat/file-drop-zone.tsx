@@ -18,7 +18,7 @@ export function FileDropZone({ instrucao, onArquivo }: FileDropZoneProps) {
   }
 
   return (
-    <div className="mb-4 ml-9 max-w-[220px]">
+    <div className="mb-4 ml-9 max-w-[80%]">
       <label
         onDragOver={(event) => {
           event.preventDefault();

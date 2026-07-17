@@ -21,7 +21,7 @@ const rubik = Rubik({
 export default function ChatPage() {
   return (
     <div
-      className={`${rubik.variable} font-rubik chat-scope relative flex h-screen w-full flex-col items-center justify-center gap-4 overflow-hidden bg-gradient-to-br from-[hsl(320,60%,9%)] via-black to-black p-4`}
+      className={`${rubik.variable} font-rubik chat-scope relative flex h-dvh w-full flex-col items-center gap-3 overflow-hidden bg-gradient-to-br from-[hsl(320,60%,9%)] via-black to-black p-3 sm:gap-4 sm:p-4`}
     >
       <div className="bg-pink-glow/30 absolute top-[-10%] left-[-10%] size-[420px] rounded-full blur-[120px]" />
       <div className="bg-violet-glow/20 absolute right-[-10%] bottom-[-10%] size-[420px] rounded-full blur-[120px]" />
@@ -31,11 +31,14 @@ export default function ChatPage() {
         alt="Sakura"
         width={160}
         height={48}
-        className="relative z-10 h-11 w-auto object-contain drop-shadow-[0_0_18px_hsl(var(--pink-glow)/0.6)]"
+        className="relative z-10 h-8 w-auto shrink-0 object-contain drop-shadow-[0_0_18px_hsl(var(--pink-glow)/0.6)] sm:h-11"
         priority
       />
 
-      <div className="relative z-10 h-[80vh] max-h-[600px] w-full max-w-[380px]">
+      {/* Largura/altura fluidas (clamp via min()) em vez de um card fixo
+          pequeno — preenche quase a tela toda no mobile e cresce até um
+          teto sensato no desktop, sem pular entre dois breakpoints. */}
+      <div className="relative z-10 max-h-[760px] min-h-0 w-[min(94vw,520px)] flex-1">
         <ChatWizard />
       </div>
     </div>
