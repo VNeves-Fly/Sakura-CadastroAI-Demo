@@ -1,12 +1,14 @@
 "use client";
 
 import { useId, useRef, useState, type DragEvent } from "react";
-import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 
 interface FileDropInputProps {
   label: string;
   accept: string;
   file: File | null;
+  // Erro já decidido por quem chama (ViewModel) — este componente não
+  // conhece nenhuma regra de validação de arquivo.
+  erro?: string | null;
   onChange: (file: File | null) => void;
   required?: boolean;
   helperText?: string;
@@ -32,12 +34,14 @@ function UploadIcon() {
   );
 }
 
-// Componente apenas de renderização: recebe o arquivo e o callback via
-// props, não conhece ViewModel/Service.
+// Componente apenas de renderização: recebe o arquivo, o erro (já
+// validado por quem chama) e o callback via props — não conhece
+// ViewModel/Service nem nenhuma regra de validação.
 export function FileDropInput({
   label,
   accept,
   file,
+  erro = null,
   onChange,
   required,
   helperText,
@@ -45,24 +49,11 @@ export function FileDropInput({
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  function selecionarArquivo(candidato: File | null) {
-    if (!candidato) {
-      setErro(null);
-      onChange(null);
-      return;
-    }
-
-    const mensagemErro = validarArquivoUpload(candidato, label);
-    setErro(mensagemErro);
-    onChange(mensagemErro ? null : candidato);
-  }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setIsDraggingOver(false);
-    selecionarArquivo(event.dataTransfer.files[0] ?? null);
+    onChange(event.dataTransfer.files[0] ?? null);
   }
 
   return (
@@ -120,7 +111,7 @@ export function FileDropInput({
         type="file"
         accept={accept}
         className="hidden"
-        onChange={(event) => selecionarArquivo(event.target.files?.[0] ?? null)}
+        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
       />
     </div>
   );

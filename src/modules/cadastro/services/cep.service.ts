@@ -1,11 +1,4 @@
-export interface EnderecoViaCep {
-  logradouro: string;
-  bairro: string;
-  cidade: string;
-  uf: string;
-}
-
-interface ViaCepRawResponse {
+export interface ViaCepRawResponse {
   logradouro?: string;
   bairro?: string;
   localidade?: string;
@@ -16,25 +9,16 @@ interface ViaCepRawResponse {
 // Única camada autorizada a se comunicar com a API externa (ViaCEP).
 // Diferente do QSA/Receita Federal (mockados por falta de acesso à API
 // oficial paga), o ViaCEP é uma API pública gratuita — integração real.
+// Só transporte HTTP: a tradução do formato de resposta é responsabilidade
+// do cepAdapter, não deste service.
 export const cepService = {
-  async buscar(cepLimpo: string): Promise<EnderecoViaCep | null> {
+  async buscar(cepLimpo: string): Promise<ViaCepRawResponse | null> {
     const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
 
     if (!response.ok) {
       return null;
     }
 
-    const data: ViaCepRawResponse = await response.json();
-
-    if (data.erro) {
-      return null;
-    }
-
-    return {
-      logradouro: data.logradouro ?? "",
-      bairro: data.bairro ?? "",
-      cidade: data.localidade ?? "",
-      uf: data.uf ?? "",
-    };
+    return response.json();
   },
 };

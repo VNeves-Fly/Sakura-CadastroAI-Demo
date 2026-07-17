@@ -189,7 +189,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
             <span>
               <span className="text-muted-foreground">Telefone:</span>{" "}
               <span className="text-foreground font-medium">
-                {dados?.empresa.telefoneComercial || "—"}
+                {complementar?.telefoneComercial || "—"}
               </span>
             </span>
           </div>
@@ -223,10 +223,10 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
           <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
-              <Campo label="Telefone Comercial">{dados.empresa.telefoneComercial || "—"}</Campo>
-              <Campo label="E-mail Operacional">{dados.empresa.emailOperacional || "—"}</Campo>
-              <Campo label="E-mail Comercial">{dados.empresa.emailComercial || "—"}</Campo>
-              <Campo label="E-mail Financeiro">{dados.empresa.emailFinanceiro || "—"}</Campo>
+              <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
+              <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
+              <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
+              <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
               <Campo label="Contrato Social">
                 <Arquivo path={agencia.contratoSocialPath} />
               </Campo>
@@ -235,14 +235,14 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
           <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
             <div className="flex flex-col gap-3">
-              {dados.socios.map((socio, index) => (
+              {representantesLegais.map((socio) => (
                 <div
-                  key={index}
+                  key={socio.id}
                   className="border-border bg-muted/40 flex flex-col gap-2 rounded-xl border px-4 py-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-1.5">
                     <span className="text-foreground font-semibold">{socio.nome}</span>
-                    {socio.isRepresentante ? (
+                    {socio.isRepresentanteLegal ? (
                       <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
                         Representante legal
                       </span>
@@ -273,16 +273,16 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
           <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <Campo label="Endereço da Agência" className="sm:col-span-2">
-                {formatarEndereco(dados.enderecoBanco.endereco)}
+                {formatarEndereco(complementar.enderecoAgencia)}
               </Campo>
               <Campo label="Banco">
-                {dados.enderecoBanco.bancoNome} ({labelBancoPais(dados.enderecoBanco.bancoPais)})
+                {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})
               </Campo>
-              <Campo label="Tipo de Conta">{labelTipoConta(dados.enderecoBanco.tipoConta)}</Campo>
-              <Campo label="Agência">{dados.enderecoBanco.bancoAgencia}</Campo>
-              <Campo label="Conta">{dados.enderecoBanco.bancoConta}</Campo>
+              <Campo label="Tipo de Conta">{labelTipoConta(complementar.tipoConta ?? "")}</Campo>
+              <Campo label="Agência">{complementar.bancoAgencia}</Campo>
+              <Campo label="Conta">{complementar.bancoConta}</Campo>
               <Campo label="Favorecido" className="sm:col-span-2">
-                {dados.enderecoBanco.favorecidoNome} — {dados.enderecoBanco.favorecidoDoc}
+                {complementar.favorecidoNome} — {complementar.favorecidoDoc}
               </Campo>
             </dl>
           </SecaoColapsavel>
@@ -298,49 +298,13 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 contrato foi criado ainda.
               </p>
 
-              {dados?.parecerIa ? (
-                <div className="border-warning/30 bg-warning/5 flex flex-col gap-3 rounded-xl border p-4 text-sm">
-                  <div>
-                    <span className="text-warning text-xs font-bold tracking-wide uppercase">
-                      Parecer da IA
-                    </span>
-                    <p className="text-foreground mt-1 font-medium">{dados.parecerIa.motivo}</p>
-                  </div>
-
-                  {dados.parecerIa.inconsistencias.length > 0 ? (
-                    <div>
-                      <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-                        Inconsistências encontradas
-                      </span>
-                      <ul className="text-foreground mt-1 list-disc space-y-1 pl-5">
-                        {dados.parecerIa.inconsistencias.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {dados.parecerIa.pontosAvaliar.length > 0 ? (
-                    <div>
-                      <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-                        Pontos a avaliar
-                      </span>
-                      <ul className="text-foreground mt-1 list-disc space-y-1 pl-5">
-                        {dados.parecerIa.pontosAvaliar.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  <div>
-                    <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-                      Como resolver
-                    </span>
-                    <p className="text-foreground mt-1">{dados.parecerIa.comoResolver}</p>
-                  </div>
-                </div>
-              ) : null}
+              <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
+                <strong className="text-foreground">Parecer da IA indisponível:</strong> a
+                normalização de dados do cadastro complementar não trouxe mais o campo estruturado
+                do parecer (motivo/inconsistências/pontos a avaliar) — sinalizando aqui em vez de
+                mostrar um parecer desatualizado ou inventado. Precisa alinhar com quem mexeu no
+                schema onde esse dado deveria morar agora.
+              </div>
 
               <div className="flex flex-wrap gap-2">
                 <form action={aprovarComplementarAction.bind(null, agencia.id)}>

@@ -16,7 +16,8 @@ export function useCreateUserViewModel() {
     setError(null);
 
     try {
-      const raw = await usersService.create(values);
+      const serviceInput = usersAdapter.toServiceInput(values);
+      const raw = await usersService.create(serviceInput);
       addUser(usersAdapter.toView(raw));
       return true;
     } catch (caughtError) {

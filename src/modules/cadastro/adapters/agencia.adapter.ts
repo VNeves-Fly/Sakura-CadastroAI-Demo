@@ -19,6 +19,10 @@ function telefoneComDdi(telefone: string, pais: string): string {
 // Service/API externa esperam — nenhuma outra camada do front conhece o
 // shape bruto da API.
 export const agenciaAdapter = {
+  toQsaConsultaInput(cnpjMascarado: string): string {
+    return unmaskCnpj(cnpjMascarado);
+  },
+
   toQsaResultView(raw: RawQsaResponse): QsaResultView {
     return {
       razaoSocial: raw.razaoSocial,
