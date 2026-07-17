@@ -109,6 +109,25 @@
   * {
     @apply border-border;
   }
+
+  /* Cores de marca exatas do guia de estilo (print 2026-07-17), escopadas
+     só ao protótipo /chat — sobrescreve os tokens semânticos localmente
+     via cascata de custom properties, sem alterar o resto do app. */
+  .chat-scope {
+    --primary: 319 100% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 320 100% 40%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 323 92% 85%;
+    --accent-foreground: 320 100% 28%;
+    --destructive: 319 100% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 153 59% 46%;
+    --success-foreground: 0 0% 100%;
+    --warning: 39 87% 50%;
+    --warning-foreground: 0 0% 100%;
+    --ring: 319 100% 47%;
+  }
 }
 
 @layer utilities {

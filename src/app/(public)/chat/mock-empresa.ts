@@ -5,6 +5,17 @@ const NOMES_MOCK = [
   "Diego Andrade Souza",
 ];
 
+const NOMES_AGENCIA_MOCK = [
+  "Amo Viajar Turismo",
+  "Destino Certo Viagens",
+  "Bússola Turismo",
+  "Voo Livre Turismo",
+  "Mundo Aberto Viagens",
+  "Horizonte Azul Viagens",
+  "Passagem Livre Turismo",
+  "Trilha Nova Turismo",
+];
+
 export interface EmpresaMock {
   razaoSocial: string;
   socios: { nome: string }[];
@@ -23,7 +34,7 @@ export function gerarEmpresaMock(cnpjLimpo: string): EmpresaMock {
   const quantidadeSocios = (seed % NOMES_MOCK.length) + 1;
 
   return {
-    razaoSocial: `Agência ${cnpjLimpo.slice(0, 8)} Ltda`,
+    razaoSocial: NOMES_AGENCIA_MOCK[seed % NOMES_AGENCIA_MOCK.length]!,
     socios: NOMES_MOCK.slice(0, quantidadeSocios).map((nome) => ({ nome })),
   };
 }

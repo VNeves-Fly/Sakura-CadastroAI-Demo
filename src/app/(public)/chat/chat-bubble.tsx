@@ -64,7 +64,7 @@ export function ChatBubble({ mensagem }: { mensagem: ChatMessage }) {
           <ul className="flex flex-col gap-1">
             {mensagem.itens.map((item) => (
               <li key={item} className="flex gap-1.5">
-                <span className="text-sakura-300">•</span>
+                <span className="text-accent">•</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -88,7 +88,7 @@ export function ChatBubble({ mensagem }: { mensagem: ChatMessage }) {
   if (mensagem.tipo === "arquivo") {
     return (
       <div ref={ref} className="mb-4 flex origin-bottom-right justify-end">
-        <div className="from-sakura-500 to-sakura-700 flex max-w-[220px] items-center gap-2 rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-[11px] text-white">
+        <div className="from-primary to-secondary flex max-w-[220px] items-center gap-2 rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-[11px] text-white">
           <FileIcon />
           <span className="truncate">{mensagem.nomeArquivo}</span>
         </div>
@@ -98,7 +98,7 @@ export function ChatBubble({ mensagem }: { mensagem: ChatMessage }) {
 
   return (
     <div ref={ref} className="mb-4 flex origin-bottom-right justify-end">
-      <div className="from-sakura-500 to-sakura-700 max-w-[220px] rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-[11px] leading-relaxed text-white">
+      <div className="from-primary to-secondary max-w-[220px] rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-[11px] leading-relaxed text-white">
         {mensagem.conteudo}
       </div>
     </div>

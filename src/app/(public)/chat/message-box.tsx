@@ -3,7 +3,7 @@
 import { useState, type KeyboardEvent } from "react";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { maskCpf } from "@/modules/cadastro/utils/cpf.util";
-import { maskTelefone } from "@/modules/shared/utils/telefone.util";
+import { maskTelefoneChat } from "./format-telefone";
 import type { PendingInput } from "./types";
 
 interface MessageBoxProps {
@@ -15,7 +15,8 @@ function aplicarMascara(valor: string, pending: PendingInput | null): string {
   if (!pending || pending.kind !== "texto") return valor;
   if (pending.tag === "cnpj") return maskCnpj(valor);
   if (pending.tag === "cpf") return maskCpf(valor);
-  if (pending.tag === "telefone") return maskTelefone(valor, "BR");
+  if (pending.tag === "telefone_celular") return maskTelefoneChat(valor, "celular");
+  if (pending.tag === "telefone_fixo") return maskTelefoneChat(valor, "fixo");
   return valor;
 }
 
@@ -55,7 +56,7 @@ export function MessageBox({ pending, onEnviar }: MessageBoxProps) {
         type="button"
         disabled={!habilitado || valor.trim().length === 0}
         onClick={enviar}
-        className="bg-sakura-500 hover:bg-sakura-600 shrink-0 rounded-full px-3.5 py-1.5 text-[10px] font-bold tracking-wide text-white uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="bg-primary hover:bg-secondary shrink-0 rounded-full px-3.5 py-1.5 text-[10px] font-bold tracking-wide text-white uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
       >
         Enviar
       </button>

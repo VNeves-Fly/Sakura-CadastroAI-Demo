@@ -13,7 +13,7 @@ export function QuickReplies({ opcoes, onEscolher }: QuickRepliesProps) {
           key={opcao.valor}
           type="button"
           onClick={() => onEscolher(opcao.valor)}
-          className="border-sakura-300/40 hover:bg-sakura-500/20 rounded-full border bg-white/10 px-3.5 py-1.5 text-[11px] font-semibold text-white transition"
+          className="border-accent/40 hover:bg-primary/20 rounded-full border bg-white/10 px-3.5 py-1.5 text-[11px] font-semibold text-white transition"
         >
           {opcao.label}
         </button>

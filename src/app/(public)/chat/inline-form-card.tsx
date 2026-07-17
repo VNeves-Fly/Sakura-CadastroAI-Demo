@@ -10,7 +10,7 @@ interface InlineFormCardProps {
 }
 
 const INPUT_CLASSNAME =
-  "rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] text-white outline-none placeholder:text-white/40 focus:border-sakura-300";
+  "rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[11px] text-white outline-none placeholder:text-white/40 focus:border-accent";
 
 export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardProps) {
   const [valores, setValores] = useState<Record<string, string | boolean>>({});
@@ -25,7 +25,7 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
 
   return (
     <div className="mb-4 ml-9 max-w-[260px] rounded-2xl rounded-bl-none bg-white/10 p-4">
-      <span className="text-sakura-300 mb-3 block text-[10px] font-bold tracking-wide uppercase">
+      <span className="text-accent mb-3 block text-[10px] font-bold tracking-wide uppercase">
         {titulo}
       </span>
       <div className="flex flex-col gap-2.5">
@@ -37,9 +37,14 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
             {campo.tipo === "text" ? (
               <input
                 type="text"
+                inputMode={campo.nome === "cep" ? "numeric" : undefined}
                 placeholder={campo.placeholder}
                 value={String(valores[campo.nome] ?? "")}
-                onChange={(event) => atualizar(campo.nome, event.target.value)}
+                onChange={(event) => {
+                  const bruto = event.target.value;
+                  const valor = campo.nome === "cep" ? bruto.replace(/\D/g, "").slice(0, 8) : bruto;
+                  atualizar(campo.nome, valor);
+                }}
                 className={INPUT_CLASSNAME}
               />
             ) : null}
@@ -76,7 +81,7 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
         type="button"
         disabled={!obrigatoriosPreenchidos}
         onClick={() => onConfirmar(valores)}
-        className="bg-sakura-500 hover:bg-sakura-600 mt-3 w-full rounded-full px-3 py-2 text-[11px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="bg-primary hover:bg-secondary mt-3 w-full rounded-full px-3 py-2 text-[11px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
       >
         Confirmar
       </button>

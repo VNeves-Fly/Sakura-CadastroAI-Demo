@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { validarCnpjComMensagem, unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
-import { validarCpfComMensagem, maskCpf } from "@/modules/cadastro/utils/cpf.util";
-import { validarTelefone, maskTelefone } from "@/modules/shared/utils/telefone.util";
+import { validarCpfComMensagem, maskCpf, unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
 import { unmaskCep } from "@/modules/cadastro/utils/cep.util";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
@@ -13,7 +12,14 @@ import {
 } from "@/modules/cadastro/types/endereco-banco.types";
 import { gerarEmpresaMock, decisaoFinalMock } from "./mock-empresa";
 import { resolverEnderecoMock } from "./mock-endereco";
-import type { ChatMessage, ContextoChat, PendingInput } from "./types";
+import { telefoneChatValido, maskTelefoneChat } from "./format-telefone";
+import type {
+  ChatMessage,
+  ContextoChat,
+  FaseChat,
+  PendingInput,
+  ResultadoFinalChat,
+} from "./types";
 
 function contextoVazio(): ContextoChat {
   return {
@@ -21,11 +27,23 @@ function contextoVazio(): ContextoChat {
     razaoSocial: "",
     socios: [],
     socioAtualIndex: null,
+    enderecoSocioPendente: null,
+    enderecoAgenciaPendente: null,
     enderecoAgenciaResumo: null,
     banco: null,
     contratoSocialNome: null,
   };
 }
+
+const CAMPOS_ENDERECO = [
+  { nome: "cep", label: "CEP", tipo: "text" as const, placeholder: "00000000", obrigatorio: true },
+  { nome: "numero", label: "Número", tipo: "text" as const, placeholder: "100", obrigatorio: true },
+];
+
+const OPCOES_SIM_NAO = [
+  { valor: "sim", label: "Sim" },
+  { valor: "nao", label: "Não" },
+];
 
 function aguardar(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -33,13 +51,15 @@ function aguardar(ms: number) {
 
 // Roteiro do chat: protótipo visual isolado (decisão do usuário,
 // 2026-07-17) — nenhuma chamada a adapter/service/use-case real. CNPJ,
-// CPF, telefone e e-mail usam os mesmos validadores puros do wizard
-// real; empresa/sócios e endereço são gerados por semente
-// determinística a partir do CNPJ/CEP (mock-empresa.ts / mock-endereco.ts),
-// só pra a demonstração ser consistente entre execuções.
+// CPF e e-mail usam os mesmos validadores puros do wizard real;
+// empresa/sócios e endereço são gerados por semente determinística a
+// partir do CNPJ/CEP (mock-empresa.ts / mock-endereco.ts), só pra a
+// demonstração ser consistente entre execuções.
 export function useChatScript() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<PendingInput | null>(null);
+  const [fase, setFase] = useState<FaseChat>("chat");
+  const [resultadoFinal, setResultadoFinal] = useState<ResultadoFinalChat | null>(null);
   const contextoRef = useRef<ContextoChat>(contextoVazio());
   const idCounterRef = useRef(0);
   const iniciouRef = useRef(false);
@@ -115,7 +135,7 @@ export function useChatScript() {
       socios: empresa.socios.map((s) => ({
         nome: s.nome,
         cpf: "",
-        telefone: "",
+        telefones: [],
         email: "",
         estadoCivil: "",
         estadoCivilLabel: "",
@@ -124,7 +144,9 @@ export function useChatScript() {
       })),
     };
 
-    await falarBot(`Muito obrigado! Localizamos o CNPJ da ${empresa.razaoSocial}.`);
+    await falarBot(
+      `Seja bem-vindo(a), ${empresa.razaoSocial.toUpperCase()}! Localizamos seu CNPJ.`,
+    );
     await irParaEscolhaSocio();
   }
 
@@ -163,22 +185,94 @@ export function useChatScript() {
       setPending({ kind: "texto", tag: "cpf", placeholder: "000.000.000-00" });
       return;
     }
-    const indice = contextoRef.current.socioAtualIndex!;
-    contextoRef.current.socios[indice]!.cpf = maskCpf(valorDigitado);
-    await falarBot("Ótimo, digite o telefone com (DDD) 9XXXX-XXXX");
-    setPending({ kind: "texto", tag: "telefone", placeholder: "(11) 99999-9999" });
-  }
 
-  async function receberTelefone(valorDigitado: string) {
-    if (!validarTelefone(valorDigitado, "BR")) {
+    const limpo = unmaskCpf(valorDigitado);
+    const indice = contextoRef.current.socioAtualIndex!;
+    const duplicado = contextoRef.current.socios.some(
+      (s, i) => i !== indice && s.cpf !== "" && unmaskCpf(s.cpf) === limpo,
+    );
+    if (duplicado) {
       await falarBot(
-        "Esse telefone não parece completo. Pode digitar novamente no formato (DDD) 9XXXX-XXXX?",
+        "Esse CPF já foi informado para outro sócio deste cadastro. Cada sócio precisa de um CPF diferente — pode conferir e digitar novamente?",
       );
-      setPending({ kind: "texto", tag: "telefone", placeholder: "(11) 99999-9999" });
+      setPending({ kind: "texto", tag: "cpf", placeholder: "000.000.000-00" });
       return;
     }
+
+    contextoRef.current.socios[indice]!.cpf = maskCpf(valorDigitado);
+    await perguntarTipoTelefone();
+  }
+
+  async function perguntarTipoTelefone() {
+    await falarBot("Esse telefone é fixo ou celular?");
+    setPending({
+      kind: "quick-replies",
+      tag: "tipo_telefone",
+      opcoes: [
+        { valor: "celular", label: "Celular" },
+        { valor: "fixo", label: "Telefone fixo" },
+      ],
+    });
+  }
+
+  async function escolherTipoTelefone(tipo: "fixo" | "celular") {
+    const placeholder = tipo === "celular" ? "(11) 99999-9999" : "(11) 3333-4444";
+    await falarBot(`Digite o número no formato ${placeholder}`);
+    setPending({
+      kind: "texto",
+      tag: tipo === "celular" ? "telefone_celular" : "telefone_fixo",
+      placeholder,
+    });
+  }
+
+  async function receberTelefoneNumero(valorDigitado: string, tipo: "fixo" | "celular") {
+    if (!telefoneChatValido(valorDigitado, tipo)) {
+      const placeholder = tipo === "celular" ? "(11) 99999-9999" : "(11) 3333-4444";
+      const rotulo = tipo === "celular" ? "celular" : "telefone fixo";
+      await falarBot(
+        `Esse número não parece um ${rotulo} válido. Pode digitar novamente no formato ${placeholder}?`,
+      );
+      setPending({
+        kind: "texto",
+        tag: tipo === "celular" ? "telefone_celular" : "telefone_fixo",
+        placeholder,
+      });
+      return;
+    }
+
     const indice = contextoRef.current.socioAtualIndex!;
-    contextoRef.current.socios[indice]!.telefone = maskTelefone(valorDigitado, "BR");
+    contextoRef.current.socios[indice]!.telefones.push({
+      tipo,
+      numero: maskTelefoneChat(valorDigitado, tipo),
+      whatsapp: null,
+    });
+
+    if (tipo === "celular") {
+      await falarBot("Esse celular é WhatsApp?");
+      setPending({ kind: "quick-replies", tag: "confirma_whatsapp", opcoes: OPCOES_SIM_NAO });
+      return;
+    }
+
+    await perguntarMaisTelefone();
+  }
+
+  async function responderWhatsapp(valor: string) {
+    const indice = contextoRef.current.socioAtualIndex!;
+    const telefones = contextoRef.current.socios[indice]!.telefones;
+    telefones[telefones.length - 1]!.whatsapp = valor === "sim";
+    await perguntarMaisTelefone();
+  }
+
+  async function perguntarMaisTelefone() {
+    await falarBot("Deseja cadastrar mais um telefone?");
+    setPending({ kind: "quick-replies", tag: "mais_telefone", opcoes: OPCOES_SIM_NAO });
+  }
+
+  async function responderMaisTelefone(valor: string) {
+    if (valor === "sim") {
+      await perguntarTipoTelefone();
+      return;
+    }
     await falarBot("Qual o e-mail do sócio?");
     setPending({ kind: "texto", tag: "email", placeholder: "socio@email.com" });
   }
@@ -189,7 +283,20 @@ export function useChatScript() {
       setPending({ kind: "texto", tag: "email", placeholder: "socio@email.com" });
       return;
     }
+
+    const normalizado = valorDigitado.trim().toLowerCase();
     const indice = contextoRef.current.socioAtualIndex!;
+    const duplicado = contextoRef.current.socios.some(
+      (s, i) => i !== indice && s.email !== "" && s.email.toLowerCase() === normalizado,
+    );
+    if (duplicado) {
+      await falarBot(
+        "Esse e-mail já está sendo usado por outro sócio deste cadastro. Pode informar um e-mail diferente?",
+      );
+      setPending({ kind: "texto", tag: "email", placeholder: "socio@email.com" });
+      return;
+    }
+
     contextoRef.current.socios[indice]!.email = valorDigitado.trim();
     await falarBot("Qual o estado civil?");
     setPending({
@@ -208,22 +315,43 @@ export function useChatScript() {
       kind: "inline-form",
       tag: "endereco_socio",
       titulo: "Endereço do sócio",
-      campos: [
-        { nome: "cep", label: "CEP", tipo: "text", placeholder: "00000-000", obrigatorio: true },
-        { nome: "numero", label: "Número", tipo: "text", placeholder: "100", obrigatorio: true },
+      campos: CAMPOS_ENDERECO,
+    });
+  }
+
+  function resumoEndereco(cep: string, numero: string): string {
+    const endereco = resolverEnderecoMock(unmaskCep(cep));
+    return `${endereco.logradouro}, ${numero} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
+  }
+
+  async function receberEnderecoSocio(valores: Record<string, string | boolean>) {
+    const resumo = resumoEndereco(String(valores.cep ?? ""), String(valores.numero ?? ""));
+    contextoRef.current.enderecoSocioPendente = resumo;
+    await falarBot(`Encontramos este endereço: ${resumo}. Está correto?`);
+    setPending({
+      kind: "quick-replies",
+      tag: "confirmar_endereco_socio",
+      opcoes: [
+        { valor: "confirmar", label: "Confirmar" },
+        { valor: "editar", label: "Editar" },
       ],
     });
   }
 
-  async function receberEnderecoSocio(valores: Record<string, string | boolean>) {
-    const cep = String(valores.cep ?? "");
-    const numero = String(valores.numero ?? "");
-    const endereco = resolverEnderecoMock(unmaskCep(cep));
-    const resumo = `${endereco.logradouro}, ${numero} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
-    const indice = contextoRef.current.socioAtualIndex!;
-    contextoRef.current.socios[indice]!.enderecoResumo = resumo;
+  async function confirmarEnderecoSocio(valor: string) {
+    if (valor === "editar") {
+      await falarBot("Sem problemas, me informe novamente o CEP e o número do endereço do sócio.");
+      setPending({
+        kind: "inline-form",
+        tag: "endereco_socio",
+        titulo: "Endereço do sócio",
+        campos: CAMPOS_ENDERECO,
+      });
+      return;
+    }
 
-    await falarBot(`Endereço registrado: ${resumo}`);
+    const indice = contextoRef.current.socioAtualIndex!;
+    contextoRef.current.socios[indice]!.enderecoResumo = contextoRef.current.enderecoSocioPendente;
     await falarBot("Agora envie uma foto ou PDF do RG/CNH do sócio.");
     setPending({ kind: "arquivo", tag: "documento_socio", instrucao: "RG ou CNH (PDF ou imagem)" });
   }
@@ -238,14 +366,7 @@ export function useChatScript() {
   async function perguntarEnderecoAgencia() {
     await falarBot("Todos os sócios foram cadastrados! Agora vamos para o endereço da agência.");
     await falarBot("O endereço da agência é o mesmo de algum sócio?");
-    setPending({
-      kind: "quick-replies",
-      tag: "endereco_mesmo_socio",
-      opcoes: [
-        { valor: "sim", label: "Sim" },
-        { valor: "nao", label: "Não" },
-      ],
-    });
+    setPending({ kind: "quick-replies", tag: "endereco_mesmo_socio", opcoes: OPCOES_SIM_NAO });
   }
 
   async function responderEnderecoMesmoSocio(valor: string) {
@@ -256,10 +377,7 @@ export function useChatScript() {
         kind: "inline-form",
         tag: "endereco_agencia",
         titulo: "Endereço da agência",
-        campos: [
-          { nome: "cep", label: "CEP", tipo: "text", placeholder: "00000-000", obrigatorio: true },
-          { nome: "numero", label: "Número", tipo: "text", placeholder: "100", obrigatorio: true },
-        ],
+        campos: CAMPOS_ENDERECO,
       });
       return;
     }
@@ -287,12 +405,34 @@ export function useChatScript() {
   }
 
   async function receberEnderecoAgencia(valores: Record<string, string | boolean>) {
-    const cep = String(valores.cep ?? "");
-    const numero = String(valores.numero ?? "");
-    const endereco = resolverEnderecoMock(unmaskCep(cep));
-    const resumo = `${endereco.logradouro}, ${numero} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
-    contextoRef.current.enderecoAgenciaResumo = resumo;
-    await falarBot(`Endereço da agência registrado: ${resumo}`);
+    const resumo = resumoEndereco(String(valores.cep ?? ""), String(valores.numero ?? ""));
+    contextoRef.current.enderecoAgenciaPendente = resumo;
+    await falarBot(`Encontramos este endereço: ${resumo}. Está correto?`);
+    setPending({
+      kind: "quick-replies",
+      tag: "confirmar_endereco_agencia",
+      opcoes: [
+        { valor: "confirmar", label: "Confirmar" },
+        { valor: "editar", label: "Editar" },
+      ],
+    });
+  }
+
+  async function confirmarEnderecoAgencia(valor: string) {
+    if (valor === "editar") {
+      await falarBot(
+        "Sem problemas, me informe novamente o CEP e o número do endereço da agência.",
+      );
+      setPending({
+        kind: "inline-form",
+        tag: "endereco_agencia",
+        titulo: "Endereço da agência",
+        campos: CAMPOS_ENDERECO,
+      });
+      return;
+    }
+
+    contextoRef.current.enderecoAgenciaResumo = contextoRef.current.enderecoAgenciaPendente;
     await irParaDadosBancarios();
   }
 
@@ -373,37 +513,30 @@ export function useChatScript() {
     });
   }
 
-  async function confirmarEnvio() {
-    await falarBot("Ok, vamos analisar seu cadastro. Aguarde um momento...", 1800);
+  function confirmarEnvio() {
+    setFase("analisando");
+  }
+
+  function onAnaliseConcluida() {
     const ctx = contextoRef.current;
     const decisao = decisaoFinalMock(ctx.cnpj);
 
     if (decisao === "aprovado") {
-      const emails = ctx.socios.map((s) => s.email);
-      const destino =
-        emails.length === 1
-          ? `para o e-mail ${emails[0]}`
-          : `para os e-mails dos sócios (${emails.join(", ")})`;
-      await falarBot(
-        `🎉 Parabéns! Seu cadastro foi aprovado. O contrato está sendo encaminhado ${destino}.`,
-      );
+      setResultadoFinal({
+        tipo: "aprovado",
+        titulo: "Seu cadastro foi aprovado!",
+        mensagem: "O link com o contrato da agência foi enviado no e-mail dos sócios cadastrados.",
+      });
     } else {
-      await falarBot(
-        "Seu cadastro precisou de uma análise mais detalhada. Em breve nossa equipe de cadastro entrará em contato solicitando mais detalhes.",
-      );
+      setResultadoFinal({
+        tipo: "manual",
+        titulo: "Seu cadastro foi encaminhado a um de nossos analistas.",
+        mensagem:
+          "Fique ligado! Em breve alguém da nossa equipe entrará em contato para mais detalhes.",
+      });
     }
 
-    setPending({
-      kind: "quick-replies",
-      tag: "reiniciar",
-      opcoes: [{ valor: "reiniciar", label: "Começar um novo cadastro" }],
-    });
-  }
-
-  function reiniciar() {
-    contextoRef.current = contextoVazio();
-    setMessages([]);
-    void iniciar();
+    setFase("resultado");
   }
 
   async function onEnviarTexto(valorDigitado: string) {
@@ -416,7 +549,8 @@ export function useChatScript() {
 
     if (tag === "cnpj") await receberCnpj(valor);
     else if (tag === "cpf") await receberCpf(valor);
-    else if (tag === "telefone") await receberTelefone(valor);
+    else if (tag === "telefone_celular") await receberTelefoneNumero(valor, "celular");
+    else if (tag === "telefone_fixo") await receberTelefoneNumero(valor, "fixo");
     else if (tag === "email") await receberEmail(valor);
   }
 
@@ -428,12 +562,16 @@ export function useChatScript() {
     setPending(null);
 
     if (tag === "escolha_socio") await escolherSocio(Number(valor));
+    else if (tag === "tipo_telefone") await escolherTipoTelefone(valor as "fixo" | "celular");
+    else if (tag === "confirma_whatsapp") await responderWhatsapp(valor);
+    else if (tag === "mais_telefone") await responderMaisTelefone(valor);
     else if (tag === "estado_civil")
       await escolherEstadoCivil(valor, opcaoEscolhida?.label ?? valor);
+    else if (tag === "confirmar_endereco_socio") await confirmarEnderecoSocio(valor);
     else if (tag === "endereco_mesmo_socio") await responderEnderecoMesmoSocio(valor);
     else if (tag === "endereco_qual_socio") await escolherSocioParaEndereco(Number(valor));
-    else if (tag === "confirmar_envio") await confirmarEnvio();
-    else if (tag === "reiniciar") reiniciar();
+    else if (tag === "confirmar_endereco_agencia") await confirmarEnderecoAgencia(valor);
+    else if (tag === "confirmar_envio") confirmarEnvio();
   }
 
   async function onEnviarForm(valores: Record<string, string | boolean>) {
@@ -456,5 +594,15 @@ export function useChatScript() {
     else if (tag === "contrato_social") await receberContratoSocial(nomeArquivo);
   }
 
-  return { messages, pending, onEnviarTexto, onQuickReply, onEnviarForm, onEnviarArquivo };
+  return {
+    messages,
+    pending,
+    fase,
+    resultadoFinal,
+    onEnviarTexto,
+    onQuickReply,
+    onEnviarForm,
+    onEnviarArquivo,
+    onAnaliseConcluida,
+  };
 }
