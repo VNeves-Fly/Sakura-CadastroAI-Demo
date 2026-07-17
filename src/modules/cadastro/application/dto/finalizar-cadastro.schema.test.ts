@@ -1,0 +1,176 @@
+import {
+  enderecoBancoMetaSchema,
+  finalizarCadastroMetaSchema,
+  socioMetaSchema,
+} from "@/modules/cadastro/application/dto/finalizar-cadastro.schema";
+
+function enderecoValido() {
+  return {
+    cep: "01310100",
+    logradouro: "Avenida Paulista",
+    numero: "1000",
+    complemento: "",
+    bairro: "Bela Vista",
+    cidade: "São Paulo",
+    uf: "SP",
+  };
+}
+
+function socioValido() {
+  return {
+    nome: "Fulano de Tal",
+    cpf: "11144477735",
+    email: "fulano@empresa.com",
+    telefone: "+55 11999999999",
+    estadoCivil: "solteiro",
+    endereco: enderecoValido(),
+    isRepresentante: false,
+  };
+}
+
+function enderecoBancoValido() {
+  return {
+    enderecoMesmoSocio: false,
+    socioEnderecoVinculado: null,
+    endereco: enderecoValido(),
+    bancoPais: "nacional",
+    bancoNome: "Banco do Brasil",
+    bancoAgencia: "1234",
+    bancoConta: "56789-0",
+    bancoSwift: "",
+    tipoConta: "corrente",
+    favorecidoEhEmpresa: true,
+    favorecidoNome: "Empresa Teste Ltda",
+    favorecidoDoc: "11222333000181",
+  };
+}
+
+function payloadValido() {
+  return {
+    cnpj: "11222333000181",
+    telefoneComercial: "+55 11999999999",
+    semTelefoneComercial: false,
+    emailOperacional: "operacional@empresa.com",
+    emailComercial: "comercial@empresa.com",
+    emailFinanceiro: "financeiro@empresa.com",
+    socios: [socioValido()],
+    enderecoBanco: enderecoBancoValido(),
+  };
+}
+
+describe("finalizarCadastroMetaSchema — payload completo válido", () => {
+  it("aceita o payload de referência sem alterações", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse(payloadValido());
+    expect(resultado.success).toBe(true);
+  });
+});
+
+describe("finalizarCadastroMetaSchema — e-mails da empresa (opcionais)", () => {
+  it("aceita os 3 e-mails vazios", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      emailOperacional: "",
+      emailComercial: "",
+      emailFinanceiro: "",
+    });
+    expect(resultado.success).toBe(true);
+  });
+
+  it("rejeita e-mail preenchido com formato inválido", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      emailOperacional: "nao-e-um-email",
+    });
+    expect(resultado.success).toBe(false);
+    if (!resultado.success) {
+      expect(resultado.error.issues.some((i) => i.path.includes("emailOperacional"))).toBe(true);
+    }
+  });
+});
+
+describe("finalizarCadastroMetaSchema — telefone comercial (obrigatório, salvo exceção)", () => {
+  it("rejeita telefone vazio quando semTelefoneComercial é false", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      telefoneComercial: "",
+      semTelefoneComercial: false,
+    });
+    expect(resultado.success).toBe(false);
+    if (!resultado.success) {
+      expect(resultado.error.issues.some((i) => i.path.includes("telefoneComercial"))).toBe(true);
+    }
+  });
+
+  it("aceita telefone vazio quando semTelefoneComercial é true", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      telefoneComercial: "",
+      semTelefoneComercial: true,
+    });
+    expect(resultado.success).toBe(true);
+  });
+});
+
+describe("finalizarCadastroMetaSchema — cnpj", () => {
+  it("rejeita CNPJ com máscara (a validação de dígito verificador é feita antes, aqui só o formato)", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      cnpj: "11.222.333/0001-81",
+    });
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rejeita CNPJ curto demais", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      cnpj: "112223330001",
+    });
+    expect(resultado.success).toBe(false);
+  });
+});
+
+describe("finalizarCadastroMetaSchema — sócios", () => {
+  it("rejeita lista de sócios vazia", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({ ...payloadValido(), socios: [] });
+    expect(resultado.success).toBe(false);
+  });
+});
+
+describe("socioMetaSchema", () => {
+  it("e-mail do sócio continua obrigatório (só o da empresa ficou opcional)", () => {
+    const resultado = socioMetaSchema.safeParse({ ...socioValido(), email: "" });
+    expect(resultado.success).toBe(false);
+  });
+});
+
+describe("enderecoBancoMetaSchema — internacional exige SWIFT", () => {
+  it("rejeita conta internacional sem SWIFT/BIC", () => {
+    const resultado = enderecoBancoMetaSchema.safeParse({
+      ...enderecoBancoValido(),
+      bancoPais: "internacional",
+      bancoSwift: "",
+    });
+    expect(resultado.success).toBe(false);
+    if (!resultado.success) {
+      expect(resultado.error.issues.some((i) => i.path.includes("bancoSwift"))).toBe(true);
+    }
+  });
+
+  it("aceita conta internacional com SWIFT preenchido", () => {
+    const resultado = enderecoBancoMetaSchema.safeParse({
+      ...enderecoBancoValido(),
+      bancoPais: "internacional",
+      bancoSwift: "BOFAUS3N",
+    });
+    expect(resultado.success).toBe(true);
+  });
+
+  it("conta nacional não exige SWIFT", () => {
+    const resultado = enderecoBancoMetaSchema.safeParse({
+      ...enderecoBancoValido(),
+      bancoPais: "nacional",
+      bancoSwift: "",
+    });
+    expect(resultado.success).toBe(true);
+  });
+});

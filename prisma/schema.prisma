@@ -18,19 +18,560 @@ model User {
   @@map("users")
 }
 
+// ---------------------------------------------------------------------------
+// Domínio de cadastro de agências. Fusão do schema normalizado descrito em
+// prisma/schema.md e etapas/nullable.md (sem colunas JSON, uma tabela por
+// conceito) com o que já está implementado e rodando em cima de `Agencia`:
+// campos básicos obrigatórios (o wizard público já coleta tudo antes do
+// submit), `contratoSocialPath` como coluna direta, `provedorId` genérico
+// de provedor de assinatura, e `origemGeracao` por contrato.
+//
+// Tabelas/colunas do schema antigo que a UI atual ainda não popula (CADASTUR,
+// vendas percentuais, gate de IA, kanban, decisões humanas, avanços forçados,
+// notificações, signatários padrão) continuam existindo, nullable, prontas
+// pro roadmap de etapas/README.md sem quebrar o fluxo de hoje.
+// ---------------------------------------------------------------------------
+
+enum StatusAgencia {
+  em_analise
+  em_complementar
+  aguardando_assinatura
+  aguardando_validacao
+  aguardando_ativacao
+  ativo
+  recusado
+}
+
+enum StatusContrato {
+  aguardando_assinatura
+  assinado
+}
+
+enum OrigemGeracaoContrato {
+  ia
+  humano
+}
+
+enum TipoDocumento {
+  CONTRATO_SOCIAL
+  CADASTUR
+  RG_CNPJ
+  COMPROVANTE_ENDERECO
+  COMPROVANTE_ENDERECO_AGENCIA
+  CERTIDAO_CASAMENTO
+  PROCURACAO
+}
+
+enum StatusDocumento {
+  PENDENTE
+  APROVADO
+  REPROVADO
+}
+
+enum PapelRepresentante {
+  SOCIO
+  PROCURADOR
+}
+
+enum TipoVenda {
+  NACIONAL
+  INTERNACIONAL
+  TERRESTRE
+}
+
+enum EtapaDecisao {
+  ANALISE
+  COMPLEMENTAR
+}
+
+enum ResultadoDecisao {
+  APROVADO
+  REPROVADO
+}
+
 model Agencia {
-  id                 String   @id @default(cuid())
+  id                 String        @id @default(cuid())
   razaoSocial        String
-  cnpj               String   @unique
-  etapaAtual         Int      @default(1)
-  status             String   @default("em_analise")
+  cnpj               String        @unique
+  etapaAtual         Int           @default(1)
+  status             StatusAgencia @default(em_analise)
   contratoSocialPath String
   emailContato       String
   telefoneContato    String
   origem             String?
-  socios             Json
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  complementar         CadastroComplementar?
+  representantesLegais RepresentanteLegal[]
+  documentos           Documento[]
+  contratos            Contrato[]
+  dadosReceita         DadosReceita?
+  gateValidacoes       GateValidacao[]
+  alertas              Alerta[]
+  usuarioMaster        UsuarioMaster?
+  avancosForcados      AvancoForcado[]
+  kanbanHistorico      KanbanHistorico[]
+  decisoesHumanas      DecisaoHumana[]
+  notificacoes         Notificacao[]
 
   @@map("agencias")
+}
+
+// Cache normalizado da consulta à Receita Federal (CNPJ) — roadmap
+// (etapas/README.md), não populado pelo fluxo atual.
+model DadosReceita {
+  id        String  @id @default(cuid())
+  agenciaId String  @unique
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  situacaoCadastral String?
+  dataAbertura      DateTime?
+  naturezaJuridica  String?
+  porte             String?
+  capitalSocial     Decimal?  @db.Decimal(14, 2)
+  telefone          String?
+  email             String?
+  optanteSimples    Boolean   @default(false)
+  dataOpcaoSimples  DateTime?
+
+  endereco Endereco?
+
+  consultadoEm DateTime @default(now())
+
+  cnaes Cnae[]
+
+  @@map("dados_receita")
+}
+
+model Cnae {
+  id             String       @id @default(cuid())
+  dadosReceitaId String
+  dadosReceita   DadosReceita @relation(fields: [dadosReceitaId], references: [id], onDelete: Cascade)
+  codigo         String?
+  descricao      String?
+  principal      Boolean      @default(false)
+
+  @@index([dadosReceitaId])
+  @@map("cnaes")
+}
+
+// Resultado do gate automático de IA — roadmap, não populado hoje (a
+// decisão da IA no fluxo atual mora só no `origemGeracao`/status do
+// Contrato).
+model GateValidacao {
+  id             String   @id @default(cuid())
+  agenciaId      String
+  agencia        Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  etapaAlvo      Int?
+  liberado       Boolean?
+  motivoBloqueio String?
+  avaliadoEm     DateTime @default(now())
+
+  @@index([agenciaId])
+  @@map("gate_validacoes")
+}
+
+model Alerta {
+  id          String    @id @default(cuid())
+  agenciaId   String
+  agencia     Agencia   @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  tipo        String?
+  mensagem    String?
+  criadoEm    DateTime  @default(now())
+  resolvidoEm DateTime?
+
+  @@index([agenciaId])
+  @@map("alertas")
+}
+
+// Credencial de acesso da Etapa 4 (Usuário Master) — roadmap, fora do
+// fluxo implementado.
+model UsuarioMaster {
+  id        String   @id @default(cuid())
+  agenciaId String   @unique
+  agencia   Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  nome      String?
+  email     String?
+  ativo     Boolean  @default(false)
+  criadoEm  DateTime @default(now())
+
+  @@map("usuarios_master")
+}
+
+// Compartilhado por três donos mutuamente exclusivos. O FK fica do lado
+// do Endereco (nunca do lado do dono) pra que apagar o dono cascateie até
+// aqui — ver prisma/schema.md pra o raciocínio completo.
+model Endereco {
+  id          String  @id @default(cuid())
+  cep         String?
+  logradouro  String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  uf          String?
+
+  dadosReceitaId String?       @unique
+  dadosReceita   DadosReceita? @relation(fields: [dadosReceitaId], references: [id], onDelete: Cascade)
+
+  cadastroComplementarId String?               @unique
+  cadastroComplementar   CadastroComplementar? @relation(fields: [cadastroComplementarId], references: [id], onDelete: Cascade)
+
+  representanteLegalId String?             @unique
+  representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id], onDelete: Cascade)
+
+  @@map("enderecos")
+}
+
+model CadastroComplementar {
+  id        String  @id @default(cuid())
+  agenciaId String  @unique
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  // Passo 2 — Empresa
+  telefoneComercial String?
+  emailOperacional  String?
+  emailComercial    String?
+  emailFinanceiro   String?
+
+  // CADASTUR — roadmap, não coletado pela UI atual
+  cadasturNumero       String?
+  cadasturDataCadastro DateTime?
+  cadasturValidade     DateTime?
+  cadasturSituacao     String?
+
+  // Passo 3 — Comercial — roadmap. `clienteInternacional` nunca é
+  // persistido: é sempre o inverso de `resideBrasil`, derivado na
+  // aplicação.
+  resideBrasil Boolean?
+
+  // Passo 6 — Endereço da agência & Banco
+  tipoAgencia                 String?
+  enderecoAgencia             Endereco?
+  enderecoAgenciaMesmoTitular Boolean?
+  socioVinculadoEnderecoId    String?
+  socioVinculadoEndereco      RepresentanteLegal? @relation("SocioVinculadoEndereco", fields: [socioVinculadoEnderecoId], references: [id])
+
+  bancoPais           String?
+  bancoNome           String?
+  bancoAgencia        String?
+  bancoConta          String?
+  bancoSwift          String?
+  tipoConta           String?
+  favorecidoEhEmpresa Boolean?
+  favorecidoNome      String?
+  favorecidoDoc       String?
+
+  // Roadmap (schema antigo), não usado pela UI atual
+  chavePix         String?
+  tipoChavePix     String?
+  tipoFaturamento  String?
+  percCorporativo  Decimal? @db.Decimal(5, 2)
+  percConvencional Decimal? @db.Decimal(5, 2)
+
+  submetidoAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendasPercentuais VendaPercentual[]
+
+  @@map("cadastros_complementares")
+}
+
+// Roadmap — substitui os JSONs paralelos de vendas por tipo/percentual;
+// não populado pela UI atual.
+model VendaPercentual {
+  id                     String               @id @default(cuid())
+  cadastroComplementarId String
+  cadastroComplementar   CadastroComplementar @relation(fields: [cadastroComplementarId], references: [id], onDelete: Cascade)
+  tipo                   TipoVenda?
+  percentual             Decimal?             @db.Decimal(5, 2)
+
+  @@unique([cadastroComplementarId, tipo])
+  @@map("venda_percentuais")
+}
+
+model RepresentanteLegal {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  nome                 String
+  email                String
+  telefone             String
+  cpf                  String
+  cnpj                 String?
+  isPj                 Boolean            @default(false)
+  rg                   String?
+  rgOrgaoEmissor       String?
+  dataNascimento       DateTime?
+  estadoCivil          String
+  regimeBens           String?
+  nacionalidade        String?
+  cargo                String?
+  papel                PapelRepresentante @default(SOCIO)
+  // Sócio marcado como representante legal da empresa (libera o slot de
+  // Procuração no wizard) — distinto de `papel`, que é pra um procurador
+  // terceiro fora do quadro societário (roadmap, não usado hoje).
+  isRepresentanteLegal Boolean            @default(false)
+  ativo                Boolean            @default(true)
+  origem               String?
+  preenchidoPorIa      Boolean            @default(false)
+
+  endereco Endereco?
+  conjuge  Conjuge?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentos                Documento[]
+  contratoSignatarios       ContratoSignatario[]
+  enderecosAgenciaVinculada CadastroComplementar[] @relation("SocioVinculadoEndereco")
+
+  @@unique([agenciaId, cpf])
+  @@map("representantes_legais")
+}
+
+// Roadmap (Passo 5, PF casado) — não coletado pela UI atual.
+model Conjuge {
+  id                   String             @id @default(cuid())
+  representanteLegalId String             @unique
+  representanteLegal   RepresentanteLegal @relation(fields: [representanteLegalId], references: [id], onDelete: Cascade)
+  nome                 String?
+  cpf                  String?
+  rg                   String?
+  nacionalidade        String?
+
+  @@map("conjuges")
+}
+
+model Documento {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  representanteLegalId String?
+  representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
+
+  tipo     TipoDocumento
+  fileName String?
+  mimeType String?
+
+  // Caminho retornado pelo FileStorage (local hoje, GCS futuramente).
+  // Bucket/tamanho/hash ficam nullable porque o LocalFileStorage atual
+  // não produz esses metadados.
+  gcsPath   String
+  gcsBucket String?
+  gcsSize   Int?
+  gcsMd5    String?
+
+  status           StatusDocumento @default(PENDENTE)
+  verificado       Boolean         @default(false)
+  reprovadoPor     String?
+  motivoReprovacao String?
+  reprovadoEm      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analiseIa AnaliseIaDocumento?
+
+  @@index([agenciaId])
+  @@map("documentos")
+}
+
+// Roadmap — extração de IA sobre um documento (hoje: CADASTUR); não
+// populado pela UI atual.
+model AnaliseIaDocumento {
+  id          String    @id @default(cuid())
+  documentoId String    @unique
+  documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+
+  numeroCadastur       String?
+  razaoSocialExtraida  String?
+  dataCadastroExtraida DateTime?
+  dataValidadeExtraida DateTime?
+  situacaoExtraida     String?
+  cnaeExtraido         String?
+  scoreConfianca       Decimal?  @db.Decimal(5, 2)
+
+  processadoEm DateTime @default(now())
+
+  @@map("analises_ia_documentos")
+}
+
+model Contrato {
+  id            String                @id @default(cuid())
+  agenciaId     String
+  agencia       Agencia               @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  provedorId    String
+  status        StatusContrato        @default(aguardando_assinatura)
+  origemGeracao OrigemGeracaoContrato
+
+  numContrato        String? @unique
+  conteudoPreenchido String? @db.Text
+
+  leituraConfirmada    Boolean   @default(false)
+  leituraConfirmadaPor String?
+  leituraConfirmadaEm  DateTime?
+
+  contratoGcsPath    String?
+  pdfAssinadoGcsPath String?
+  assinadoAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  signatarios ContratoSignatario[]
+
+  @@index([agenciaId])
+  @@map("contratos")
+}
+
+// Snapshot imutável do signatário no momento em que o contrato foi
+// gerado — se o sócio corrigir o endereço em RepresentanteLegal depois,
+// o contrato já emitido não muda retroativamente.
+model ContratoSignatario {
+  id         String   @id @default(cuid())
+  contratoId String
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  representanteLegalId String?
+  representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
+  signatarioPadraoId   String?
+  signatarioPadrao     SignatarioPadrao?   @relation(fields: [signatarioPadraoId], references: [id])
+
+  nome           String
+  email          String
+  cpf            String
+  rg             String?
+  rgOrgaoEmissor String?
+  cargo          String?
+  nacionalidade  String?
+  estadoCivil    String?
+  dataNascimento DateTime?
+
+  cepSnapshot         String?
+  logradouroSnapshot  String?
+  numeroSnapshot      String?
+  complementoSnapshot String?
+  bairroSnapshot      String?
+  cidadeSnapshot      String?
+  ufSnapshot          String?
+
+  camposPendentes ContratoCampoPendente[]
+
+  @@index([contratoId])
+  @@map("contrato_signatarios")
+}
+
+// Roadmap — pendências ignoradas quando o contrato é gerado com
+// "force: true"; não usado pela UI atual.
+model ContratoCampoPendente {
+  id                   String             @id @default(cuid())
+  contratoSignatarioId String
+  contratoSignatario   ContratoSignatario @relation(fields: [contratoSignatarioId], references: [id], onDelete: Cascade)
+  campo                String?
+
+  @@map("contrato_campos_pendentes")
+}
+
+// Roadmap — histórico de overrides manuais de etapa; não usado hoje.
+model AvancoForcado {
+  id                 String   @id @default(cuid())
+  agenciaId          String
+  agencia            Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  etapaAlvo          Int?
+  motivo             String?
+  gateMotivoBloqueio String?
+  statusReal         String?
+  solicitadoPor      String?
+  autorizadoPor      String?
+  createdAt          DateTime @default(now())
+
+  pendencias AvancoForcadoPendencia[]
+
+  @@index([agenciaId])
+  @@map("avancos_forcados")
+}
+
+model AvancoForcadoPendencia {
+  id              String        @id @default(cuid())
+  avancoForcadoId String
+  avancoForcado   AvancoForcado @relation(fields: [avancoForcadoId], references: [id], onDelete: Cascade)
+  descricao       String?
+
+  @@map("avanco_forcado_pendencias")
+}
+
+// Roadmap — log de auditoria de transição de etapa; não usado hoje (o
+// admin já grava status diretamente em Agencia.status).
+model KanbanHistorico {
+  id                String   @id @default(cuid())
+  agenciaId         String
+  agencia           Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  etapaAnterior     Int?
+  etapaNova         Int?
+  usuarioEmail      String?
+  origem            String?
+  observacao        String?
+  desbloqueioManual Boolean?
+  detalhes          String?  @db.Text
+  createdAt         DateTime @default(now())
+
+  @@index([agenciaId])
+  @@map("kanban_historico")
+}
+
+// Roadmap — decisão manual de aprovação/reprovação em qualquer etapa com
+// gate humano; não usado hoje (aprovação manual mora em
+// AprovarCadastroComplementarUseCase, sem log próprio ainda).
+model DecisaoHumana {
+  id            String            @id @default(cuid())
+  agenciaId     String
+  agencia       Agencia           @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  etapa         EtapaDecisao?
+  decisaoIa     String?
+  decisaoHumana ResultadoDecisao?
+  justificativa String?           @db.Text
+  usuarioEmail  String?
+  modeloIa      String?
+  scoreIa       Float?
+  divergiu      Boolean?
+  createdAt     DateTime          @default(now())
+
+  @@index([agenciaId])
+  @@map("decisoes_humanas")
+}
+
+// Roadmap — não usado hoje.
+model Notificacao {
+  id        String   @id @default(cuid())
+  agenciaId String
+  agencia   Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  tipo      String?
+  titulo    String?
+  mensagem  String?
+  createdAt DateTime @default(now())
+
+  @@index([agenciaId])
+  @@map("notificacoes")
+}
+
+// Signatários fixos da Sakura (mesmos em todo contrato) — roadmap, não
+// usado hoje (contratos só têm signatarios ligados aos sócios).
+model SignatarioPadrao {
+  id       String  @id @default(cuid())
+  nome     String?
+  cargo    String?
+  email    String?
+  telefone String?
+  ativo    Boolean @default(true)
+  ordem    Int?
+
+  contratoSignatarios ContratoSignatario[]
+
+  @@map("signatarios_padrao")
 }

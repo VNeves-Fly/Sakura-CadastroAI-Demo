@@ -1,5 +1,3 @@
-import type { Socio } from "@/modules/cadastro/domain/entities/socio";
-
 export interface AgenciaProps {
   id: string;
   razaoSocial: string;
@@ -10,7 +8,6 @@ export interface AgenciaProps {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
-  socios: Socio[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,8 +39,16 @@ export class Agencia {
     return this.props.status;
   }
 
-  get socios(): Socio[] {
-    return this.props.socios;
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
+
+  get contratoSocialPath(): string {
+    return this.props.contratoSocialPath;
+  }
+
+  get emailContato(): string {
+    return this.props.emailContato;
   }
 
   toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt"> & {
@@ -60,7 +65,6 @@ export class Agencia {
       emailContato: this.props.emailContato,
       telefoneContato: this.props.telefoneContato,
       origem: this.props.origem,
-      socios: this.props.socios,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
     };
