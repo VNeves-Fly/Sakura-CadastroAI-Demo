@@ -8,25 +8,25 @@ import { cadastroAdminController } from "@/modules/cadastro/presentation/control
 // no mesmo lugar já com o novo status).
 export async function aprovarComplementarAction(id: string) {
   await cadastroAdminController.aprovarComplementar(id);
-  revalidatePath(`/cadastros/${id}`);
+  revalidatePath(`/painel/${id}`);
 }
 
 export async function marcarContratoAssinadoAction(id: string) {
   await cadastroAdminController.marcarContratoAssinado(id);
-  revalidatePath(`/cadastros/${id}`);
+  revalidatePath(`/painel/${id}`);
 }
 
 export async function validarContratoAction(id: string) {
   await cadastroAdminController.validarContrato(id);
-  revalidatePath(`/cadastros/${id}`);
+  revalidatePath(`/painel/${id}`);
 }
 
 export async function ativarClienteAction(id: string) {
   await cadastroAdminController.ativarCliente(id);
-  revalidatePath(`/cadastros/${id}`);
+  revalidatePath(`/painel/${id}`);
 }
 
 export async function recusarCadastroAction(id: string) {
   await cadastroAdminController.recusarCadastro(id);
-  revalidatePath(`/cadastros/${id}`);
+  revalidatePath(`/painel/${id}`);
 }
