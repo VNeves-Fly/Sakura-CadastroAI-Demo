@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { Building2, Users, Landmark, FileSignature } from "lucide-react";
 import { SecaoColapsavel } from "./secao-colapsavel";
+import { RevisaoDocumentosComplementar, type DocumentoRevisao } from "./revisao-documentos";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
@@ -17,6 +18,7 @@ import {
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
+  CONTRATO_STATUS_ASSINADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import {
   aprovarComplementarAction,
@@ -150,6 +152,25 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
   const { agencia, complementar, representantesLegais, contratos } = detalhe;
   const contratoAtual = contratos[0] ?? null;
+
+  // Documentos revisáveis do cadastro complementar — contrato social +
+  // RG/procuração de cada sócio, com o mesmo path já usado no restante do
+  // dossiê (nada inventado, só reaproveita o que já vem de AgenciaDetalhe).
+  const documentosParaRevisao: DocumentoRevisao[] = [
+    { id: "contrato-social", label: "Contrato Social", path: agencia.contratoSocialPath },
+    ...representantesLegais.flatMap((socio) => [
+      { id: `rg-${socio.id}`, label: `RG/CNH — ${socio.nome}`, path: socio.rgPath },
+      ...(socio.procuracaoPath
+        ? [
+            {
+              id: `procuracao-${socio.id}`,
+              label: `Procuração — ${socio.nome}`,
+              path: socio.procuracaoPath,
+            },
+          ]
+        : []),
+    ]),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -291,12 +312,60 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
       <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />} defaultAberta>
         <div className="flex flex-col gap-3">
+          {contratoAtual ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="border-border bg-muted/30 rounded-xl border p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+                    Fase 1 — Sócios
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+                      contratoAtual.status === CONTRATO_STATUS_ASSINADO
+                        ? "bg-success/15 text-success"
+                        : "bg-info/15 text-info"
+                    }`}
+                  >
+                    {contratoAtual.status === CONTRATO_STATUS_ASSINADO ? "Assinado" : "Enviado"}
+                  </span>
+                </div>
+                <ul className="flex flex-col gap-1 text-sm">
+                  {representantesLegais.map((socio) => (
+                    <li key={socio.id} className="text-foreground">
+                      {socio.nome}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="border-border bg-muted/30 rounded-xl border p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+                    Fase 2 — Sakura
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+                      contratoAtual.status === CONTRATO_STATUS_ASSINADO
+                        ? "bg-success/15 text-success"
+                        : "bg-info/15 text-info"
+                    }`}
+                  >
+                    {contratoAtual.status === CONTRATO_STATUS_ASSINADO ? "Assinado" : "Enviado"}
+                  </span>
+                </div>
+                <p className="text-foreground text-sm">Sakura Consolidadora</p>
+              </div>
+            </div>
+          ) : null}
+
           {agencia.status === STATUS_EM_COMPLEMENTAR ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
                 contrato foi criado ainda.
               </p>
+
+              <RevisaoDocumentosComplementar documentos={documentosParaRevisao} />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
                 <strong className="text-foreground">Parecer da IA indisponível:</strong> a
