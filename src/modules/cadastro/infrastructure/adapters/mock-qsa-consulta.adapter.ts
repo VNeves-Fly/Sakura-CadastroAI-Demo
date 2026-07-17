@@ -5,10 +5,11 @@ import type {
 
 const NOMES_MOCK = ["Ana Paula Ferreira", "Bruno Costa Lima", "Carla Menezes Rocha"];
 
-// Sem integração real com a Receita Federal (sem credencial/API disponível
-// neste projeto ainda). Gera um resultado determinístico a partir do CNPJ,
-// só pra o fluxo ponta a ponta (front + validação de sócios) funcionar até
-// a integração real ser conectada nesta mesma porta (QsaConsultaService).
+// Sem integração real com a Receita Federal. Gera um resultado
+// determinístico a partir do CNPJ, só pra o fluxo ponta a ponta (front +
+// validação de sócios) funcionar quando RECEITAWS_API_TOKEN não está
+// configurada. A integração real (ReceitaWsQsaConsultaAdapter, mesma
+// pasta) já está pronta e ativa no composition root quando a env existir.
 export class MockQsaConsultaService implements QsaConsultaService {
   async consultar(cnpj: string): Promise<QsaResult | null> {
     const seed = this.seedFromCnpj(cnpj);
