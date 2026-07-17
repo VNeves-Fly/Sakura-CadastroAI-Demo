@@ -51,6 +51,10 @@ export class Agencia {
     return this.props.emailContato;
   }
 
+  get origem(): string | null {
+    return this.props.origem;
+  }
+
   toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt"> & {
     createdAt: string;
     updatedAt: string;

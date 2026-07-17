@@ -106,22 +106,26 @@ export class FinalizarCadastroUseCase implements UseCase<
       })),
     });
 
-    const contratoResult = analiseIa.aprovado
-      ? await this.contratoAssinaturaService.gerarEEnviar({
-          cnpj: input.cnpj,
-          razaoSocial,
-          signatarios,
-        })
-      : null;
-
     // Quando o endereço da agência é "o mesmo do sócio", o formulário não
     // manda um endereço próprio (`enderecoBanco.endereco` vem null) — copia
     // do sócio vinculado, já que agora existe uma linha real de endereço
-    // por sócio pra copiar (antes ficava null dentro do JSON).
+    // por sócio pra copiar (antes ficava null dentro do JSON). Calculado
+    // antes do contrato porque o gerador de contrato precisa do endereço
+    // pra preencher o template.
     const enderecoAgencia =
       (input.enderecoBanco.enderecoMesmoSocio
         ? socios[input.enderecoBanco.socioEnderecoVinculado ?? -1]?.endereco
         : input.enderecoBanco.endereco) ?? ENDERECO_VAZIO;
+
+    const contratoResult = analiseIa.aprovado
+      ? await this.contratoAssinaturaService.gerarEEnviar({
+          cnpj: input.cnpj,
+          razaoSocial,
+          origem: input.origem,
+          endereco: enderecoAgencia,
+          signatarios,
+        })
+      : null;
 
     const agencia = await this.agenciaRepository.create({
       razaoSocial,
