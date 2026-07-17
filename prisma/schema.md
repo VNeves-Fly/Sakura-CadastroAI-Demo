@@ -2,9 +2,11 @@
 
 Documentação de `prisma/schema.prisma`: o que cada tabela representa, como
 elas se relacionam, e por que o modelo é assim. Cobre o domínio de cadastro
-de agências nas Etapas 1 (Análise), 2 (Complementar) e 3 (Contrato) — ver
-[`etapas/README.md`](../etapas/README.md) para o mapeamento original de
-inputs/outputs que serviu de base.
+de agências — hoje implementado ponta a ponta (Ficha pública → Complementar
+→ Contrato) em cima do model `Agencia` — com as tabelas do roadmap de
+[`etapas/README.md`](../etapas/README.md) já presentes no schema, nullable,
+para quando o fluxo completo (gate de IA, kanban, credenciais...) for
+implementado.
 
 Todas as tabelas usam `id` texto (`cuid()`) como chave primária e, quando
 aplicável, `createdAt`/`updatedAt`.
@@ -20,36 +22,52 @@ ginástica de operadores `->>`. Cada JSON do original foi decomposto em
 colunas ou tabelas próprias abaixo. O tradeoff: mais tabelas, mas cada
 uma delas é consultável e íntegra por construção.
 
+## Implementado vs. roadmap
+
+Nem toda tabela do schema é populada pela UI de hoje. As que têm comentário
+"roadmap" no `schema.prisma` existem prontas pro fluxo descrito em
+`etapas/README.md` (gate de IA, CADASTUR, kanban, decisões humanas, avanços
+forçados, notificações, signatários padrão), mas nenhuma tela ou use case
+atual escreve nelas — ficam totalmente nullable pra não travar o fluxo
+implementado.
+
+| Grupo                                | Tabelas                                                                                                                                                                                                                                                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Núcleo implementado**              | `Agencia`, `CadastroComplementar`, `RepresentanteLegal`, `Endereco`, `Documento`, `Contrato`, `ContratoSignatario`                                                                                                                                                |
+| **Roadmap (existem, não populadas)** | `DadosReceita`, `Cnae`, `GateValidacao`, `Alerta`, `UsuarioMaster`, `Conjuge`, `VendaPercentual`, `AnaliseIaDocumento`, `AvancoForcado`, `AvancoForcadoPendencia`, `KanbanHistorico`, `DecisaoHumana`, `Notificacao`, `SignatarioPadrao`, `ContratoCampoPendente` |
+
+Dentro do núcleo implementado também há colunas roadmap (CADASTUR e vendas
+percentuais dentro de `CadastroComplementar`, por exemplo) — sinalizadas
+tabela a tabela abaixo.
+
 ## Visão geral das relações
 
 ```
-Cadastro (1) ──1:1── DadosReceita ──N:1── Cnae
-   │                     │
-   │                     └─1:1── Endereco (endereço da Receita)
-   │
-   ├─1:N── GateValidacao
-   ├─1:N── Alerta
-   ├─1:1── UsuarioMaster
-   ├─1:1── CadastroComplementar ──1:N── VendaPercentual
-   │            │
-   │            ├─1:1── Endereco (endereço da agência)
-   │            └─N:1── RepresentanteLegal (sócio vinculado ao endereço)
+Agencia (1) ──1:1── CadastroComplementar ──1:N── VendaPercentual [roadmap]
+   │                      │
+   │                      ├─1:1── Endereco (endereço da agência)
+   │                      └─N:1── RepresentanteLegal (sócio vinculado ao endereço)
    │
    ├─1:N── RepresentanteLegal ──1:1── Endereco (endereço do sócio)
-   │            │                └─1:1── Conjuge
+   │            │                └─1:1── Conjuge [roadmap]
    │            └─1:N── Documento
    │
-   ├─1:N── Documento ──1:1── AnaliseIaDocumento
+   ├─1:N── Documento ──1:1── AnaliseIaDocumento [roadmap]
    │
-   ├─1:N── Contrato ──1:N── ContratoSignatario ──1:N── ContratoCampoPendente
-   │            (signatário = RepresentanteLegal OU SignatarioPadrao)
+   ├─1:N── Contrato ──1:N── ContratoSignatario ──1:N── ContratoCampoPendente [roadmap]
+   │            (signatário = RepresentanteLegal OU SignatarioPadrao [roadmap])
    │
-   ├─1:N── AvancoForcado ──1:N── AvancoForcadoPendencia
-   ├─1:N── KanbanHistorico
-   ├─1:N── DecisaoHumana
-   └─1:N── Notificacao
+   ├─1:1── DadosReceita ──N:1── Cnae            [roadmap]
+   │            └─1:1── Endereco (endereço da Receita)
+   ├─1:N── GateValidacao                        [roadmap]
+   ├─1:N── Alerta                               [roadmap]
+   ├─1:1── UsuarioMaster                        [roadmap]
+   ├─1:N── AvancoForcado ──1:N── AvancoForcadoPendencia   [roadmap]
+   ├─1:N── KanbanHistorico                      [roadmap]
+   ├─1:N── DecisaoHumana                        [roadmap]
+   └─1:N── Notificacao                          [roadmap]
 
-SignatarioPadrao (standalone, sem FK para Cadastro) ──1:N── ContratoSignatario
+SignatarioPadrao (standalone, sem FK para Agencia) ──1:N── ContratoSignatario   [roadmap]
 ```
 
 `Endereco` é um model reaproveitado por três donos distintos e mutuamente
@@ -59,9 +77,8 @@ agência (`CadastroComplementar`) e o endereço de cada sócio
 três tabelas, o FK único (`@unique`) fica do lado do **Endereco**, apontando
 pro dono — não o contrário. Isso é proposital: um FK só cascateia do lado
 referenciado para quem referencia, nunca ao contrário; se o dono guardasse
-`enderecoId`, apagar o dono (ex.: via cascade a partir de `Cadastro`) nunca
-apagaria o `Endereco` associado, deixando a linha órfã pra sempre (era assim
-antes da migration `20260716021227_fix_endereco_orphan_fk_direction`). Com o
+`enderecoId`, apagar o dono (ex.: via cascade a partir de `Agencia`) nunca
+apagaria o `Endereco` associado, deixando a linha órfã pra sempre. Com o
 FK invertido, `onDelete: Cascade` em cada uma das três relações garante que
 apagar o dono limpa o endereço junto. Exatamente um dos três
 `*Id` deve estar preenchido por linha — não expresso como `CHECK` porque o
@@ -71,299 +88,248 @@ um.
 
 ## Tabelas
 
-### `Cadastro` (`cadastros`)
+### `Agencia` (`agencias`)
 
-Entidade central — uma linha por agência em processo de cadastro.
+Entidade central — uma linha por agência em processo de cadastro. É criada
+já no submit do wizard público (Ficha + Complementar em um único fluxo),
+por isso os campos básicos são obrigatórios, não nullable: o formulário já
+garante que existem antes de chegar ao banco.
 
-| Campo                                                               | Tipo                 | Notas                                                                                                                                  |
-| ------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `cnpj`                                                              | `String` único       |                                                                                                                                        |
-| `razaoSocial`, `nomeFantasia`, `email`, `telefone`                  | `String?`            | dados básicos                                                                                                                          |
-| `origem`                                                            | `String?`            | rastreio de origem do pré-cadastro (Link 1) — slug de parceiro ou campanha/evento                                                      |
-| `etapaAtual`                                                        | enum `EtapaCadastro` | máquina de estados: `FICHA → COMPLEMENTAR → DOCUMENTOS → CONTRATO → CREDENCIAIS`, ou `RECUSADO`                                        |
-| `status`                                                            | `String?`            | livre (ex.: `'recusado'`); sem enum porque os docs não fecham o conjunto de valores                                                    |
-| `uploadToken`                                                       | `String?` único      | token do link público de preenchimento (`/cadastro-complementar/{token}`)                                                              |
-| `dataSolicitacao`, `analiseIaAt`                                    | `DateTime?`          | timestamps de fluxo                                                                                                                    |
-| `sicaCodigo`, `travelLinkCriado*`                                   | —                    | saída da Etapa 3                                                                                                                       |
-| `baseId`, `gestorResponsavel`, `executivoId`, `promotorResponsavel` | `String?`            | equipe responsável; ficam como identificadores soltos porque os docs de etapas 1-3 não detalham a tabela de staff que eles referenciam |
+| Campo                                                            | Tipo                                        | Notas                                                                                                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `razaoSocial`, `cnpj` (único), `emailContato`, `telefoneContato` | `String`                                    | dados básicos, sempre preenchidos pelo wizard                                                                                                      |
+| `contratoSocialPath`                                             | `String`                                    | caminho do contrato social já upado no submit (coluna direta, não passa por `Documento`)                                                           |
+| `etapaAtual`                                                     | `Int` (default `1`)                         | passo do wizard, sem enum — o conjunto de passos ainda muda com frequência                                                                         |
+| `status`                                                         | enum `StatusAgencia` (default `em_analise`) | ver ciclo de vida abaixo                                                                                                                           |
+| `origem`                                                         | `String?`                                   | rastreio de origem do pré-cadastro: slug de parceiro ou campanha/evento (`?evento=slug`); só exibido como tag no Admin, não afeta regra de negócio |
 
-Por que não tem mais `dados_receita`/`validacoes`/`dados_login_master` como
-JSON aqui: viraram `DadosReceita`, `GateValidacao`+`Alerta`, e
-`UsuarioMaster` respectivamente (ver abaixo).
+**Ciclo de vida (`StatusAgencia`)** — decisão de produto de 2026-07-16,
+documentada também em `agencia-repository.ts`:
 
-### `DadosReceita` (`dados_receita`) — 1:1 com `Cadastro`
+1. `em_analise` — valor default do schema para quando o gate automático de
+   IA (roadmap) avaliar o cadastro antes de qualquer intervenção humana;
+   nenhum use case atual grava esse valor.
+2. `em_complementar` — IA reprovou (ou o gate roadmap ainda não existe, que
+   é o caso hoje), sem contrato gerado; analista revisa manualmente. É o
+   status inicial real gravado por `FinalizarCadastroUseCase` quando o
+   cadastro não gera contrato automaticamente.
+3. `aguardando_assinatura` — contrato gerado (pela IA ou por um analista,
+   ver `origemGeracao` em `Contrato`) e enviado; aguardando os sócios
+   assinarem. Também pode ser o status inicial se o contrato já sai pronto
+   no submit.
+4. `aguardando_validacao` — contrato assinado; analista precisa validar o
+   contrato assinado antes de liberar a ativação.
+5. `aguardando_ativacao` — validado; falta só SICA/Travel Link/Usuário
+   Master (roadmap, não implementados) e clicar em ativar.
+6. `ativo` / `recusado` — estados finais.
 
-Cache normalizado da consulta à Receita Federal por CNPJ. Antes era o JSON
-`cadastros.dados_receita`.
+### `CadastroComplementar` (`cadastros_complementares`) — 1:1 com `Agencia`
 
-`situacaoCadastral`, `dataAbertura`, `naturezaJuridica`, `porte`,
-`capitalSocial` (`Decimal`, não `Float` — dinheiro nunca deve ser ponto
-flutuante), `telefone`, `email`, `optanteSimples` + `dataOpcaoSimples`,
-`endereco` (relação), `consultadoEm` (quando essa consulta foi feita —
-substituída a cada reavaliação do gate).
+Dados complementares coletados no mesmo wizard (empresa, comercial,
+endereço da agência e dados bancários).
 
-### `Cnae` (`cnaes`) — N:1 com `DadosReceita`
+- **Empresa:** `telefoneComercial`, `emailOperacional`, `emailComercial`, `emailFinanceiro`
+- **CADASTUR** [roadmap — não coletado pela UI atual]: `cadasturNumero`, `cadasturDataCadastro`, `cadasturValidade`, `cadasturSituacao`
+- **Comercial** [roadmap]: `resideBrasil`. `clienteInternacional` não existe como coluna — é sempre o inverso de `resideBrasil`, derivado na camada de aplicação, nunca armazenado (evita as duas gravações dessincronizáveis que existiam no sistema de referência)
+- **Endereço da agência & Banco:** `tipoAgencia`, `enderecoAgencia` (relação `Endereco`), `enderecoAgenciaMesmoTitular`, `socioVinculadoEndereco` (FK real para o `RepresentanteLegal` cujo endereço foi copiado), dados bancários com suporte a conta internacional: `bancoPais`, `bancoNome`, `bancoAgencia`, `bancoConta`, `bancoSwift`, `tipoConta`, `favorecidoEhEmpresa`, `favorecidoNome`, `favorecidoDoc`
+- **Pagamento** [roadmap, schema antigo]: `chavePix`, `tipoChavePix`, `tipoFaturamento`, `percCorporativo`/`percConvencional` (`Decimal(5,2)`)
+- `submetidoAt` — presença desse timestamp é o que bloqueia reedição pelo link público
 
-CNAE principal e secundários viravam um array dentro do JSON da Receita;
-agora é uma linha por código, com `principal: Boolean` marcando qual é o
-principal. Permite `WHERE codigo IN (...)` para o check de compatibilidade
-com turismo (`7911-2`, `7912-1`, `7990-2`) sem parsear JSON.
+### `VendaPercentual` (`venda_percentuais`) — N:1 com `CadastroComplementar` [roadmap]
 
-### `GateValidacao` (`gate_validacoes`) — N:1 com `Cadastro`
+Substitui os dois JSONs paralelos `vendas_tipo`/`vendas_percentuais` do
+sistema original. Uma linha por `tipo` (`TipoVenda`:
+`NACIONAL`/`INTERNACIONAL`/`TERRESTRE`) com seu `percentual`.
+`@@unique([cadastroComplementarId, tipo])` impede duplicar o mesmo tipo. A
+regra "soma 100%" é validação de aplicação, não constraint de banco.
 
-Antes era metade do JSON `cadastros.validacoes` (a parte `gate_etapa1`).
-Uma linha por avaliação do gate automático (`liberado`, `motivoBloqueio`,
-`etapaAlvo`, `avaliadoEm`) — como é histórico por natureza (reavaliado toda
-hora que a IA roda de novo), guardar todas as avaliações em vez de
-sobrescrever uma é estritamente melhor: dá pra auditar "por que foi
-liberado" depois.
+### `RepresentanteLegal` (`representantes_legais`) — N:1 com `Agencia`
 
-### `Alerta` (`alertas`) — N:1 com `Cadastro`
+Sócios (PF ou PJ) **e** procurador/representante terceiro num único model,
+diferenciados pelo campo `papel` (`SOCIO` | `PROCURADOR`). `nome`, `email`,
+`telefone`, `cpf`, `estadoCivil` são obrigatórios — o wizard sempre coleta
+esses dados de cada sócio antes do submit. `cnpj` (sócio PJ), `isPj`, `rg`,
+`rgOrgaoEmissor`, `dataNascimento`, `regimeBens`, `nacionalidade`, `cargo`
+seguem opcionais.
 
-Era a outra metade do JSON `validacoes` (`alertas`). Uma linha por alerta
-(`tipo`, `mensagem`, `criadoEm`, `resolvidoEm?`).
+`isRepresentanteLegal` marca o sócio escolhido como representante legal da
+empresa no wizard (libera o slot de upload de Procuração) — é distinto de
+`papel`, que é para um procurador terceiro fora do quadro societário
+(esse caminho continua roadmap, não usado hoje). `origem` registra de onde
+veio o registro (`'qsa_receita'` | `'manual'` | `'procuracao'`),
+`preenchidoPorIa` marca preenchimento automático.
 
-### `UsuarioMaster` (`usuarios_master`) — 1:1 com `Cadastro`
+`@@unique([agenciaId, cpf])`: `NULL` em `cpf` não conflita entre si no
+Postgres, então sócios PJ (que usam `cnpj` no lugar) continuam podendo
+repetir no mesmo cadastro; a unicidade só entra em vigor quando o CPF é de
+fato preenchido.
 
-Era o JSON `cadastros.dados_login_master`. A Etapa 3 termina provisionando
-esse acesso; os campos concretos (nome/email/ativo) não são detalhados nos
-docs de etapas 1-3 porque quem realmente usa isso é a Etapa 4 (fora de
-escopo) — mantido mínimo de propósito, pronto para crescer quando a Etapa 4
-for modelada.
+### `Conjuge` (`conjuges`) — 1:1 com `RepresentanteLegal` [roadmap]
+
+Dados do cônjuge quando `estadoCivil = 'casado'`; não coletado pela UI
+atual. `nome?`, `cpf?`, `rg?`, `nacionalidade?`.
 
 ### `Endereco` (`enderecos`)
 
-Compartilhado por três donos (ver diagrama acima). `cep`, `logradouro`,
-`numero`, `complemento?`, `bairro`, `cidade`, `uf`.
+Compartilhado por três donos (ver seção acima). `cep`, `logradouro`,
+`numero`, `complemento?`, `bairro`, `cidade`, `uf` — todos opcionais na
+tabela em si porque o dono é quem decide se o endereço é obrigatório.
 
-### `CadastroComplementar` (`cadastro_complementar`) — 1:1 com `Cadastro`
+### `Documento` (`documentos`) — N:1 com `Agencia`, opcionalmente com `RepresentanteLegal`
 
-Dados do formulário público de 7 passos preenchido pela agência.
-
-- **Passo 2 (Empresa):** `siteEmpresa`, `telefoneComercial`, `emailOperacional`, `emailComercial`, `emailFinanceiro`
-- **CADASTUR:** `cadasturNumero`, `cadasturDataCadastro`, `cadasturValidade`, `cadasturSituacao` — só os campos extraídos usados para checar validade; o arquivo em si e o payload bruto da IA vivem em `Documento`/`AnaliseIaDocumento`, não duplicados aqui
-- **Passo 3 (Comercial):** `resideBrasil`. **`clienteInternacional` não existe como coluna** — no sistema original ele é gravado como o inverso de `resideBrasil` em dois pontos diferentes do código, o que é uma fonte de bug (podem dessincronizar). Aqui ele é sempre derivado na camada de aplicação (`!resideBrasil`), nunca armazenado.
-- **Passo 6 (Endereço & Banco):** `tipoAgencia`, `enderecoAgencia` (relação), `enderecoAgenciaMesmoTitular`, `socioVinculadoEndereco` (FK para o `RepresentanteLegal` cujo endereço foi copiado — no original isso era um id solto sem constraint; aqui é uma FK de verdade), dados bancários (`bancoNo`, `agenciaNo`, `contaNo`, `tipoConta`, `favorecidoNome`, `favorecidoDoc`, `chavePix`, `tipoChavePix`, `tipoFaturamento`, `percCorporativo`/`percConvencional` como `Decimal(5,2)`)
-- **Passo 7 (Revisão):** `submetidoAt` — presença desse timestamp é o que bloqueia reedição pelo link público
-
-Passos 1, 4 e 5 do formulário original (documentos, representação, sócios)
-não têm campos aqui — foram totalmente absorvidos por `Documento` e
-`RepresentanteLegal` (ver abaixo). Isso elimina a necessidade dos triggers
-de sincronização (`trg_sync_dados_representante`,
-`trg_sync_representante_terceiro`) que existiam no sistema original só para
-manter um JSON e uma tabela relacional em sincronia: aqui só existe a
-tabela relacional.
-
-### `VendaPercentual` (`venda_percentuais`) — N:1 com `CadastroComplementar`
-
-Substitui os dois JSONs paralelos `vendas_tipo` (array) e
-`vendas_percentuais` (mapa tipo→percentual) do Passo 3. Uma linha por
-`tipo` (`TipoVenda`: `NACIONAL`/`INTERNACIONAL`/`TERRESTRE`) com seu
-`percentual`. `@@unique([cadastroComplementarId, tipo])` impede duplicar o
-mesmo tipo. A regra "soma 100%" é validação de aplicação, não constraint de
-banco (não dá pra expressar `SUM() = 100` sobre linhas relacionadas em um
-`CHECK` de coluna).
-
-### `RepresentanteLegal` (`representantes_legais`) — N:1 com `Cadastro`
-
-Sócios (PF ou PJ) **e** procurador/representante terceiro — unificados num
-único model, diferenciados pelo campo `papel` (`SOCIO` | `PROCURADOR`). No
-sistema original existiam dois caminhos de escrita para essa tabela: o
-JSON `dados_representante` (sócios) e o JSON `representante_terceiro`
-(procurador), cada um sincronizado por um trigger separado. Aqui não há
-JSON nem trigger de sync — o procurador é só mais uma linha com
-`papel = PROCURADOR`.
-
-Campos: `nome`, `email`, `telefone`, `cpf`/`cnpj`, `isPj`, `rg`,
-`rgOrgaoEmissor`, `dataNascimento`, `estadoCivil`, `regimeBens`,
-`nacionalidade`, `cargo`, `ativo`, `origem` (de onde veio: QSA da Receita,
-manual, ou procuração), `preenchidoPorIa` (substitui a chave
-`preenchido_por_ia: true` do antigo JSON `dados_extras` — era a única
-informação concreta que esse catch-all guardava). `endereco` e `conjuge`
-são relações 1:1 próprias.
-
-### `Conjuge` (`conjuges`) — 1:1 com `RepresentanteLegal`
-
-Era o JSON `dados_conjuge`, preenchido só quando `estadoCivil = 'casado'`.
-`nome`, `cpf?`, `rg?`, `nacionalidade?`. Ficar de fora (`null`) é o caso
-normal para representantes solteiros — não força uma linha vazia.
-
-### `Documento` (`documentos`) — N:1 com `Cadastro`, opcionalmente com `RepresentanteLegal`
-
-Todo upload de arquivo do fluxo passa por aqui — inclusive o comprovante de
-endereço da agência, que no sistema original tinha um caminho de upload
-separado (`mode: 'raw_upload'`) que **não** gerava linha em `documentos`.
-Ter um único destino de upload elimina essa exceção.
-
-`tipo` (enum `TipoDocumento`: `CONTRATO_SOCIAL`, `CADASTUR`, `RG_CNPJ`,
+Todo upload de arquivo do fluxo passa por aqui. `tipo` (enum
+`TipoDocumento`: `CONTRATO_SOCIAL`, `CADASTUR`, `RG_CNPJ`,
 `COMPROVANTE_ENDERECO`, `COMPROVANTE_ENDERECO_AGENCIA`,
-`CERTIDAO_CASAMENTO`, `PROCURACAO`), `fileName`, `mimeType`, localização no
-GCS (`gcsPath`, `gcsBucket`, `gcsSize?`, `gcsMd5?`), fluxo de aprovação
-(`status`: `PENDENTE`/`APROVADO`/`REPROVADO`, `verificado`, `reprovadoPor`,
-`motivoReprovacao`, `reprovadoEm`). `representanteLegalId` é uma FK de
-verdade — no original o vínculo com o sócio era por **nome em texto**
-(`nome_socio`), o que quebra se o sócio mudar de nome ou houver homônimos.
+`CERTIDAO_CASAMENTO`, `PROCURACAO`) e `gcsPath` são obrigatórios — todo
+documento upado tem tipo e caminho conhecidos. `gcsPath` guarda o caminho
+retornado pelo `FileStorage` (`LocalFileStorage` hoje, GCS futuramente);
+`gcsBucket`/`gcsSize`/`gcsMd5` ficam nullable porque o storage local atual
+não produz esses metadados. `representanteLegalId` é FK real (não nome em
+texto) para o sócio dono do documento.
 
-`decisoes_documentos` (JSON que existia em `cadastro_complementar` no
-parecer do admin) não tem equivalente aqui — é puramente redundante com as
-colunas de status já em `Documento`; duas fontes de verdade para a mesma
-decisão é o tipo de coisa que normalização deveria eliminar, não replicar.
+Fluxo de aprovação: `status` (`PENDENTE`/`APROVADO`/`REPROVADO`),
+`verificado`, `reprovadoPor`, `motivoReprovacao`, `reprovadoEm`.
 
-### `AnaliseIaDocumento` (`analises_ia_documentos`) — 1:1 com `Documento`
+### `AnaliseIaDocumento` (`analises_ia_documentos`) — 1:1 com `Documento` [roadmap]
 
-Era o JSON `resultado_ia`. Os docs só detalham o formato concreto para
-CADASTUR (`numeroCadastur`, `razaoSocialExtraida`, `dataCadastroExtraida`,
-`dataValidadeExtraida`, `situacaoExtraida`, `cnaeExtraido`), então é isso
-que virou coluna; `scoreConfianca` (`Decimal(5,2)`) generaliza para
-qualquer tipo de documento. Se outro tipo de documento passar a ter
-extração estruturada própria, a rota é adicionar colunas aqui (ou uma
-tabela filha), não voltar a um JSON genérico.
+Extração automática via IA sobre um documento (hoje: CADASTUR); não
+populada pela UI atual. `numeroCadastur`, `razaoSocialExtraida`,
+`dataCadastroExtraida`, `dataValidadeExtraida`, `situacaoExtraida`,
+`cnaeExtraido`, `scoreConfianca` (`Decimal(5,2)`).
 
-### `Contrato` (`contratos`) — N:1 com `Cadastro`
+### `Contrato` (`contratos`) — N:1 com `Agencia`
 
-Um cadastro pode ter mais de um contrato ao longo do tempo (regeração); a
-aplicação lê "o mais recente". `status` (enum `StatusContrato`, os 8
-valores vigentes documentados: `RASCUNHO`, `ENVIADO`, `PROCESSANDO`,
-`VISUALIZADO`, `ASSINADO_AGENCIA`, `ASSINADO`, `REJEITADO`, `CANCELADO`),
-`numContrato` (gerado por trigger/sequência no banco, não pela aplicação),
-`conteudoPreenchido` (texto do PDF renderizado — texto grande, não
-estruturado, por isso `@db.Text` e não JSON), `d4signDocumentId`,
-`contratoGcsPath` (PDF de rascunho/preview) vs. `pdfAssinadoGcsPath` (PDF
-final assinado, setado só pelo webhook — **não é o mesmo campo**, apesar de
-nomes parecidos no sistema original), `leituraConfirmada*`, `assinadoAt`.
+Uma agência pode ter mais de um contrato ao longo do tempo (regeração); a
+aplicação lê o mais recente. `provedorId` identifica o provedor de
+assinatura eletrônica de forma genérica (não amarrado a um fornecedor
+específico). `status` (enum `StatusContrato`: `aguardando_assinatura` |
+`assinado`) controla só o ciclo "gerado → assinado" do próprio contrato,
+independente do `status` da `Agencia`. `origemGeracao` (enum
+`OrigemGeracaoContrato`: `ia` | `humano`) registra se o contrato foi gerado
+automaticamente ou por um analista.
 
-`totalSignatarios` não é campo — é `contrato.signatarios.length` (ou
-`_count` no Prisma). Guardar uma contagem redundante ao lado da relação que
-já permite contá-la é exatamente o tipo de duplicação que causa
-dessincronia.
+`numContrato` (único), `conteudoPreenchido` (`@db.Text` — texto grande do
+PDF renderizado, não estruturado), `leituraConfirmada*`,
+`contratoGcsPath` (rascunho/preview) vs. `pdfAssinadoGcsPath` (PDF final
+assinado), `assinadoAt`.
 
 ### `ContratoSignatario` (`contrato_signatarios`) — N:1 com `Contrato`
 
-Substitui o JSON `dados_preenchidos`: uma linha por signatário, com um
-**snapshot imutável** dos dados no momento da geração do contrato (`nome`,
-`email`, `cpf`, `rg`, `rgOrgaoEmissor`, `cargo`, `nacionalidade`,
-`estadoCivil`, `dataNascimento`, e o endereço como colunas `*Snapshot`
-soltas, não uma relação para `Endereco`). Isso é proposital: se o sócio
-corrigir o endereço em `RepresentanteLegal` depois de o contrato já ter
-sido gerado, o contrato já emitido não deve mudar retroativamente — um
-snapshot em colunas próprias garante isso; uma FK para `Endereco`
-compartilhado não garantiria.
+Uma linha por signatário, com um **snapshot imutável** dos dados no
+momento da geração do contrato: `nome`, `email`, `cpf` obrigatórios;
+`rg`, `rgOrgaoEmissor`, `cargo`, `nacionalidade`, `estadoCivil`,
+`dataNascimento` e o endereço como colunas `*Snapshot` soltas (não uma
+relação para `Endereco`). Proposital: se o sócio corrigir o endereço em
+`RepresentanteLegal` depois de o contrato já ter sido gerado, o contrato
+já emitido não muda retroativamente.
 
-`representanteLegalId` ou `signatarioPadraoId` (exatamente um dos dois)
-identifica quem é o signatário — sócio/procurador da agência ou signatário
-fixo da Sakura.
+`representanteLegalId` ou `signatarioPadraoId` (exatamente um dos dois,
+sendo o segundo ainda roadmap) identifica quem é o signatário.
 
-### `ContratoCampoPendente` (`contrato_campos_pendentes`) — N:1 com `ContratoSignatario`
+### `ContratoCampoPendente` (`contrato_campos_pendentes`) — N:1 com `ContratoSignatario` [roadmap]
 
-Substitui o JSON `campos_pendentes`: uma linha por campo obrigatório
-ausente naquele signatário quando o contrato foi gerado com
-`force: true` ("Gerar mesmo assim").
+Uma linha por campo obrigatório ausente naquele signatário quando o
+contrato foi gerado com `force: true` ("Gerar mesmo assim"); não usado
+hoje.
 
-### `AvancoForcado` (`avancos_forcados`) — N:1 com `Cadastro`
+### `DadosReceita` (`dados_receita`) — 1:1 com `Agencia` [roadmap]
 
-No sistema original, `avanco_forcado` era um único campo JSON em
-`cadastros`, sobrescrito a cada override manual — perdendo o histórico de
-overrides anteriores. Aqui é uma tabela: cada solicitação de avanço forçado
-é uma linha (`etapaAlvo`, `motivo`, `gateMotivoBloqueio`, `statusReal`,
-`solicitadoPor`, `autorizadoPor`, `createdAt`), preservando todas as vezes
-que alguém pulou uma trava.
+Cache normalizado da consulta à Receita Federal por CNPJ; não populado
+pelo fluxo atual. `situacaoCadastral`, `dataAbertura`, `naturezaJuridica`,
+`porte`, `capitalSocial` (`Decimal`, nunca `Float` — dinheiro não é ponto
+flutuante), `telefone`, `email`, `optanteSimples` + `dataOpcaoSimples`,
+`endereco` (relação), `consultadoEm`.
 
-### `AvancoForcadoPendencia` (`avanco_forcado_pendencias`) — N:1 com `AvancoForcado`
+### `Cnae` (`cnaes`) — N:1 com `DadosReceita` [roadmap]
 
-Substitui o array `pendencias` dentro do JSON `avanco_forcado`: uma linha
-por pendência que foi ignorada naquele override específico.
+CNAE principal e secundários, um código por linha, `principal: Boolean`
+marca o principal — permitiria `WHERE codigo IN (...)` pro check de
+compatibilidade com turismo sem parsear JSON, quando implementado.
 
-### `KanbanHistorico` (`kanban_historico`) — N:1 com `Cadastro`
+### `GateValidacao` (`gate_validacoes`) — N:1 com `Agencia` [roadmap]
+
+Resultado do gate automático que bloquearia/liberaria a transição entre
+etapas. Uma linha por avaliação (`etapaAlvo`, `liberado`,
+`motivoBloqueio`, `avaliadoEm`) — histórico por natureza, nunca
+sobrescrito. Hoje a decisão da IA no fluxo implementado mora só em
+`origemGeracao`/`status` do `Contrato`, não aqui.
+
+### `Alerta` (`alertas`) — N:1 com `Agencia` [roadmap]
+
+Alertas levantados durante a análise (ex.: CNAE incompatível, CNPJ
+inativo). `tipo`, `mensagem`, `criadoEm`, `resolvidoEm?`. Não referenciada
+em nenhum use case hoje.
+
+### `UsuarioMaster` (`usuarios_master`) — 1:1 com `Agencia` [roadmap]
+
+Credencial de acesso provisionada ao final do fluxo de contrato, consumida
+pela Etapa 4 (Usuário Master) — fora do escopo implementado hoje. `nome?`,
+`email?`, `ativo`, `criadoEm`.
+
+### `AvancoForcado` (`avancos_forcados`) — N:1 com `Agencia` [roadmap]
+
+Uma linha por solicitação de avanço forçado de etapa (`etapaAlvo`,
+`motivo`, `gateMotivoBloqueio`, `statusReal`, `solicitadoPor`,
+`autorizadoPor`), preservando o histórico de overrides — não usado hoje.
+
+### `AvancoForcadoPendencia` (`avanco_forcado_pendencias`) — N:1 com `AvancoForcado` [roadmap]
+
+Uma linha por pendência ignorada naquele override específico.
+
+### `KanbanHistorico` (`kanban_historico`) — N:1 com `Agencia` [roadmap]
 
 Log de auditoria de toda transição de etapa: `etapaAnterior?`,
-`etapaNova`, `usuarioEmail?` (nulo/`'sistema@d4sign'` nas transições
-automáticas via trigger de banco), `origem` (ex.: `'avanco_manual'`,
-`'avanco_forcado'`), `observacao`, `desbloqueioManual`. `detalhes` virou
-`String? @db.Text` em vez de JSON: os docs nunca descrevem um formato
-estruturado consultável para esse campo — é texto livre de contexto, então
-uma coluna de texto é mais honesta que um JSON que ninguém consulta por
-chave.
+`etapaNova?` (ambos `Int?`, sem enum), `usuarioEmail?`, `origem?`,
+`observacao?`, `desbloqueioManual?`, `detalhes` (`@db.Text`). Não usado
+hoje — o admin já grava `status` diretamente em `Agencia`, sem log próprio
+ainda.
 
-### `DecisaoHumana` (`decisoes_humanas`) — N:1 com `Cadastro`
+### `DecisaoHumana` (`decisoes_humanas`) — N:1 com `Agencia` [roadmap]
 
-Decisão de aprovação/reprovação manual em qualquer etapa que tenha gate
-humano. `etapa` (enum `EtapaDecisao`: `ANALISE`/`COMPLEMENTAR`),
-`decisaoIa?` (motivo do gate ou ausência de avaliação), `decisaoHumana`
-(enum `ResultadoDecisao`: `APROVADO`/`REPROVADO`), `justificativa`
-(`@db.Text`, sem limite de tamanho — o mínimo de 20 caracteres do sistema
-original é regra de UI, não constraint de banco, e continua sendo aqui),
-`usuarioEmail`, `modeloIa?`, `scoreIa?`, `divergiu?`.
+Decisão de aprovação/reprovação manual em qualquer etapa com gate humano.
+`etapa` (enum `EtapaDecisao`: `ANALISE`/`COMPLEMENTAR`), `decisaoIa?`,
+`decisaoHumana` (enum `ResultadoDecisao`: `APROVADO`/`REPROVADO`),
+`justificativa` (`@db.Text`), `usuarioEmail?`, `modeloIa?`, `scoreIa?`,
+`divergiu?`. Não usado hoje — a aprovação manual do fluxo implementado
+mora em `AprovarCadastroComplementarUseCase`, sem log próprio ainda.
 
-### `Notificacao` (`notificacoes`) — N:1 com `Cadastro`
+### `Notificacao` (`notificacoes`) — N:1 com `Agencia` [roadmap]
 
-`tipo`, `titulo`, `mensagem`, `createdAt`. Simples porque os docs não
-detalham mais campos além destes.
+`tipo?`, `titulo?`, `mensagem?`, `createdAt`. Não usado hoje.
 
-### `SignatarioPadrao` (`signatarios_padrao`)
+### `SignatarioPadrao` (`signatarios_padrao`) [roadmap]
 
-Única tabela sem FK para `Cadastro` — são os signatários fixos da Sakura
-(mesmos em todo contrato), não algo por agência. `ativo` + `ordem` definem
-quais entram e em que sequência no contrato.
+Única tabela sem FK para `Agencia` — signatários fixos da Sakura (mesmos
+em todo contrato), não algo por agência. `ativo` + `ordem` definiriam
+quais entram e em que sequência no contrato. Hoje contratos só têm
+signatários ligados aos sócios (`RepresentanteLegal`).
 
 ## Enums
 
-| Enum                 | Valores                                                                                                                              | Onde é usado                                                                                                                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EtapaCadastro`      | `FICHA`, `COMPLEMENTAR`, `DOCUMENTOS`, `CONTRATO`, `CREDENCIAIS`, `RECUSADO`                                                         | `Cadastro.etapaAtual`, `GateValidacao.etapaAlvo`, `AvancoForcado.etapaAlvo`, `KanbanHistorico.etapaAnterior/etapaNova` — há etapas posteriores (`CREDENCIAIS → aprovado`) fora do escopo destes docs, não incluídas |
-| `TipoDocumento`      | `CONTRATO_SOCIAL`, `CADASTUR`, `RG_CNPJ`, `COMPROVANTE_ENDERECO`, `COMPROVANTE_ENDERECO_AGENCIA`, `CERTIDAO_CASAMENTO`, `PROCURACAO` | `Documento.tipo`                                                                                                                                                                                                    |
-| `StatusDocumento`    | `PENDENTE`, `APROVADO`, `REPROVADO`                                                                                                  | `Documento.status`                                                                                                                                                                                                  |
-| `StatusContrato`     | `RASCUNHO`, `ENVIADO`, `PROCESSANDO`, `VISUALIZADO`, `ASSINADO_AGENCIA`, `ASSINADO`, `REJEITADO`, `CANCELADO`                        | `Contrato.status`                                                                                                                                                                                                   |
-| `EtapaDecisao`       | `ANALISE`, `COMPLEMENTAR`                                                                                                            | `DecisaoHumana.etapa`                                                                                                                                                                                               |
-| `ResultadoDecisao`   | `APROVADO`, `REPROVADO`                                                                                                              | `DecisaoHumana.decisaoHumana`                                                                                                                                                                                       |
-| `PapelRepresentante` | `SOCIO`, `PROCURADOR`                                                                                                                | `RepresentanteLegal.papel`                                                                                                                                                                                          |
-| `TipoVenda`          | `NACIONAL`, `INTERNACIONAL`, `TERRESTRE`                                                                                             | `VendaPercentual.tipo`                                                                                                                                                                                              |
+| Enum                    | Valores                                                                                                                              | Onde é usado                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| `StatusAgencia`         | `em_analise`, `em_complementar`, `aguardando_assinatura`, `aguardando_validacao`, `aguardando_ativacao`, `ativo`, `recusado`         | `Agencia.status`                        |
+| `StatusContrato`        | `aguardando_assinatura`, `assinado`                                                                                                  | `Contrato.status`                       |
+| `OrigemGeracaoContrato` | `ia`, `humano`                                                                                                                       | `Contrato.origemGeracao`                |
+| `TipoDocumento`         | `CONTRATO_SOCIAL`, `CADASTUR`, `RG_CNPJ`, `COMPROVANTE_ENDERECO`, `COMPROVANTE_ENDERECO_AGENCIA`, `CERTIDAO_CASAMENTO`, `PROCURACAO` | `Documento.tipo`                        |
+| `StatusDocumento`       | `PENDENTE`, `APROVADO`, `REPROVADO`                                                                                                  | `Documento.status`                      |
+| `PapelRepresentante`    | `SOCIO`, `PROCURADOR`                                                                                                                | `RepresentanteLegal.papel`              |
+| `TipoVenda`             | `NACIONAL`, `INTERNACIONAL`, `TERRESTRE`                                                                                             | `VendaPercentual.tipo` [roadmap]        |
+| `EtapaDecisao`          | `ANALISE`, `COMPLEMENTAR`                                                                                                            | `DecisaoHumana.etapa` [roadmap]         |
+| `ResultadoDecisao`      | `APROVADO`, `REPROVADO`                                                                                                              | `DecisaoHumana.decisaoHumana` [roadmap] |
 
 Campos como `estadoCivil`, `tipoConta`, `tipoChavePix`, `tipoFaturamento`
-ficaram como `String` livre em vez de enum: os docs de etapas 1-3 citam
+ficaram como `String` livre em vez de enum: os docs de `etapas/` citam
 esses campos mas não fecham o conjunto de valores válidos, e inventar um
 enum sem essa confirmação arriscaria rejeitar valores reais do domínio.
 Vale endurecer para enum assim que o conjunto de valores for confirmado.
 
 ## O que ficou de fora de propósito
 
-- **Tabela de staff/usuários internos** (`gestorResponsavel`,
-  `executivoId`, `promotorResponsavel`, roles admin/cfo/ceo/diretor) — os
-  docs de etapas 1-3 mencionam esses campos mas não detalham a tabela que
-  eles referenciam, então ficaram como identificadores soltos em vez de FK
-  para um model inventado.
-- **Etapas 4 e 5** (Usuário Master, Aprovado) — fora do escopo dos docs em
-  `etapas/`. `UsuarioMaster` existe em forma mínima só porque a Etapa 3
-  provisiona esse acesso; o resto do fluxo de credenciais não foi
-  modelado.
-
-## `Agencia` foi fundido em `Cadastro`
-
-Existiu por um tempo um model `Agencia` separado (tabela `agencias`),
-criado para o pré-cadastro público do Link 1 (`CAMPOS-LINK1-LINK2.md`),
-sem nenhuma FK para `Cadastro`. Isso reproduzia, no schema, a mesma
-agência em duas tabelas desconectadas — uma agência cadastrada pelo Link 1
-não tinha caminho de dados para aparecer no funil do Admin, que lê
-`Cadastro`. No Sakura original não existe essa duplicação: o submit do
-Link 1 grava direto na mesma tabela `cadastros` que o Admin acompanha.
-
-`Agencia` foi removida (migration `20260716014825_merge_agencia_into_cadastro`)
-e o pré-cadastro do Link 1 agora cria diretamente um `Cadastro`:
-
-- `contratoSocialPath` (era coluna solta em `Agencia`) → `Documento` com
-  `tipo: CONTRATO_SOCIAL`, `cadastroId` apontando pro `Cadastro` recém-criado.
-- `socios` (era `Json` em `Agencia` — a única coluna JSON que sobrava no
-  domínio) → uma linha em `RepresentanteLegal` por sócio (`papel: SOCIO`),
-  cada uma com seu próprio `Documento` (`tipo: RG_CNPJ`). `origem` em
-  `RepresentanteLegal` grava `'qsa_receita'` ou `'manual'` — mesma
-  semântica que já era usada pelo parecer do admin.
-- `emailContato`/`telefoneContato` → `Cadastro.email`/`Cadastro.telefone`
-  (já existiam; era exatamente o mesmo dado, "espelhado do primeiro
-  sócio" na versão original).
-- `origem` (rastreio de parceiro/evento) → nova coluna `Cadastro.origem`.
-- `etapaAtual`/`status` (era `Int`/`String` com defaults próprios em
-  `Agencia`) → usa os mesmos `EtapaCadastro.FICHA`/`status: null` que o
-  restante do funil.
-
-Resultado: uma agência criada pelo Link 1 já nasce como a mesma linha
-`Cadastro` que o Admin lista e abre no dossiê — sem sincronização manual,
-sem tabela paralela, sem JSON de sócios.
+- **Tabela de staff/usuários internos** (gestor, executivo, promotor
+  responsáveis) — os docs de `etapas/` mencionam esses papéis mas não
+  detalham a tabela que eles referenciam, então não entraram no schema
+  como FK para um model inventado.
+- **Fluxo completo de credenciais (Etapa 4/5)** — `UsuarioMaster` existe
+  em forma mínima só porque o fim do fluxo de contrato provisiona esse
+  acesso; o restante (login, permissões) não foi modelado.
