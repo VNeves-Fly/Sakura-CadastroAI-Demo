@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FlipSwitch } from "./flip-switch";
+import { SwipeSwitch } from "./swipe-switch";
 
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
@@ -69,7 +69,7 @@ export function ValidacaoSicaTravelLink({
 
       <div className="flex items-center gap-3">
         <span className="text-foreground text-sm font-bold">Travel Link criado</span>
-        <FlipSwitch id="travel-link" checked={travelLinkAtivo} onChange={setTravelLinkAtivo} />
+        <SwipeSwitch id="travel-link" checked={travelLinkAtivo} onChange={setTravelLinkAtivo} />
       </div>
 
       <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
