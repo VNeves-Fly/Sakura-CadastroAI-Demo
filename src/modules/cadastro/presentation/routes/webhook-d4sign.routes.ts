@@ -4,11 +4,14 @@ import { webhookD4SignController } from "@/modules/cadastro/presentation/control
 
 // D4Sign manda o webhook em FORM-DATA (não JSON) — confirmado na doc
 // oficial (docapi.d4sign.com.br/docs/webhook-postback). Campos usados:
-// uuid (= Contrato.provedorId) e type_post ("1" = documento finalizado).
+// uuid (= Contrato.provedorId), type_post ("1" = documento finalizado,
+// "4" = assinatura individual) e email (presente no "4", identifica quem
+// assinou).
 export async function processarWebhookD4SignRoute(request: Request) {
   const formData = await request.formData();
   const uuid = formData.get("uuid");
   const typePost = formData.get("type_post");
+  const email = formData.get("email");
 
   if (typeof uuid !== "string" || typeof typePost !== "string") {
     return httpError("Payload de webhook inválido — uuid e type_post são obrigatórios.", 422);
@@ -26,7 +29,11 @@ export async function processarWebhookD4SignRoute(request: Request) {
     }
   }
 
-  const resultado = await webhookD4SignController.processar({ provedorId: uuid, typePost });
+  const resultado = await webhookD4SignController.processar({
+    provedorId: uuid,
+    typePost,
+    ...(typeof email === "string" ? { email } : {}),
+  });
 
   // Sempre 200: o D4Sign reenvia por até ~27h se não receber 2xx — não
   // queremos retry pra eventos que já reconhecemos e decidimos ignorar

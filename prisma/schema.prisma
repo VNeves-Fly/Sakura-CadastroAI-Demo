@@ -45,6 +45,10 @@ enum StatusAgencia {
 
 enum StatusContrato {
   aguardando_assinatura
+  // Aprovador (papel APROVAR, estágio 1) assinou — sócios (estágio 0) já
+  // tinham assinado antes dele. Falta só os signatários fixos restantes
+  // (estágio 2, testemunhas) pra fechar; não bloqueia o avanço da agência.
+  assinado_agencia
   assinado
 }
 

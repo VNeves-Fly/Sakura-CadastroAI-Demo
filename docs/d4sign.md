@@ -249,6 +249,31 @@ Response — `200 OK`:
 
 Efeito real confirmado no banco: `contrato.status` → `assinado`, `agencia.status` → `aguardando_validacao`.
 
+### 8.1 Aprovação intermediária (`type_post=4`) — não testado ao vivo ainda
+
+Confirmado na doc oficial (`docs/webhook-postback.md`): `type_post=4` = assinatura de **um** signatário específico, com o campo `email` identificando quem foi (a rota agora lê esse campo — `webhook-d4sign.routes.ts`).
+
+O use-case só age se o `email` bater com o signatário fixo de papel `APROVAR` (Jean, estágio 1 — sozinho nesse estágio, já que os sócios do estágio 0 assinam antes dele por causa do `after_position`/`workflow: "1"`, seção 5.1). Quando bate:
+
+- `contrato.status` → `assinado_agencia` (novo valor do enum `StatusContrato` — nem "aguardando" nem "assinado" de vez, só a agência).
+- `agencia.status` → `aguardando_validacao` — **sem esperar** os signatários fixos restantes (estágio 2: Vivi, Wagner, Jennifer) terminarem.
+
+Se o `email` for de outro signatário (sócio, ou um dos 3 do estágio 2), o evento é reconhecido e ignorado (sem side-effect) — só o aprovador dispara o avanço antecipado.
+
+```
+uuid=doc-uuid-123, type_post=4, email=cadastro@sakuratur.com.br
+→ { "processado": true }
+```
+
+```
+uuid=doc-uuid-123, type_post=4, email=wagner.chaves@sakuratur.com.br
+→ { "processado": false, "motivo": "Assinatura individual não é do aprovador — sem ação." }
+```
+
+Quando o `type_post=1` (documento inteiro finalizado) chega depois disso, o use-case aceita tanto `aguardando_assinatura` quanto `aguardando_validacao` como estado válido da agência (o segundo é o caso comum, já avançado pela aprovação intermediária) — fecha `contrato.status = assinado` e garante `agencia.status = aguardando_validacao` de forma idempotente.
+
+**⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário. Sem `D4SIGN_WEBHOOK_URL` pública em dev, não há como confirmar o formato exato do `type_post=4` num evento real (a doc oficial não mostra um payload de exemplo completo, só a lista de campos).
+
 **Teste B — evento não tratado (`type_post=2`, e-mail não entregue):**
 
 Response — `200 OK`:

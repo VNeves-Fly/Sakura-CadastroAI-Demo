@@ -17,8 +17,12 @@ export const STATUS_ATIVO = "ativo";
 export const STATUS_RECUSADO = "recusado";
 
 // Status do próprio registro de Contrato (independente do status da
-// Agencia) — controla só o ciclo "gerado → assinado".
+// Agencia) — controla o ciclo "gerado → assinado". `assinado_agencia` é o
+// estágio intermediário: o aprovador (papel APROVAR, estágio 1) assinou,
+// mas os signatários fixos restantes (estágio 2, testemunhas) ainda não
+// terminaram — ver ProcessarWebhookD4SignUseCase.
 export const CONTRATO_STATUS_AGUARDANDO_ASSINATURA = "aguardando_assinatura";
+export const CONTRATO_STATUS_ASSINADO_AGENCIA = "assinado_agencia";
 export const CONTRATO_STATUS_ASSINADO = "assinado";
 
 export interface ContratoSignatarioData {
