@@ -82,7 +82,7 @@ function construirHref(
     if (valor) params.set(chave, valor);
   }
   const query = params.toString();
-  return query ? `/cadastros?${query}` : "/cadastros";
+  return query ? `/painel?${query}` : "/painel";
 }
 
 function labelOrigemContrato(origem: "ia" | "humano" | null): string | null {
@@ -156,7 +156,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           no schema atual — ficam desabilitados até essa modelagem ser
           feita pelo backend. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <form className="flex-1" action="/cadastros" method="GET">
+        <form className="flex-1" action="/painel" method="GET">
           {searchParams.status ? (
             <input type="hidden" name="status" value={searchParams.status} />
           ) : null}
@@ -257,7 +257,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                   <tr key={agencia.id} className="border-border border-b last:border-0">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/cadastros/${agencia.id}`}
+                        href={`/painel/${agencia.id}`}
                         className="text-foreground hover:text-primary font-medium hover:underline"
                       >
                         {agencia.razaoSocial}

@@ -45,7 +45,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
   {
     label: "Onboarding",
     itens: [
-      { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
+      { label: "Cadastros", href: "/painel", icon: ClipboardList },
       { label: "Atribuições", href: null, icon: Users },
       { label: "Atendimento", href: null, icon: MessageCircle },
       { label: "Eventos", href: null, icon: CalendarDays },
