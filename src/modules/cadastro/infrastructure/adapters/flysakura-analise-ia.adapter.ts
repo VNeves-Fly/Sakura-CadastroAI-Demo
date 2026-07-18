@@ -23,7 +23,11 @@ import type {
 //    GCS_BUCKET_NAME/GCS_FOLDER_PREFIX pra mandar em `documents`/
 //    `partners[].attachments`. Se o storage ativo for o LocalFileStorage
 //    (disco local), a análise real não tem como buscar esses arquivos.
-const BASE_URL = process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
+// Lida a cada chamada (não como const de módulo) pra não travar o valor
+// no primeiro import — importa pra troca de ambiente em teste.
+function baseUrl(): string {
+  return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
+}
 const SIGNED_URL_TTL_MS = 15 * 60 * 1000;
 
 const storage = new Storage();
@@ -45,7 +49,7 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       ),
     ]);
 
-    const response = await fetch(`${BASE_URL}/api/v1/agency-analysis/json`, {
+    const response = await fetch(`${baseUrl()}/api/v1/agency-analysis/json`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

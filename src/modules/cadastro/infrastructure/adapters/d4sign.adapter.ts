@@ -14,7 +14,12 @@ import type {
 //
 // Autenticação é via query string (tokenAPI + cryptKey), não header —
 // assim que o D4Sign exige (confirmado no OpenAPI oficial deles).
-const BASE_URL = process.env.D4SIGN_API_BASE_URL ?? "https://secure.d4sign.com.br/api/v1";
+// Lida a cada chamada (não como const de módulo) pra não travar o valor
+// no primeiro import — importa pra troca de ambiente em teste, e é grátis
+// em produção já que a env não muda durante o processo rodando.
+function baseUrl(): string {
+  return process.env.D4SIGN_API_BASE_URL ?? "https://secure.d4sign.com.br/api/v1";
+}
 
 export class D4SignAdapter implements ContratoAssinaturaService {
   async gerarEEnviar(input: GerarContratoInput): Promise<GerarContratoResult> {
@@ -98,7 +103,7 @@ export class D4SignAdapter implements ContratoAssinaturaService {
   }
 
   private async request(method: string, path: string, body: unknown): Promise<unknown> {
-    const url = `${BASE_URL}${path}?tokenAPI=${requireEnv("D4SIGN_TOKEN_API")}&cryptKey=${requireEnv("D4SIGN_CRYPT_KEY")}`;
+    const url = `${baseUrl()}${path}?tokenAPI=${requireEnv("D4SIGN_TOKEN_API")}&cryptKey=${requireEnv("D4SIGN_CRYPT_KEY")}`;
     const response = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
