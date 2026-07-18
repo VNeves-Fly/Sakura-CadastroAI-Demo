@@ -18,6 +18,7 @@ import {
   type AnaliseContratos,
   type CadastroComplementarDetalhe,
   type CadastrosKpis,
+  type ContratoPorProvedorId,
   type ContratoSignatarioData,
   type CreateAgenciaData,
   type EnderecoData,
@@ -152,6 +153,14 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   async findByCnpj(cnpj: string): Promise<Agencia | null> {
     const record = await this.prisma.agencia.findUnique({ where: { cnpj } });
     return record ? this.toDomain(record) : null;
+  }
+
+  async findByContratoProvedorId(provedorId: string): Promise<ContratoPorProvedorId | null> {
+    const contrato = await this.prisma.contrato.findFirst({
+      where: { provedorId },
+      select: { id: true, agenciaId: true },
+    });
+    return contrato ? { agenciaId: contrato.agenciaId, contratoId: contrato.id } : null;
   }
 
   async obterDetalhe(id: string): Promise<AgenciaDetalhe | null> {

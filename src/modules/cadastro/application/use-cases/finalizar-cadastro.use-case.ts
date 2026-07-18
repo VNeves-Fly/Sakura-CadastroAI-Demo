@@ -94,24 +94,38 @@ export class FinalizarCadastroUseCase implements UseCase<
     // tudo certo, gera e envia o contrato na hora (fila
     // "aguardando_assinatura"). Chamado antes de gravar no banco: se o
     // D4Sign falhar quando a IA aprova, nada é persistido.
-    const analiseIa = await this.analiseIaService.avaliar({ cnpj: input.cnpj });
+    const analiseIa = await this.analiseIaService.avaliar({
+      cnpj: input.cnpj,
+      razaoSocial,
+      contratoSocialPath,
+      socios: socios.map((socio) => ({
+        nome: socio.nome,
+        cpf: socio.cpf,
+        rgPath: socio.rgPath,
+        procuracaoPath: socio.procuracaoPath,
+      })),
+    });
+
+    // Quando o endereço da agência é "o mesmo do sócio", o formulário não
+    // manda um endereço próprio (`enderecoBanco.endereco` vem null) — copia
+    // do sócio vinculado, já que agora existe uma linha real de endereço
+    // por sócio pra copiar (antes ficava null dentro do JSON). Calculado
+    // antes do contrato porque o gerador de contrato precisa do endereço
+    // pra preencher o template.
+    const enderecoAgencia =
+      (input.enderecoBanco.enderecoMesmoSocio
+        ? socios[input.enderecoBanco.socioEnderecoVinculado ?? -1]?.endereco
+        : input.enderecoBanco.endereco) ?? ENDERECO_VAZIO;
 
     const contratoResult = analiseIa.aprovado
       ? await this.contratoAssinaturaService.gerarEEnviar({
           cnpj: input.cnpj,
           razaoSocial,
+          origem: input.origem,
+          endereco: enderecoAgencia,
           signatarios,
         })
       : null;
-
-    // Quando o endereço da agência é "o mesmo do sócio", o formulário não
-    // manda um endereço próprio (`enderecoBanco.endereco` vem null) — copia
-    // do sócio vinculado, já que agora existe uma linha real de endereço
-    // por sócio pra copiar (antes ficava null dentro do JSON).
-    const enderecoAgencia =
-      (input.enderecoBanco.enderecoMesmoSocio
-        ? socios[input.enderecoBanco.socioEnderecoVinculado ?? -1]?.endereco
-        : input.enderecoBanco.endereco) ?? ENDERECO_VAZIO;
 
     const agencia = await this.agenciaRepository.create({
       razaoSocial,
