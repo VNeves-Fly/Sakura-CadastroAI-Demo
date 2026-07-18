@@ -1,4 +1,8 @@
-import type { PrismaClient, SignatarioPadrao as SignatarioPadraoRecord } from "@prisma/client";
+import type {
+  PapelSignatarioPadrao as PrismaPapelSignatarioPadrao,
+  PrismaClient,
+  SignatarioPadrao as SignatarioPadraoRecord,
+} from "@prisma/client";
 import { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import type {
   CreateSignatarioPadraoData,
@@ -24,7 +28,11 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
   }
 
   async create(data: CreateSignatarioPadraoData): Promise<SignatarioPadrao> {
-    const record = await this.prisma.signatarioPadrao.create({ data });
+    // papel é string union no domínio, mas o Prisma gera seu próprio enum —
+    // mesmos valores, tipos nominalmente distintos.
+    const record = await this.prisma.signatarioPadrao.create({
+      data: { ...data, papel: data.papel as PrismaPapelSignatarioPadrao },
+    });
     return this.toDomain(record);
   }
 
@@ -37,6 +45,8 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
       telefone: record.telefone,
       ativo: record.ativo,
       ordem: record.ordem,
+      papel: record.papel,
+      estagio: record.estagio,
     });
   }
 }
