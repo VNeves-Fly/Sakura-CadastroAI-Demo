@@ -1,5 +1,6 @@
 import { prisma } from "@/modules/shared/infrastructure/prisma/client";
 import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-agencia.repository";
+import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 import { MockQsaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-qsa-consulta.adapter";
@@ -26,12 +27,13 @@ import type { FinalizarCadastroInput } from "@/modules/cadastro/application/dto/
 // documento, antes da avaliação final) usa a mesma credencial de
 // AnaliseIaService (AGENCY_ANALYSIS_API_KEY) — são o mesmo agente.
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
+const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 const qsaConsultaService = process.env.RECEITAWS_API_TOKEN
   ? new ReceitaWsQsaConsultaAdapter()
   : new MockQsaConsultaService();
 const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
-  ? new D4SignAdapter()
+  ? new D4SignAdapter(signatarioPadraoRepository)
   : new MockD4SignService();
 const analiseIaService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraAnaliseIaAdapter()

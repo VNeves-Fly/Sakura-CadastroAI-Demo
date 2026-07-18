@@ -6,7 +6,9 @@ import { PrismaEnderecoRepository } from "@/modules/cadastro/infrastructure/repo
 import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import { PrismaContratoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato.repository";
 import { PrismaContratoSignatarioRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-signatario.repository";
+import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
+import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
@@ -44,7 +46,13 @@ const enderecoRepository = new PrismaEnderecoRepository(prisma);
 const documentoRepository = new PrismaDocumentoRepository(prisma);
 const contratoRepository = new PrismaContratoRepository(prisma);
 const contratoSignatarioRepository = new PrismaContratoSignatarioRepository(prisma);
-const contratoAssinaturaService = new MockD4SignService();
+const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
+// Mesma regra do controller público: D4Sign real quando D4SIGN_TOKEN_API
+// está configurada, senão mock — antes ficava sempre no mock aqui, então
+// aprovarComplementar nunca mandava contrato de verdade em produção.
+const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
+  ? new D4SignAdapter(signatarioPadraoRepository)
+  : new MockD4SignService();
 
 export const cadastroAdminController = {
   listarCadastros(filtros: ListarCadastrosFiltros) {

@@ -117,7 +117,7 @@ Só roda se `D4SIGN_WEBHOOK_URL` estiver configurada — hoje está vazia (sem d
 
 ## 5. Cadastrar signatário — `POST /documents/{uuid}/createlist`
 
-**Request** (e-mail real do signatário mascarado aqui por privacidade — testado de verdade duas vezes, com dois signatários reais diferentes):
+**Request** (e-mail real do signatário mascarado aqui por privacidade — testado de verdade duas vezes, com dois signatários reais diferentes, na versão sem estágios/`after_position` do adapter):
 
 ```json
 {
@@ -135,19 +135,78 @@ Só roda se `D4SIGN_WEBHOOK_URL` estiver configurada — hoje está vazia (sem d
 
 **Response:** `200 OK` (corpo não logado pelo adapter — só `response.ok` é checado; a doc oficial mostra um retorno com `key_signer`, `status: "created"`, etc.)
 
+### 5.1 Estágios de assinatura (`after_position`) — não testado ao vivo ainda
+
+O adapter agora monta a lista com **todos** os signatários de uma vez (sócios + os 4 fixos da Sakura, lidos de `signatarios_padrao` via `SignatarioPadraoRepository`), cada um com `after_position` = seu estágio. Confirmado na doc oficial (`docs/endpoints-1.md`): "Define a posição após a qual o signatário será inserido na ordem".
+
+| Estágio (`after_position`) | Quem                                              | `act`                                           |
+| -------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `"0"`                      | Sócios da agência (dinâmico, `input.signatarios`) | `"1"` (assinar)                                 |
+| `"1"`                      | Jean — `cadastro@sakuratur.com.br`                | `"2"` (aprovar)                                 |
+| `"2"`                      | Vivi, Wagner, Jennifer                            | `"4"` (assinar como parte) / `"5"` (testemunha) |
+
+```json
+{
+  "signers": [
+    {
+      "email": "socio@agencia.com",
+      "act": "1",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "0"
+    },
+    {
+      "email": "cadastro@sakuratur.com.br",
+      "act": "2",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "1"
+    },
+    {
+      "email": "vivi.siqueira@sakuratur.com.br",
+      "act": "4",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "2"
+    },
+    {
+      "email": "wagner.chaves@sakuratur.com.br",
+      "act": "5",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "2"
+    },
+    {
+      "email": "jennifer.araujo@sakuratur.com.br",
+      "act": "5",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "2"
+    }
+  ]
+}
+```
+
+**⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário (fetch mockado). O `act` de cada signatário fixo vem do enum `PapelSignatarioPadrao` (schema.prisma), traduzido em `ACT_POR_PAPEL` no adapter.
+
 ## 6. Enviar pra assinatura — `POST /documents/{uuid}/sendtosigner`
 
 **Request:**
 
 ```json
-{ "skip_email": "0", "workflow": "0" }
+{ "skip_email": "0", "workflow": "1" }
 ```
 
-`skip_email: "0"` → manda e-mail de notificação de verdade pro signatário. `workflow: "0"` → dispara pra todos os signatários ao mesmo tempo (sem ordem).
+`skip_email: "0"` → manda e-mail de notificação de verdade pro signatário. `workflow: "1"` → respeita a ordem de `after_position`: o D4Sign só notifica o próximo estágio depois que todos do estágio anterior assinarem (confirmado em `docs/endpoints-2.md`: "o segundo signatário só receberá a mensagem [...] DEPOIS que o primeiro signatário efetuar a assinatura").
 
 **Response:** `200 OK` (corpo não logado pelo adapter).
 
-**Confirmado no teste:** e-mail de convite pra assinar foi enviado de verdade pro signatário de teste (2 vezes, com pessoas/e-mails diferentes) — documento passou pro status "Aguardando Assinaturas" (visto na chamada 3 acima).
+**Confirmado no teste (ao vivo, ainda na versão `workflow: "0"`):** e-mail de convite pra assinar foi enviado de verdade pro signatário de teste (2 vezes, com pessoas/e-mails diferentes) — documento passou pro status "Aguardando Assinaturas" (visto na chamada 3 acima). **A versão com `workflow: "1"` + estágios ainda não foi testada contra a conta real** — só unitário, pra não dar sinal de assinatura pros 4 signatários fixos (Jean/Vivi/Wagner/Jennifer) de verdade num teste.
 
 ## 7. Cancelar documento de teste — `POST /documents/{uuid}/cancel`
 

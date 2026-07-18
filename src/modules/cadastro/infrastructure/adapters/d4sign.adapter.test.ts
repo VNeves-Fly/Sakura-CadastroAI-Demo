@@ -1,7 +1,45 @@
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import type { GerarContratoInput } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
+import { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
+import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 
 const originalEnv = process.env;
+
+function fakeSignatarioPadraoRepository(
+  signatarios: SignatarioPadrao[] = [],
+): SignatarioPadraoRepository {
+  return {
+    findAll: async () => signatarios,
+    findAtivos: async () => signatarios,
+    create: async () => {
+      throw new Error("create não implementado no fake de teste");
+    },
+  };
+}
+
+const JEAN = SignatarioPadrao.create({
+  id: "sig-jean",
+  nome: "Jean",
+  cargo: "Time Cadastro",
+  email: "cadastro@sakuratur.com.br",
+  telefone: null,
+  ativo: true,
+  ordem: 1,
+  papel: "APROVAR",
+  estagio: 1,
+});
+
+const VIVI = SignatarioPadrao.create({
+  id: "sig-vivi",
+  nome: "Vivi Siqueira",
+  cargo: "Sakura",
+  email: "vivi.siqueira@sakuratur.com.br",
+  telefone: null,
+  ativo: true,
+  ordem: 2,
+  papel: "ASSINAR_COMO_PARTE",
+  estagio: 2,
+});
 
 function setEnv(overrides: Record<string, string> = {}) {
   process.env = {
@@ -13,6 +51,14 @@ function setEnv(overrides: Record<string, string> = {}) {
     D4SIGN_API_BASE_URL: "https://api.teste.d4sign",
     ...overrides,
   };
+
+  // originalEnv vem do .env real (next/jest carrega antes dos testes) — em
+  // dev ele tem D4SIGN_WEBHOOK_URL de produção configurada, o que vazaria
+  // uma chamada extra (registrarWebhook) pros testes que não esperam por
+  // ela. Só fica definida quando o teste pedir via overrides.
+  if (!overrides.D4SIGN_WEBHOOK_URL) {
+    delete process.env.D4SIGN_WEBHOOK_URL;
+  }
 }
 
 function okJson(body: unknown) {
@@ -45,13 +91,13 @@ describe("D4SignAdapter", () => {
     process.env = originalEnv;
   });
 
-  it("gera o documento a partir do template, cadastra o signatário e envia pra assinatura, nessa ordem", async () => {
+  it("gera o documento a partir do template, cadastra o sócio no estágio 0 e envia pra assinatura, nessa ordem", async () => {
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
       .mockResolvedValueOnce(okJson({}))
       .mockResolvedValueOnce(okJson({}));
 
-    const resultado = await new D4SignAdapter().gerarEEnviar(input);
+    const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
 
     expect(resultado).toEqual({ provedorId: "doc-uuid-123", status: "aguardando_assinatura" });
     expect(global.fetch).toHaveBeenCalledTimes(3);
@@ -91,6 +137,7 @@ describe("D4SignAdapter", () => {
           foreign: "0",
           certificadoicpbr: "0",
           assinatura_presencial: "0",
+          after_position: "0",
         },
       ],
     });
@@ -99,7 +146,46 @@ describe("D4SignAdapter", () => {
     expect(envioUrl).toBe(
       "https://api.teste.d4sign/documents/doc-uuid-123/sendtosigner?tokenAPI=token-teste&cryptKey=crypt-teste",
     );
-    expect(JSON.parse(envioOpts.body)).toEqual({ skip_email: "0", workflow: "0" });
+    expect(JSON.parse(envioOpts.body)).toEqual({ skip_email: "0", workflow: "1" });
+  });
+
+  it("inclui os signatários padrão ativos nos estágios seguintes, com o act correspondente ao papel", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(okJson({}));
+
+    await new D4SignAdapter(fakeSignatarioPadraoRepository([JEAN, VIVI])).gerarEEnviar(input);
+
+    const [, listaOpts] = (global.fetch as jest.Mock).mock.calls[1];
+    expect(JSON.parse(listaOpts.body)).toEqual({
+      signers: [
+        {
+          email: "fulano@teste.com",
+          act: "1",
+          foreign: "0",
+          certificadoicpbr: "0",
+          assinatura_presencial: "0",
+          after_position: "0",
+        },
+        {
+          email: "cadastro@sakuratur.com.br",
+          act: "2",
+          foreign: "0",
+          certificadoicpbr: "0",
+          assinatura_presencial: "0",
+          after_position: "1",
+        },
+        {
+          email: "vivi.siqueira@sakuratur.com.br",
+          act: "4",
+          foreign: "0",
+          certificadoicpbr: "0",
+          assinatura_presencial: "0",
+          after_position: "2",
+        },
+      ],
+    });
   });
 
   it("registra o webhook no documento quando D4SIGN_WEBHOOK_URL está configurada", async () => {
@@ -110,7 +196,7 @@ describe("D4SignAdapter", () => {
       .mockResolvedValueOnce(okJson({}))
       .mockResolvedValueOnce(okJson({}));
 
-    await new D4SignAdapter().gerarEEnviar(input);
+    await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
 
     expect(global.fetch).toHaveBeenCalledTimes(4);
     const [webhookUrl, webhookOpts] = (global.fetch as jest.Mock).mock.calls[1];
@@ -128,7 +214,7 @@ describe("D4SignAdapter", () => {
       .mockResolvedValueOnce(okJson({}))
       .mockResolvedValueOnce(okJson({}));
 
-    await new D4SignAdapter().gerarEEnviar(input);
+    await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
 
     expect(global.fetch).toHaveBeenCalledTimes(3);
   });
@@ -140,9 +226,9 @@ describe("D4SignAdapter", () => {
       json: async () => ({ message: "Token inválido" }),
     });
 
-    await expect(new D4SignAdapter().gerarEEnviar(input)).rejects.toThrow(
-      "D4Sign /documents/safe-uuid/makedocumentbytemplateword respondeu 400",
-    );
+    await expect(
+      new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input),
+    ).rejects.toThrow("D4Sign /documents/safe-uuid/makedocumentbytemplateword respondeu 400");
   });
 
   it.each(["D4SIGN_TOKEN_API", "D4SIGN_CRYPT_KEY", "D4SIGN_SAFE_UUID", "D4SIGN_TEMPLATE_ID"])(
@@ -151,9 +237,9 @@ describe("D4SignAdapter", () => {
       setEnv();
       delete process.env[envVar];
 
-      await expect(new D4SignAdapter().gerarEEnviar(input)).rejects.toThrow(
-        `${envVar} não configurada`,
-      );
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input),
+      ).rejects.toThrow(`${envVar} não configurada`);
     },
   );
 });
