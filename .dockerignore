@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+build
+dist
+coverage
+.git
+.env
+.env*.local
+.env.production
+*-sakura-*.json
+service-account*.json
+uploads
+*.tsbuildinfo
+.DS_Store
