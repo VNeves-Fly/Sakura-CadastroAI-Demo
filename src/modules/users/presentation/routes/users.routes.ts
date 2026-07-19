@@ -3,6 +3,7 @@ import { httpCreated, httpError, httpOk } from "@/modules/shared/presentation/ht
 import { DomainError, NotFoundError, ConflictError } from "@/modules/shared/domain/errors";
 import { usersController } from "@/modules/users/presentation/controllers/users.controller";
 import { createUserSchema } from "@/modules/users/application/dto/create-user.schema";
+import { changePasswordSchema } from "@/modules/users/application/dto/change-password.schema";
 
 function mapErrorToResponse(error: unknown) {
   if (error instanceof NotFoundError) {
@@ -46,6 +47,22 @@ export async function getUserByIdRoute(id: string) {
   try {
     const user = await usersController.getById(id);
     return httpOk(user);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function changePasswordRoute(request: Request, userId: string) {
+  try {
+    const body = await request.json();
+    const parsed = changePasswordSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    }
+
+    await usersController.changePassword({ userId, newPassword: parsed.data.newPassword });
+    return httpOk({ success: true });
   } catch (error) {
     return mapErrorToResponse(error);
   }

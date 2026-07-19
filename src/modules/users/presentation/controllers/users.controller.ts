@@ -6,6 +6,10 @@ import { createWelcomeEmailSender } from "@/modules/users/infrastructure/factori
 import { CreateUserUseCase } from "@/modules/users/application/use-cases/create-user.use-case";
 import { ListUsersUseCase } from "@/modules/users/application/use-cases/list-users.use-case";
 import { GetUserByIdUseCase } from "@/modules/users/application/use-cases/get-user-by-id.use-case";
+import {
+  ChangePasswordUseCase,
+  type ChangePasswordInput,
+} from "@/modules/users/application/use-cases/change-password.use-case";
 import type { CreateUserInput } from "@/modules/users/application/dto/create-user.dto";
 
 // Composition root do módulo users: única camada que conhece Prisma/bcrypt
@@ -34,5 +38,10 @@ export const usersController = {
   getById(id: string) {
     const useCase = new GetUserByIdUseCase(userRepository);
     return useCase.execute(id);
+  },
+
+  changePassword(input: ChangePasswordInput) {
+    const useCase = new ChangePasswordUseCase(userRepository, passwordHasher);
+    return useCase.execute(input);
   },
 };
