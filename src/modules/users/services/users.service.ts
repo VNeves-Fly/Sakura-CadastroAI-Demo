@@ -1,11 +1,17 @@
+import type { Cargo } from "@/modules/users/domain/enums";
 import type { CreateUserFormValues } from "@/modules/users/types/user.types";
 
 export interface RawUserResponse {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone: string;
+  cargo: Cargo;
+  mustChangePassword: boolean;
   createdAt: string;
   updatedAt: string;
+  temporaryPassword?: string;
 }
 
 // Única camada autorizada a se comunicar com a API externa (rotas /api/users).

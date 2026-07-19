@@ -12,14 +12,16 @@ const ALL_CHARS = UPPERCASE + LOWERCASE + DIGITS + SYMBOLS;
 const PASSWORD_LENGTH = 12;
 
 function pickRandomChar(pool: string): string {
-  return pool[randomInt(pool.length)];
+  // randomInt(pool.length) sempre cai dentro de [0, pool.length), então o
+  // índice nunca é undefined — asserção só pra contornar noUncheckedIndexedAccess.
+  return pool[randomInt(pool.length)]!;
 }
 
 function shuffle(chars: string[]): string[] {
   const result = [...chars];
   for (let i = result.length - 1; i > 0; i -= 1) {
     const j = randomInt(i + 1);
-    [result[i], result[j]] = [result[j], result[i]];
+    [result[i], result[j]] = [result[j]!, result[i]!];
   }
   return result;
 }

@@ -12,3 +12,5 @@ export const CARGO_LABELS: Record<Cargo, string> = CARGO_OPTIONS.reduce(
   (labels, option) => ({ ...labels, [option.value]: option.label }),
   {} as Record<Cargo, string>,
 );
+
+export const DEFAULT_CARGO: Cargo = "ANALISTA";
