@@ -18,6 +18,9 @@ const RATE_LIMIT_SUBMIT = { limite: 5, janelaMs: 10 * 60 * 1000 };
 // Consulta QSA dispara a cada CNPJ completo digitado — mais frequente,
 // limite mais folgado.
 const RATE_LIMIT_QSA = { limite: 30, janelaMs: 60 * 1000 };
+// Análise de documento chama o agents-service (Document AI) — mais custosa
+// que a QSA, dispara só quando CNPJ+arquivo estão prontos.
+const RATE_LIMIT_ANALISE_DOCUMENTO = { limite: 10, janelaMs: 5 * 60 * 1000 };
 
 function mapErrorToResponse(error: unknown) {
   if (error instanceof RateLimitError) {
@@ -159,6 +162,40 @@ export async function consultarQsaRoute(request: Request) {
     }
 
     const resultado = await cadastroPublicoController.consultarQsa(cnpj);
+    return httpOk(resultado);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function analisarContratoSocialRoute(request: Request) {
+  try {
+    const chaveRateLimit = `cadastro-analise-documento:${obterIpCliente(request)}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ANALISE_DOCUMENTO)) {
+      throw new RateLimitError();
+    }
+
+    const formData = await request.formData();
+    const cnpj = formData.get("cnpj");
+    const contratoSocialFile = formData.get("contratoSocial");
+
+    if (typeof cnpj !== "string" || !cnpj) {
+      return httpError("CNPJ é obrigatório.", 422);
+    }
+    if (!(contratoSocialFile instanceof File)) {
+      return httpError("Contrato social é obrigatório.", 422);
+    }
+
+    const erroArquivo = validarArquivoUpload(contratoSocialFile, "Contrato Social");
+    if (erroArquivo) {
+      return httpError(erroArquivo, 422);
+    }
+
+    const resultado = await cadastroPublicoController.analisarContratoSocial({
+      cnpj,
+      contratoSocial: await toUploadedFile(contratoSocialFile),
+    });
+
     return httpOk(resultado);
   } catch (error) {
     return mapErrorToResponse(error);

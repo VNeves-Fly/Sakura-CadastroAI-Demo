@@ -13,7 +13,9 @@ import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/a
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
 import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/consultar-qsa.use-case";
+import { AnalisarContratoSocialUseCase } from "@/modules/cadastro/application/use-cases/analisar-contrato-social.use-case";
 import type { FinalizarCadastroInput } from "@/modules/cadastro/application/dto/finalizar-cadastro.dto";
+import type { AnalisarContratoSocialInput } from "@/modules/cadastro/application/dto/analisar-contrato-social.dto";
 
 // Composition root do módulo cadastro (área pública): única camada que
 // conhece Prisma/filesystem/QSA/D4Sign/IA concretos. FileStorage usa GCS
@@ -58,5 +60,10 @@ export const cadastroPublicoController = {
   consultarQsa(cnpj: string) {
     const useCase = new ConsultarQsaUseCase(qsaConsultaService);
     return useCase.execute({ cnpj });
+  },
+
+  analisarContratoSocial(input: AnalisarContratoSocialInput) {
+    const useCase = new AnalisarContratoSocialUseCase(fileStorage, documentAnalysisService);
+    return useCase.execute(input);
   },
 };

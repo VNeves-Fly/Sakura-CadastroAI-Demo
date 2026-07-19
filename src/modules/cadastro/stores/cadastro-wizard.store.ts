@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { QsaResultView } from "@/modules/cadastro/types/agencia.types";
+import type {
+  QsaResultView,
+  ContratoSocialAnaliseView,
+} from "@/modules/cadastro/types/agencia.types";
 import {
   criarSocioWizardVazio,
   type SocioWizardFormValues,
@@ -30,6 +33,8 @@ interface CadastroWizardState {
   qsaResult: QsaResultView | null;
   avisoAlfanumerico: boolean;
   contratoSocial: File | null;
+  analisandoContratoSocial: boolean;
+  contratoSocialAnalise: ContratoSocialAnaliseView | null;
 
   telefoneComercial: string;
   telefoneComercialPais: string;
@@ -61,6 +66,8 @@ interface CadastroWizardState {
   setQsaResult: (result: QsaResultView | null) => void;
   setAvisoAlfanumerico: (aviso: boolean) => void;
   setContratoSocial: (file: File | null) => void;
+  setAnalisandoContratoSocial: (analisando: boolean) => void;
+  setContratoSocialAnalise: (analise: ContratoSocialAnaliseView | null) => void;
 
   setTelefoneComercial: (telefone: string) => void;
   setTelefoneComercialPais: (pais: string) => void;
@@ -108,6 +115,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       qsaResult: null,
       avisoAlfanumerico: false,
       contratoSocial: null,
+      analisandoContratoSocial: false,
+      contratoSocialAnalise: null,
 
       telefoneComercial: "",
       telefoneComercialPais: "BR",
@@ -139,6 +148,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       setQsaResult: (qsaResult) => set({ qsaResult }),
       setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
       setContratoSocial: (contratoSocial) => set({ contratoSocial }),
+      setAnalisandoContratoSocial: (analisandoContratoSocial) => set({ analisandoContratoSocial }),
+      setContratoSocialAnalise: (contratoSocialAnalise) => set({ contratoSocialAnalise }),
 
       setTelefoneComercial: (telefoneComercial) => set({ telefoneComercial }),
       setTelefoneComercialPais: (telefoneComercialPais) => set({ telefoneComercialPais }),
@@ -175,6 +186,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
           qsaResult: null,
           avisoAlfanumerico: false,
           contratoSocial: null,
+          analisandoContratoSocial: false,
+          contratoSocialAnalise: null,
           telefoneComercial: "",
           telefoneComercialPais: "BR",
           semTelefoneComercial: false,

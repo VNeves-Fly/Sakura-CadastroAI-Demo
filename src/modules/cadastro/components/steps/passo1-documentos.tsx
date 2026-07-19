@@ -14,6 +14,8 @@ export function Passo1Documentos({
   avisoAlfanumerico,
   contratoSocial,
   contratoSocialErro,
+  analisandoContratoSocial,
+  contratoSocialAnalise,
   setContratoSocial,
   setCnpj,
 }: Passo1DocumentosProps) {
@@ -57,6 +59,25 @@ export function Passo1Documentos({
         helperText="Clique para anexar o PDF do contrato social atualizado"
         required
       />
+
+      {analisandoContratoSocial ? (
+        <span className="text-muted-foreground text-xs">Analisando o contrato social...</span>
+      ) : null}
+
+      {!analisandoContratoSocial && contratoSocialAnalise?.cnpjConfere === false ? (
+        <span className="text-destructive text-xs font-medium">
+          O CNPJ do contrato social anexado não bate com o CNPJ digitado — confira se é o arquivo
+          certo.
+        </span>
+      ) : null}
+
+      {!analisandoContratoSocial && contratoSocialAnalise?.alertas.length ? (
+        <ul className="text-warning flex flex-col gap-0.5 text-xs font-medium">
+          {contratoSocialAnalise.alertas.map((alerta) => (
+            <li key={alerta}>{alerta}</li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
