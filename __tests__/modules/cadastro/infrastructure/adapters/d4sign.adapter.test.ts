@@ -11,8 +11,20 @@ function fakeSignatarioPadraoRepository(
   return {
     findAll: async () => signatarios,
     findAtivos: async () => signatarios,
+    findById: async () => {
+      throw new Error("findById não implementado no fake de teste");
+    },
     create: async () => {
       throw new Error("create não implementado no fake de teste");
+    },
+    update: async () => {
+      throw new Error("update não implementado no fake de teste");
+    },
+    softDelete: async () => {
+      throw new Error("softDelete não implementado no fake de teste");
+    },
+    restaurar: async () => {
+      throw new Error("restaurar não implementado no fake de teste");
     },
   };
 }
@@ -23,7 +35,7 @@ const JEAN = SignatarioPadrao.create({
   cargo: "Time Cadastro",
   email: "cadastro@sakuratur.com.br",
   telefone: null,
-  ativo: true,
+  deletedAt: null,
   ordem: 1,
   papel: "APROVAR",
   estagio: 1,
@@ -35,7 +47,7 @@ const VIVI = SignatarioPadrao.create({
   cargo: "Sakura",
   email: "vivi.siqueira@sakuratur.com.br",
   telefone: null,
-  ativo: true,
+  deletedAt: null,
   ordem: 2,
   papel: "ASSINAR_COMO_PARTE",
   estagio: 2,

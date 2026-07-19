@@ -19,6 +19,7 @@ export class PrismaCredentialsRepository implements CredentialsRepository {
       name: user.name,
       email: user.email,
       passwordHash: user.password,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 }

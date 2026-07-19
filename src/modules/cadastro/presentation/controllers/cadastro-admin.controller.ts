@@ -33,6 +33,16 @@ import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/o
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
+import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
+import { ObterSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/obter-signatario-padrao.use-case";
+import { CriarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/criar-signatario-padrao.use-case";
+import {
+  AtualizarSignatarioPadraoUseCase,
+  type AtualizarSignatarioPadraoInput,
+} from "@/modules/cadastro/application/use-cases/atualizar-signatario-padrao.use-case";
+import { RemoverSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/remover-signatario-padrao.use-case";
+import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/restaurar-signatario-padrao.use-case";
+import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import {
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_ATIVO,
@@ -159,5 +169,35 @@ export const cadastroAdminController = {
   listarSignatariosPadraoAtivos() {
     const useCase = new ListarSignatariosPadraoAtivosUseCase(signatarioPadraoRepository);
     return useCase.execute();
+  },
+
+  listarSignatariosPadrao() {
+    const useCase = new ListarSignatariosPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute();
+  },
+
+  obterSignatarioPadrao(id: string) {
+    const useCase = new ObterSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(id);
+  },
+
+  criarSignatarioPadrao(data: CreateSignatarioPadraoData) {
+    const useCase = new CriarSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(data);
+  },
+
+  atualizarSignatarioPadrao(input: AtualizarSignatarioPadraoInput) {
+    const useCase = new AtualizarSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(input);
+  },
+
+  removerSignatarioPadrao(id: string) {
+    const useCase = new RemoverSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(id);
+  },
+
+  restaurarSignatarioPadrao(id: string) {
+    const useCase = new RestaurarSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(id);
   },
 };

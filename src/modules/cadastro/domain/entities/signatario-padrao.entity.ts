@@ -6,7 +6,8 @@ export interface SignatarioPadraoProps {
   cargo: string | null;
   email: string | null;
   telefone: string | null;
-  ativo: boolean;
+  // null = ativo; preenchido = removido (soft delete, reversível).
+  deletedAt: Date | null;
   ordem: number | null;
   papel: PapelSignatarioPadrao;
   estagio: number;
@@ -39,8 +40,12 @@ export class SignatarioPadrao {
     return this.props.telefone;
   }
 
+  get deletedAt(): Date | null {
+    return this.props.deletedAt;
+  }
+
   get ativo(): boolean {
-    return this.props.ativo;
+    return this.props.deletedAt === null;
   }
 
   get ordem(): number | null {

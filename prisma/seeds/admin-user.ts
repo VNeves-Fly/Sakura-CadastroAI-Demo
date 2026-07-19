@@ -12,6 +12,10 @@ export async function seedAdminUser(prisma: PrismaClient): Promise<void> {
     update: {},
     create: {
       name: "Admin",
+      firstName: "Admin",
+      lastName: "Sakura",
+      phone: "",
+      cargo: "ADMIN",
       email: ADMIN_EMAIL,
       password: passwordHash,
     },

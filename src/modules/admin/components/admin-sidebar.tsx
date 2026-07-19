@@ -59,7 +59,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
   {
     label: "Configurações",
     itens: [
-      { label: "Usuários", href: null, icon: UserCog },
+      { label: "Usuários", href: "/painel/usuarios", icon: UserCog },
       { label: "Equipe", href: null, icon: UsersRound },
       { label: "Auditoria E-mails", href: null, icon: Mail },
     ],

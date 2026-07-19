@@ -11,7 +11,6 @@ const INPUT_CLASSNAME =
 // Componente apenas de renderização: recebe estado e callbacks do
 // ViewModel do wizard via props.
 export function Passo2Empresa({
-  qsaResult,
   telefoneComercial,
   telefoneComercialPais,
   semTelefoneComercial,
@@ -134,35 +133,6 @@ export function Passo2Empresa({
             <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
         </div>
-      </div>
-
-      {qsaResult ? (
-        <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4">
-          <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-            Dados da Receita Federal
-          </span>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <ReceitaCampo label="Data de Abertura" valor={qsaResult.dataAbertura} />
-            <ReceitaCampo label="Telefone" valor={qsaResult.telefoneReceita} />
-            <ReceitaCampo label="E-mail" valor={qsaResult.emailReceita} />
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ReceitaCampo({ label, valor }: { label: string; valor: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-        {label}
-      </span>
-      <div className="border-border bg-muted text-foreground flex flex-col gap-1.5 rounded-2xl border px-4 py-2.5 text-sm">
-        <span className="break-words">{valor}</span>
-        <span className="bg-success/15 text-success w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
-          Recebido
-        </span>
       </div>
     </div>
   );

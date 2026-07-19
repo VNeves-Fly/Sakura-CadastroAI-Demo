@@ -31,7 +31,7 @@ export function useLoginViewModel() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/painel");
     router.refresh();
   }
 

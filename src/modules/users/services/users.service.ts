@@ -1,11 +1,17 @@
-import type { CreateUserFormValues } from "@/modules/users/types/user.types";
+import type { Cargo } from "@/modules/users/domain/enums";
+import type { CreateUserPayload } from "@/modules/users/types/user.types";
 
 export interface RawUserResponse {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone: string;
+  cargo: Cargo;
+  mustChangePassword: boolean;
   createdAt: string;
   updatedAt: string;
+  temporaryPassword?: string;
 }
 
 // Única camada autorizada a se comunicar com a API externa (rotas /api/users).
@@ -20,7 +26,7 @@ export const usersService = {
     return response.json();
   },
 
-  async create(input: CreateUserFormValues): Promise<RawUserResponse> {
+  async create(input: CreateUserPayload): Promise<RawUserResponse> {
     const response = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
