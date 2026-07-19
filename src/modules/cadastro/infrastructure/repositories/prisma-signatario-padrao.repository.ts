@@ -7,6 +7,7 @@ import { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-
 import type {
   CreateSignatarioPadraoData,
   SignatarioPadraoRepository,
+  UpdateSignatarioPadraoData,
 } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 
 export class PrismaSignatarioPadraoRepository implements SignatarioPadraoRepository {
@@ -21,10 +22,15 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
 
   async findAtivos(): Promise<SignatarioPadrao[]> {
     const records = await this.prisma.signatarioPadrao.findMany({
-      where: { ativo: true },
+      where: { deletedAt: null },
       orderBy: { ordem: "asc" },
     });
     return records.map((record) => this.toDomain(record));
+  }
+
+  async findById(id: string): Promise<SignatarioPadrao | null> {
+    const record = await this.prisma.signatarioPadrao.findUnique({ where: { id } });
+    return record ? this.toDomain(record) : null;
   }
 
   async create(data: CreateSignatarioPadraoData): Promise<SignatarioPadrao> {
@@ -36,6 +42,28 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
     return this.toDomain(record);
   }
 
+  async update(id: string, data: UpdateSignatarioPadraoData): Promise<SignatarioPadrao> {
+    const record = await this.prisma.signatarioPadrao.update({
+      where: { id },
+      data: { ...data, papel: data.papel as PrismaPapelSignatarioPadrao | undefined },
+    });
+    return this.toDomain(record);
+  }
+
+  async softDelete(id: string): Promise<void> {
+    await this.prisma.signatarioPadrao.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  async restaurar(id: string): Promise<void> {
+    await this.prisma.signatarioPadrao.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+  }
+
   private toDomain(record: SignatarioPadraoRecord): SignatarioPadrao {
     return SignatarioPadrao.create({
       id: record.id,
@@ -43,7 +71,7 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
       cargo: record.cargo,
       email: record.email,
       telefone: record.telefone,
-      ativo: record.ativo,
+      deletedAt: record.deletedAt,
       ordem: record.ordem,
       papel: record.papel,
       estagio: record.estagio,

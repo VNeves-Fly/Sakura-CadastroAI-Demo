@@ -587,18 +587,19 @@ model Notificacao {
 // D4Sign (catálogo completo do campo `act` da API, não só os usados hoje) e
 // `estagio` é o after_position da fila de assinatura — estágio 0 é sempre os
 // sócios da agência (dinâmico, fora desta tabela); os fixos ocupam os
-// estágios seguintes. Preenchida com os destinatários reais, mas ainda não
-// consumida pelo D4SignAdapter (entra junto com os estágios de assinatura).
+// estágios seguintes. `deletedAt` é o padrão de soft delete pra essa tabela
+// (e daqui pra frente, pro projeto): null = ativo, preenchido = removido
+// (reversível — `findAtivos` filtra por `deletedAt: null`).
 model SignatarioPadrao {
-  id       String                @id @default(cuid())
-  nome     String?
-  cargo    String?
-  email    String?               @unique
-  telefone String?
-  ativo    Boolean               @default(true)
-  ordem    Int?
-  papel    PapelSignatarioPadrao
-  estagio  Int
+  id        String                @id @default(cuid())
+  nome      String?
+  cargo     String?
+  email     String?               @unique
+  telefone  String?
+  deletedAt DateTime?
+  ordem     Int?
+  papel     PapelSignatarioPadrao
+  estagio   Int
 
   contratoSignatarios ContratoSignatario[]
 
