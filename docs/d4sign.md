@@ -274,13 +274,22 @@ Quando o `type_post=1` (documento inteiro finalizado) chega depois disso, o use-
 
 **⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário. Sem `D4SIGN_WEBHOOK_URL` pública em dev, não há como confirmar o formato exato do `type_post=4` num evento real (a doc oficial não mostra um payload de exemplo completo, só a lista de campos).
 
-**Teste B — evento não tratado (`type_post=2`, e-mail não entregue):**
+### 8.2 E-mail não entregue (`type_post=2`) — indicativo na tela de Contrato
 
-Response — `200 OK`:
+Confirmado na doc oficial: `type_post=2` traz `email` (quem não recebeu) e `message` (motivo/erro de entrega). O use-case registra isso em `ContratoEmailFalhaEntrega` (tabela nova, chave `contratoId`+`email`, upsert idempotente — não em `ContratoSignatario`, pra cobrir também os 4 signatários fixos da Sakura sem precisar de CPF deles). Não muda nenhum status de contrato/agência — é só visibilidade.
 
-```json
-{ "processado": false, "motivo": "typePost \"2\" reconhecido, sem ação." }
 ```
+uuid=doc-uuid-123, type_post=2, email=socio@agencia.com, message=Caixa de entrada cheia
+→ { "processado": true }
+```
+
+A tela `/painel/[id]` (seção "Contrato") mostra um badge **"E-mail não entregue"** ao lado do nome de quem está na lista, tanto na Fase 1 (sócios) quanto na Fase 2 (Sakura — que passou a listar os signatários fixos ativos de verdade, em vez do texto fixo "Sakura Consolidadora").
+
+**⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário, mesma limitação do 8.1 (sem `D4SIGN_WEBHOOK_URL` pública em dev).
+
+### 8.3 Documento cancelado (`type_post=3`) — pendente, documentado pra resolver depois
+
+D4Sign também manda esse evento quando o documento é cancelado (manualmente no painel deles, ou por `sign_limit_date` vencido). Hoje o use-case só reconhece e ignora (mesmo bucket genérico dos typePost sem transição definida) — `agencia.status` fica preso em `aguardando_assinatura` pra sempre, sem qualquer sinalização pro analista. Falta decidir: pra onde a agência deveria ir (não existe hoje um status tipo "contrato cancelado, precisa gerar de novo" no enum `StatusAgencia`) e se precisa de algum alerta ativo (hoje não há canal de notificação — Slack/e-mail — nesse projeto). Não implementado ainda.
 
 **Teste C — `provedorId` desconhecido:**
 
