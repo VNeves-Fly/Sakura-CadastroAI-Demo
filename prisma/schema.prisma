@@ -429,10 +429,28 @@ model Contrato {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  signatarios ContratoSignatario[]
+  signatarios        ContratoSignatario[]
+  emailsFalhaEntrega ContratoEmailFalhaEntrega[]
 
   @@index([agenciaId])
   @@map("contratos")
+}
+
+// Registro de "e-mail não entregue" (D4Sign webhook, type_post=2) — por
+// e-mail, não por ContratoSignatario/SignatarioPadrao: cobre tanto os
+// sócios quanto os 4 signatários fixos da Sakura sem depender de CPF (que
+// os fixos não têm). @@unique pra upsert idempotente em retries do
+// D4Sign — o motivo/data mais recentes sobrescrevem o registro anterior.
+model ContratoEmailFalhaEntrega {
+  id         String   @id @default(cuid())
+  contratoId String
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  email      String
+  motivo     String?
+  criadoEm   DateTime @default(now())
+
+  @@unique([contratoId, email])
+  @@map("contrato_email_falha_entrega")
 }
 
 // Snapshot imutável do signatário no momento em que o contrato foi

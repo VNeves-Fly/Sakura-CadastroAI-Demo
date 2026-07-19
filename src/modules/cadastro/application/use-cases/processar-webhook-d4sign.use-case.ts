@@ -7,6 +7,7 @@ import {
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
+import type { ContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/domain/repositories/contrato-email-falha-entrega-repository";
 
 export interface ProcessarWebhookD4SignInput {
   // uuid do documento no D4Sign — é o Contrato.provedorId gravado quando
@@ -16,9 +17,13 @@ export interface ProcessarWebhookD4SignInput {
   // entregue, "3" = cancelado, "4" = um signatário assinou (parcial).
   // Ver docapi.d4sign.com.br/docs/webhook-postback.
   typePost: string;
-  // E-mail do signatário — presente nos eventos "2" e "4". Usado só no "4"
-  // pra identificar se quem assinou foi o aprovador (papel APROVAR).
+  // E-mail do signatário — presente nos eventos "2" e "4". No "4" usado
+  // pra identificar se quem assinou foi o aprovador (papel APROVAR); no
+  // "2" identifica quem não recebeu o e-mail.
   email?: string;
+  // Mensagem/motivo do evento — presente no "2" (ex.: motivo da falha de
+  // entrega). Guardado como está, sem parsing.
+  message?: string;
 }
 
 export interface ProcessarWebhookD4SignOutput {
@@ -27,17 +32,20 @@ export interface ProcessarWebhookD4SignOutput {
 }
 
 // Automatiza o que hoje só acontece manualmente via
-// MarcarContratoAssinadoUseCase (ação do analista no admin). Reage a dois
+// MarcarContratoAssinadoUseCase (ação do analista no admin). Reage a três
 // eventos:
 // - "4" (assinatura individual): se for o aprovador (papel APROVAR,
 //   estágio 1 — só ele sozinho nesse estágio), avança a agência sem
 //   esperar os signatários fixos restantes (estágio 2, testemunhas)
 //   terminarem — processo interno da Sakura continua em paralelo.
 // - "1" (documento finalizado): fecha o contrato como assinado de vez.
-// Os demais typePost (e-mail não entregue, cancelado, ou assinatura
-// individual de quem não é o aprovador) não têm transição definida ainda,
-// então só são reconhecidos (200) sem side-effect, pra não perder o
-// webhook em retries do D4Sign.
+// - "2" (e-mail não entregue): registra em ContratoEmailFalhaEntrega, pra
+//   aparecer como indicativo na tela de Contrato do admin — não muda
+//   status de nada, é só visibilidade pro analista perceber que aquele
+//   signatário nunca vai receber o convite sem uma ação manual.
+// "3" (cancelado no D4Sign) e assinatura individual de quem não é o
+// aprovador ainda não têm transição definida, então só são reconhecidos
+// (200) sem side-effect, pra não perder o webhook em retries do D4Sign.
 export class ProcessarWebhookD4SignUseCase implements UseCase<
   ProcessarWebhookD4SignInput,
   ProcessarWebhookD4SignOutput
@@ -45,6 +53,7 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
   constructor(
     private readonly agenciaRepository: AgenciaRepository,
     private readonly signatarioPadraoRepository: SignatarioPadraoRepository,
+    private readonly contratoEmailFalhaEntregaRepository: ContratoEmailFalhaEntregaRepository,
   ) {}
 
   async execute(input: ProcessarWebhookD4SignInput): Promise<ProcessarWebhookD4SignOutput> {
@@ -52,11 +61,36 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       return this.processarAssinaturaIndividual(input);
     }
 
+    if (input.typePost === "2") {
+      return this.processarEmailNaoEntregue(input);
+    }
+
     if (input.typePost !== "1") {
       return { processado: false, motivo: `typePost "${input.typePost}" reconhecido, sem ação.` };
     }
 
     return this.processarDocumentoFinalizado(input);
+  }
+
+  private async processarEmailNaoEntregue(
+    input: ProcessarWebhookD4SignInput,
+  ): Promise<ProcessarWebhookD4SignOutput> {
+    if (!input.email) {
+      return { processado: false, motivo: 'typePost "2" sem e-mail do signatário.' };
+    }
+
+    const referencia = await this.agenciaRepository.findByContratoProvedorId(input.provedorId);
+    if (!referencia) {
+      return { processado: false, motivo: "Contrato não encontrado pra esse provedorId." };
+    }
+
+    await this.contratoEmailFalhaEntregaRepository.registrar(
+      referencia.contratoId,
+      input.email,
+      input.message ?? null,
+    );
+
+    return { processado: true };
   }
 
   private async processarAssinaturaIndividual(

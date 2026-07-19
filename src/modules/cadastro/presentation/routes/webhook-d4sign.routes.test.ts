@@ -125,6 +125,28 @@ describe("processarWebhookD4SignRoute", () => {
     });
   });
 
+  it("repassa email e message quando presentes no form-data (typePost 2 — e-mail não entregue)", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    const request = buildFormDataRequest({
+      uuid: "doc-1",
+      type_post: "2",
+      email: "socio@agencia.com",
+      message: "Caixa de entrada cheia",
+    });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({
+      provedorId: "doc-1",
+      typePost: "2",
+      email: "socio@agencia.com",
+      message: "Caixa de entrada cheia",
+    });
+  });
+
   it("sempre responde 200 mesmo quando o use-case não reconhece o evento (evita retry do D4Sign)", async () => {
     process.env = { ...originalEnv };
     delete process.env.D4SIGN_WEBHOOK_SECRET;

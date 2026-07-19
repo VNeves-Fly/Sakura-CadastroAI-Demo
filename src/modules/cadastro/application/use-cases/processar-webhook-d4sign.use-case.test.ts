@@ -9,6 +9,7 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
+import type { ContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/domain/repositories/contrato-email-falha-entrega-repository";
 
 function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRepository {
   return {
@@ -38,6 +39,16 @@ function fakeSignatarioPadraoRepository(
   };
 }
 
+function fakeContratoEmailFalhaEntregaRepository(
+  overrides: Partial<ContratoEmailFalhaEntregaRepository> = {},
+): ContratoEmailFalhaEntregaRepository {
+  return {
+    registrar: jest.fn(),
+    findByContratoId: jest.fn(),
+    ...overrides,
+  } as unknown as ContratoEmailFalhaEntregaRepository;
+}
+
 const JEAN = SignatarioPadrao.create({
   id: "sig-jean",
   nome: "Jean",
@@ -63,15 +74,19 @@ const WAGNER = SignatarioPadrao.create({
 });
 
 describe("ProcessarWebhookD4SignUseCase", () => {
-  it('ignora eventos que não são "documento finalizado" nem assinatura individual (typePost != "1"/"4")', async () => {
+  it('ignora eventos sem transição definida (typePost "3" — cancelado)', async () => {
     const repo = criarRepositorioFake();
-    const useCase = new ProcessarWebhookD4SignUseCase(repo, fakeSignatarioPadraoRepository());
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+    );
 
-    const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "2" });
+    const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "3" });
 
     expect(resultado).toEqual({
       processado: false,
-      motivo: expect.stringContaining('typePost "2"'),
+      motivo: expect.stringContaining('typePost "3"'),
     });
     expect(repo.findByContratoProvedorId).not.toHaveBeenCalled();
   });
@@ -80,7 +95,11 @@ describe("ProcessarWebhookD4SignUseCase", () => {
     const repo = criarRepositorioFake({
       findByContratoProvedorId: jest.fn().mockResolvedValue(null),
     });
-    const useCase = new ProcessarWebhookD4SignUseCase(repo, fakeSignatarioPadraoRepository());
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+    );
 
     const resultado = await useCase.execute({ provedorId: "doc-desconhecido", typePost: "1" });
 
@@ -97,7 +116,11 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         .fn()
         .mockResolvedValue({ agencia: { status: STATUS_EM_COMPLEMENTAR } } as never),
     });
-    const useCase = new ProcessarWebhookD4SignUseCase(repo, fakeSignatarioPadraoRepository());
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+    );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
 
@@ -115,7 +138,11 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         .fn()
         .mockResolvedValue({ agencia: { status: STATUS_AGUARDANDO_ASSINATURA } } as never),
     });
-    const useCase = new ProcessarWebhookD4SignUseCase(repo, fakeSignatarioPadraoRepository());
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+    );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
 
@@ -124,10 +151,104 @@ describe("ProcessarWebhookD4SignUseCase", () => {
     expect(resultado).toEqual({ processado: true });
   });
 
+  describe('e-mail não entregue (typePost "2")', () => {
+    it("ignora evento sem e-mail", async () => {
+      const repo = criarRepositorioFake();
+      const emailFalhaRepo = fakeContratoEmailFalhaEntregaRepository();
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository(),
+        emailFalhaRepo,
+      );
+
+      const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "2" });
+
+      expect(resultado.processado).toBe(false);
+      expect(emailFalhaRepo.registrar).not.toHaveBeenCalled();
+    });
+
+    it("não faz nada se o provedorId não corresponde a nenhum contrato conhecido", async () => {
+      const repo = criarRepositorioFake({
+        findByContratoProvedorId: jest.fn().mockResolvedValue(null),
+      });
+      const emailFalhaRepo = fakeContratoEmailFalhaEntregaRepository();
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository(),
+        emailFalhaRepo,
+      );
+
+      const resultado = await useCase.execute({
+        provedorId: "doc-desconhecido",
+        typePost: "2",
+        email: "socio@agencia.com",
+      });
+
+      expect(resultado.processado).toBe(false);
+      expect(emailFalhaRepo.registrar).not.toHaveBeenCalled();
+    });
+
+    it("registra a falha de entrega com o motivo, sem mexer em status de contrato/agência", async () => {
+      const repo = criarRepositorioFake({
+        findByContratoProvedorId: jest
+          .fn()
+          .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+      });
+      const emailFalhaRepo = fakeContratoEmailFalhaEntregaRepository();
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository(),
+        emailFalhaRepo,
+      );
+
+      const resultado = await useCase.execute({
+        provedorId: "doc-1",
+        typePost: "2",
+        email: "socio@agencia.com",
+        message: "Caixa de entrada cheia",
+      });
+
+      expect(emailFalhaRepo.registrar).toHaveBeenCalledWith(
+        "ct-1",
+        "socio@agencia.com",
+        "Caixa de entrada cheia",
+      );
+      expect(repo.atualizarStatusContrato).not.toHaveBeenCalled();
+      expect(repo.atualizarStatus).not.toHaveBeenCalled();
+      expect(resultado).toEqual({ processado: true });
+    });
+
+    it("registra a falha de entrega mesmo sem motivo (message ausente)", async () => {
+      const repo = criarRepositorioFake({
+        findByContratoProvedorId: jest
+          .fn()
+          .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+      });
+      const emailFalhaRepo = fakeContratoEmailFalhaEntregaRepository();
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository(),
+        emailFalhaRepo,
+      );
+
+      await useCase.execute({
+        provedorId: "doc-1",
+        typePost: "2",
+        email: "socio@agencia.com",
+      });
+
+      expect(emailFalhaRepo.registrar).toHaveBeenCalledWith("ct-1", "socio@agencia.com", null);
+    });
+  });
+
   describe('aprovação intermediária (typePost "4")', () => {
     it("ignora assinatura individual sem e-mail", async () => {
       const repo = criarRepositorioFake();
-      const useCase = new ProcessarWebhookD4SignUseCase(repo, fakeSignatarioPadraoRepository());
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository(),
+        fakeContratoEmailFalhaEntregaRepository(),
+      );
 
       const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "4" });
 
@@ -140,6 +261,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       const useCase = new ProcessarWebhookD4SignUseCase(
         repo,
         fakeSignatarioPadraoRepository([JEAN, WAGNER]),
+        fakeContratoEmailFalhaEntregaRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -168,6 +290,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       const useCase = new ProcessarWebhookD4SignUseCase(
         repo,
         fakeSignatarioPadraoRepository([JEAN, WAGNER]),
+        fakeContratoEmailFalhaEntregaRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -201,6 +324,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       const useCase = new ProcessarWebhookD4SignUseCase(
         repo,
         fakeSignatarioPadraoRepository([JEAN]),
+        fakeContratoEmailFalhaEntregaRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -229,6 +353,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       const useCase = new ProcessarWebhookD4SignUseCase(
         repo,
         fakeSignatarioPadraoRepository([JEAN]),
+        fakeContratoEmailFalhaEntregaRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -251,7 +376,11 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         .fn()
         .mockResolvedValue({ agencia: { status: STATUS_AGUARDANDO_VALIDACAO } } as never),
     });
-    const useCase = new ProcessarWebhookD4SignUseCase(repo, fakeSignatarioPadraoRepository());
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+    );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
 
