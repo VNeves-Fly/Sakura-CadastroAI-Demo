@@ -28,8 +28,9 @@ model User {
 //
 // Tabelas/colunas do schema antigo que a UI atual ainda não popula (CADASTUR,
 // vendas percentuais, gate de IA, kanban, decisões humanas, avanços forçados,
-// notificações, signatários padrão) continuam existindo, nullable, prontas
-// pro roadmap de etapas/README.md sem quebrar o fluxo de hoje.
+// notificações) continuam existindo, nullable, prontas pro roadmap de
+// etapas/README.md sem quebrar o fluxo de hoje. `signatarios_padrao` já é
+// populada (ver prisma/seed.ts) mas ainda não é lida pelo fluxo de contrato.
 // ---------------------------------------------------------------------------
 
 enum StatusAgencia {
@@ -44,6 +45,10 @@ enum StatusAgencia {
 
 enum StatusContrato {
   aguardando_assinatura
+  // Aprovador (papel APROVAR, estágio 1) assinou — sócios (estágio 0) já
+  // tinham assinado antes dele. Falta só os signatários fixos restantes
+  // (estágio 2, testemunhas) pra fechar; não bloqueia o avanço da agência.
+  assinado_agencia
   assinado
 }
 
@@ -424,10 +429,28 @@ model Contrato {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  signatarios ContratoSignatario[]
+  signatarios        ContratoSignatario[]
+  emailsFalhaEntrega ContratoEmailFalhaEntrega[]
 
   @@index([agenciaId])
   @@map("contratos")
+}
+
+// Registro de "e-mail não entregue" (D4Sign webhook, type_post=2) — por
+// e-mail, não por ContratoSignatario/SignatarioPadrao: cobre tanto os
+// sócios quanto os 4 signatários fixos da Sakura sem depender de CPF (que
+// os fixos não têm). @@unique pra upsert idempotente em retries do
+// D4Sign — o motivo/data mais recentes sobrescrevem o registro anterior.
+model ContratoEmailFalhaEntrega {
+  id         String   @id @default(cuid())
+  contratoId String
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  email      String
+  motivo     String?
+  criadoEm   DateTime @default(now())
+
+  @@unique([contratoId, email])
+  @@map("contrato_email_falha_entrega")
 }
 
 // Snapshot imutável do signatário no momento em que o contrato foi
@@ -560,18 +583,46 @@ model Notificacao {
   @@map("notificacoes")
 }
 
-// Signatários fixos da Sakura (mesmos em todo contrato) — roadmap, não
-// usado hoje (contratos só têm signatarios ligados aos sócios).
+// Signatários fixos da Sakura (mesmos em todo contrato). `papel` é o ato no
+// D4Sign (catálogo completo do campo `act` da API, não só os usados hoje) e
+// `estagio` é o after_position da fila de assinatura — estágio 0 é sempre os
+// sócios da agência (dinâmico, fora desta tabela); os fixos ocupam os
+// estágios seguintes. Preenchida com os destinatários reais, mas ainda não
+// consumida pelo D4SignAdapter (entra junto com os estágios de assinatura).
 model SignatarioPadrao {
-  id       String  @id @default(cuid())
+  id       String                @id @default(cuid())
   nome     String?
   cargo    String?
-  email    String?
+  email    String?               @unique
   telefone String?
-  ativo    Boolean @default(true)
+  ativo    Boolean               @default(true)
   ordem    Int?
+  papel    PapelSignatarioPadrao
+  estagio  Int
 
   contratoSignatarios ContratoSignatario[]
 
   @@map("signatarios_padrao")
+}
+
+// Espelha 1:1 o campo `act` da API do D4Sign (https://docapi.d4sign.com.br/,
+// tabela de "Ações permitidas") — cada valor é o ato do signatário no
+// documento. Hoje só APROVAR, ASSINAR_COMO_PARTE e ASSINAR_COMO_TESTEMUNHA
+// são usados pelos 4 signatários fixos da Sakura; o resto existe pra manter
+// o enum fiel ao catálogo real da API, sem precisar de nova migration se um
+// papel diferente entrar em uso.
+enum PapelSignatarioPadrao {
+  ASSINAR // act=1
+  APROVAR // act=2
+  RECONHECER // act=3
+  ASSINAR_COMO_PARTE // act=4
+  ASSINAR_COMO_TESTEMUNHA // act=5
+  ASSINAR_COMO_INTERVENIENTE // act=6
+  ACUSAR_RECEBIMENTO // act=7
+  ASSINAR_COMO_EMISSOR_ENDOSSANTE_AVALISTA // act=8
+  ASSINAR_COMO_EMISSOR_ENDOSSANTE_AVALISTA_FIADOR // act=9
+  ASSINAR_COMO_FIADOR // act=10
+  ASSINAR_COMO_PARTE_E_FIADOR // act=11
+  ASSINAR_COMO_RESPONSAVEL_SOLIDARIO // act=12
+  ASSINAR_COMO_PARTE_E_RESPONSAVEL_SOLIDARIO // act=13
 }

@@ -1,3 +1,5 @@
+import type { PapelSignatarioPadrao } from "@/modules/cadastro/domain/enums";
+
 export interface SignatarioPadraoProps {
   id: string;
   nome: string | null;
@@ -6,6 +8,8 @@ export interface SignatarioPadraoProps {
   telefone: string | null;
   ativo: boolean;
   ordem: number | null;
+  papel: PapelSignatarioPadrao;
+  estagio: number;
 }
 
 export class SignatarioPadrao {
@@ -41,6 +45,14 @@ export class SignatarioPadrao {
 
   get ordem(): number | null {
     return this.props.ordem;
+  }
+
+  get papel(): PapelSignatarioPadrao {
+    return this.props.papel;
+  }
+
+  get estagio(): number {
+    return this.props.estagio;
   }
 
   toJSON(): SignatarioPadraoProps {

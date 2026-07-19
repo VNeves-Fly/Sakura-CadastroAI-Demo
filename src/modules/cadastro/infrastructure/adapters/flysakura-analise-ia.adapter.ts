@@ -63,6 +63,11 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
         analysis_data: { cnpj: input.cnpj, focus: "completo" },
         include_receita_data: false,
         raw: false,
+        // Mesmo valor usado pelo FlysakuraDocumentAnalysisAdapter — os dois
+        // endpoints compartilham o checkpoint do LangGraph por session_id,
+        // então essa análise final já enxerga o contexto de cada documento
+        // analisado individualmente antes (contrato social, RG dos sócios).
+        session_id: input.cnpj,
       }),
     });
 

@@ -94,6 +94,7 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       analysis_data: { cnpj: "19131243000197", focus: "completo" },
       include_receita_data: false,
       raw: false,
+      session_id: "19131243000197",
     });
   });
 

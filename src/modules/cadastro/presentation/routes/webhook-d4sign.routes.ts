@@ -4,29 +4,43 @@ import { webhookD4SignController } from "@/modules/cadastro/presentation/control
 
 // D4Sign manda o webhook em FORM-DATA (não JSON) — confirmado na doc
 // oficial (docapi.d4sign.com.br/docs/webhook-postback). Campos usados:
-// uuid (= Contrato.provedorId) e type_post ("1" = documento finalizado).
+// uuid (= Contrato.provedorId), type_post ("1" = documento finalizado,
+// "2" = e-mail não entregue, "4" = assinatura individual), email
+// (presente no "2" e "4") e message (presente no "2", motivo da falha).
 export async function processarWebhookD4SignRoute(request: Request) {
   const formData = await request.formData();
   const uuid = formData.get("uuid");
   const typePost = formData.get("type_post");
+  const email = formData.get("email");
+  const message = formData.get("message");
 
   if (typeof uuid !== "string" || typeof typePost !== "string") {
     return httpError("Payload de webhook inválido — uuid e type_post são obrigatórios.", 422);
   }
 
-  // Verificação de HMAC só roda se D4SIGN_WEBHOOK_SECRET estiver
-  // configurada ("Gerar Secret Key MAC" na área de API do D4Sign) — sem
-  // ela, aceita sem validar a origem (documentado, não travar o webhook
-  // até a secret existir).
+  // Verificação de HMAC roda se D4SIGN_WEBHOOK_SECRET estiver configurada
+  // ("Gerar Secret Key MAC" na área de API do D4Sign). Sem ela: em dev,
+  // aceita sem validar a origem (documentado, não travar o webhook antes
+  // da secret existir); em produção, falha fechado — não faz sentido
+  // aceitar webhook sem autenticação num ambiente real.
   const secret = process.env.D4SIGN_WEBHOOK_SECRET;
-  if (secret) {
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      return httpError("D4SIGN_WEBHOOK_SECRET não configurada — webhook bloqueado.", 500);
+    }
+  } else {
     const assinaturaRecebida = request.headers.get("content-hmac");
     if (!validarAssinatura(uuid, secret, assinaturaRecebida)) {
       return httpError("Assinatura HMAC inválida.", 401);
     }
   }
 
-  const resultado = await webhookD4SignController.processar({ provedorId: uuid, typePost });
+  const resultado = await webhookD4SignController.processar({
+    provedorId: uuid,
+    typePost,
+    ...(typeof email === "string" ? { email } : {}),
+    ...(typeof message === "string" ? { message } : {}),
+  });
 
   // Sempre 200: o D4Sign reenvia por até ~27h se não receber 2xx — não
   // queremos retry pra eventos que já reconhecemos e decidimos ignorar

@@ -88,6 +88,20 @@ function Arquivo({ path }: { path: string }) {
   );
 }
 
+// D4Sign avisou (webhook type_post=2) que o convite pra assinar nunca
+// chegou nesse e-mail — sem isso, o signatário fica esperando pra sempre
+// um convite que não existe.
+function BadgeEmailNaoEntregue() {
+  return (
+    <span
+      className="bg-destructive/15 text-destructive rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase"
+      title="O e-mail de convite pra assinatura não foi entregue — confirme o endereço com o signatário."
+    >
+      E-mail não entregue
+    </span>
+  );
+}
+
 const ETAPAS_PIPELINE = [
   { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
   { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
@@ -153,6 +167,17 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
   const { agencia, complementar, representantesLegais, contratos } = detalhe;
   const contratoAtual = contratos[0] ?? null;
+
+  // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
+  // por e-mail, cobre tanto os sócios quanto os signatários fixos da
+  // Sakura, sem depender de terem uma linha em ContratoSignatario.
+  const [emailsFalhaEntrega, signatariosPadraoAtivos] = contratoAtual
+    ? await Promise.all([
+        cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id),
+        cadastroAdminController.listarSignatariosPadraoAtivos(),
+      ])
+    : [[], []];
+  const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
 
   // Documentos revisáveis do cadastro complementar — contrato social +
   // RG/procuração de cada sócio, com o mesmo path já usado no restante do
@@ -332,8 +357,12 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 </div>
                 <ul className="flex flex-col gap-1 text-sm">
                   {representantesLegais.map((socio) => (
-                    <li key={socio.id} className="text-foreground">
+                    <li
+                      key={socio.id}
+                      className="text-foreground flex flex-wrap items-center gap-2"
+                    >
                       {socio.nome}
+                      {emailsNaoEntregues.has(socio.email) ? <BadgeEmailNaoEntregue /> : null}
                     </li>
                   ))}
                 </ul>
@@ -354,7 +383,19 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                     {contratoAtual.status === CONTRATO_STATUS_ASSINADO ? "Assinado" : "Enviado"}
                   </span>
                 </div>
-                <p className="text-foreground text-sm">Sakura Consolidadora</p>
+                <ul className="flex flex-col gap-1 text-sm">
+                  {signatariosPadraoAtivos.map((signatario) => (
+                    <li
+                      key={signatario.id}
+                      className="text-foreground flex flex-wrap items-center gap-2"
+                    >
+                      {signatario.nome ?? signatario.email ?? "—"}
+                      {signatario.email && emailsNaoEntregues.has(signatario.email) ? (
+                        <BadgeEmailNaoEntregue />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           ) : null}

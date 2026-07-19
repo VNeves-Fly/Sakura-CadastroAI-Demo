@@ -1,4 +1,5 @@
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
+import type { PapelSignatarioPadrao } from "@/modules/cadastro/domain/enums";
 
 export interface CreateSignatarioPadraoData {
   nome?: string | null;
@@ -6,6 +7,8 @@ export interface CreateSignatarioPadraoData {
   email?: string | null;
   telefone?: string | null;
   ordem?: number | null;
+  papel: PapelSignatarioPadrao;
+  estagio: number;
 }
 
 export interface SignatarioPadraoRepository {
