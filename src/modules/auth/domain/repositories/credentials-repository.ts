@@ -3,6 +3,7 @@ export interface CredentialsRecord {
   name: string;
   email: string;
   passwordHash: string;
+  mustChangePassword: boolean;
 }
 
 export interface CredentialsRepository {

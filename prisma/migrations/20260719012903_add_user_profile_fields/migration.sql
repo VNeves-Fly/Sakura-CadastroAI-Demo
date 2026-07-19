@@ -1,0 +1,9 @@
+-- CreateEnum
+CREATE TYPE "Cargo" AS ENUM ('ADMIN', 'DIRETOR_ANALISTA', 'ANALISTA', 'GESTOR', 'EXECUTIVO');
+
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "cargo" "Cargo" NOT NULL DEFAULT 'ANALISTA',
+ADD COLUMN     "firstName" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "lastName" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "mustChangePassword" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "phone" TEXT NOT NULL DEFAULT '';

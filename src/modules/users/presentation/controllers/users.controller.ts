@@ -1,6 +1,8 @@
 import { prisma } from "@/modules/shared/infrastructure/prisma/client";
 import { PrismaUserRepository } from "@/modules/users/infrastructure/repositories/prisma-user.repository";
 import { BcryptPasswordHasher } from "@/modules/users/infrastructure/adapters/bcrypt-password-hasher.adapter";
+import { RandomPasswordGenerator } from "@/modules/users/infrastructure/adapters/random-password-generator.adapter";
+import { createWelcomeEmailSender } from "@/modules/users/infrastructure/factories/welcome-email-sender.factory";
 import { CreateUserUseCase } from "@/modules/users/application/use-cases/create-user.use-case";
 import { ListUsersUseCase } from "@/modules/users/application/use-cases/list-users.use-case";
 import { GetUserByIdUseCase } from "@/modules/users/application/use-cases/get-user-by-id.use-case";
@@ -10,10 +12,17 @@ import type { CreateUserInput } from "@/modules/users/application/dto/create-use
 // concretos, mantendo domínio e casos de uso dependentes apenas de abstrações.
 const userRepository = new PrismaUserRepository(prisma);
 const passwordHasher = new BcryptPasswordHasher();
+const passwordGenerator = new RandomPasswordGenerator();
+const welcomeEmailSender = createWelcomeEmailSender();
 
 export const usersController = {
   create(input: CreateUserInput) {
-    const useCase = new CreateUserUseCase(userRepository, passwordHasher);
+    const useCase = new CreateUserUseCase(
+      userRepository,
+      passwordHasher,
+      passwordGenerator,
+      welcomeEmailSender,
+    );
     return useCase.execute(input);
   },
 

@@ -7,10 +7,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Cargo {
+  ADMIN
+  DIRETOR_ANALISTA
+  ANALISTA
+  GESTOR
+  EXECUTIVO
+}
+
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
+  id    String @id @default(cuid())
+  // Nome completo, derivado de firstName+lastName na criação — mantido só
+  // porque o módulo de auth (NextAuth session/JWT) já lê esta coluna direto;
+  // firstName/lastName são a fonte estruturada usada pelo módulo users.
+  name  String
+  email String @unique
+
+  firstName String @default("")
+  lastName  String @default("")
+  phone     String @default("")
+  cargo     Cargo  @default(ANALISTA)
+
+  // Força a troca de senha no próximo login (definida na criação do
+  // usuário ou quando uma senha temporária é gerada).
+  mustChangePassword Boolean @default(false)
+
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
