@@ -33,9 +33,7 @@ export function Passo1Documentos({
         />
 
         {qsaChecking ? (
-          <span className="text-muted-foreground text-xs">
-            Consultando QSA na Receita Federal...
-          </span>
+          <span className="text-muted-foreground text-xs">Consultando o CNPJ...</span>
         ) : null}
         {avisoAlfanumerico ? (
           <span className="text-warning text-xs font-medium">

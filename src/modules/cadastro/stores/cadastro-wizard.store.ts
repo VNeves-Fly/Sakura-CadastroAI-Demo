@@ -69,10 +69,14 @@ interface CadastroWizardState {
   setEmailComercial: (email: string) => void;
   setEmailFinanceiro: (email: string) => void;
 
-  setSocios: (socios: SocioWizardFormValues[]) => void;
+  setSocios: (
+    socios: SocioWizardFormValues[] | ((atual: SocioWizardFormValues[]) => SocioWizardFormValues[]),
+  ) => void;
   setSocioCepBuscando: (indice: number | null) => void;
 
-  setEnderecoBanco: (dados: EnderecoBancoFormValues) => void;
+  setEnderecoBanco: (
+    dados: EnderecoBancoFormValues | ((atual: EnderecoBancoFormValues) => EnderecoBancoFormValues),
+  ) => void;
   setEnderecoBancoCepBuscando: (buscando: boolean) => void;
 
   setSubmitting: (isSubmitting: boolean) => void;
@@ -143,10 +147,17 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       setEmailComercial: (emailComercial) => set({ emailComercial }),
       setEmailFinanceiro: (emailFinanceiro) => set({ emailFinanceiro }),
 
-      setSocios: (socios) => set({ socios }),
+      setSocios: (socios) =>
+        set((state) => ({ socios: typeof socios === "function" ? socios(state.socios) : socios })),
       setSocioCepBuscando: (socioCepBuscando) => set({ socioCepBuscando }),
 
-      setEnderecoBanco: (enderecoBanco) => set({ enderecoBanco }),
+      setEnderecoBanco: (enderecoBanco) =>
+        set((state) => ({
+          enderecoBanco:
+            typeof enderecoBanco === "function"
+              ? enderecoBanco(state.enderecoBanco)
+              : enderecoBanco,
+        })),
       setEnderecoBancoCepBuscando: (enderecoBancoCepBuscando) => set({ enderecoBancoCepBuscando }),
 
       setSubmitting: (isSubmitting) => set({ isSubmitting }),

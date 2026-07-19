@@ -236,8 +236,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       patchValidado.procuracaoArquivo = erro ? null : arquivo;
     }
 
-    setSocios(
-      socios.map((socio, i) => {
+    let cepParaBuscarAutomaticamente: string | null = null;
+
+    setSocios((current) =>
+      current.map((socio, i) => {
         if (i !== index) return socio;
         const atualizado = { ...socio, ...patchValidado };
 
@@ -251,12 +253,21 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
           atualizado.telefone = maskTelefone(atualizado.telefone, patchValidado.telefonePais);
         }
         if ("cep" in patchValidado && patchValidado.cep !== undefined) {
+          const cepAnteriorLimpo = cepAdapter.toBuscaCepInput(socio.cep);
           atualizado.cep = maskCep(patchValidado.cep);
+          const cepNovoLimpo = cepAdapter.toBuscaCepInput(atualizado.cep);
+          if (cepAnteriorLimpo.length < 8 && cepNovoLimpo.length === 8) {
+            cepParaBuscarAutomaticamente = cepNovoLimpo;
+          }
         }
 
         return atualizado;
       }),
     );
+
+    if (cepParaBuscarAutomaticamente) {
+      void executarBuscaCepSocio(index, cepParaBuscarAutomaticamente);
+    }
   }
 
   function toggleRepresentante(index: number) {
@@ -268,13 +279,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     );
   }
 
-  async function buscarCepSocio(index: number) {
-    const socio = socios[index];
-    if (!socio) return;
-
-    const cepLimpo = cepAdapter.toBuscaCepInput(socio.cep);
-    if (cepLimpo.length !== 8) return;
-
+  async function executarBuscaCepSocio(index: number, cepLimpo: string) {
     setSocioCepBuscando(index);
 
     try {
@@ -294,6 +299,16 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  async function buscarCepSocio(index: number) {
+    const socio = socios[index];
+    if (!socio) return;
+
+    const cepLimpo = cepAdapter.toBuscaCepInput(socio.cep);
+    if (cepLimpo.length !== 8) return;
+
+    await executarBuscaCepSocio(index, cepLimpo);
+  }
+
   function maskDocumentoFavorecido(valorDigitado: string): string {
     const digitos = valorDigitado.replace(/\D/g, "");
     return digitos.length > 11 ? maskCnpj(digitos) : maskCpf(digitos);
@@ -309,55 +324,65 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   }
 
   function updateEnderecoBanco(patch: Partial<EnderecoBancoFormValues>) {
-    const atualizado = { ...enderecoBanco, ...patch };
+    let cepParaBuscarAutomaticamente: string | null = null;
 
-    if ("cep" in patch && patch.cep !== undefined) {
-      atualizado.cep = maskCep(patch.cep);
-    }
+    setEnderecoBanco((current) => {
+      const atualizado = { ...current, ...patch };
 
-    if ("enderecoMesmoSocio" in patch) {
-      if (patch.enderecoMesmoSocio && socios.length === 1) {
-        atualizado.socioEnderecoVinculado = 0;
+      if ("cep" in patch && patch.cep !== undefined) {
+        const cepAnteriorLimpo = cepAdapter.toBuscaCepInput(current.cep);
+        atualizado.cep = maskCep(patch.cep);
+        const cepNovoLimpo = cepAdapter.toBuscaCepInput(atualizado.cep);
+        if (cepAnteriorLimpo.length < 8 && cepNovoLimpo.length === 8) {
+          cepParaBuscarAutomaticamente = cepNovoLimpo;
+        }
       }
-      if (!patch.enderecoMesmoSocio) {
-        atualizado.socioEnderecoVinculado = null;
+
+      if ("enderecoMesmoSocio" in patch) {
+        if (patch.enderecoMesmoSocio && socios.length === 1) {
+          atualizado.socioEnderecoVinculado = 0;
+        }
+        if (!patch.enderecoMesmoSocio) {
+          atualizado.socioEnderecoVinculado = null;
+        }
       }
-    }
 
-    if ("bancoPais" in patch && patch.bancoPais !== undefined) {
-      atualizado.bancoNome = "";
-      atualizado.bancoAgencia = formatarContaBancaria(atualizado.bancoAgencia, patch.bancoPais);
-      atualizado.bancoConta = formatarContaBancaria(atualizado.bancoConta, patch.bancoPais);
-    }
+      if ("bancoPais" in patch && patch.bancoPais !== undefined) {
+        atualizado.bancoNome = "";
+        atualizado.bancoAgencia = formatarContaBancaria(atualizado.bancoAgencia, patch.bancoPais);
+        atualizado.bancoConta = formatarContaBancaria(atualizado.bancoConta, patch.bancoPais);
+      }
 
-    if ("bancoAgencia" in patch && patch.bancoAgencia !== undefined) {
-      atualizado.bancoAgencia = formatarContaBancaria(patch.bancoAgencia, atualizado.bancoPais);
-    }
+      if ("bancoAgencia" in patch && patch.bancoAgencia !== undefined) {
+        atualizado.bancoAgencia = formatarContaBancaria(patch.bancoAgencia, atualizado.bancoPais);
+      }
 
-    if ("bancoConta" in patch && patch.bancoConta !== undefined) {
-      atualizado.bancoConta = formatarContaBancaria(patch.bancoConta, atualizado.bancoPais);
-    }
+      if ("bancoConta" in patch && patch.bancoConta !== undefined) {
+        atualizado.bancoConta = formatarContaBancaria(patch.bancoConta, atualizado.bancoPais);
+      }
 
-    if ("favorecidoEhEmpresa" in patch && patch.favorecidoEhEmpresa) {
-      atualizado.favorecidoNome = qsaResult?.razaoSocial ?? "";
-      atualizado.favorecidoDoc = maskCnpj(unmaskCnpj(cnpj));
-    }
+      if ("favorecidoEhEmpresa" in patch && patch.favorecidoEhEmpresa) {
+        atualizado.favorecidoNome = qsaResult?.razaoSocial ?? "";
+        atualizado.favorecidoDoc = maskCnpj(unmaskCnpj(cnpj));
+      }
 
-    if (
-      "favorecidoDoc" in patch &&
-      patch.favorecidoDoc !== undefined &&
-      !atualizado.favorecidoEhEmpresa
-    ) {
-      atualizado.favorecidoDoc = maskDocumentoFavorecido(patch.favorecidoDoc);
-    }
+      if (
+        "favorecidoDoc" in patch &&
+        patch.favorecidoDoc !== undefined &&
+        !atualizado.favorecidoEhEmpresa
+      ) {
+        atualizado.favorecidoDoc = maskDocumentoFavorecido(patch.favorecidoDoc);
+      }
 
-    setEnderecoBanco(atualizado);
+      return atualizado;
+    });
+
+    if (cepParaBuscarAutomaticamente) {
+      void executarBuscaCepEnderecoBanco(cepParaBuscarAutomaticamente);
+    }
   }
 
-  async function buscarCepEnderecoBanco() {
-    const cepLimpo = cepAdapter.toBuscaCepInput(enderecoBanco.cep);
-    if (cepLimpo.length !== 8) return;
-
+  async function executarBuscaCepEnderecoBanco(cepLimpo: string) {
     setEnderecoBancoCepBuscando(true);
 
     try {
@@ -375,6 +400,13 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     } finally {
       setEnderecoBancoCepBuscando(false);
     }
+  }
+
+  async function buscarCepEnderecoBanco() {
+    const cepLimpo = cepAdapter.toBuscaCepInput(enderecoBanco.cep);
+    if (cepLimpo.length !== 8) return;
+
+    await executarBuscaCepEnderecoBanco(cepLimpo);
   }
 
   // Validação de campo é decidida aqui (única fonte de verdade), nunca
