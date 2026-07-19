@@ -17,12 +17,17 @@ export async function processarWebhookD4SignRoute(request: Request) {
     return httpError("Payload de webhook inválido — uuid e type_post são obrigatórios.", 422);
   }
 
-  // Verificação de HMAC só roda se D4SIGN_WEBHOOK_SECRET estiver
-  // configurada ("Gerar Secret Key MAC" na área de API do D4Sign) — sem
-  // ela, aceita sem validar a origem (documentado, não travar o webhook
-  // até a secret existir).
+  // Verificação de HMAC roda se D4SIGN_WEBHOOK_SECRET estiver configurada
+  // ("Gerar Secret Key MAC" na área de API do D4Sign). Sem ela: em dev,
+  // aceita sem validar a origem (documentado, não travar o webhook antes
+  // da secret existir); em produção, falha fechado — não faz sentido
+  // aceitar webhook sem autenticação num ambiente real.
   const secret = process.env.D4SIGN_WEBHOOK_SECRET;
-  if (secret) {
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      return httpError("D4SIGN_WEBHOOK_SECRET não configurada — webhook bloqueado.", 500);
+    }
+  } else {
     const assinaturaRecebida = request.headers.get("content-hmac");
     if (!validarAssinatura(uuid, secret, assinaturaRecebida)) {
       return httpError("Assinatura HMAC inválida.", 401);

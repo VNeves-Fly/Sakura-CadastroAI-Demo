@@ -43,8 +43,8 @@ describe("processarWebhookD4SignRoute", () => {
     expect(mockProcessar).not.toHaveBeenCalled();
   });
 
-  it("processa sem checar HMAC quando D4SIGN_WEBHOOK_SECRET não está configurada", async () => {
-    process.env = { ...originalEnv };
+  it("processa sem checar HMAC quando D4SIGN_WEBHOOK_SECRET não está configurada (fora de produção)", async () => {
+    process.env = { ...originalEnv, NODE_ENV: "test" };
     delete process.env.D4SIGN_WEBHOOK_SECRET;
     mockProcessar.mockResolvedValueOnce({ processado: true });
 
@@ -54,6 +54,17 @@ describe("processarWebhookD4SignRoute", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ processado: true });
     expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
+  });
+
+  it("bloqueia com 500 em produção quando D4SIGN_WEBHOOK_SECRET não está configurada (fail-closed)", async () => {
+    process.env = { ...originalEnv, NODE_ENV: "production" };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+
+    const request = buildFormDataRequest({ uuid: "doc-1", type_post: "1" });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(500);
+    expect(mockProcessar).not.toHaveBeenCalled();
   });
 
   it("rejeita com 401 quando D4SIGN_WEBHOOK_SECRET está configurada e o HMAC não bate", async () => {

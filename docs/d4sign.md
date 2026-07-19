@@ -302,4 +302,8 @@ Response — `422 Unprocessable Entity`:
 
 ### Segurança do webhook (HMAC)
 
-Se `D4SIGN_WEBHOOK_SECRET` estiver configurada, a rota valida o header `Content-Hmac: sha256=<hash>` (HMAC-SHA256 do `uuid` do documento com a secret). Sem essa variável, aceita qualquer payload sem validar origem — documentado no código, não testado ao vivo (não temos a Secret Key MAC gerada na conta ainda).
+Se `D4SIGN_WEBHOOK_SECRET` estiver configurada, a rota valida o header `Content-Hmac: sha256=<hash>` (HMAC-SHA256 do `uuid` do documento com a secret). Sem essa variável: em produção (`NODE_ENV=production`) a rota **bloqueia com 500** — não faz sentido aceitar webhook sem autenticação num ambiente real; fora de produção, aceita sem validar (documentado, só pra não travar o webhook em dev antes da secret existir). Não testado ao vivo contra a conta real ainda.
+
+### Corrida entre "assinatura individual" (aprovador) e "documento finalizado"
+
+Os dois eventos (`type_post=4` do aprovador e `type_post=1` do documento inteiro) podem chegar em qualquer ordem, ou quase simultâneos — `ProcessarWebhookD4SignUseCase` não usa transação nem lock entre a leitura e a escrita do status. Pra evitar que uma entrega tardia/atrasada do "4" regrida `contrato.status` de `assinado` (final) de volta pra `assinado_agencia` (intermediário), o handler do "4" confere o status atual do contrato (não só da agência) e não age se ele já estiver `assinado`. Não elimina 100% a corrida (duas leituras exatamente simultâneas antes de qualquer escrita ainda são possíveis), mas cobre o caso prático de entregas próximas, não instantâneas.

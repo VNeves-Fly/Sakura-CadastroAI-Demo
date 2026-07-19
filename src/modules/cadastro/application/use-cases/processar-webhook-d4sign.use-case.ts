@@ -84,6 +84,16 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       return { processado: false, motivo: "Agência não está aguardando assinatura." };
     }
 
+    // Guarda contra corrida com processarDocumentoFinalizado: os dois
+    // webhooks ("4" do aprovador e "1" do documento inteiro) podem chegar
+    // quase juntos: se o contrato já foi fechado como assinado (mesmo com
+    // a agência ainda não refletindo isso — as duas escritas abaixo não
+    // são atômicas), não regride pra assinado_agencia.
+    const contratoAtual = agencia.contratos.find((c) => c.id === referencia.contratoId);
+    if (contratoAtual?.status === CONTRATO_STATUS_ASSINADO) {
+      return { processado: false, motivo: "Contrato já finalizado — sem ação." };
+    }
+
     await this.agenciaRepository.atualizarStatusContrato(
       referencia.contratoId,
       CONTRATO_STATUS_ASSINADO_AGENCIA,

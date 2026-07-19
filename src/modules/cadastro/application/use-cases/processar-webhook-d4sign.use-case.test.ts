@@ -160,9 +160,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         findByContratoProvedorId: jest
           .fn()
           .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
-        obterDetalhe: jest
-          .fn()
-          .mockResolvedValue({ agencia: { status: STATUS_AGUARDANDO_ASSINATURA } } as never),
+        obterDetalhe: jest.fn().mockResolvedValue({
+          agencia: { status: STATUS_AGUARDANDO_ASSINATURA },
+          contratos: [{ id: "ct-1", status: STATUS_AGUARDANDO_ASSINATURA }],
+        } as never),
       });
       const useCase = new ProcessarWebhookD4SignUseCase(
         repo,
@@ -181,6 +182,39 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       );
       expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO);
       expect(resultado).toEqual({ processado: true });
+    });
+
+    it("não regride o contrato pra assinado_agencia se o documento já finalizou por baixo (corrida entre os dois webhooks)", async () => {
+      const repo = criarRepositorioFake({
+        findByContratoProvedorId: jest
+          .fn()
+          .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+        // Cenário de corrida: processarDocumentoFinalizado já gravou
+        // contrato.status = assinado, mas ainda não gravou agencia.status
+        // (as duas escritas não são atômicas) — a leitura aqui pega a
+        // agência "no meio do caminho".
+        obterDetalhe: jest.fn().mockResolvedValue({
+          agencia: { status: STATUS_AGUARDANDO_ASSINATURA },
+          contratos: [{ id: "ct-1", status: CONTRATO_STATUS_ASSINADO }],
+        } as never),
+      });
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository([JEAN]),
+      );
+
+      const resultado = await useCase.execute({
+        provedorId: "doc-1",
+        typePost: "4",
+        email: "cadastro@sakuratur.com.br",
+      });
+
+      expect(resultado).toEqual({
+        processado: false,
+        motivo: expect.stringContaining("já finalizado"),
+      });
+      expect(repo.atualizarStatusContrato).not.toHaveBeenCalled();
+      expect(repo.atualizarStatus).not.toHaveBeenCalled();
     });
 
     it("não avança de novo se o aprovador já avançou a agência antes (idempotente/retry do D4Sign)", async () => {
