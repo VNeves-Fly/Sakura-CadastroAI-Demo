@@ -32,7 +32,7 @@ export function useChangePasswordViewModel() {
       // Atualiza o token sem exigir novo login — ver callback jwt em
       // next-auth.options.ts (trigger "update").
       await update({ mustChangePassword: false });
-      router.push("/dashboard");
+      router.push("/painel");
       router.refresh();
       return true;
     } catch (caughtError) {

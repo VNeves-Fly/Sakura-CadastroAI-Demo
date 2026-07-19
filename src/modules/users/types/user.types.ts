@@ -21,6 +21,20 @@ export interface CreateUserFormValues {
   useTemporaryPassword: boolean;
 }
 
+// Payload de fato enviado à API — password é omitido (não vazio) quando
+// useTemporaryPassword é true, pra bater com a validação opcional do zod
+// (create-user.schema.ts trata "" como inválido, só undefined é opcional).
+export interface CreateUserPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  cargo: Cargo;
+  password?: string;
+  mustChangePassword: boolean;
+  useTemporaryPassword: boolean;
+}
+
 export interface CreatedUserResult {
   user: UserView;
   temporaryPassword?: string;

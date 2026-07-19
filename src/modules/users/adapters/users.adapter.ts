@@ -2,6 +2,7 @@ import type { RawUserResponse } from "@/modules/users/services/users.service";
 import type {
   CreatedUserResult,
   CreateUserFormValues,
+  CreateUserPayload,
   UserView,
 } from "@/modules/users/types/user.types";
 
@@ -9,14 +10,14 @@ import type {
 // pela View/ViewModel (UserView), isolando o restante do módulo do
 // formato exato da resposta HTTP.
 export const usersAdapter = {
-  toServiceInput(values: CreateUserFormValues): CreateUserFormValues {
+  toServiceInput(values: CreateUserFormValues): CreateUserPayload {
     return {
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
       email: values.email.trim().toLowerCase(),
       phone: values.phone.trim(),
       cargo: values.cargo,
-      password: values.password,
+      password: values.useTemporaryPassword ? undefined : values.password,
       mustChangePassword: values.mustChangePassword,
       useTemporaryPassword: values.useTemporaryPassword,
     };

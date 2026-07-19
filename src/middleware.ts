@@ -11,7 +11,7 @@ export default withAuth(
     }
 
     if (!mustChangePassword && pathname === "/trocar-senha") {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(new URL("/painel", request.url));
     }
 
     return NextResponse.next();
@@ -22,5 +22,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/painel/:path*", "/trocar-senha"],
+  matcher: ["/painel/:path*", "/trocar-senha"],
 };
