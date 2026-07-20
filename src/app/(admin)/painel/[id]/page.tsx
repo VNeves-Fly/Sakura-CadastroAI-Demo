@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { Building2, Users, Landmark, FileSignature, FileCheck2 } from "lucide-react";
+import { Building2, Users, Landmark, FileSignature, FileCheck2, CheckCircle2 } from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SecaoColapsavel } from "./secao-colapsavel";
@@ -62,6 +63,15 @@ function Campo({
   );
 }
 
+function ChecklistEtapaConcluida({ label }: { label: string }) {
+  return (
+    <span className="text-success flex items-center gap-1.5 text-sm font-semibold">
+      <CheckCircle2 className="size-4" />
+      {label}
+    </span>
+  );
+}
+
 function formatarData(data: Date): string {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
 }
@@ -97,20 +107,35 @@ function CampoDocumento({ documento }: { documento: Documento | null }) {
   return <Arquivo path={documento.gcsPath} />;
 }
 
-// Trilha só informativa — o fluxo é sequencial (o analista não navega
-// livremente entre etapas, cada uma libera a próxima por uma ação real),
-// então não é clicável, só mostra onde a agência está agora. Recebe o
-// índice/recusado já calculados (ver calcularProgressoTrilha no
-// adapter) — só decide como desenhar, não decide onde a agência está.
-function TrilhaProgresso({ indiceAtual, recusado }: { indiceAtual: number; recusado: boolean }) {
+// O fluxo é sequencial (o analista não pula pra frente, cada etapa libera
+// a próxima por uma ação real) — mas etapas já concluídas ficam navegáveis
+// em modo leitura (ver `etapaExibida` na page): o analista clica no
+// círculo/rótulo de uma etapa passada e revê o que já foi feito, sem
+// poder agir nela. Etapas futuras (ainda não alcançadas) continuam sem
+// link. Se o cadastro foi recusado, a trilha toda vira só informativa —
+// não faz sentido "revisar" um fluxo interrompido fora da ordem normal.
+function TrilhaProgresso({
+  agenciaId,
+  indiceAtual,
+  etapaExibida,
+  recusado,
+}: {
+  agenciaId: string;
+  indiceAtual: number;
+  etapaExibida: number;
+  recusado: boolean;
+}) {
   return (
     <div className="flex items-start">
       {ETAPAS_PIPELINE.map((etapa, index) => {
         const concluida = index < indiceAtual;
         const atual = index === indiceAtual;
+        const selecionada = index === etapaExibida;
+        const navegavel = !recusado && index <= indiceAtual;
         const ehUltima = index === ETAPAS_PIPELINE.length - 1;
-        return (
-          <div key={etapa.status} className={`flex items-start ${ehUltima ? "" : "flex-1"}`}>
+
+        const conteudoEtapa = (
+          <div className="flex shrink-0 flex-col items-center">
             {/* Círculo e rótulo ficam juntos numa coluna de largura fixa
                 (pelo conteúdo) — antes a linha conectora dividia espaço
                 com o círculo na mesma linha, empurrando ele pra esquerda
@@ -118,22 +143,41 @@ function TrilhaProgresso({ indiceAtual, recusado }: { indiceAtual: number; recus
                 círculo sempre fica centralizado em cima do próprio número.
                 O `flex-1` fica no wrapper (não só na linha) pra ela
                 conseguir esticar de verdade dentro do espaço disponível. */}
-            <div className="flex shrink-0 flex-col items-center">
-              <span
-                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  atual && recusado
-                    ? "bg-destructive text-destructive-foreground"
-                    : concluida || atual
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                }`}
+            <span
+              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
+                atual && recusado
+                  ? "bg-destructive text-destructive-foreground"
+                  : concluida || atual
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+              } ${selecionada && !atual ? "ring-primary/40 ring-2 ring-offset-2" : ""} ${
+                navegavel ? "hover:opacity-80" : ""
+              }`}
+            >
+              {concluida ? "✓" : index + 1}
+            </span>
+            <span
+              className={`mt-1 text-center text-[10px] font-medium whitespace-nowrap uppercase ${
+                selecionada ? "text-primary font-bold" : "text-muted-foreground"
+              }`}
+            >
+              {atual && recusado ? "Recusado" : etapa.label}
+            </span>
+          </div>
+        );
+
+        return (
+          <div key={etapa.status} className={`flex items-start ${ehUltima ? "" : "flex-1"}`}>
+            {navegavel ? (
+              <Link
+                href={atual ? `/painel/${agenciaId}` : `/painel/${agenciaId}?etapa=${index}`}
+                title={atual ? "Etapa atual" : `Ver "${etapa.label}" em modo leitura`}
               >
-                {concluida ? "✓" : index + 1}
-              </span>
-              <span className="text-muted-foreground mt-1 text-center text-[10px] font-medium whitespace-nowrap uppercase">
-                {atual && recusado ? "Recusado" : etapa.label}
-              </span>
-            </div>
+                {conteudoEtapa}
+              </Link>
+            ) : (
+              conteudoEtapa
+            )}
             {!ehUltima ? (
               <div className="flex h-6 flex-1 items-center">
                 <div className={`h-0.5 w-full ${concluida ? "bg-primary" : "bg-muted"}`} />
@@ -146,7 +190,13 @@ function TrilhaProgresso({ indiceAtual, recusado }: { indiceAtual: number; recus
   );
 }
 
-export default async function DossieAgenciaPage({ params }: { params: { id: string } }) {
+export default async function DossieAgenciaPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { etapa?: string };
+}) {
   const view = await obterDossieView(params.id);
 
   if (!view) {
@@ -168,6 +218,29 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
   const session = await getServerSession(nextAuthOptions);
   const analistaLogado = session?.user?.email ?? session?.user?.name ?? "analista não identificado";
+
+  // Etapas concluídas ficam navegáveis em modo leitura (?etapa=N na URL) —
+  // etapas futuras (index > indiceTrilha) são ignoradas e caem no fallback
+  // pra etapa atual, mesma coisa se o cadastro foi recusado (a trilha não
+  // é navegável nesse caso, ver TrilhaProgresso).
+  const etapaParam = Number(searchParams?.etapa);
+  const etapaValida = Number.isInteger(etapaParam) && etapaParam >= 0 && etapaParam <= indiceTrilha;
+  const etapaExibida = !trilhaRecusada && etapaValida ? etapaParam : indiceTrilha;
+  const mostrandoEtapaAtual = etapaExibida === indiceTrilha;
+
+  const indiceComplementar = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_EM_COMPLEMENTAR,
+  );
+  const indiceAssinatura = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_ASSINATURA,
+  );
+  const indiceValidacao = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_VALIDACAO,
+  );
+  const indiceAtivacao = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_ATIVACAO,
+  );
+  const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
 
   return (
     <div className="flex flex-col gap-4">
@@ -229,8 +302,28 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
       </div>
 
       <div className="border-border bg-card rounded-2xl border p-5">
-        <TrilhaProgresso indiceAtual={indiceTrilha} recusado={trilhaRecusada} />
+        <TrilhaProgresso
+          agenciaId={agencia.id}
+          indiceAtual={indiceTrilha}
+          etapaExibida={etapaExibida}
+          recusado={trilhaRecusada}
+        />
       </div>
+
+      {!mostrandoEtapaAtual ? (
+        <div className="border-primary/30 bg-primary/5 text-primary flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed px-4 py-3 text-sm">
+          <span>
+            Modo leitura — revendo a etapa <strong>{ETAPAS_PIPELINE[etapaExibida]?.label}</strong>,
+            já concluída. Nenhuma ação pode ser feita aqui.
+          </span>
+          <Link
+            href={`/painel/${agencia.id}`}
+            className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+          >
+            Voltar pra etapa atual
+          </Link>
+        </div>
+      ) : null}
 
       {!complementar ? (
         <div className="border-border bg-card text-muted-foreground rounded-2xl border p-6 text-sm">
@@ -309,7 +402,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
       <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />} defaultAberta>
         <div className="flex flex-col gap-3">
-          {contratoAtual ? (
+          {contratoAtual && etapaExibida >= indiceAssinatura ? (
             <>
               <FilaAssinatura fila={filaAssinatura} />
 
@@ -337,7 +430,10 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                   </Campo>
                   <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
                   <Campo label="ID do Contrato" className="sm:col-span-2">
-                    <ContratoIdManual provedorId={contratoAtual.provedorId} />
+                    <ContratoIdManual
+                      provedorId={contratoAtual.provedorId}
+                      somenteLeitura={!mostrandoEtapaAtual}
+                    />
                   </Campo>
                   <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
                 </dl>
@@ -353,7 +449,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                   de verdade.
                 </div>
 
-                {agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
+                {mostrandoEtapaAtual && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
                   <div className="mt-4 flex flex-col gap-3">
                     <p className="text-muted-foreground text-sm">
                       Sem integração automática do D4Sign confirmando a assinatura ainda — registre
@@ -376,7 +472,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
             </>
           ) : null}
 
-          {agencia.status === STATUS_EM_COMPLEMENTAR ? (
+          {etapaExibida === indiceComplementar ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
@@ -390,6 +486,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 aprovarDocumentoAction={aprovarDocumentoAction}
                 reprovarDocumentoAction={reprovarDocumentoAction}
                 solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
+                somenteLeitura={!mostrandoEtapaAtual}
               />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
@@ -400,28 +497,30 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 schema onde esse dado deveria morar agora.
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <form action={aprovarComplementarAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                  >
-                    Aprovar e Enviar Contrato
-                  </button>
-                </form>
-                <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                  >
-                    Recusar
-                  </button>
-                </form>
-              </div>
+              {mostrandoEtapaAtual ? (
+                <div className="flex flex-wrap gap-2">
+                  <form action={aprovarComplementarAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                    >
+                      Aprovar e Enviar Contrato
+                    </button>
+                  </form>
+                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                    >
+                      Recusar
+                    </button>
+                  </form>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
-          {agencia.status === STATUS_AGUARDANDO_VALIDACAO ? (
+          {etapaExibida === indiceValidacao ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
@@ -432,50 +531,62 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 agenciaId={agencia.id}
                 validarContratoAction={validarContratoAction}
                 recusarCadastroAction={recusarCadastroAction}
+                somenteLeitura={!mostrandoEtapaAtual}
               />
             </div>
           ) : null}
 
-          {agencia.status === STATUS_AGUARDANDO_ATIVACAO ? (
+          {etapaExibida === indiceAtivacao ? (
             <div className="flex flex-col gap-3">
-              <p className="text-muted-foreground text-sm">
-                Contrato validado (provedor: {contratoAtual?.provedorId ?? "—"}). Falta só criar
-                SICA, Travel Link e usuário master e ativar o cliente.
-              </p>
+              {/* Contrato/SICA/Travel Link sempre marcados aqui: chegar
+                  nesta etapa só é possível depois de "Validar Contrato" —
+                  botão que já trava (ver ValidacaoSicaTravelLink) até
+                  SICA e Travel Link estarem preenchidos. Mesmo raciocínio
+                  de calcularProgressoTrilha: inferir do status real da
+                  agência em vez de exigir um campo novo só pra repetir
+                  uma garantia que o fluxo anterior já impõe. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <ChecklistEtapaConcluida label="Contrato" />
+                <ChecklistEtapaConcluida label="SICA" />
+                <ChecklistEtapaConcluida label="Travel Link" />
+              </div>
 
               <UsuarioMaster
                 representantesLegais={representantesLegais}
                 analistaLogado={analistaLogado}
+                somenteLeitura={!mostrandoEtapaAtual}
               />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-                <strong className="text-foreground">Não implementado ainda:</strong> criação de
-                código SICA e Travel Link exigem campos novos no schema (não existem hoje) —
-                sinalizando aqui em vez de simular dado falso. O botão abaixo só ativa o cliente,
-                sem essas 2 etapas.
+                <strong className="text-foreground">Não implementado ainda:</strong> os checks acima
+                confirmam que SICA e Travel Link foram preenchidos antes de chegar aqui, mas o
+                código/link em si não é salvo — schema ainda não tem campo pra isso (sinalizando em
+                vez de simular dado falso).
               </div>
-              <div className="flex flex-wrap gap-2">
-                <form action={ativarClienteAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                  >
-                    Ativar cliente
-                  </button>
-                </form>
-                <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                  >
-                    Recusar
-                  </button>
-                </form>
-              </div>
+              {mostrandoEtapaAtual ? (
+                <div className="flex flex-wrap gap-2">
+                  <form action={ativarClienteAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                    >
+                      Ativar cliente
+                    </button>
+                  </form>
+                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                    >
+                      Recusar
+                    </button>
+                  </form>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
-          {agencia.status === STATUS_ATIVO ? (
+          {etapaExibida === indiceAtivo ? (
             <p className="text-success text-sm font-medium">Cliente ativo.</p>
           ) : null}
 

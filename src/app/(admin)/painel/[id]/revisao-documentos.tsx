@@ -16,6 +16,10 @@ interface RevisaoDocumentosComplementarProps {
     formData: FormData,
   ) => Promise<void>;
   solicitarReenvioDocumentosAction: (agenciaId: string, formData: FormData) => Promise<void>;
+  // true quando o analista está revendo esta etapa a partir de uma etapa
+  // posterior (ver `etapaExibida` na page) — trava aprovar/reprovar/
+  // solicitar reenvio, só sobra a leitura (ver anexo/copiar link).
+  somenteLeitura?: boolean;
 }
 
 const BOTAO_DECISAO =
@@ -52,6 +56,7 @@ export function RevisaoDocumentosComplementar({
   aprovarDocumentoAction,
   reprovarDocumentoAction,
   solicitarReenvioDocumentosAction,
+  somenteLeitura = false,
 }: RevisaoDocumentosComplementarProps) {
   const [reprovandoId, setReprovandoId] = useState<string | null>(null);
   // Calculado só depois de montar (client-only) — se calculasse direto no
@@ -93,30 +98,32 @@ export function RevisaoDocumentosComplementar({
                   </span>
                 ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <form action={aprovarDocumentoAction.bind(null, agenciaId, doc.id)}>
+              {!somenteLeitura ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  <form action={aprovarDocumentoAction.bind(null, agenciaId, doc.id)}>
+                    <button
+                      type="submit"
+                      className={`${BOTAO_DECISAO} ${
+                        doc.status === "APROVADO"
+                          ? "border-success bg-success text-success-foreground"
+                          : "border-input text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      Aprovar
+                    </button>
+                  </form>
                   <button
-                    type="submit"
-                    className={`${BOTAO_DECISAO} ${
-                      doc.status === "APROVADO"
-                        ? "border-success bg-success text-success-foreground"
-                        : "border-input text-foreground hover:bg-accent"
-                    }`}
+                    type="button"
+                    onClick={() => setReprovandoId(reprovandoId === doc.id ? null : doc.id)}
+                    className={`${BOTAO_DECISAO} border-input text-foreground hover:bg-accent`}
                   >
-                    Aprovar
+                    Reprovar
                   </button>
-                </form>
-                <button
-                  type="button"
-                  onClick={() => setReprovandoId(reprovandoId === doc.id ? null : doc.id)}
-                  className={`${BOTAO_DECISAO} border-input text-foreground hover:bg-accent`}
-                >
-                  Reprovar
-                </button>
-              </div>
+                </div>
+              ) : null}
             </div>
 
-            {reprovandoId === doc.id ? (
+            {!somenteLeitura && reprovandoId === doc.id ? (
               <form
                 action={async (formData) => {
                   await reprovarDocumentoAction(agenciaId, doc.id, formData);
@@ -158,32 +165,47 @@ export function RevisaoDocumentosComplementar({
             Documentos pendentes de reenvio
           </span>
 
-          <form
-            action={solicitarReenvioDocumentosAction.bind(null, agenciaId)}
-            className="flex flex-col gap-3"
-          >
+          {somenteLeitura ? (
             <div className="flex flex-col gap-2">
               {documentosPendentes.map((doc) => (
-                <label key={doc.id} className="text-foreground flex items-start gap-2">
-                  <input type="checkbox" name="documentoIds" value={doc.id} className="mt-0.5" />
-                  <span>
-                    {doc.label}
-                    {doc.motivoReprovacao ? (
-                      <span className="text-muted-foreground mt-0.5 block text-xs">
-                        {doc.motivoReprovacao}
-                      </span>
-                    ) : null}
-                  </span>
-                </label>
+                <span key={doc.id} className="text-foreground">
+                  {doc.label}
+                  {doc.motivoReprovacao ? (
+                    <span className="text-muted-foreground mt-0.5 block text-xs">
+                      {doc.motivoReprovacao}
+                    </span>
+                  ) : null}
+                </span>
               ))}
             </div>
-            <button
-              type="submit"
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition"
+          ) : (
+            <form
+              action={solicitarReenvioDocumentosAction.bind(null, agenciaId)}
+              className="flex flex-col gap-3"
             >
-              Solicitar documentos por e-mail
-            </button>
-          </form>
+              <div className="flex flex-col gap-2">
+                {documentosPendentes.map((doc) => (
+                  <label key={doc.id} className="text-foreground flex items-start gap-2">
+                    <input type="checkbox" name="documentoIds" value={doc.id} className="mt-0.5" />
+                    <span>
+                      {doc.label}
+                      {doc.motivoReprovacao ? (
+                        <span className="text-muted-foreground mt-0.5 block text-xs">
+                          {doc.motivoReprovacao}
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition"
+              >
+                Solicitar documentos por e-mail
+              </button>
+            </form>
+          )}
 
           <div className="border-border bg-background flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
             <span className="text-muted-foreground shrink-0">Link pra o cliente reenviar:</span>

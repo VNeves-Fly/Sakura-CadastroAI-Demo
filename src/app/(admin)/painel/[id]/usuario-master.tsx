@@ -121,9 +121,15 @@ function Campo({
 export function UsuarioMaster({
   representantesLegais,
   analistaLogado,
+  somenteLeitura = false,
 }: {
   representantesLegais: RepresentanteLegalDetalhe[];
   analistaLogado: string;
+  // true quando o analista está revendo esta etapa a partir de uma etapa
+  // posterior (ver `etapaExibida` na page) — trava a seleção/edição/save,
+  // só sobra a leitura (copiar continua liberado, não é uma ação de
+  // negócio).
+  somenteLeitura?: boolean;
 }) {
   const [socioSelecionadoId, setSocioSelecionadoId] = useState<string | null>(null);
   const [modoManual, setModoManual] = useState(false);
@@ -225,8 +231,9 @@ export function UsuarioMaster({
             <button
               key={socio.id}
               type="button"
+              disabled={somenteLeitura}
               onClick={() => selecionarSocio(socio)}
-              className={`rounded-xl border p-3 text-left transition ${
+              className={`rounded-xl border p-3 text-left transition disabled:cursor-not-allowed ${
                 selecionado
                   ? "border-primary bg-primary/5 ring-primary/30 ring-2"
                   : "border-border hover:bg-muted/40"
@@ -249,8 +256,9 @@ export function UsuarioMaster({
 
         <button
           type="button"
+          disabled={somenteLeitura}
           onClick={selecionarManual}
-          className={`rounded-xl border border-dashed p-3 text-left text-sm transition ${
+          className={`rounded-xl border border-dashed p-3 text-left text-sm transition disabled:cursor-not-allowed ${
             modoManual
               ? "border-primary bg-primary/5 ring-primary/30 ring-2"
               : "border-border text-muted-foreground hover:bg-muted/40"
@@ -283,7 +291,7 @@ export function UsuarioMaster({
               name="nome"
               value={form.nome}
               onChange={atualizarCampo}
-              disabled={bloqueado}
+              disabled={bloqueado || somenteLeitura}
               preenchido={preenchidoAutomaticamente("nome")}
               copiado={campoCopiado === "nome"}
               onCopy={() => copiar(form.nome, "nome")}
@@ -293,7 +301,7 @@ export function UsuarioMaster({
               name="email"
               value={form.email}
               onChange={atualizarCampo}
-              disabled={bloqueado}
+              disabled={bloqueado || somenteLeitura}
               preenchido={preenchidoAutomaticamente("email")}
               copiado={campoCopiado === "email"}
               onCopy={() => copiar(form.email, "email")}
@@ -304,7 +312,7 @@ export function UsuarioMaster({
               name="cpf"
               value={form.cpf}
               onChange={atualizarCampo}
-              disabled={bloqueado}
+              disabled={bloqueado || somenteLeitura}
               preenchido={preenchidoAutomaticamente("cpf")}
               copiado={campoCopiado === "cpf"}
               onCopy={() => copiar(form.cpf, "cpf")}
@@ -314,7 +322,7 @@ export function UsuarioMaster({
               name="telefone"
               value={form.telefone}
               onChange={atualizarCampo}
-              disabled={bloqueado}
+              disabled={bloqueado || somenteLeitura}
               preenchido={preenchidoAutomaticamente("telefone")}
               copiado={campoCopiado === "telefone"}
               onCopy={() => copiar(form.telefone, "telefone")}
@@ -324,7 +332,7 @@ export function UsuarioMaster({
               name="rg"
               value={form.rg}
               onChange={atualizarCampo}
-              disabled={bloqueado}
+              disabled={bloqueado || somenteLeitura}
               preenchido={preenchidoAutomaticamente("rg")}
               copiado={campoCopiado === "rg"}
               onCopy={() => copiar(form.rg, "rg")}
@@ -335,7 +343,7 @@ export function UsuarioMaster({
                 name="rgOrgaoEmissor"
                 value={form.rgOrgaoEmissor}
                 onChange={atualizarCampo}
-                disabled={bloqueado}
+                disabled={bloqueado || somenteLeitura}
                 preenchido={preenchidoAutomaticamente("rgOrgaoEmissor")}
                 copiado={campoCopiado === "rgOrgaoEmissor"}
                 onCopy={() => copiar(form.rgOrgaoEmissor, "rgOrgaoEmissor")}
@@ -345,7 +353,7 @@ export function UsuarioMaster({
                 name="rgUf"
                 value={form.rgUf}
                 onChange={atualizarCampo}
-                disabled={bloqueado}
+                disabled={bloqueado || somenteLeitura}
                 preenchido={false}
                 copiado={campoCopiado === "rgUf"}
                 onCopy={() => copiar(form.rgUf, "rgUf")}
@@ -356,7 +364,7 @@ export function UsuarioMaster({
               name="dataNascimento"
               value={form.dataNascimento}
               onChange={atualizarCampo}
-              disabled={bloqueado}
+              disabled={bloqueado || somenteLeitura}
               preenchido={preenchidoAutomaticamente("dataNascimento")}
               copiado={campoCopiado === "dataNascimento"}
               onCopy={() => copiar(form.dataNascimento, "dataNascimento")}
@@ -379,35 +387,37 @@ export function UsuarioMaster({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-2">
-            {bloqueado ? (
+          {!somenteLeitura ? (
+            <div className="flex flex-wrap gap-2">
+              {bloqueado ? (
+                <button
+                  type="button"
+                  onClick={() => setBloqueado(false)}
+                  className="border-input text-foreground hover:bg-accent rounded-full border px-4 py-2 text-sm font-medium transition"
+                >
+                  Editar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBloqueado(true);
+                    setSalvo({ por: analistaLogado, em: new Date() });
+                  }}
+                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                >
+                  Salvar
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setBloqueado(false)}
+                onClick={limpar}
                 className="border-input text-foreground hover:bg-accent rounded-full border px-4 py-2 text-sm font-medium transition"
               >
-                Editar
+                Limpar
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setBloqueado(true);
-                  setSalvo({ por: analistaLogado, em: new Date() });
-                }}
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-              >
-                Salvar
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={limpar}
-              className="border-input text-foreground hover:bg-accent rounded-full border px-4 py-2 text-sm font-medium transition"
-            >
-              Limpar
-            </button>
-          </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </SecaoColapsavel>

@@ -11,7 +11,16 @@ const INPUT_CLASSNAME =
 // no banco pra guardar isso de verdade, deixa o analista registrar aqui
 // (só nesta tela, some se recarregar) o ID de referência desse contrato
 // externo — a tag vermelha deixa claro que aquele ID não veio do D4Sign.
-export function ContratoIdManual({ provedorId }: { provedorId: string }) {
+export function ContratoIdManual({
+  provedorId,
+  somenteLeitura = false,
+}: {
+  provedorId: string;
+  // true quando o analista está revendo esta etapa a partir de uma etapa
+  // posterior (ver `etapaExibida` na page) — esconde o link de registrar/
+  // editar, só sobra a leitura do ID (e da tag, se já tiver uma).
+  somenteLeitura?: boolean;
+}) {
   const [idManual, setIdManual] = useState("");
   const [rascunho, setRascunho] = useState("");
   const [editando, setEditando] = useState(false);
@@ -31,7 +40,7 @@ export function ContratoIdManual({ provedorId }: { provedorId: string }) {
         ) : null}
       </div>
 
-      {editando ? (
+      {somenteLeitura ? null : editando ? (
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={rascunho}
