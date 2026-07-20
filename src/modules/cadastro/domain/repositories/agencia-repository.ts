@@ -1,6 +1,7 @@
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { OrigemGeracaoContrato } from "@/modules/cadastro/domain/enums";
+import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
 
 export type { OrigemGeracaoContrato };
 
@@ -59,6 +60,11 @@ export interface SocioData {
   isRepresentanteLegal: boolean;
   rgPath: string;
   procuracaoPath: string | null;
+  // Resultado do documentAnalysisService.analisar() sobre o RG deste
+  // sócio — o repository grava como AnaliseIaDocumento vinculada ao
+  // Documento real dentro da mesma transação (precisa do id gerado no
+  // create, por isso não é gravado direto no use-case).
+  analiseIa: DocumentAnalysisResultado | null;
 }
 
 export interface EnderecoBancoData {
@@ -94,6 +100,9 @@ export interface CreateAgenciaData {
   // "em_complementar" não há contrato ainda.
   empresa: EmpresaData;
   socios: SocioData[];
+  // Resultado do documentAnalysisService.analisar() sobre o contrato
+  // social — mesma lógica de SocioData.analiseIa.
+  analiseIaContratoSocial: DocumentAnalysisResultado | null;
   enderecoBanco: EnderecoBancoData;
   contrato: {
     provedorId: string;

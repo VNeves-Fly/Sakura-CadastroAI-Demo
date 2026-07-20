@@ -26,8 +26,12 @@ function baseUrl(): string {
 
 const RESULTADO_VAZIO: DocumentAnalysisResultado = {
   camposExtraidos: {},
+  camposExtras: {},
   confiancaExtracao: 0,
   alertas: [],
+  resumoAnalise: null,
+  textoBruto: null,
+  checagens: null,
 };
 
 export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService {
@@ -54,16 +58,48 @@ export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService
         return RESULTADO_VAZIO;
       }
 
-      const data = (await response.json()) as { result?: { message?: string } };
-      const parsed = JSON.parse(data.result?.message ?? "{}") as {
-        extracted_content?: { fields?: Record<string, unknown>; confidence_score?: number };
+      const data = (await response.json()) as {
+        extracted_content?: {
+          fields?: Record<string, unknown>;
+          confidence_score?: number;
+          raw_text?: string | null;
+          extra_fields?: Record<string, unknown>;
+        };
         observations?: string[];
+        agent_analysis?: string;
+        validation_checks?: {
+          format_valid?: boolean;
+          required_fields_present?: boolean;
+          cross_reference_ok?: boolean | null;
+          details?: Record<string, unknown>;
+        };
+        errors?: string[];
       };
 
+      if (data.errors?.length) {
+        console.warn(
+          `document-analysis retornou errors pra ${input.documentType} (cnpj=${input.cnpj}): ${data.errors.join("; ")}`,
+        );
+      }
+
       return {
-        camposExtraidos: parsed.extracted_content?.fields ?? {},
-        confiancaExtracao: parsed.extracted_content?.confidence_score ?? 0,
-        alertas: parsed.observations ?? [],
+        camposExtraidos: data.extracted_content?.fields ?? {},
+        camposExtras: data.extracted_content?.extra_fields ?? {},
+        confiancaExtracao: data.extracted_content?.confidence_score ?? 0,
+        alertas: [
+          ...(data.observations ?? []),
+          ...(data.errors ?? []).map((erro) => `Erro: ${erro}`),
+        ],
+        resumoAnalise: data.agent_analysis ?? null,
+        textoBruto: data.extracted_content?.raw_text ?? null,
+        checagens: data.validation_checks
+          ? {
+              formatoValido: data.validation_checks.format_valid ?? false,
+              camposObrigatoriosPresentes: data.validation_checks.required_fields_present ?? false,
+              referenciaCruzadaOk: data.validation_checks.cross_reference_ok ?? false,
+              detalhes: data.validation_checks.details ?? {},
+            }
+          : null,
       };
     } catch (error) {
       console.warn(

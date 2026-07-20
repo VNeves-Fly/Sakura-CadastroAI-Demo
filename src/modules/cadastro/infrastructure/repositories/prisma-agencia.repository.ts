@@ -1,5 +1,7 @@
-import type { Prisma, PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
+import type { PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
+import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
 import {
+  Prisma,
   StatusAgencia as PrismaStatusAgencia,
   StatusContrato as PrismaStatusContrato,
   TipoDocumento,
@@ -62,6 +64,25 @@ interface EnderecoRecord {
   bairro: string | null;
   cidade: string | null;
   uf: string | null;
+}
+
+function analiseIaParaPrisma(
+  resultado: DocumentAnalysisResultado,
+): Prisma.AnaliseIaDocumentoCreateWithoutDocumentoInput {
+  return {
+    camposExtraidos: resultado.camposExtraidos as Prisma.InputJsonValue,
+    camposExtras: resultado.camposExtras as Prisma.InputJsonValue,
+    confiancaExtracao: resultado.confiancaExtracao,
+    alertas: resultado.alertas,
+    resumoAnalise: resultado.resumoAnalise,
+    textoBruto: resultado.textoBruto,
+    formatoValido: resultado.checagens?.formatoValido ?? null,
+    camposObrigatoriosPresentes: resultado.checagens?.camposObrigatoriosPresentes ?? null,
+    referenciaCruzadaOk: resultado.checagens?.referenciaCruzadaOk ?? null,
+    detalhesChecagem: resultado.checagens
+      ? (resultado.checagens.detalhes as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
+  };
 }
 
 function enderecoToDomain(record: EnderecoRecord | null): EnderecoData {
@@ -255,49 +276,60 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         agencia.representantesLegais.map((record) => [record.cpf, record]),
       );
 
-      const documentosSocios = data.socios.flatMap((socio) => {
-        const socioRecord = socioRecordPorCpf.get(socio.cpf);
-        if (!socioRecord) return [];
+      // Contrato social não tem representanteLegalId (pertence à agência
+      // como um todo) — mesma tabela Documento, só sem esse vínculo.
+      // Criado individualmente (não createMany) porque precisamos do id
+      // real gerado pra vincular a AnaliseIaDocumento correspondente,
+      // dentro da mesma transação.
+      const contratoSocialDoc = await tx.documento.create({
+        data: {
+          agenciaId: agencia.id,
+          representanteLegalId: null,
+          tipo: TipoDocumento.CONTRATO_SOCIAL,
+          gcsPath: data.contratoSocialPath,
+        },
+      });
+      if (data.analiseIaContratoSocial) {
+        await tx.analiseIaDocumento.create({
+          data: {
+            documentoId: contratoSocialDoc.id,
+            ...analiseIaParaPrisma(data.analiseIaContratoSocial),
+          },
+        });
+      }
 
-        const documentos: {
-          agenciaId: string;
-          representanteLegalId: string | null;
-          tipo: TipoDocumento;
-          gcsPath: string;
-        }[] = [
-          {
+      for (const socio of data.socios) {
+        const socioRecord = socioRecordPorCpf.get(socio.cpf);
+        if (!socioRecord) continue;
+
+        const rgDoc = await tx.documento.create({
+          data: {
             agenciaId: agencia.id,
             representanteLegalId: socioRecord.id,
             tipo: TipoDocumento.RG_CNPJ,
             gcsPath: socio.rgPath,
           },
-        ];
-
-        if (socio.procuracaoPath) {
-          documentos.push({
-            agenciaId: agencia.id,
-            representanteLegalId: socioRecord.id,
-            tipo: TipoDocumento.PROCURACAO,
-            gcsPath: socio.procuracaoPath,
+        });
+        if (socio.analiseIa) {
+          await tx.analiseIaDocumento.create({
+            data: {
+              documentoId: rgDoc.id,
+              ...analiseIaParaPrisma(socio.analiseIa),
+            },
           });
         }
 
-        return documentos;
-      });
-
-      // Contrato social não tem representanteLegalId (pertence à agência
-      // como um todo) — mesma tabela Documento, só sem esse vínculo.
-      await tx.documento.createMany({
-        data: [
-          {
-            agenciaId: agencia.id,
-            representanteLegalId: null,
-            tipo: TipoDocumento.CONTRATO_SOCIAL,
-            gcsPath: data.contratoSocialPath,
-          },
-          ...documentosSocios,
-        ],
-      });
+        if (socio.procuracaoPath) {
+          await tx.documento.create({
+            data: {
+              agenciaId: agencia.id,
+              representanteLegalId: socioRecord.id,
+              tipo: TipoDocumento.PROCURACAO,
+              gcsPath: socio.procuracaoPath,
+            },
+          });
+        }
+      }
 
       const socioVinculado =
         data.enderecoBanco.socioEnderecoVinculadoIndex !== null

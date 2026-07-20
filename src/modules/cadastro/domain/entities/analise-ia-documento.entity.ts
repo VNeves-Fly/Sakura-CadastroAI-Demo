@@ -2,13 +2,16 @@ export interface AnaliseIaDocumentoProps {
   id: string;
   documentoId: string;
 
-  numeroCadastur: string | null;
-  razaoSocialExtraida: string | null;
-  dataCadastroExtraida: Date | null;
-  dataValidadeExtraida: Date | null;
-  situacaoExtraida: string | null;
-  cnaeExtraido: string | null;
-  scoreConfianca: number | null;
+  camposExtraidos: Record<string, unknown>;
+  camposExtras: Record<string, unknown>;
+  confiancaExtracao: number;
+  alertas: string[];
+  resumoAnalise: string | null;
+  textoBruto: string | null;
+  formatoValido: boolean | null;
+  camposObrigatoriosPresentes: boolean | null;
+  referenciaCruzadaOk: boolean | null;
+  detalhesChecagem: Record<string, unknown> | null;
 
   processadoEm: Date;
 }
@@ -28,50 +31,53 @@ export class AnaliseIaDocumento {
     return this.props.documentoId;
   }
 
-  get numeroCadastur(): string | null {
-    return this.props.numeroCadastur;
+  get camposExtraidos(): Record<string, unknown> {
+    return this.props.camposExtraidos;
   }
 
-  get razaoSocialExtraida(): string | null {
-    return this.props.razaoSocialExtraida;
+  get camposExtras(): Record<string, unknown> {
+    return this.props.camposExtras;
   }
 
-  get dataCadastroExtraida(): Date | null {
-    return this.props.dataCadastroExtraida;
+  get confiancaExtracao(): number {
+    return this.props.confiancaExtracao;
   }
 
-  get dataValidadeExtraida(): Date | null {
-    return this.props.dataValidadeExtraida;
+  get alertas(): string[] {
+    return this.props.alertas;
   }
 
-  get situacaoExtraida(): string | null {
-    return this.props.situacaoExtraida;
+  get resumoAnalise(): string | null {
+    return this.props.resumoAnalise;
   }
 
-  get cnaeExtraido(): string | null {
-    return this.props.cnaeExtraido;
+  get textoBruto(): string | null {
+    return this.props.textoBruto;
   }
 
-  get scoreConfianca(): number | null {
-    return this.props.scoreConfianca;
+  get formatoValido(): boolean | null {
+    return this.props.formatoValido;
+  }
+
+  get camposObrigatoriosPresentes(): boolean | null {
+    return this.props.camposObrigatoriosPresentes;
+  }
+
+  get referenciaCruzadaOk(): boolean | null {
+    return this.props.referenciaCruzadaOk;
+  }
+
+  get detalhesChecagem(): Record<string, unknown> | null {
+    return this.props.detalhesChecagem;
   }
 
   get processadoEm(): Date {
     return this.props.processadoEm;
   }
 
-  toJSON(): Omit<
-    AnaliseIaDocumentoProps,
-    "dataCadastroExtraida" | "dataValidadeExtraida" | "processadoEm"
-  > & {
-    dataCadastroExtraida: string | null;
-    dataValidadeExtraida: string | null;
-    processadoEm: string;
-  } {
+  toJSON(): Omit<AnaliseIaDocumentoProps, "processadoEm"> & { processadoEm: string } {
     return {
       ...this.props,
-      dataCadastroExtraida: this.props.dataCadastroExtraida?.toISOString() ?? null,
-      dataValidadeExtraida: this.props.dataValidadeExtraida?.toISOString() ?? null,
       processadoEm: this.props.processadoEm.toISOString(),
     };
   }

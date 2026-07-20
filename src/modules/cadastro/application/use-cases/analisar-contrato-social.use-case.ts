@@ -50,6 +50,9 @@ export class AnalisarContratoSocialUseCase implements UseCase<
       nomesSocios: extrairListaStrings(resultado.camposExtraidos.socios_nomes_completos),
       alertas: resultado.alertas,
       confianca: resultado.confiancaExtracao,
+      resumoAnalise: resultado.resumoAnalise,
+      camposObrigatoriosPresentes: resultado.checagens?.camposObrigatoriosPresentes ?? null,
+      camposExtras: resultado.camposExtras,
     };
   }
 }
