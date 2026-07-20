@@ -126,12 +126,14 @@ export class FinalizarCadastroUseCase implements UseCase<
     const analiseIa = await this.analiseIaService.avaliar({
       cnpj: input.cnpj,
       razaoSocial,
-      contratoSocialPath,
+      email: input.emailOperacional,
       socios: socios.map((socio) => ({
         nome: socio.nome,
         cpf: socio.cpf,
         rgPath: socio.rgPath,
-        procuracaoPath: socio.procuracaoPath,
+        // Garantido: todo sócio passou pelo loop de documentAnalysisService
+        // acima antes de chegar aqui.
+        rgAnalise: analisesIaSociosPorCpf.get(socio.cpf)!,
       })),
     });
 
