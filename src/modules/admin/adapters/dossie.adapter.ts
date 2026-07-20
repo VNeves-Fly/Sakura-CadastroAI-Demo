@@ -1,4 +1,5 @@
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import {
   TIPO_CONTA_OPCOES,
@@ -11,8 +12,12 @@ import {
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
+  CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
+  CONTRATO_STATUS_ASSINADO_AGENCIA,
+  CONTRATO_STATUS_ASSINADO,
+  type RepresentanteLegalDetalhe,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
-import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
+import type { DocumentoRevisao, SignatarioFila } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
 // a View do dossiê consome — nenhum desses cálculos deve viver dentro do
@@ -102,4 +107,65 @@ export function calcularProgressoTrilha(
     : ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === status);
 
   return { indiceAtual, recusado };
+}
+
+// Fila de assinatura do contrato — combina sócios (estágio 0, implícito:
+// não tem linha em SignatarioPadrao, são dinâmicos por cadastro) com os 4
+// signatários fixos da Sakura (estágio 1 = aprovador, estágio 2 =
+// testemunhas — ver seeds/signatarios-padrao.ts e
+// processar-webhook-d4sign.use-case.ts). `assinado` por linha é
+// derivado do status agregado do Contrato (único dado real que temos),
+// seguindo a ordem de fila do D4Sign documentada no use-case do webhook:
+// - aguardando_assinatura: ninguém assinou ainda.
+// - assinado_agencia: o aprovador só assina depois dos sócios (estágio 0
+//   vem antes do 1 na fila do D4Sign), então os sócios já assinaram.
+// - assinado: documento fechado, todo mundo (incluindo testemunhas)
+//   assinou.
+// Não existe timestamp nem status individual por pessoa no schema hoje —
+// isso é uma inferência sobre o status agregado, não um dado inventado.
+export function montarFilaAssinatura(
+  representantesLegais: RepresentanteLegalDetalhe[],
+  signatariosPadraoAtivos: SignatarioPadrao[],
+  statusContrato: string | null,
+  emailsNaoEntregues: Set<string>,
+): SignatarioFila[] {
+  const socioAssinado =
+    statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
+    statusContrato === CONTRATO_STATUS_ASSINADO;
+
+  const filaSocios: SignatarioFila[] = representantesLegais.map((socio, index) => ({
+    id: socio.id,
+    nome: socio.nome,
+    email: socio.email,
+    grupo: "Agência",
+    ordem: index + 1,
+    assinado: socioAssinado,
+    emailNaoEntregue: emailsNaoEntregues.has(socio.email),
+  }));
+
+  const filaSakura: SignatarioFila[] = [...signatariosPadraoAtivos]
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+    .map((signatario) => {
+      const assinado =
+        statusContrato === CONTRATO_STATUS_ASSINADO ||
+        (statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA && signatario.papel === "APROVAR");
+      return {
+        id: signatario.id,
+        nome: signatario.nome ?? signatario.email ?? "—",
+        email: signatario.email,
+        grupo: "Sakura" as const,
+        ordem: filaSocios.length + (signatario.ordem ?? 0),
+        assinado,
+        emailNaoEntregue: signatario.email ? emailsNaoEntregues.has(signatario.email) : false,
+      };
+    });
+
+  return [...filaSocios, ...filaSakura];
+}
+
+export function labelStatusContrato(status: string | null): string {
+  if (status === CONTRATO_STATUS_ASSINADO) return "Assinado";
+  if (status === CONTRATO_STATUS_ASSINADO_AGENCIA) return "Sócios assinaram — aguardando Sakura";
+  if (status === CONTRATO_STATUS_AGUARDANDO_ASSINATURA) return "Aguardando assinaturas";
+  return "—";
 }
