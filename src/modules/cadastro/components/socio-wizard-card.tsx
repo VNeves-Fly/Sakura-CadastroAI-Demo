@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
 import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
@@ -146,20 +147,23 @@ export function SocioWizardCard({
         <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Estado Civil<span className="text-destructive"> *</span>
         </label>
-        <select
-          value={socio.estadoCivil}
-          onChange={(event) => onUpdate({ estadoCivil: event.target.value })}
-          className={INPUT_CLASSNAME}
-        >
-          <option value="" disabled>
-            Selecione
-          </option>
-          {ESTADO_CIVIL_OPCOES.map((opcao) => (
-            <option key={opcao.valor} value={opcao.valor}>
-              {opcao.label}
+        <div className="relative">
+          <select
+            value={socio.estadoCivil}
+            onChange={(event) => onUpdate({ estadoCivil: event.target.value })}
+            className={`w-full appearance-none pr-10 ${INPUT_CLASSNAME}`}
+          >
+            <option value="" disabled>
+              Selecione
             </option>
-          ))}
-        </select>
+            {ESTADO_CIVIL_OPCOES.map((opcao) => (
+              <option key={opcao.valor} value={opcao.valor}>
+                {opcao.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="text-muted-foreground pointer-events-none absolute inset-y-0 right-4 my-auto size-4" />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">

@@ -5,8 +5,13 @@ import { unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
 import type {
   RawQsaResponse,
   CriarAgenciaResult,
+  RawAnaliseContratoSocialResponse,
 } from "@/modules/cadastro/services/agencia.service";
-import type { QsaResultView, SubmitResultView } from "@/modules/cadastro/types/agencia.types";
+import type {
+  QsaResultView,
+  SubmitResultView,
+  ContratoSocialAnaliseView,
+} from "@/modules/cadastro/types/agencia.types";
 import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
 import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
 
@@ -31,6 +36,25 @@ export const agenciaAdapter = {
       dataAbertura: raw.dataAbertura,
       telefoneReceita: raw.telefoneReceita,
       emailReceita: raw.emailReceita,
+    };
+  },
+
+  toAnalisarContratoSocialFormData(params: {
+    cnpjMascarado: string;
+    contratoSocial: File;
+  }): FormData {
+    const formData = new FormData();
+    formData.set("cnpj", unmaskCnpj(params.cnpjMascarado));
+    formData.set("contratoSocial", params.contratoSocial);
+    return formData;
+  },
+
+  toContratoSocialAnaliseView(raw: RawAnaliseContratoSocialResponse): ContratoSocialAnaliseView {
+    return {
+      cnpjConfere: raw.cnpjConfere,
+      nomesSocios: raw.nomesSocios,
+      alertas: raw.alertas,
+      confianca: raw.confianca,
     };
   },
 
