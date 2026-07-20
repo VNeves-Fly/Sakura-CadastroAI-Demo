@@ -30,9 +30,11 @@ function baseUrl(): string {
   return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
 }
 
+// `document_url` fica de fora enquanto não tivermos um valor real pra
+// mandar (reservado pra uma atualização futura) — só `internal_document_url`
+// (gs://) por enquanto.
 function documentoInterno(documentPath: string, documentType: string) {
   return {
-    document_url: "",
     internal_document_url: `gs://${requireBucketName()}/${documentPath}`,
     document_type: documentType,
   };
@@ -73,15 +75,14 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
         analysis_data: {
           cnpj: input.cnpj,
           focus: "completo",
-          retornar_tabela: false,
           verificar_processos: false,
           verificar_amat: false,
           razao_social: input.razaoSocial,
           email: input.email,
           socios,
-          documentos: [],
-          amat_cpfs_socios: [],
-          amat_adicionais: [],
+          // Documentos de nível empresa (cadastur/iata) ficam de fora
+          // enquanto o array estiver vazio — o wizard não coleta esses
+          // documentos ainda. Reaparece aqui quando houver item real.
         },
       }),
     });

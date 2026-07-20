@@ -67,7 +67,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       analysis_data: {
         cnpj: "19131243000197",
         focus: "completo",
-        retornar_tabela: false,
         verificar_processos: false,
         verificar_amat: false,
         razao_social: "Agência Teste",
@@ -78,7 +77,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
             documento_identificacao: "39053344705",
             documentos: [
               {
-                document_url: "",
                 internal_document_url: "gs://bucket-teste/cadastro-ai/agencias/x/socio-0-rg.pdf",
                 document_type: "doc_identificacao",
                 campos_extraidos: { nome: "Fulano de Tal", cpf: "390.533.447-05" },
@@ -88,9 +86,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
             ],
           },
         ],
-        documentos: [],
-        amat_cpfs_socios: [],
-        amat_adicionais: [],
       },
     });
   });
