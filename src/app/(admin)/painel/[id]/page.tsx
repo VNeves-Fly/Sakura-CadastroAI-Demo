@@ -1,17 +1,21 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { Building2, Users, Landmark, FileSignature } from "lucide-react";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import { SecaoColapsavel } from "./secao-colapsavel";
-import { RevisaoDocumentosComplementar, type DocumentoRevisao } from "./revisao-documentos";
+import { RevisaoDocumentosComplementar } from "./revisao-documentos";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
-import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
+import {
+  labelOrigemContrato,
+  labelEstadoCivil,
+  labelTipoConta,
+  labelBancoPais,
+  formatarEndereco,
+  ETAPAS_PIPELINE,
+} from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
-import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
-import {
-  TIPO_CONTA_OPCOES,
-  BANCO_PAIS_OPCOES,
-} from "@/modules/cadastro/types/endereco-banco.types";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -23,40 +27,14 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import {
   aprovarComplementarAction,
+  aprovarDocumentoAction,
+  reprovarDocumentoAction,
+  solicitarReenvioDocumentosAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
   validarContratoAction,
 } from "./actions";
-
-function labelOrigemContrato(origem: "ia" | "humano" | null): string {
-  if (origem === "ia") return "gerado pela IA";
-  if (origem === "humano") return "gerado pelo analista";
-  return "origem desconhecida";
-}
-
-function labelEstadoCivil(valor: string): string {
-  return ESTADO_CIVIL_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function labelTipoConta(valor: string): string {
-  return TIPO_CONTA_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function labelBancoPais(valor: string): string {
-  return BANCO_PAIS_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function formatarEndereco(endereco: {
-  logradouro: string;
-  numero: string;
-  bairro: string;
-  cidade: string;
-  uf: string;
-}): string {
-  if (!endereco.logradouro) return "—";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
-}
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
 // de marca (em vez do cinza neutro anterior) e valor em destaque.
@@ -88,6 +66,26 @@ function Arquivo({ path }: { path: string }) {
   );
 }
 
+// Documento reprovado sai do rol "oficial" da ficha (Empresa/Sócios) —
+// mostra que está faltando reenvio em vez do arquivo que foi rejeitado,
+// já que o soft-delete só marca o status, não apaga a linha do banco.
+function CampoDocumento({ documento }: { documento: Documento | null }) {
+  if (!documento) return <span className="text-muted-foreground">—</span>;
+
+  if (documento.status === "REPROVADO") {
+    return (
+      <span
+        className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
+        title={documento.motivoReprovacao ?? undefined}
+      >
+        Aguardando reenvio
+      </span>
+    );
+  }
+
+  return <Arquivo path={documento.gcsPath} />;
+}
+
 // D4Sign avisou (webhook type_post=2) que o convite pra assinar nunca
 // chegou nesse e-mail — sem isso, o signatário fica esperando pra sempre
 // um convite que não existe.
@@ -102,29 +100,12 @@ function BadgeEmailNaoEntregue() {
   );
 }
 
-const ETAPAS_PIPELINE = [
-  { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
-  { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
-  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
-  { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
-  { status: STATUS_ATIVO, label: "Ativo" },
-];
-
 // Trilha só informativa — o fluxo é sequencial (o analista não navega
 // livremente entre etapas, cada uma libera a próxima por uma ação real),
-// então não é clicável, só mostra onde a agência está agora. "Recusado"
-// não é uma etapa da trilha (é uma saída do fluxo normal): usamos a
-// existência de um Contrato como sinal real de onde a recusa aconteceu
-// (com contrato = recusado depois de enviado; sem contrato = recusado
-// ainda em Complementar) em vez de inventar um campo novo pra isso.
-function TrilhaProgresso({ status, temContrato }: { status: string; temContrato: boolean }) {
-  const recusado = status === STATUS_RECUSADO;
-  const indiceAtual = recusado
-    ? temContrato
-      ? 1
-      : 0
-    : ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === status);
-
+// então não é clicável, só mostra onde a agência está agora. Recebe o
+// índice/recusado já calculados (ver calcularProgressoTrilha no
+// adapter) — só decide como desenhar, não decide onde a agência está.
+function TrilhaProgresso({ indiceAtual, recusado }: { indiceAtual: number; recusado: boolean }) {
   return (
     <div className="flex items-start">
       {ETAPAS_PIPELINE.map((etapa, index) => {
@@ -159,44 +140,25 @@ function TrilhaProgresso({ status, temContrato }: { status: string; temContrato:
 }
 
 export default async function DossieAgenciaPage({ params }: { params: { id: string } }) {
-  const detalhe = await cadastroAdminController.obterDetalhe(params.id).catch(() => null);
+  const view = await obterDossieView(params.id);
 
-  if (!detalhe) {
+  if (!view) {
     notFound();
   }
 
-  const { agencia, complementar, representantesLegais, contratos } = detalhe;
-  const contratoAtual = contratos[0] ?? null;
-
-  // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
-  // por e-mail, cobre tanto os sócios quanto os signatários fixos da
-  // Sakura, sem depender de terem uma linha em ContratoSignatario.
-  const [emailsFalhaEntrega, signatariosPadraoAtivos] = contratoAtual
-    ? await Promise.all([
-        cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id),
-        cadastroAdminController.listarSignatariosPadraoAtivos(),
-      ])
-    : [[], []];
-  const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
-
-  // Documentos revisáveis do cadastro complementar — contrato social +
-  // RG/procuração de cada sócio, com o mesmo path já usado no restante do
-  // dossiê (nada inventado, só reaproveita o que já vem de AgenciaDetalhe).
-  const documentosParaRevisao: DocumentoRevisao[] = [
-    { id: "contrato-social", label: "Contrato Social", path: agencia.contratoSocialPath },
-    ...representantesLegais.flatMap((socio) => [
-      { id: `rg-${socio.id}`, label: `RG/CNH — ${socio.nome}`, path: socio.rgPath },
-      ...(socio.procuracaoPath
-        ? [
-            {
-              id: `procuracao-${socio.id}`,
-              label: `Procuração — ${socio.nome}`,
-              path: socio.procuracaoPath,
-            },
-          ]
-        : []),
-    ]),
-  ];
+  const {
+    agencia,
+    complementar,
+    representantesLegais,
+    contratoSocial,
+    contratoAtual,
+    emailsNaoEntregues,
+    signatariosPadraoAtivos,
+    documentosAtivos,
+    documentosPendentes,
+    indiceTrilha,
+    trilhaRecusada,
+  } = view;
 
   return (
     <div className="flex flex-col gap-4">
@@ -258,7 +220,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
       </div>
 
       <div className="border-border bg-card rounded-2xl border p-5">
-        <TrilhaProgresso status={agencia.status} temContrato={contratoAtual !== null} />
+        <TrilhaProgresso indiceAtual={indiceTrilha} recusado={trilhaRecusada} />
       </div>
 
       {!complementar ? (
@@ -275,7 +237,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
               <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
               <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
               <Campo label="Contrato Social">
-                <Arquivo path={agencia.contratoSocialPath} />
+                <CampoDocumento documento={contratoSocial} />
               </Campo>
             </dl>
           </SecaoColapsavel>
@@ -304,11 +266,11 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                       {formatarEndereco(socio.endereco)}
                     </Campo>
                     <Campo label="RG/CNH">
-                      <Arquivo path={socio.rgPath} />
+                      <CampoDocumento documento={socio.rg} />
                     </Campo>
-                    {socio.procuracaoPath ? (
+                    {socio.procuracao ? (
                       <Campo label="Procuração">
-                        <Arquivo path={socio.procuracaoPath} />
+                        <CampoDocumento documento={socio.procuracao} />
                       </Campo>
                     ) : null}
                   </dl>
@@ -407,7 +369,14 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 contrato foi criado ainda.
               </p>
 
-              <RevisaoDocumentosComplementar documentos={documentosParaRevisao} />
+              <RevisaoDocumentosComplementar
+                agenciaId={agencia.id}
+                documentosAtivos={documentosAtivos}
+                documentosPendentes={documentosPendentes}
+                aprovarDocumentoAction={aprovarDocumentoAction}
+                reprovarDocumentoAction={reprovarDocumentoAction}
+                solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
+              />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
                 <strong className="text-foreground">Parecer da IA indisponível:</strong> a

@@ -1,4 +1,5 @@
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { OrigemGeracaoContrato } from "@/modules/cadastro/domain/enums";
 
 export type { OrigemGeracaoContrato };
@@ -148,8 +149,10 @@ export interface RepresentanteLegalDetalhe {
   estadoCivil: string;
   isRepresentanteLegal: boolean;
   endereco: EnderecoData;
-  rgPath: string;
-  procuracaoPath: string | null;
+  // Documento "atual" de cada slot (o mais recente por tipo+sócio) — pode
+  // ser null se o cliente ainda não reenviou depois de uma reprovação.
+  rg: Documento | null;
+  procuracao: Documento | null;
 }
 
 export interface CadastroComplementarDetalhe {
@@ -175,6 +178,9 @@ export interface AgenciaDetalhe {
   agencia: Agencia;
   complementar: CadastroComplementarDetalhe | null;
   representantesLegais: RepresentanteLegalDetalhe[];
+  // Documento do contrato social — mesma lógica de "mais recente por
+  // slot" dos documentos de sócio (ver RepresentanteLegalDetalhe).
+  contratoSocial: Documento | null;
   contratos: ContratoDetalhe[];
 }
 
