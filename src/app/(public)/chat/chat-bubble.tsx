@@ -60,7 +60,7 @@ export function ChatBubble({ mensagem }: { mensagem: ChatMessage }) {
     return (
       <div ref={ref} className="mb-4 ml-9 flex origin-bottom-left items-end gap-2">
         <BotAvatar />
-        <div className="max-w-[80%] rounded-2xl rounded-bl-none bg-white/10 px-4 py-3 text-[11px] leading-relaxed text-white/90">
+        <div className="max-w-[80%] rounded-2xl rounded-bl-none bg-white/10 px-4 py-3 text-sm leading-relaxed text-white/90">
           <ul className="flex flex-col gap-1">
             {mensagem.itens.map((item) => (
               <li key={item} className="flex gap-1.5">
@@ -78,7 +78,7 @@ export function ChatBubble({ mensagem }: { mensagem: ChatMessage }) {
     return (
       <div ref={ref} className="mb-4 ml-9 flex origin-bottom-left items-end gap-2">
         <BotAvatar />
-        <div className="max-w-[80%] rounded-2xl rounded-bl-none bg-white/10 px-4 py-2.5 text-[11px] leading-relaxed text-white/90">
+        <div className="max-w-[80%] rounded-2xl rounded-bl-none bg-white/10 px-4 py-2.5 text-sm leading-relaxed text-white/90">
           {mensagem.conteudo}
         </div>
       </div>
@@ -88,7 +88,7 @@ export function ChatBubble({ mensagem }: { mensagem: ChatMessage }) {
   if (mensagem.tipo === "arquivo") {
     return (
       <div ref={ref} className="mb-4 flex origin-bottom-right justify-end">
-        <div className="from-primary to-secondary flex max-w-[80%] items-center gap-2 rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-[11px] text-white">
+        <div className="from-primary to-secondary flex max-w-[80%] items-center gap-2 rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-sm text-white">
           <FileIcon />
           <span className="truncate">{mensagem.nomeArquivo}</span>
         </div>
@@ -98,7 +98,7 @@ export function ChatBubble({ mensagem }: { mensagem: ChatMessage }) {
 
   return (
     <div ref={ref} className="mb-4 flex origin-bottom-right justify-end">
-      <div className="from-primary to-secondary max-w-[80%] rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-[11px] leading-relaxed text-white">
+      <div className="from-primary to-secondary max-w-[80%] rounded-2xl rounded-br-none bg-gradient-to-br px-4 py-2.5 text-sm leading-relaxed text-white">
         {mensagem.conteudo}
       </div>
     </div>
