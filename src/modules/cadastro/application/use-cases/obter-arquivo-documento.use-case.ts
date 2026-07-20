@@ -24,7 +24,10 @@ export class ObterArquivoDocumentoUseCase implements UseCase<string, ArquivoDocu
       throw new NotFoundError("Documento");
     }
 
-    const resultado = await this.documentoArquivoService.obter(documento.gcsPath);
+    const resultado = await this.documentoArquivoService.obter(
+      documento.gcsPath,
+      documento.gcsBucket,
+    );
     return { resultado, fileName: documento.fileName ?? documento.gcsPath.split("/").pop()! };
   }
 }

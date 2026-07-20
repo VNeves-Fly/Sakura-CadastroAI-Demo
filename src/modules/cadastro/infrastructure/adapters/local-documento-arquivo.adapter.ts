@@ -18,6 +18,8 @@ const MIME_POR_EXTENSAO: Record<string, string> = {
 };
 
 export class LocalDocumentoArquivoAdapter implements DocumentoArquivoService {
+  // Sem bucket no disco local — parâmetro existe só pra cumprir a
+  // interface (ver GcsDocumentoArquivoAdapter, que de fato usa).
   async obter(path: string): Promise<DocumentoArquivoResultado> {
     const buffer = await readFile(join(UPLOAD_ROOT, path));
     const mimeType = MIME_POR_EXTENSAO[extname(path).toLowerCase()] ?? "application/octet-stream";

@@ -34,21 +34,22 @@ describe("GcsFileStorage", () => {
 
   it("sobe o arquivo no bucket informado, com pathHint + timestamp + extensão", async () => {
     const storage = new GcsFileStorage("meu-bucket", "");
-    const path = await storage.save(arquivo, "agencias/123/contrato-social");
+    const saved = await storage.save(arquivo, "agencias/123/contrato-social");
 
     expect(mockBucket).toHaveBeenCalledWith("meu-bucket");
     expect(mockFile).toHaveBeenCalledWith(
       expect.stringMatching(/^agencias\/123\/contrato-social-\d+\.pdf$/),
     );
     expect(mockSave).toHaveBeenCalledWith(arquivo.buffer, { contentType: "application/pdf" });
-    expect(path).toMatch(/^agencias\/123\/contrato-social-\d+\.pdf$/);
+    expect(saved.path).toMatch(/^agencias\/123\/contrato-social-\d+\.pdf$/);
+    expect(saved.bucket).toBe("meu-bucket");
   });
 
   it("prefixa o path com folderPrefix quando configurado", async () => {
     const storage = new GcsFileStorage("meu-bucket", "cadastro-ai");
-    const path = await storage.save(arquivo, "agencias/123/rg");
+    const saved = await storage.save(arquivo, "agencias/123/rg");
 
-    expect(path).toMatch(/^cadastro-ai\/agencias\/123\/rg-\d+\.pdf$/);
+    expect(saved.path).toMatch(/^cadastro-ai\/agencias\/123\/rg-\d+\.pdf$/);
   });
 
   it("usa GCS_BUCKET_NAME e GCS_FOLDER_PREFIX do ambiente quando não passados no construtor", async () => {
@@ -59,10 +60,11 @@ describe("GcsFileStorage", () => {
     };
 
     const storage = new GcsFileStorage();
-    const path = await storage.save(arquivo, "x");
+    const saved = await storage.save(arquivo, "x");
 
     expect(mockBucket).toHaveBeenCalledWith("bucket-do-env");
-    expect(path).toMatch(/^prefixo-env\/x-\d+\.pdf$/);
+    expect(saved.path).toMatch(/^prefixo-env\/x-\d+\.pdf$/);
+    expect(saved.bucket).toBe("bucket-do-env");
   });
 
   it("lança erro claro se GCS_BUCKET_NAME não está configurada e nenhum bucketName foi passado", () => {

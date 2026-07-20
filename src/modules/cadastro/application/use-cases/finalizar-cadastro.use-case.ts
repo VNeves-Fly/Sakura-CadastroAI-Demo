@@ -54,19 +54,20 @@ export class FinalizarCadastroUseCase implements UseCase<
     const qsaResult = await this.qsaConsultaService.consultar(input.cnpj);
     const razaoSocial = qsaResult?.razaoSocial ?? input.cnpj;
 
-    const contratoSocialPath = await this.fileStorage.save(
+    const contratoSocialSalvo = await this.fileStorage.save(
       input.contratoSocial,
       `agencias/${input.cnpj}/contrato-social`,
     );
+    const contratoSocialPath = contratoSocialSalvo.path;
 
     const socios = await Promise.all(
       input.socios.map(async (socio, index) => {
-        const rgPath = await this.fileStorage.save(
+        const rgSalvo = await this.fileStorage.save(
           socio.rg,
           `agencias/${input.cnpj}/socio-${index}-rg`,
         );
 
-        const procuracaoPath = socio.procuracao
+        const procuracaoSalva = socio.procuracao
           ? await this.fileStorage.save(
               socio.procuracao,
               `agencias/${input.cnpj}/socio-${index}-procuracao`,
@@ -81,8 +82,10 @@ export class FinalizarCadastroUseCase implements UseCase<
           estadoCivil: socio.estadoCivil,
           endereco: socio.endereco,
           isRepresentante: socio.isRepresentante,
-          rgPath,
-          procuracaoPath,
+          rgPath: rgSalvo.path,
+          rgBucket: rgSalvo.bucket,
+          procuracaoPath: procuracaoSalva?.path ?? null,
+          procuracaoBucket: procuracaoSalva?.bucket ?? null,
         };
       }),
     );
@@ -161,6 +164,7 @@ export class FinalizarCadastroUseCase implements UseCase<
       cnpj: input.cnpj,
       status: contratoResult ? STATUS_AGUARDANDO_ASSINATURA : STATUS_EM_COMPLEMENTAR,
       contratoSocialPath,
+      contratoSocialBucket: contratoSocialSalvo.bucket,
       emailContato: input.emailOperacional,
       telefoneContato: input.telefoneComercial,
       origem: input.origem,
@@ -180,7 +184,9 @@ export class FinalizarCadastroUseCase implements UseCase<
         endereco: socio.endereco,
         isRepresentanteLegal: socio.isRepresentante,
         rgPath: socio.rgPath,
+        rgBucket: socio.rgBucket,
         procuracaoPath: socio.procuracaoPath,
+        procuracaoBucket: socio.procuracaoBucket,
         analiseIa: analisesIaSociosPorCpf.get(socio.cpf) ?? null,
       })),
       enderecoBanco: {

@@ -59,7 +59,12 @@ export interface SocioData {
   endereco: EnderecoData;
   isRepresentanteLegal: boolean;
   rgPath: string;
+  // Bucket onde rgPath/procuracaoPath foram salvos (ver SavedFile) — vai
+  // pro Documento.gcsBucket, pra sempre saber em qual bucket o arquivo
+  // está de verdade mesmo que GCS_BUCKET_NAME mude depois do upload.
+  rgBucket: string | null;
   procuracaoPath: string | null;
+  procuracaoBucket: string | null;
   // Resultado do documentAnalysisService.analisar() sobre o RG deste
   // sócio — o repository grava como AnaliseIaDocumento vinculada ao
   // Documento real dentro da mesma transação (precisa do id gerado no
@@ -90,6 +95,8 @@ export interface CreateAgenciaData {
   cnpj: string;
   status: string;
   contratoSocialPath: string;
+  // Ver comentário em SocioData.rgBucket.
+  contratoSocialBucket: string | null;
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
