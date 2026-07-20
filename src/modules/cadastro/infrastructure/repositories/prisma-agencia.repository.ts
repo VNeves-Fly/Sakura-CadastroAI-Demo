@@ -86,6 +86,9 @@ interface RepresentanteLegalRecord {
   estadoCivil: string;
   isRepresentanteLegal: boolean;
   endereco: EnderecoRecord | null;
+  rg: string | null;
+  rgOrgaoEmissor: string | null;
+  dataNascimento: Date | null;
 }
 
 // `documentosDaAgencia` já vem ordenado createdAt desc (ver
@@ -121,6 +124,9 @@ function representanteToDomain(
     endereco: enderecoToDomain(record.endereco),
     rg: documentoAtual(documentosDaAgencia, TipoDocumento.RG_CNPJ, record.id),
     procuracao: documentoAtual(documentosDaAgencia, TipoDocumento.PROCURACAO, record.id),
+    rgNumero: record.rg,
+    rgOrgaoEmissor: record.rgOrgaoEmissor,
+    dataNascimento: record.dataNascimento,
   };
 }
 

@@ -1,11 +1,15 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { getServerSession } from "next-auth";
 import { Building2, Users, Landmark, FileSignature, FileCheck2 } from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SecaoColapsavel } from "./secao-colapsavel";
 import { RevisaoDocumentosComplementar } from "./revisao-documentos";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { FilaAssinatura } from "./fila-assinatura";
+import { ContratoIdManual } from "./contrato-id-manual";
+import { UsuarioMaster } from "./usuario-master";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
   labelOrigemContrato,
@@ -161,6 +165,9 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
     indiceTrilha,
     trilhaRecusada,
   } = view;
+
+  const session = await getServerSession(nextAuthOptions);
+  const analistaLogado = session?.user?.email ?? session?.user?.name ?? "analista não identificado";
 
   return (
     <div className="flex flex-col gap-4">
@@ -329,10 +336,8 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                     </span>
                   </Campo>
                   <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
-                  <Campo label="Documento D4Sign" className="sm:col-span-2">
-                    <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
-                      {contratoAtual.provedorId}
-                    </span>
+                  <Campo label="ID do Contrato" className="sm:col-span-2">
+                    <ContratoIdManual provedorId={contratoAtual.provedorId} />
                   </Campo>
                   <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
                 </dl>
@@ -343,7 +348,9 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                   </strong>{" "}
                   o histórico de auditoria (quem gerou, quem revisou e quem enviou o contrato, com
                   data/hora) não existe no schema hoje — sinalizando aqui em vez de simular um log
-                  falso.
+                  falso. O ID de contrato assinado por fora também não persiste ainda (só nesta
+                  tela, some se recarregar a página) — falta um campo novo no banco pra guardar isso
+                  de verdade.
                 </div>
 
                 {agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
@@ -435,11 +442,17 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 Contrato validado (provedor: {contratoAtual?.provedorId ?? "—"}). Falta só criar
                 SICA, Travel Link e usuário master e ativar o cliente.
               </p>
+
+              <UsuarioMaster
+                representantesLegais={representantesLegais}
+                analistaLogado={analistaLogado}
+              />
+
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
                 <strong className="text-foreground">Não implementado ainda:</strong> criação de
-                código SICA, Travel Link e credenciais de usuário master exigem campos novos no
-                schema (não existem hoje) — sinalizando aqui em vez de simular dado falso. O botão
-                abaixo só ativa o cliente, sem essas 3 etapas.
+                código SICA e Travel Link exigem campos novos no schema (não existem hoje) —
+                sinalizando aqui em vez de simular dado falso. O botão abaixo só ativa o cliente,
+                sem essas 2 etapas.
               </div>
               <div className="flex flex-wrap gap-2">
                 <form action={ativarClienteAction.bind(null, agencia.id)}>
