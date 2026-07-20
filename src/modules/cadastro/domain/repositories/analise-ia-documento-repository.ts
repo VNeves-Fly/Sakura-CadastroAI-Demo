@@ -2,13 +2,16 @@ import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/anal
 
 export interface CreateAnaliseIaDocumentoData {
   documentoId: string;
-  numeroCadastur?: string | null;
-  razaoSocialExtraida?: string | null;
-  dataCadastroExtraida?: Date | null;
-  dataValidadeExtraida?: Date | null;
-  situacaoExtraida?: string | null;
-  cnaeExtraido?: string | null;
-  scoreConfianca?: number | null;
+  camposExtraidos: Record<string, unknown>;
+  camposExtras: Record<string, unknown>;
+  confiancaExtracao: number;
+  alertas: string[];
+  resumoAnalise?: string | null;
+  textoBruto?: string | null;
+  formatoValido?: boolean | null;
+  camposObrigatoriosPresentes?: boolean | null;
+  referenciaCruzadaOk?: boolean | null;
+  detalhesChecagem?: Record<string, unknown> | null;
 }
 
 export interface AnaliseIaDocumentoRepository {

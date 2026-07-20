@@ -408,20 +408,26 @@ model Documento {
   @@map("documentos")
 }
 
-// Roadmap — extração de IA sobre um documento (hoje: CADASTUR); não
-// populado pela UI atual.
+// Espelha DocumentAnalysisResultado (o retorno do FlysakuraDocumentAnalysisAdapter)
+// pra qualquer document_type (contrato_social, cnh_rg, ...) — não um schema fixo
+// tipo CADASTUR, já que o agente decide as chaves de `campos`/`camposExtras`
+// dinamicamente por tipo de documento/sociedade. Roadmap: ainda não populado
+// (FinalizarCadastroUseCase descarta o retorno de documentAnalysisService.analisar()).
 model AnaliseIaDocumento {
   id          String    @id @default(cuid())
   documentoId String    @unique
   documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
 
-  numeroCadastur       String?
-  razaoSocialExtraida  String?
-  dataCadastroExtraida DateTime?
-  dataValidadeExtraida DateTime?
-  situacaoExtraida     String?
-  cnaeExtraido         String?
-  scoreConfianca       Decimal?  @db.Decimal(5, 2)
+  camposExtraidos             Json
+  camposExtras                Json
+  confiancaExtracao           Decimal  @db.Decimal(5, 2)
+  alertas                     String[]
+  resumoAnalise               String?
+  textoBruto                  String?
+  formatoValido               Boolean?
+  camposObrigatoriosPresentes Boolean?
+  referenciaCruzadaOk         Boolean?
+  detalhesChecagem            Json?
 
   processadoEm DateTime @default(now())
 

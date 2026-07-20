@@ -1,10 +1,14 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
+import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
 import {
+  Prisma,
   StatusAgencia as PrismaStatusAgencia,
   StatusContrato as PrismaStatusContrato,
   TipoDocumento,
 } from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import { documentoRecordToDomain } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import {
   CONTRATO_STATUS_ASSINADO,
   STATUS_ATIVO,
@@ -62,6 +66,25 @@ interface EnderecoRecord {
   uf: string | null;
 }
 
+function analiseIaParaPrisma(
+  resultado: DocumentAnalysisResultado,
+): Prisma.AnaliseIaDocumentoCreateWithoutDocumentoInput {
+  return {
+    camposExtraidos: resultado.camposExtraidos as Prisma.InputJsonValue,
+    camposExtras: resultado.camposExtras as Prisma.InputJsonValue,
+    confiancaExtracao: resultado.confiancaExtracao,
+    alertas: resultado.alertas,
+    resumoAnalise: resultado.resumoAnalise,
+    textoBruto: resultado.textoBruto,
+    formatoValido: resultado.checagens?.formatoValido ?? null,
+    camposObrigatoriosPresentes: resultado.checagens?.camposObrigatoriosPresentes ?? null,
+    referenciaCruzadaOk: resultado.checagens?.referenciaCruzadaOk ?? null,
+    detalhesChecagem: resultado.checagens
+      ? (resultado.checagens.detalhes as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
+  };
+}
+
 function enderecoToDomain(record: EnderecoRecord | null): EnderecoData {
   if (!record) return ENDERECO_VAZIO;
   return {
@@ -84,15 +107,33 @@ interface RepresentanteLegalRecord {
   estadoCivil: string;
   isRepresentanteLegal: boolean;
   endereco: EnderecoRecord | null;
-  documentos: { tipo: string; gcsPath: string }[];
+  rg: string | null;
+  rgOrgaoEmissor: string | null;
+  dataNascimento: Date | null;
 }
 
-function representanteToDomain(record: RepresentanteLegalRecord): RepresentanteLegalDetalhe {
-  const rg = record.documentos.find((documento) => documento.tipo === TipoDocumento.RG_CNPJ);
-  const procuracao = record.documentos.find(
-    (documento) => documento.tipo === TipoDocumento.PROCURACAO,
+// `documentosDaAgencia` já vem ordenado createdAt desc (ver
+// obterDetalhe) — o primeiro match de cada tipo é sempre o mais recente,
+// ou seja, "o documento atual" daquele slot. Reprovar não apaga a linha
+// antiga do banco (fica de histórico/auditoria); quando o cliente
+// reenvia, a linha nova (mais recente) passa a ser a atual automaticamente,
+// sem precisar de nenhuma flag extra de "ativo".
+function documentoAtual(
+  documentosDaAgencia: DocumentoRecord[],
+  tipo: TipoDocumento,
+  representanteLegalId: string | null,
+): Documento | null {
+  const record = documentosDaAgencia.find(
+    (documento) =>
+      documento.tipo === tipo && documento.representanteLegalId === representanteLegalId,
   );
+  return record ? documentoRecordToDomain(record) : null;
+}
 
+function representanteToDomain(
+  record: RepresentanteLegalRecord,
+  documentosDaAgencia: DocumentoRecord[],
+): RepresentanteLegalDetalhe {
   return {
     id: record.id,
     nome: record.nome,
@@ -102,8 +143,11 @@ function representanteToDomain(record: RepresentanteLegalRecord): RepresentanteL
     estadoCivil: record.estadoCivil,
     isRepresentanteLegal: record.isRepresentanteLegal,
     endereco: enderecoToDomain(record.endereco),
-    rgPath: rg?.gcsPath ?? "",
-    procuracaoPath: procuracao?.gcsPath ?? null,
+    rg: documentoAtual(documentosDaAgencia, TipoDocumento.RG_CNPJ, record.id),
+    procuracao: documentoAtual(documentosDaAgencia, TipoDocumento.PROCURACAO, record.id),
+    rgNumero: record.rg,
+    rgOrgaoEmissor: record.rgOrgaoEmissor,
+    dataNascimento: record.dataNascimento,
   };
 }
 
@@ -168,7 +212,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       where: { id },
       include: {
         complementar: { include: { enderecoAgencia: true } },
-        representantesLegais: { include: { endereco: true, documentos: true } },
+        representantesLegais: { include: { endereco: true } },
+        // Todos os documentos da agência numa lista só (sócios +
+        // contrato social) — mais barato que incluir por sócio, e
+        // `documentoAtual` já filtra por representanteLegalId na hora
+        // de montar cada slot.
+        documentos: { orderBy: { createdAt: "desc" } },
         contratos: { orderBy: { createdAt: "desc" } },
       },
     });
@@ -178,7 +227,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return {
       agencia: this.toDomain(record),
       complementar: record.complementar ? complementarToDomain(record.complementar) : null,
-      representantesLegais: record.representantesLegais.map(representanteToDomain),
+      representantesLegais: record.representantesLegais.map((socio) =>
+        representanteToDomain(socio, record.documentos),
+      ),
+      contratoSocial: documentoAtual(record.documentos, TipoDocumento.CONTRATO_SOCIAL, null),
       contratos: record.contratos.map((contrato) => ({
         id: contrato.id,
         provedorId: contrato.provedorId,
@@ -230,37 +282,60 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         agencia.representantesLegais.map((record) => [record.cpf, record]),
       );
 
-      await tx.documento.createMany({
-        data: data.socios.flatMap((socio) => {
-          const socioRecord = socioRecordPorCpf.get(socio.cpf);
-          if (!socioRecord) return [];
+      // Contrato social não tem representanteLegalId (pertence à agência
+      // como um todo) — mesma tabela Documento, só sem esse vínculo.
+      // Criado individualmente (não createMany) porque precisamos do id
+      // real gerado pra vincular a AnaliseIaDocumento correspondente,
+      // dentro da mesma transação.
+      const contratoSocialDoc = await tx.documento.create({
+        data: {
+          agenciaId: agencia.id,
+          representanteLegalId: null,
+          tipo: TipoDocumento.CONTRATO_SOCIAL,
+          gcsPath: data.contratoSocialPath,
+        },
+      });
+      if (data.analiseIaContratoSocial) {
+        await tx.analiseIaDocumento.create({
+          data: {
+            documentoId: contratoSocialDoc.id,
+            ...analiseIaParaPrisma(data.analiseIaContratoSocial),
+          },
+        });
+      }
 
-          const documentos: {
-            agenciaId: string;
-            representanteLegalId: string;
-            tipo: TipoDocumento;
-            gcsPath: string;
-          }[] = [
-            {
-              agenciaId: agencia.id,
-              representanteLegalId: socioRecord.id,
-              tipo: TipoDocumento.RG_CNPJ,
-              gcsPath: socio.rgPath,
+      for (const socio of data.socios) {
+        const socioRecord = socioRecordPorCpf.get(socio.cpf);
+        if (!socioRecord) continue;
+
+        const rgDoc = await tx.documento.create({
+          data: {
+            agenciaId: agencia.id,
+            representanteLegalId: socioRecord.id,
+            tipo: TipoDocumento.RG_CNPJ,
+            gcsPath: socio.rgPath,
+          },
+        });
+        if (socio.analiseIa) {
+          await tx.analiseIaDocumento.create({
+            data: {
+              documentoId: rgDoc.id,
+              ...analiseIaParaPrisma(socio.analiseIa),
             },
-          ];
+          });
+        }
 
-          if (socio.procuracaoPath) {
-            documentos.push({
+        if (socio.procuracaoPath) {
+          await tx.documento.create({
+            data: {
               agenciaId: agencia.id,
               representanteLegalId: socioRecord.id,
               tipo: TipoDocumento.PROCURACAO,
               gcsPath: socio.procuracaoPath,
-            });
-          }
-
-          return documentos;
-        }),
-      });
+            },
+          });
+        }
+      }
 
       const socioVinculado =
         data.enderecoBanco.socioEnderecoVinculadoIndex !== null

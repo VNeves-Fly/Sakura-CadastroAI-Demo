@@ -10,6 +10,10 @@ interface ValidacaoSicaTravelLinkProps {
   agenciaId: string;
   validarContratoAction: (id: string) => Promise<void>;
   recusarCadastroAction: (id: string) => Promise<void>;
+  // true quando o analista está revendo esta etapa a partir de uma etapa
+  // posterior (ver `etapaExibida` na page) — some com os botões de ação,
+  // só sobra a leitura do que foi preenchido.
+  somenteLeitura?: boolean;
 }
 
 // SICA e Travel Link ainda não têm campo no schema (decisão explícita:
@@ -21,6 +25,7 @@ export function ValidacaoSicaTravelLink({
   agenciaId,
   validarContratoAction,
   recusarCadastroAction,
+  somenteLeitura = false,
 }: ValidacaoSicaTravelLinkProps) {
   const [sica, setSica] = useState("");
   const [sicaSalvo, setSicaSalvo] = useState(false);
@@ -40,36 +45,42 @@ export function ValidacaoSicaTravelLink({
             type="text"
             inputMode="numeric"
             value={sica}
-            disabled={sicaSalvo}
+            disabled={sicaSalvo || somenteLeitura}
             onChange={(event) => setSica(event.target.value.replace(/\D/g, ""))}
             placeholder="Somente números"
             className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
           />
-          {sicaSalvo ? (
-            <button
-              type="button"
-              onClick={() => setSicaSalvo(false)}
-              className="border-input text-foreground hover:bg-accent shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition"
-            >
-              Editar
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={sica.length === 0}
-              onClick={() => setSicaSalvo(true)}
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Salvar
-            </button>
-          )}
+          {!somenteLeitura &&
+            (sicaSalvo ? (
+              <button
+                type="button"
+                onClick={() => setSicaSalvo(false)}
+                className="border-input text-foreground hover:bg-accent shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition"
+              >
+                Editar
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={sica.length === 0}
+                onClick={() => setSicaSalvo(true)}
+                className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Salvar
+              </button>
+            ))}
         </div>
         {sicaSalvo ? <span className="text-success text-xs font-medium">✓ SICA salvo</span> : null}
       </div>
 
       <div className="flex items-center gap-3">
         <span className="text-foreground text-sm font-bold">Travel Link criado</span>
-        <SwipeSwitch id="travel-link" checked={travelLinkAtivo} onChange={setTravelLinkAtivo} />
+        <SwipeSwitch
+          id="travel-link"
+          checked={travelLinkAtivo}
+          onChange={setTravelLinkAtivo}
+          disabled={somenteLeitura}
+        />
       </div>
 
       <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
@@ -78,30 +89,32 @@ export function ValidacaoSicaTravelLink({
         página). O bloqueio abaixo já é real: sem os dois preenchidos, não dá pra validar.
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <form action={validarContratoAction.bind(null, agenciaId)}>
-          <button
-            type="submit"
-            disabled={!podeValidar}
-            title={
-              podeValidar
-                ? undefined
-                : "Salve o código SICA e confirme o Travel Link antes de validar"
-            }
-            className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Validar Contrato
-          </button>
-        </form>
-        <form action={recusarCadastroAction.bind(null, agenciaId)}>
-          <button
-            type="submit"
-            className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-          >
-            Recusar
-          </button>
-        </form>
-      </div>
+      {!somenteLeitura ? (
+        <div className="flex flex-wrap gap-2">
+          <form action={validarContratoAction.bind(null, agenciaId)}>
+            <button
+              type="submit"
+              disabled={!podeValidar}
+              title={
+                podeValidar
+                  ? undefined
+                  : "Salve o código SICA e confirme o Travel Link antes de validar"
+              }
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Validar Contrato
+            </button>
+          </form>
+          <form action={recusarCadastroAction.bind(null, agenciaId)}>
+            <button
+              type="submit"
+              className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+            >
+              Recusar
+            </button>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

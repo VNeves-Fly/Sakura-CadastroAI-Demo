@@ -7,6 +7,13 @@ export interface QsaResultView {
   emailReceita: string;
 }
 
+export interface ContratoSocialAnaliseView {
+  cnpjConfere: boolean | null;
+  nomesSocios: string[];
+  alertas: string[];
+  confianca: number;
+}
+
 export interface SubmitResultView {
   success: boolean;
   precisaRevisaoManual?: boolean;

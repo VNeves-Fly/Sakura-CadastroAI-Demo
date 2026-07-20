@@ -9,7 +9,10 @@ import type { FileStorage } from "@/modules/cadastro/domain/services/file-storag
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { AnaliseIaService } from "@/modules/cadastro/domain/services/analise-ia-service";
-import type { DocumentAnalysisService } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type {
+  DocumentAnalysisResultado,
+  DocumentAnalysisService,
+} from "@/modules/cadastro/domain/services/document-analysis-service";
 import type {
   EnderecoInput,
   FinalizarCadastroInput,
@@ -95,18 +98,23 @@ export class FinalizarCadastroUseCase implements UseCase<
     // checkpoint do LangGraph por session_id, então a chamada final de
     // analiseIaService.avaliar() já enxerga esse contexto. Sequencial (não
     // Promise.all) porque as chamadas dividem o mesmo thread_id no agente;
-    // rodar em paralelo arriscaria concorrência no checkpoint.
-    await this.documentAnalysisService.analisar({
+    // rodar em paralelo arriscaria concorrência no checkpoint. Os
+    // resultados são guardados aqui e persistidos por
+    // agenciaRepository.create() (precisa do id real do Documento, gerado
+    // só dentro daquela transação).
+    const analiseIaContratoSocial = await this.documentAnalysisService.analisar({
       cnpj: input.cnpj,
       documentPath: contratoSocialPath,
       documentType: "contrato_social",
     });
+    const analisesIaSociosPorCpf = new Map<string, DocumentAnalysisResultado>();
     for (const socio of socios) {
-      await this.documentAnalysisService.analisar({
+      const analiseIaSocio = await this.documentAnalysisService.analisar({
         cnpj: input.cnpj,
         documentPath: socio.rgPath,
         documentType: "cnh_rg",
       });
+      analisesIaSociosPorCpf.set(socio.cpf, analiseIaSocio);
     }
 
     // A IA avalia o cadastro logo no envio: se achar algo errado, o caso
@@ -162,6 +170,7 @@ export class FinalizarCadastroUseCase implements UseCase<
         emailComercial: input.emailComercial,
         emailFinanceiro: input.emailFinanceiro,
       },
+      analiseIaContratoSocial,
       socios: socios.map((socio) => ({
         nome: socio.nome,
         cpf: socio.cpf,
@@ -172,6 +181,7 @@ export class FinalizarCadastroUseCase implements UseCase<
         isRepresentanteLegal: socio.isRepresentante,
         rgPath: socio.rgPath,
         procuracaoPath: socio.procuracaoPath,
+        analiseIa: analisesIaSociosPorCpf.get(socio.cpf) ?? null,
       })),
       enderecoBanco: {
         enderecoMesmoSocio: input.enderecoBanco.enderecoMesmoSocio,

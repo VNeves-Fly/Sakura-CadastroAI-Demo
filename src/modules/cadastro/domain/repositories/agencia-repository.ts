@@ -1,5 +1,7 @@
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { OrigemGeracaoContrato } from "@/modules/cadastro/domain/enums";
+import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
 
 export type { OrigemGeracaoContrato };
 
@@ -58,6 +60,11 @@ export interface SocioData {
   isRepresentanteLegal: boolean;
   rgPath: string;
   procuracaoPath: string | null;
+  // Resultado do documentAnalysisService.analisar() sobre o RG deste
+  // sócio — o repository grava como AnaliseIaDocumento vinculada ao
+  // Documento real dentro da mesma transação (precisa do id gerado no
+  // create, por isso não é gravado direto no use-case).
+  analiseIa: DocumentAnalysisResultado | null;
 }
 
 export interface EnderecoBancoData {
@@ -93,6 +100,9 @@ export interface CreateAgenciaData {
   // "em_complementar" não há contrato ainda.
   empresa: EmpresaData;
   socios: SocioData[];
+  // Resultado do documentAnalysisService.analisar() sobre o contrato
+  // social — mesma lógica de SocioData.analiseIa.
+  analiseIaContratoSocial: DocumentAnalysisResultado | null;
   enderecoBanco: EnderecoBancoData;
   contrato: {
     provedorId: string;
@@ -148,8 +158,17 @@ export interface RepresentanteLegalDetalhe {
   estadoCivil: string;
   isRepresentanteLegal: boolean;
   endereco: EnderecoData;
-  rgPath: string;
-  procuracaoPath: string | null;
+  // Documento "atual" de cada slot (o mais recente por tipo+sócio) — pode
+  // ser null se o cliente ainda não reenviou depois de uma reprovação.
+  rg: Documento | null;
+  procuracao: Documento | null;
+  // Dado digitado (não o arquivo) — hoje nenhum wizard (/cadastro, /chat)
+  // pergunta isso, então vem null pra praticamente todo sócio existente.
+  // Exposto mesmo assim pra já refletir automaticamente o dia em que
+  // algum fluxo passar a coletar.
+  rgNumero: string | null;
+  rgOrgaoEmissor: string | null;
+  dataNascimento: Date | null;
 }
 
 export interface CadastroComplementarDetalhe {
@@ -175,6 +194,9 @@ export interface AgenciaDetalhe {
   agencia: Agencia;
   complementar: CadastroComplementarDetalhe | null;
   representantesLegais: RepresentanteLegalDetalhe[];
+  // Documento do contrato social — mesma lógica de "mais recente por
+  // slot" dos documentos de sócio (ver RepresentanteLegalDetalhe).
+  contratoSocial: Documento | null;
   contratos: ContratoDetalhe[];
 }
 

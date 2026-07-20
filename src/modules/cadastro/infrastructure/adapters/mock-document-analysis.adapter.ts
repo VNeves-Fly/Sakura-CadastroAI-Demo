@@ -10,8 +10,12 @@ export class MockDocumentAnalysisService implements DocumentAnalysisService {
   async analisar(_input: DocumentAnalysisInput): Promise<DocumentAnalysisResultado> {
     return {
       camposExtraidos: {},
+      camposExtras: {},
       confiancaExtracao: 0,
       alertas: [],
+      resumoAnalise: null,
+      textoBruto: null,
+      checagens: null,
     };
   }
 }

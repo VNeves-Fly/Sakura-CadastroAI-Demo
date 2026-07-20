@@ -131,6 +131,18 @@
 }
 
 @layer utilities {
+  /* Some scroll sem exibir a barra nativa — evita o "piscar" do
+     scrollbar auto-hide do navegador toda vez que a lista rola (ex:
+     chat rolando a cada mensagem enviada) e mantém o visual limpo do
+     card, sem uma barra clara destoando do tema escuro. */
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
   .text-gradient-brand {
     background: linear-gradient(
       120deg,

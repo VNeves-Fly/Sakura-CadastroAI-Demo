@@ -49,6 +49,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const qsaResult = useCadastroWizardStore((state) => state.qsaResult);
   const avisoAlfanumerico = useCadastroWizardStore((state) => state.avisoAlfanumerico);
   const contratoSocial = useCadastroWizardStore((state) => state.contratoSocial);
+  const analisandoContratoSocial = useCadastroWizardStore(
+    (state) => state.analisandoContratoSocial,
+  );
+  const contratoSocialAnalise = useCadastroWizardStore((state) => state.contratoSocialAnalise);
 
   const setCnpjRaw = useCadastroWizardStore((state) => state.setCnpj);
   const setCnpjStatus = useCadastroWizardStore((state) => state.setCnpjStatus);
@@ -56,6 +60,12 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
   const setContratoSocialRaw = useCadastroWizardStore((state) => state.setContratoSocial);
+  const setAnalisandoContratoSocial = useCadastroWizardStore(
+    (state) => state.setAnalisandoContratoSocial,
+  );
+  const setContratoSocialAnalise = useCadastroWizardStore(
+    (state) => state.setContratoSocialAnalise,
+  );
 
   // Erros de validação de arquivo (regra em arquivo-upload.util.ts,
   // compartilhada com a validação real do backend) — vivem aqui, não nos
@@ -134,6 +144,52 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qsaResult]);
 
+  // Quando a análise do contrato social resolve, tenta preencher um card
+  // de sócio pra cada nome extraído — mesma regra não-destrutiva da QSA
+  // (nunca sobrescreve nome já preenchido nem remove sócio adicionado a
+  // mais pelo usuário).
+  useEffect(() => {
+    if (!contratoSocialAnalise) return;
+
+    const atualizados = [...socios];
+    contratoSocialAnalise.nomesSocios.forEach((nome, index) => {
+      if (!atualizados[index]) {
+        atualizados[index] = criarSocioWizardVazio();
+      }
+      if (!atualizados[index].nome) {
+        atualizados[index] = { ...atualizados[index], nome };
+      }
+    });
+    setSocios(atualizados);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contratoSocialAnalise]);
+
+  async function analisarContratoSocialSeCompleto(cnpjMascarado: string, arquivo: File | null) {
+    if (!arquivo) return;
+
+    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+    if (!validarCnpjComMensagem(cnpjMascarado).valido || isCnpjAlfanumerico(cnpjLimpo)) {
+      return;
+    }
+
+    setAnalisandoContratoSocial(true);
+    setContratoSocialAnalise(null);
+
+    try {
+      const formData = agenciaAdapter.toAnalisarContratoSocialFormData({
+        cnpjMascarado,
+        contratoSocial: arquivo,
+      });
+      const raw = await agenciaService.analisarContratoSocial(formData);
+      setContratoSocialAnalise(agenciaAdapter.toContratoSocialAnaliseView(raw));
+    } catch {
+      // Best-effort — falha na análise não deve travar o preenchimento manual.
+      setContratoSocialAnalise(null);
+    } finally {
+      setAnalisandoContratoSocial(false);
+    }
+  }
+
   async function consultarQsaSeCompleto(cnpjMascarado: string) {
     const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
 
@@ -170,12 +226,16 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     if (!file) {
       setContratoSocialErro(null);
       setContratoSocialRaw(null);
+      setContratoSocialAnalise(null);
       return;
     }
 
     const erro = validarArquivoUpload(file, "Contrato Social");
     setContratoSocialErro(erro);
     setContratoSocialRaw(erro ? null : file);
+    if (!erro) {
+      void analisarContratoSocialSeCompleto(cnpj, file);
+    }
   }
 
   function setCnpj(valorDigitado: string) {
@@ -183,6 +243,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setCnpjRaw(mascarado);
     setCnpjStatus(validarCnpjComMensagem(mascarado));
     void consultarQsaSeCompleto(mascarado);
+    void analisarContratoSocialSeCompleto(mascarado, contratoSocial);
   }
 
   function setTelefoneComercial(valorDigitado: string) {
@@ -236,8 +297,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       patchValidado.procuracaoArquivo = erro ? null : arquivo;
     }
 
-    setSocios(
-      socios.map((socio, i) => {
+    let cepParaBuscarAutomaticamente: string | null = null;
+
+    setSocios((current) =>
+      current.map((socio, i) => {
         if (i !== index) return socio;
         const atualizado = { ...socio, ...patchValidado };
 
@@ -251,12 +314,21 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
           atualizado.telefone = maskTelefone(atualizado.telefone, patchValidado.telefonePais);
         }
         if ("cep" in patchValidado && patchValidado.cep !== undefined) {
+          const cepAnteriorLimpo = cepAdapter.toBuscaCepInput(socio.cep);
           atualizado.cep = maskCep(patchValidado.cep);
+          const cepNovoLimpo = cepAdapter.toBuscaCepInput(atualizado.cep);
+          if (cepAnteriorLimpo.length < 8 && cepNovoLimpo.length === 8) {
+            cepParaBuscarAutomaticamente = cepNovoLimpo;
+          }
         }
 
         return atualizado;
       }),
     );
+
+    if (cepParaBuscarAutomaticamente) {
+      void executarBuscaCepSocio(index, cepParaBuscarAutomaticamente);
+    }
   }
 
   function toggleRepresentante(index: number) {
@@ -268,13 +340,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     );
   }
 
-  async function buscarCepSocio(index: number) {
-    const socio = socios[index];
-    if (!socio) return;
-
-    const cepLimpo = cepAdapter.toBuscaCepInput(socio.cep);
-    if (cepLimpo.length !== 8) return;
-
+  async function executarBuscaCepSocio(index: number, cepLimpo: string) {
     setSocioCepBuscando(index);
 
     try {
@@ -294,6 +360,16 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  async function buscarCepSocio(index: number) {
+    const socio = socios[index];
+    if (!socio) return;
+
+    const cepLimpo = cepAdapter.toBuscaCepInput(socio.cep);
+    if (cepLimpo.length !== 8) return;
+
+    await executarBuscaCepSocio(index, cepLimpo);
+  }
+
   function maskDocumentoFavorecido(valorDigitado: string): string {
     const digitos = valorDigitado.replace(/\D/g, "");
     return digitos.length > 11 ? maskCnpj(digitos) : maskCpf(digitos);
@@ -309,55 +385,65 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   }
 
   function updateEnderecoBanco(patch: Partial<EnderecoBancoFormValues>) {
-    const atualizado = { ...enderecoBanco, ...patch };
+    let cepParaBuscarAutomaticamente: string | null = null;
 
-    if ("cep" in patch && patch.cep !== undefined) {
-      atualizado.cep = maskCep(patch.cep);
-    }
+    setEnderecoBanco((current) => {
+      const atualizado = { ...current, ...patch };
 
-    if ("enderecoMesmoSocio" in patch) {
-      if (patch.enderecoMesmoSocio && socios.length === 1) {
-        atualizado.socioEnderecoVinculado = 0;
+      if ("cep" in patch && patch.cep !== undefined) {
+        const cepAnteriorLimpo = cepAdapter.toBuscaCepInput(current.cep);
+        atualizado.cep = maskCep(patch.cep);
+        const cepNovoLimpo = cepAdapter.toBuscaCepInput(atualizado.cep);
+        if (cepAnteriorLimpo.length < 8 && cepNovoLimpo.length === 8) {
+          cepParaBuscarAutomaticamente = cepNovoLimpo;
+        }
       }
-      if (!patch.enderecoMesmoSocio) {
-        atualizado.socioEnderecoVinculado = null;
+
+      if ("enderecoMesmoSocio" in patch) {
+        if (patch.enderecoMesmoSocio && socios.length === 1) {
+          atualizado.socioEnderecoVinculado = 0;
+        }
+        if (!patch.enderecoMesmoSocio) {
+          atualizado.socioEnderecoVinculado = null;
+        }
       }
-    }
 
-    if ("bancoPais" in patch && patch.bancoPais !== undefined) {
-      atualizado.bancoNome = "";
-      atualizado.bancoAgencia = formatarContaBancaria(atualizado.bancoAgencia, patch.bancoPais);
-      atualizado.bancoConta = formatarContaBancaria(atualizado.bancoConta, patch.bancoPais);
-    }
+      if ("bancoPais" in patch && patch.bancoPais !== undefined) {
+        atualizado.bancoNome = "";
+        atualizado.bancoAgencia = formatarContaBancaria(atualizado.bancoAgencia, patch.bancoPais);
+        atualizado.bancoConta = formatarContaBancaria(atualizado.bancoConta, patch.bancoPais);
+      }
 
-    if ("bancoAgencia" in patch && patch.bancoAgencia !== undefined) {
-      atualizado.bancoAgencia = formatarContaBancaria(patch.bancoAgencia, atualizado.bancoPais);
-    }
+      if ("bancoAgencia" in patch && patch.bancoAgencia !== undefined) {
+        atualizado.bancoAgencia = formatarContaBancaria(patch.bancoAgencia, atualizado.bancoPais);
+      }
 
-    if ("bancoConta" in patch && patch.bancoConta !== undefined) {
-      atualizado.bancoConta = formatarContaBancaria(patch.bancoConta, atualizado.bancoPais);
-    }
+      if ("bancoConta" in patch && patch.bancoConta !== undefined) {
+        atualizado.bancoConta = formatarContaBancaria(patch.bancoConta, atualizado.bancoPais);
+      }
 
-    if ("favorecidoEhEmpresa" in patch && patch.favorecidoEhEmpresa) {
-      atualizado.favorecidoNome = qsaResult?.razaoSocial ?? "";
-      atualizado.favorecidoDoc = maskCnpj(unmaskCnpj(cnpj));
-    }
+      if ("favorecidoEhEmpresa" in patch && patch.favorecidoEhEmpresa) {
+        atualizado.favorecidoNome = qsaResult?.razaoSocial ?? "";
+        atualizado.favorecidoDoc = maskCnpj(unmaskCnpj(cnpj));
+      }
 
-    if (
-      "favorecidoDoc" in patch &&
-      patch.favorecidoDoc !== undefined &&
-      !atualizado.favorecidoEhEmpresa
-    ) {
-      atualizado.favorecidoDoc = maskDocumentoFavorecido(patch.favorecidoDoc);
-    }
+      if (
+        "favorecidoDoc" in patch &&
+        patch.favorecidoDoc !== undefined &&
+        !atualizado.favorecidoEhEmpresa
+      ) {
+        atualizado.favorecidoDoc = maskDocumentoFavorecido(patch.favorecidoDoc);
+      }
 
-    setEnderecoBanco(atualizado);
+      return atualizado;
+    });
+
+    if (cepParaBuscarAutomaticamente) {
+      void executarBuscaCepEnderecoBanco(cepParaBuscarAutomaticamente);
+    }
   }
 
-  async function buscarCepEnderecoBanco() {
-    const cepLimpo = cepAdapter.toBuscaCepInput(enderecoBanco.cep);
-    if (cepLimpo.length !== 8) return;
-
+  async function executarBuscaCepEnderecoBanco(cepLimpo: string) {
     setEnderecoBancoCepBuscando(true);
 
     try {
@@ -375,6 +461,13 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     } finally {
       setEnderecoBancoCepBuscando(false);
     }
+  }
+
+  async function buscarCepEnderecoBanco() {
+    const cepLimpo = cepAdapter.toBuscaCepInput(enderecoBanco.cep);
+    if (cepLimpo.length !== 8) return;
+
+    await executarBuscaCepEnderecoBanco(cepLimpo);
   }
 
   // Validação de campo é decidida aqui (única fonte de verdade), nunca
@@ -504,6 +597,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     avisoAlfanumerico,
     contratoSocial,
     contratoSocialErro,
+    analisandoContratoSocial,
+    contratoSocialAnalise,
     setCnpj,
     setContratoSocial,
 

@@ -1,41 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
 
-export interface DocumentoRevisao {
-  id: string;
-  label: string;
-  path: string;
+interface RevisaoDocumentosComplementarProps {
+  agenciaId: string;
+  // Já vêm separados de quem prepara os dados da página (page.tsx) — a
+  // View só renderiza, não decide o que é "ativo" ou "pendente".
+  documentosAtivos: DocumentoRevisao[];
+  documentosPendentes: DocumentoRevisao[];
+  aprovarDocumentoAction: (agenciaId: string, documentoId: string) => Promise<void>;
+  reprovarDocumentoAction: (
+    agenciaId: string,
+    documentoId: string,
+    formData: FormData,
+  ) => Promise<void>;
+  solicitarReenvioDocumentosAction: (agenciaId: string, formData: FormData) => Promise<void>;
+  // true quando o analista está revendo esta etapa a partir de uma etapa
+  // posterior (ver `etapaExibida` na page) — trava aprovar/reprovar/
+  // solicitar reenvio, só sobra a leitura (ver anexo/copiar link).
+  somenteLeitura?: boolean;
 }
-
-type Decisao = "pendente" | "aprovado" | "reprovado";
 
 const BOTAO_DECISAO =
   "rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
 
-// Revisão de documentos do cadastro em "em_complementar" — só a interface
-// por enquanto (decisão do usuário, 2026-07-17): aprovar/reprovar
-// documento e "solicitar reenvio por e-mail" ainda não têm use-case nem
-// infra de e-mail no backend. As decisões aqui só vivem no estado local
-// do componente (não persistem, resetam ao recarregar a página) — é uma
-// prévia da interface, não a funcionalidade real.
-export function RevisaoDocumentosComplementar({ documentos }: { documentos: DocumentoRevisao[] }) {
-  const [decisoes, setDecisoes] = useState<Record<string, Decisao>>({});
-  const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
+function CopiarLinkButton({ link }: { link: string }) {
+  const [copiado, setCopiado] = useState(false);
 
-  function decidir(id: string, decisao: Decisao) {
-    setDecisoes((atual) => ({ ...atual, [id]: decisao }));
-    setSelecionados((atual) => {
-      const entradas = Object.entries(atual).filter(([chave]) => chave !== id);
-      if (decisao === "reprovado") {
-        entradas.push([id, true]);
-      }
-      return Object.fromEntries(entradas);
-    });
-  }
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(link);
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 2000);
+      }}
+      className="text-primary shrink-0 text-xs font-semibold hover:underline"
+    >
+      {copiado ? "Copiado!" : "Copiar link"}
+    </button>
+  );
+}
 
-  const reprovados = documentos.filter((doc) => decisoes[doc.id] === "reprovado");
-  const algumSelecionado = reprovados.some((doc) => selecionados[doc.id]);
+// Revisão de documentos do cadastro em "em_complementar" — agora com
+// dado real: aprovar/reprovar chamam server actions que gravam no
+// Documento (ver ReprovarDocumentoUseCase/AprovarDocumentoUseCase).
+// Reprovar é soft-delete: some do rol "ativo" aqui (e da ficha, ver
+// CampoDocumento em page.tsx) sem apagar do banco — reaparece quando o
+// cliente reenvia pela página pública (link mostrado embaixo).
+export function RevisaoDocumentosComplementar({
+  agenciaId,
+  documentosAtivos,
+  documentosPendentes,
+  aprovarDocumentoAction,
+  reprovarDocumentoAction,
+  solicitarReenvioDocumentosAction,
+  somenteLeitura = false,
+}: RevisaoDocumentosComplementarProps) {
+  const [reprovandoId, setReprovandoId] = useState<string | null>(null);
+  // Calculado só depois de montar (client-only) — se calculasse direto no
+  // corpo do componente, o servidor renderiza sem `window` (link relativo)
+  // e o cliente hidrata com origin completo, gerando mismatch de
+  // hidratação (React reclama porque o HTML final diverge do servidor).
+  const [linkReenvio, setLinkReenvio] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLinkReenvio(`${window.location.origin}/cadastro/documentos-pendentes/${agenciaId}`);
+  }, [agenciaId]);
 
   return (
     <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-5">
@@ -44,90 +76,144 @@ export function RevisaoDocumentosComplementar({ documentos }: { documentos: Docu
       </span>
 
       <div className="flex flex-col gap-2">
-        {documentos.map((doc) => {
-          const decisao = decisoes[doc.id] ?? "pendente";
-          return (
-            <div
-              key={doc.id}
-              className="border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm"
-            >
+        {documentosAtivos.map((doc) => (
+          <div
+            key={doc.id}
+            className="border-border bg-muted/30 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-foreground font-medium">{doc.label}</span>
-                <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
-                  {doc.path.split("/").pop()}
-                </span>
-                {decisao === "aprovado" ? (
+                <a
+                  href={`/api/painel/documentos/${doc.id}/arquivo`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary text-xs font-semibold hover:underline"
+                >
+                  Ver anexo
+                </a>
+                {doc.status === "APROVADO" ? (
                   <span className="bg-success/15 text-success rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
                     Aprovado
                   </span>
                 ) : null}
-                {decisao === "reprovado" ? (
-                  <span className="bg-destructive/15 text-destructive rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
-                    Reprovado
-                  </span>
-                ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => decidir(doc.id, "aprovado")}
-                  className={`${BOTAO_DECISAO} ${
-                    decisao === "aprovado"
-                      ? "border-success bg-success text-success-foreground"
-                      : "border-input text-foreground hover:bg-accent"
-                  }`}
-                >
-                  Aprovar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => decidir(doc.id, "reprovado")}
-                  className={`${BOTAO_DECISAO} ${
-                    decisao === "reprovado"
-                      ? "border-destructive bg-destructive text-destructive-foreground"
-                      : "border-input text-foreground hover:bg-accent"
-                  }`}
-                >
-                  Reprovar
-                </button>
-              </div>
+              {!somenteLeitura ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  <form action={aprovarDocumentoAction.bind(null, agenciaId, doc.id)}>
+                    <button
+                      type="submit"
+                      className={`${BOTAO_DECISAO} ${
+                        doc.status === "APROVADO"
+                          ? "border-success bg-success text-success-foreground"
+                          : "border-input text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      Aprovar
+                    </button>
+                  </form>
+                  <button
+                    type="button"
+                    onClick={() => setReprovandoId(reprovandoId === doc.id ? null : doc.id)}
+                    className={`${BOTAO_DECISAO} border-input text-foreground hover:bg-accent`}
+                  >
+                    Reprovar
+                  </button>
+                </div>
+              ) : null}
             </div>
-          );
-        })}
+
+            {!somenteLeitura && reprovandoId === doc.id ? (
+              <form
+                action={async (formData) => {
+                  await reprovarDocumentoAction(agenciaId, doc.id, formData);
+                  setReprovandoId(null);
+                }}
+                className="flex flex-col gap-2 border-t border-dashed pt-2"
+              >
+                <textarea
+                  name="motivo"
+                  required
+                  rows={2}
+                  placeholder="Motivo da reprovação (obrigatório — o cliente vê isso na página de reenvio)"
+                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="border-destructive bg-destructive text-destructive-foreground rounded-full border px-3 py-1 text-xs font-semibold transition"
+                  >
+                    Confirmar reprovação
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReprovandoId(null)}
+                    className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1 text-xs font-medium transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+        ))}
       </div>
 
-      {reprovados.length > 0 ? (
+      {documentosPendentes.length > 0 ? (
         <div className="border-warning/30 bg-warning/5 flex flex-col gap-3 rounded-xl border p-4 text-sm">
           <span className="text-warning text-xs font-bold tracking-wide uppercase">
             Documentos pendentes de reenvio
           </span>
-          <div className="flex flex-col gap-1.5">
-            {reprovados.map((doc) => (
-              <label key={doc.id} className="text-foreground flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={Boolean(selecionados[doc.id])}
-                  onChange={(event) =>
-                    setSelecionados((atual) => ({ ...atual, [doc.id]: event.target.checked }))
-                  }
-                />
-                {doc.label}
-              </label>
-            ))}
+
+          {somenteLeitura ? (
+            <div className="flex flex-col gap-2">
+              {documentosPendentes.map((doc) => (
+                <span key={doc.id} className="text-foreground">
+                  {doc.label}
+                  {doc.motivoReprovacao ? (
+                    <span className="text-muted-foreground mt-0.5 block text-xs">
+                      {doc.motivoReprovacao}
+                    </span>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <form
+              action={solicitarReenvioDocumentosAction.bind(null, agenciaId)}
+              className="flex flex-col gap-3"
+            >
+              <div className="flex flex-col gap-2">
+                {documentosPendentes.map((doc) => (
+                  <label key={doc.id} className="text-foreground flex items-start gap-2">
+                    <input type="checkbox" name="documentoIds" value={doc.id} className="mt-0.5" />
+                    <span>
+                      {doc.label}
+                      {doc.motivoReprovacao ? (
+                        <span className="text-muted-foreground mt-0.5 block text-xs">
+                          {doc.motivoReprovacao}
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition"
+              >
+                Solicitar documentos por e-mail
+              </button>
+            </form>
+          )}
+
+          <div className="border-border bg-background flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
+            <span className="text-muted-foreground shrink-0">Link pra o cliente reenviar:</span>
+            <code className="text-foreground min-w-0 flex-1 break-all">
+              {linkReenvio ?? "carregando..."}
+            </code>
+            {linkReenvio ? <CopiarLinkButton link={linkReenvio} /> : null}
           </div>
-          <button
-            type="button"
-            disabled={!algumSelecionado}
-            title="Aguardando use-case de reenvio + infra de e-mail no backend — ainda não envia nada de verdade"
-            className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Solicitar documentos por e-mail
-          </button>
-          <p className="text-muted-foreground text-xs">
-            Essa tela ainda é só a interface — falta o use-case de reenvio, a página pública onde o
-            cliente reenvia o documento, o disparo de e-mail e a reanálise da IA no backend. Nada
-            aqui é salvo ainda (as decisões somem se recarregar a página).
-          </p>
         </div>
       ) : null}
     </div>

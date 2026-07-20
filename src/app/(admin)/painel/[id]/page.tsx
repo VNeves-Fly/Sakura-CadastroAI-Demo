@@ -1,17 +1,28 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { Building2, Users, Landmark, FileSignature } from "lucide-react";
+import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { Building2, Users, Landmark, FileSignature, FileCheck2, CheckCircle2 } from "lucide-react";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SecaoColapsavel } from "./secao-colapsavel";
-import { RevisaoDocumentosComplementar, type DocumentoRevisao } from "./revisao-documentos";
+import { RevisaoDocumentosComplementar } from "./revisao-documentos";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
-import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { FilaAssinatura } from "./fila-assinatura";
+import { ContratoIdManual } from "./contrato-id-manual";
+import { UsuarioMaster } from "./usuario-master";
+import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
+import {
+  labelOrigemContrato,
+  labelEstadoCivil,
+  labelTipoConta,
+  labelBancoPais,
+  formatarEndereco,
+  labelStatusContrato,
+  ETAPAS_PIPELINE,
+} from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
-import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
-import {
-  TIPO_CONTA_OPCOES,
-  BANCO_PAIS_OPCOES,
-} from "@/modules/cadastro/types/endereco-banco.types";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -20,43 +31,18 @@ import {
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
   CONTRATO_STATUS_ASSINADO,
+  CONTRATO_STATUS_ASSINADO_AGENCIA,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import {
   aprovarComplementarAction,
+  aprovarDocumentoAction,
+  reprovarDocumentoAction,
+  solicitarReenvioDocumentosAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
   validarContratoAction,
 } from "./actions";
-
-function labelOrigemContrato(origem: "ia" | "humano" | null): string {
-  if (origem === "ia") return "gerado pela IA";
-  if (origem === "humano") return "gerado pelo analista";
-  return "origem desconhecida";
-}
-
-function labelEstadoCivil(valor: string): string {
-  return ESTADO_CIVIL_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function labelTipoConta(valor: string): string {
-  return TIPO_CONTA_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function labelBancoPais(valor: string): string {
-  return BANCO_PAIS_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function formatarEndereco(endereco: {
-  logradouro: string;
-  numero: string;
-  bairro: string;
-  cidade: string;
-  uf: string;
-}): string {
-  if (!endereco.logradouro) return "—";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
-}
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
 // de marca (em vez do cinza neutro anterior) e valor em destaque.
@@ -77,6 +63,19 @@ function Campo({
   );
 }
 
+function ChecklistEtapaConcluida({ label }: { label: string }) {
+  return (
+    <span className="text-success flex items-center gap-1.5 text-sm font-semibold">
+      <CheckCircle2 className="size-4" />
+      {label}
+    </span>
+  );
+}
+
+function formatarData(data: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
+}
+
 // Referência de arquivo (contrato social, RG, procuração) em destaque —
 // mesmo tratamento de "código"/citação usado no mapa-redesign-sakura.html
 // (fundo tintado + cor de marca + monoespaçada).
@@ -88,69 +87,102 @@ function Arquivo({ path }: { path: string }) {
   );
 }
 
-// D4Sign avisou (webhook type_post=2) que o convite pra assinar nunca
-// chegou nesse e-mail — sem isso, o signatário fica esperando pra sempre
-// um convite que não existe.
-function BadgeEmailNaoEntregue() {
-  return (
-    <span
-      className="bg-destructive/15 text-destructive rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase"
-      title="O e-mail de convite pra assinatura não foi entregue — confirme o endereço com o signatário."
-    >
-      E-mail não entregue
-    </span>
-  );
+// Documento reprovado sai do rol "oficial" da ficha (Empresa/Sócios) —
+// mostra que está faltando reenvio em vez do arquivo que foi rejeitado,
+// já que o soft-delete só marca o status, não apaga a linha do banco.
+function CampoDocumento({ documento }: { documento: Documento | null }) {
+  if (!documento) return <span className="text-muted-foreground">—</span>;
+
+  if (documento.status === "REPROVADO") {
+    return (
+      <span
+        className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
+        title={documento.motivoReprovacao ?? undefined}
+      >
+        Aguardando reenvio
+      </span>
+    );
+  }
+
+  return <Arquivo path={documento.gcsPath} />;
 }
 
-const ETAPAS_PIPELINE = [
-  { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
-  { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
-  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
-  { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
-  { status: STATUS_ATIVO, label: "Ativo" },
-];
-
-// Trilha só informativa — o fluxo é sequencial (o analista não navega
-// livremente entre etapas, cada uma libera a próxima por uma ação real),
-// então não é clicável, só mostra onde a agência está agora. "Recusado"
-// não é uma etapa da trilha (é uma saída do fluxo normal): usamos a
-// existência de um Contrato como sinal real de onde a recusa aconteceu
-// (com contrato = recusado depois de enviado; sem contrato = recusado
-// ainda em Complementar) em vez de inventar um campo novo pra isso.
-function TrilhaProgresso({ status, temContrato }: { status: string; temContrato: boolean }) {
-  const recusado = status === STATUS_RECUSADO;
-  const indiceAtual = recusado
-    ? temContrato
-      ? 1
-      : 0
-    : ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === status);
-
+// O fluxo é sequencial (o analista não pula pra frente, cada etapa libera
+// a próxima por uma ação real) — mas etapas já concluídas ficam navegáveis
+// em modo leitura (ver `etapaExibida` na page): o analista clica no
+// círculo/rótulo de uma etapa passada e revê o que já foi feito, sem
+// poder agir nela. Etapas futuras (ainda não alcançadas) continuam sem
+// link. Se o cadastro foi recusado, a trilha toda vira só informativa —
+// não faz sentido "revisar" um fluxo interrompido fora da ordem normal.
+function TrilhaProgresso({
+  agenciaId,
+  indiceAtual,
+  etapaExibida,
+  recusado,
+}: {
+  agenciaId: string;
+  indiceAtual: number;
+  etapaExibida: number;
+  recusado: boolean;
+}) {
   return (
     <div className="flex items-start">
       {ETAPAS_PIPELINE.map((etapa, index) => {
         const concluida = index < indiceAtual;
         const atual = index === indiceAtual;
-        return (
-          <div key={etapa.status} className="flex flex-1 flex-col items-center last:flex-none">
-            <div className="flex w-full items-center">
-              <span
-                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  atual && recusado
-                    ? "bg-destructive text-destructive-foreground"
-                    : concluida || atual
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {concluida ? "✓" : index + 1}
-              </span>
-              {index < ETAPAS_PIPELINE.length - 1 ? (
-                <div className={`h-0.5 flex-1 ${concluida ? "bg-primary" : "bg-muted"}`} />
-              ) : null}
-            </div>
-            <span className="text-muted-foreground mt-1 text-center text-[10px] font-medium whitespace-nowrap uppercase">
+        const selecionada = index === etapaExibida;
+        const navegavel = !recusado && index <= indiceAtual;
+        const ehUltima = index === ETAPAS_PIPELINE.length - 1;
+
+        const conteudoEtapa = (
+          <div className="flex shrink-0 flex-col items-center">
+            {/* Círculo e rótulo ficam juntos numa coluna de largura fixa
+                (pelo conteúdo) — antes a linha conectora dividia espaço
+                com o círculo na mesma linha, empurrando ele pra esquerda
+                do rótulo (que fica centralizado na coluna toda). Assim o
+                círculo sempre fica centralizado em cima do próprio número.
+                O `flex-1` fica no wrapper (não só na linha) pra ela
+                conseguir esticar de verdade dentro do espaço disponível. */}
+            <span
+              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
+                atual && recusado
+                  ? "bg-destructive text-destructive-foreground"
+                  : concluida || atual
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+              } ${selecionada && !atual ? "ring-primary/40 ring-2 ring-offset-2" : ""} ${
+                navegavel ? "hover:opacity-80" : ""
+              }`}
+            >
+              {concluida ? "✓" : index + 1}
+            </span>
+            <span
+              className={`mt-1 text-center text-[10px] font-medium whitespace-nowrap uppercase ${
+                selecionada ? "text-primary font-bold" : "text-muted-foreground"
+              }`}
+            >
               {atual && recusado ? "Recusado" : etapa.label}
             </span>
+          </div>
+        );
+
+        return (
+          <div key={etapa.status} className={`flex items-start ${ehUltima ? "" : "flex-1"}`}>
+            {navegavel ? (
+              <Link
+                href={atual ? `/painel/${agenciaId}` : `/painel/${agenciaId}?etapa=${index}`}
+                title={atual ? "Etapa atual" : `Ver "${etapa.label}" em modo leitura`}
+              >
+                {conteudoEtapa}
+              </Link>
+            ) : (
+              conteudoEtapa
+            )}
+            {!ehUltima ? (
+              <div className="flex h-6 flex-1 items-center">
+                <div className={`h-0.5 w-full ${concluida ? "bg-primary" : "bg-muted"}`} />
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -158,45 +190,57 @@ function TrilhaProgresso({ status, temContrato }: { status: string; temContrato:
   );
 }
 
-export default async function DossieAgenciaPage({ params }: { params: { id: string } }) {
-  const detalhe = await cadastroAdminController.obterDetalhe(params.id).catch(() => null);
+export default async function DossieAgenciaPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { etapa?: string };
+}) {
+  const view = await obterDossieView(params.id);
 
-  if (!detalhe) {
+  if (!view) {
     notFound();
   }
 
-  const { agencia, complementar, representantesLegais, contratos } = detalhe;
-  const contratoAtual = contratos[0] ?? null;
+  const {
+    agencia,
+    complementar,
+    representantesLegais,
+    contratoSocial,
+    contratoAtual,
+    filaAssinatura,
+    documentosAtivos,
+    documentosPendentes,
+    indiceTrilha,
+    trilhaRecusada,
+  } = view;
 
-  // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
-  // por e-mail, cobre tanto os sócios quanto os signatários fixos da
-  // Sakura, sem depender de terem uma linha em ContratoSignatario.
-  const [emailsFalhaEntrega, signatariosPadraoAtivos] = contratoAtual
-    ? await Promise.all([
-        cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id),
-        cadastroAdminController.listarSignatariosPadraoAtivos(),
-      ])
-    : [[], []];
-  const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
+  const session = await getServerSession(nextAuthOptions);
+  const analistaLogado = session?.user?.email ?? session?.user?.name ?? "analista não identificado";
 
-  // Documentos revisáveis do cadastro complementar — contrato social +
-  // RG/procuração de cada sócio, com o mesmo path já usado no restante do
-  // dossiê (nada inventado, só reaproveita o que já vem de AgenciaDetalhe).
-  const documentosParaRevisao: DocumentoRevisao[] = [
-    { id: "contrato-social", label: "Contrato Social", path: agencia.contratoSocialPath },
-    ...representantesLegais.flatMap((socio) => [
-      { id: `rg-${socio.id}`, label: `RG/CNH — ${socio.nome}`, path: socio.rgPath },
-      ...(socio.procuracaoPath
-        ? [
-            {
-              id: `procuracao-${socio.id}`,
-              label: `Procuração — ${socio.nome}`,
-              path: socio.procuracaoPath,
-            },
-          ]
-        : []),
-    ]),
-  ];
+  // Etapas concluídas ficam navegáveis em modo leitura (?etapa=N na URL) —
+  // etapas futuras (index > indiceTrilha) são ignoradas e caem no fallback
+  // pra etapa atual, mesma coisa se o cadastro foi recusado (a trilha não
+  // é navegável nesse caso, ver TrilhaProgresso).
+  const etapaParam = Number(searchParams?.etapa);
+  const etapaValida = Number.isInteger(etapaParam) && etapaParam >= 0 && etapaParam <= indiceTrilha;
+  const etapaExibida = !trilhaRecusada && etapaValida ? etapaParam : indiceTrilha;
+  const mostrandoEtapaAtual = etapaExibida === indiceTrilha;
+
+  const indiceComplementar = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_EM_COMPLEMENTAR,
+  );
+  const indiceAssinatura = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_ASSINATURA,
+  );
+  const indiceValidacao = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_VALIDACAO,
+  );
+  const indiceAtivacao = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_ATIVACAO,
+  );
+  const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
 
   return (
     <div className="flex flex-col gap-4">
@@ -258,8 +302,28 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
       </div>
 
       <div className="border-border bg-card rounded-2xl border p-5">
-        <TrilhaProgresso status={agencia.status} temContrato={contratoAtual !== null} />
+        <TrilhaProgresso
+          agenciaId={agencia.id}
+          indiceAtual={indiceTrilha}
+          etapaExibida={etapaExibida}
+          recusado={trilhaRecusada}
+        />
       </div>
+
+      {!mostrandoEtapaAtual ? (
+        <div className="border-primary/30 bg-primary/5 text-primary flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed px-4 py-3 text-sm">
+          <span>
+            Modo leitura — revendo a etapa <strong>{ETAPAS_PIPELINE[etapaExibida]?.label}</strong>,
+            já concluída. Nenhuma ação pode ser feita aqui.
+          </span>
+          <Link
+            href={`/painel/${agencia.id}`}
+            className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+          >
+            Voltar pra etapa atual
+          </Link>
+        </div>
+      ) : null}
 
       {!complementar ? (
         <div className="border-border bg-card text-muted-foreground rounded-2xl border p-6 text-sm">
@@ -275,7 +339,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
               <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
               <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
               <Campo label="Contrato Social">
-                <Arquivo path={agencia.contratoSocialPath} />
+                <CampoDocumento documento={contratoSocial} />
               </Campo>
             </dl>
           </SecaoColapsavel>
@@ -304,11 +368,11 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                       {formatarEndereco(socio.endereco)}
                     </Campo>
                     <Campo label="RG/CNH">
-                      <Arquivo path={socio.rgPath} />
+                      <CampoDocumento documento={socio.rg} />
                     </Campo>
-                    {socio.procuracaoPath ? (
+                    {socio.procuracao ? (
                       <Campo label="Procuração">
-                        <Arquivo path={socio.procuracaoPath} />
+                        <CampoDocumento documento={socio.procuracao} />
                       </Campo>
                     ) : null}
                   </dl>
@@ -338,76 +402,92 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
       <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />} defaultAberta>
         <div className="flex flex-col gap-3">
-          {contratoAtual ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="border-border bg-muted/30 rounded-xl border p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-                    Fase 1 — Sócios
-                  </span>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-                      contratoAtual.status === CONTRATO_STATUS_ASSINADO
-                        ? "bg-success/15 text-success"
-                        : "bg-info/15 text-info"
-                    }`}
-                  >
-                    {contratoAtual.status === CONTRATO_STATUS_ASSINADO ? "Assinado" : "Enviado"}
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-1 text-sm">
-                  {representantesLegais.map((socio) => (
-                    <li
-                      key={socio.id}
-                      className="text-foreground flex flex-wrap items-center gap-2"
-                    >
-                      {socio.nome}
-                      {emailsNaoEntregues.has(socio.email) ? <BadgeEmailNaoEntregue /> : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          {contratoAtual && etapaExibida >= indiceAssinatura ? (
+            <>
+              <FilaAssinatura fila={filaAssinatura} />
 
-              <div className="border-border bg-muted/30 rounded-xl border p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-                    Fase 2 — Sakura
+              <div className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
+                <span className="text-primary mb-3 flex items-center gap-2">
+                  <FileCheck2 className="size-4" />
+                  <span className="text-xs font-bold tracking-wide uppercase">
+                    Contratos D4Sign
                   </span>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-                      contratoAtual.status === CONTRATO_STATUS_ASSINADO
-                        ? "bg-success/15 text-success"
-                        : "bg-info/15 text-info"
-                    }`}
-                  >
-                    {contratoAtual.status === CONTRATO_STATUS_ASSINADO ? "Assinado" : "Enviado"}
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-1 text-sm">
-                  {signatariosPadraoAtivos.map((signatario) => (
-                    <li
-                      key={signatario.id}
-                      className="text-foreground flex flex-wrap items-center gap-2"
+                </span>
+
+                <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Campo label="Status">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+                        contratoAtual.status === CONTRATO_STATUS_ASSINADO
+                          ? "bg-success/15 text-success"
+                          : contratoAtual.status === CONTRATO_STATUS_ASSINADO_AGENCIA
+                            ? "bg-warning/15 text-warning"
+                            : "bg-info/15 text-info"
+                      }`}
                     >
-                      {signatario.nome ?? signatario.email ?? "—"}
-                      {signatario.email && emailsNaoEntregues.has(signatario.email) ? (
-                        <BadgeEmailNaoEntregue />
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
+                      {labelStatusContrato(contratoAtual.status)}
+                    </span>
+                  </Campo>
+                  <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
+                  <Campo label="ID do Contrato" className="sm:col-span-2">
+                    <ContratoIdManual
+                      provedorId={contratoAtual.provedorId}
+                      somenteLeitura={!mostrandoEtapaAtual}
+                    />
+                  </Campo>
+                  <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
+                </dl>
+
+                <div className="border-border bg-muted/40 text-muted-foreground mt-4 rounded-xl border border-dashed px-4 py-3 text-xs">
+                  <strong className="text-foreground">
+                    Log de geração/revisão/envio indisponível:
+                  </strong>{" "}
+                  o histórico de auditoria (quem gerou, quem revisou e quem enviou o contrato, com
+                  data/hora) não existe no schema hoje — sinalizando aqui em vez de simular um log
+                  falso. O ID de contrato assinado por fora também não persiste ainda (só nesta
+                  tela, some se recarregar a página) — falta um campo novo no banco pra guardar isso
+                  de verdade.
+                </div>
+
+                {mostrandoEtapaAtual && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
+                  <div className="mt-4 flex flex-col gap-3">
+                    <p className="text-muted-foreground text-sm">
+                      Sem integração automática do D4Sign confirmando a assinatura ainda — registre
+                      manualmente quando todos os signatários da fila acima tiverem assinado por
+                      fora da plataforma.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <form action={marcarContratoAssinadoAction.bind(null, agencia.id)}>
+                        <button
+                          type="submit"
+                          className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                        >
+                          Registrar assinatura
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            </div>
+            </>
           ) : null}
 
-          {agencia.status === STATUS_EM_COMPLEMENTAR ? (
+          {etapaExibida === indiceComplementar ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
                 contrato foi criado ainda.
               </p>
 
-              <RevisaoDocumentosComplementar documentos={documentosParaRevisao} />
+              <RevisaoDocumentosComplementar
+                agenciaId={agencia.id}
+                documentosAtivos={documentosAtivos}
+                documentosPendentes={documentosPendentes}
+                aprovarDocumentoAction={aprovarDocumentoAction}
+                reprovarDocumentoAction={reprovarDocumentoAction}
+                solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
+                somenteLeitura={!mostrandoEtapaAtual}
+              />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
                 <strong className="text-foreground">Parecer da IA indisponível:</strong> a
@@ -417,49 +497,30 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 schema onde esse dado deveria morar agora.
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <form action={aprovarComplementarAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                  >
-                    Aprovar e Enviar Contrato
-                  </button>
-                </form>
-                <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                  >
-                    Recusar
-                  </button>
-                </form>
-              </div>
+              {mostrandoEtapaAtual ? (
+                <div className="flex flex-wrap gap-2">
+                  <form action={aprovarComplementarAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                    >
+                      Aprovar e Enviar Contrato
+                    </button>
+                  </form>
+                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                    >
+                      Recusar
+                    </button>
+                  </form>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
-          {agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-muted-foreground text-sm">
-                Contrato {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)} (provedor:{" "}
-                {contratoAtual?.provedorId ?? "—"}) e enviado por e-mail pros sócios assinarem. Sem
-                integração real com o D4Sign ainda pra confirmar a assinatura automaticamente —
-                marque manualmente quando todos tiverem assinado.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <form action={marcarContratoAssinadoAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                  >
-                    Marcar como assinado
-                  </button>
-                </form>
-              </div>
-            </div>
-          ) : null}
-
-          {agencia.status === STATUS_AGUARDANDO_VALIDACAO ? (
+          {etapaExibida === indiceValidacao ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
@@ -470,44 +531,62 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 agenciaId={agencia.id}
                 validarContratoAction={validarContratoAction}
                 recusarCadastroAction={recusarCadastroAction}
+                somenteLeitura={!mostrandoEtapaAtual}
               />
             </div>
           ) : null}
 
-          {agencia.status === STATUS_AGUARDANDO_ATIVACAO ? (
+          {etapaExibida === indiceAtivacao ? (
             <div className="flex flex-col gap-3">
-              <p className="text-muted-foreground text-sm">
-                Contrato validado (provedor: {contratoAtual?.provedorId ?? "—"}). Falta só criar
-                SICA, Travel Link e usuário master e ativar o cliente.
-              </p>
+              {/* Contrato/SICA/Travel Link sempre marcados aqui: chegar
+                  nesta etapa só é possível depois de "Validar Contrato" —
+                  botão que já trava (ver ValidacaoSicaTravelLink) até
+                  SICA e Travel Link estarem preenchidos. Mesmo raciocínio
+                  de calcularProgressoTrilha: inferir do status real da
+                  agência em vez de exigir um campo novo só pra repetir
+                  uma garantia que o fluxo anterior já impõe. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <ChecklistEtapaConcluida label="Contrato" />
+                <ChecklistEtapaConcluida label="SICA" />
+                <ChecklistEtapaConcluida label="Travel Link" />
+              </div>
+
+              <UsuarioMaster
+                representantesLegais={representantesLegais}
+                analistaLogado={analistaLogado}
+                somenteLeitura={!mostrandoEtapaAtual}
+              />
+
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-                <strong className="text-foreground">Não implementado ainda:</strong> criação de
-                código SICA, Travel Link e credenciais de usuário master exigem campos novos no
-                schema (não existem hoje) — sinalizando aqui em vez de simular dado falso. O botão
-                abaixo só ativa o cliente, sem essas 3 etapas.
+                <strong className="text-foreground">Não implementado ainda:</strong> os checks acima
+                confirmam que SICA e Travel Link foram preenchidos antes de chegar aqui, mas o
+                código/link em si não é salvo — schema ainda não tem campo pra isso (sinalizando em
+                vez de simular dado falso).
               </div>
-              <div className="flex flex-wrap gap-2">
-                <form action={ativarClienteAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                  >
-                    Ativar cliente
-                  </button>
-                </form>
-                <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                  <button
-                    type="submit"
-                    className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
-                  >
-                    Recusar
-                  </button>
-                </form>
-              </div>
+              {mostrandoEtapaAtual ? (
+                <div className="flex flex-wrap gap-2">
+                  <form action={ativarClienteAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                    >
+                      Ativar cliente
+                    </button>
+                  </form>
+                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                    >
+                      Recusar
+                    </button>
+                  </form>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
-          {agencia.status === STATUS_ATIVO ? (
+          {etapaExibida === indiceAtivo ? (
             <p className="text-success text-sm font-medium">Cliente ativo.</p>
           ) : null}
 

@@ -54,7 +54,7 @@ export function ChatWizard() {
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pt-4">
+      <div ref={scrollRef} className="scrollbar-hidden flex-1 overflow-y-auto px-4 pt-4">
         {messages.map((mensagem) => (
           <ChatBubble key={mensagem.id} mensagem={mensagem} />
         ))}

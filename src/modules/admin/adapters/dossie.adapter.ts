@@ -1,0 +1,171 @@
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
+import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import {
+  TIPO_CONTA_OPCOES,
+  BANCO_PAIS_OPCOES,
+} from "@/modules/cadastro/types/endereco-banco.types";
+import {
+  STATUS_ATIVO,
+  STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_VALIDACAO,
+  STATUS_EM_COMPLEMENTAR,
+  STATUS_RECUSADO,
+  CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
+  CONTRATO_STATUS_ASSINADO_AGENCIA,
+  CONTRATO_STATUS_ASSINADO,
+  type RepresentanteLegalDetalhe,
+} from "@/modules/cadastro/domain/repositories/agencia-repository";
+import type { DocumentoRevisao, SignatarioFila } from "@/modules/admin/types/dossie.types";
+
+// Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
+// a View do dossiê consome — nenhum desses cálculos deve viver dentro do
+// componente de página ou dos componentes de apresentação.
+
+export function labelOrigemContrato(origem: "ia" | "humano" | null): string {
+  if (origem === "ia") return "gerado pela IA";
+  if (origem === "humano") return "gerado pelo analista";
+  return "origem desconhecida";
+}
+
+export function labelEstadoCivil(valor: string): string {
+  return ESTADO_CIVIL_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
+}
+
+export function labelTipoConta(valor: string): string {
+  return TIPO_CONTA_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
+}
+
+export function labelBancoPais(valor: string): string {
+  return BANCO_PAIS_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
+}
+
+export function formatarEndereco(endereco: {
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}): string {
+  if (!endereco.logradouro) return "—";
+  return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
+}
+
+// Documento real do banco (ou null, se a agência é anterior a essa
+// tabela existir) -> item pronto pra tela de revisão.
+export function paraDocumentoRevisao(
+  documento: Documento | null,
+  label: string,
+): DocumentoRevisao[] {
+  if (!documento) return [];
+  return [
+    {
+      id: documento.id,
+      label,
+      gcsPath: documento.gcsPath,
+      status: documento.status,
+      motivoReprovacao: documento.motivoReprovacao,
+    },
+  ];
+}
+
+// Quais documentos entram no rol "ativo" da ficha vs na lista de
+// pendentes de reenvio — decisão baseada em status (dado), não em como
+// a tela desenha cada bloco.
+export function separarDocumentosPorStatus(documentos: DocumentoRevisao[]): {
+  ativos: DocumentoRevisao[];
+  pendentes: DocumentoRevisao[];
+} {
+  return {
+    ativos: documentos.filter((doc) => doc.status !== "REPROVADO"),
+    pendentes: documentos.filter((doc) => doc.status === "REPROVADO"),
+  };
+}
+
+export const ETAPAS_PIPELINE = [
+  { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
+  { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
+  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
+  { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
+  { status: STATUS_ATIVO, label: "Ativo" },
+];
+
+// "Recusado" não é uma etapa da trilha (é uma saída do fluxo normal) —
+// usa a existência de um Contrato como sinal real de onde a recusa
+// aconteceu (com contrato = recusado depois de enviado; sem contrato =
+// recusado ainda em Complementar) em vez de inventar um campo novo.
+export function calcularProgressoTrilha(
+  status: string,
+  temContrato: boolean,
+): { indiceAtual: number; recusado: boolean } {
+  const recusado = status === STATUS_RECUSADO;
+  const indiceAtual = recusado
+    ? temContrato
+      ? 1
+      : 0
+    : ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === status);
+
+  return { indiceAtual, recusado };
+}
+
+// Fila de assinatura do contrato — combina sócios (estágio 0, implícito:
+// não tem linha em SignatarioPadrao, são dinâmicos por cadastro) com os 4
+// signatários fixos da Sakura (estágio 1 = aprovador, estágio 2 =
+// testemunhas — ver seeds/signatarios-padrao.ts e
+// processar-webhook-d4sign.use-case.ts). `assinado` por linha é
+// derivado do status agregado do Contrato (único dado real que temos),
+// seguindo a ordem de fila do D4Sign documentada no use-case do webhook:
+// - aguardando_assinatura: ninguém assinou ainda.
+// - assinado_agencia: o aprovador só assina depois dos sócios (estágio 0
+//   vem antes do 1 na fila do D4Sign), então os sócios já assinaram.
+// - assinado: documento fechado, todo mundo (incluindo testemunhas)
+//   assinou.
+// Não existe timestamp nem status individual por pessoa no schema hoje —
+// isso é uma inferência sobre o status agregado, não um dado inventado.
+export function montarFilaAssinatura(
+  representantesLegais: RepresentanteLegalDetalhe[],
+  signatariosPadraoAtivos: SignatarioPadrao[],
+  statusContrato: string | null,
+  emailsNaoEntregues: Set<string>,
+): SignatarioFila[] {
+  const socioAssinado =
+    statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
+    statusContrato === CONTRATO_STATUS_ASSINADO;
+
+  const filaSocios: SignatarioFila[] = representantesLegais.map((socio, index) => ({
+    id: socio.id,
+    nome: socio.nome,
+    email: socio.email,
+    grupo: "Agência",
+    ordem: index + 1,
+    assinado: socioAssinado,
+    emailNaoEntregue: emailsNaoEntregues.has(socio.email),
+  }));
+
+  const filaSakura: SignatarioFila[] = [...signatariosPadraoAtivos]
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+    .map((signatario) => {
+      const assinado =
+        statusContrato === CONTRATO_STATUS_ASSINADO ||
+        (statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA && signatario.papel === "APROVAR");
+      return {
+        id: signatario.id,
+        nome: signatario.nome ?? signatario.email ?? "—",
+        email: signatario.email,
+        grupo: "Sakura" as const,
+        ordem: filaSocios.length + (signatario.ordem ?? 0),
+        assinado,
+        emailNaoEntregue: signatario.email ? emailsNaoEntregues.has(signatario.email) : false,
+      };
+    });
+
+  return [...filaSocios, ...filaSakura];
+}
+
+export function labelStatusContrato(status: string | null): string {
+  if (status === CONTRATO_STATUS_ASSINADO) return "Assinado";
+  if (status === CONTRATO_STATUS_ASSINADO_AGENCIA) return "Sócios assinaram — aguardando Sakura";
+  if (status === CONTRATO_STATUS_AGUARDANDO_ASSINATURA) return "Aguardando assinaturas";
+  return "—";
+}
