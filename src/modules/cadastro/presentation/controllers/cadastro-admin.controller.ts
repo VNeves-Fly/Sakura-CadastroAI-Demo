@@ -4,6 +4,7 @@ import { PrismaCadastroComplementarRepository } from "@/modules/cadastro/infrast
 import { PrismaRepresentanteLegalRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-representante-legal.repository";
 import { PrismaEnderecoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-endereco.repository";
 import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
+import { PrismaAnaliseIaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-analise-ia-documento.repository";
 import { PrismaContratoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato.repository";
 import { PrismaContratoSignatarioRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-signatario.repository";
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
@@ -28,6 +29,7 @@ import {
 } from "@/modules/cadastro/application/use-cases/obter-endereco.use-case";
 import { ListarDocumentosUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos.use-case";
 import { ObterDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-documento.use-case";
+import { ObterAnaliseIaDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-ia-documento.use-case";
 import { AprovarDocumentoUseCase } from "@/modules/cadastro/application/use-cases/aprovar-documento.use-case";
 import {
   ReprovarDocumentoUseCase,
@@ -71,6 +73,7 @@ const cadastroComplementarRepository = new PrismaCadastroComplementarRepository(
 const representanteLegalRepository = new PrismaRepresentanteLegalRepository(prisma);
 const enderecoRepository = new PrismaEnderecoRepository(prisma);
 const documentoRepository = new PrismaDocumentoRepository(prisma);
+const analiseIaDocumentoRepository = new PrismaAnaliseIaDocumentoRepository(prisma);
 const contratoRepository = new PrismaContratoRepository(prisma);
 const contratoSignatarioRepository = new PrismaContratoSignatarioRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
@@ -166,6 +169,11 @@ export const cadastroAdminController = {
   obterDocumento(id: string) {
     const useCase = new ObterDocumentoUseCase(documentoRepository);
     return useCase.execute(id);
+  },
+
+  obterAnaliseDocumento(documentoId: string) {
+    const useCase = new ObterAnaliseIaDocumentoUseCase(analiseIaDocumentoRepository);
+    return useCase.execute(documentoId);
   },
 
   aprovarDocumento(id: string) {

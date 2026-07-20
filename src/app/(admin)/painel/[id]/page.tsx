@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { Building2, Users, Landmark, FileSignature, FileCheck2, CheckCircle2 } from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type { AnaliseIaResumo } from "@/modules/admin/types/dossie.types";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SecaoColapsavel } from "./secao-colapsavel";
 import { RevisaoDocumentosComplementar } from "./revisao-documentos";
@@ -105,6 +106,68 @@ function CampoDocumento({ documento }: { documento: Documento | null }) {
   }
 
   return <Arquivo path={documento.gcsPath} />;
+}
+
+// Mostra a análise de IA gravada sobre o documento (RG/CNH, contrato
+// social) — lida de volta agora que FinalizarCadastroUseCase passou a
+// persistir isso (antes era descartada). Os nomes de campo dentro de
+// `camposExtraidos` não são documentados em lugar nenhum do projeto
+// (dependem do agente externo), então mostra exatamente como veio em vez
+// de rotular como "RG"/"Órgão emissor" — seria inventar uma
+// correspondência não confirmada.
+function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null }) {
+  if (!analise) {
+    return (
+      <span className="text-muted-foreground text-xs">Sem análise de IA pra este documento.</span>
+    );
+  }
+
+  const campos = Object.entries(analise.camposExtraidos);
+
+  return (
+    <div className="flex flex-col gap-1.5 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
+          Confiança: {analise.confiancaExtracao}
+        </span>
+        {analise.alertas.length > 0 ? (
+          <span className="bg-warning/15 text-warning rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
+            {analise.alertas.length} alerta{analise.alertas.length > 1 ? "s" : ""}
+          </span>
+        ) : null}
+      </div>
+
+      {analise.resumoAnalise ? (
+        <p className="text-muted-foreground">{analise.resumoAnalise}</p>
+      ) : null}
+
+      {analise.alertas.length > 0 ? (
+        <ul className="text-warning list-inside list-disc">
+          {analise.alertas.map((alerta) => (
+            <li key={alerta}>{alerta}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {campos.length > 0 ? (
+        <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5">
+          <summary className="text-primary cursor-pointer text-xs font-semibold">
+            Ver campos extraídos ({campos.length})
+          </summary>
+          <dl className="mt-2 flex flex-col gap-1">
+            {campos.map(([chave, valor]) => (
+              <div key={chave} className="flex flex-wrap gap-1.5">
+                <dt className="text-muted-foreground shrink-0 font-mono">{chave}:</dt>
+                <dd className="text-foreground break-all">{String(valor)}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      ) : (
+        <span className="text-muted-foreground">Nenhum campo estruturado extraído.</span>
+      )}
+    </div>
+  );
 }
 
 // O fluxo é sequencial (o analista não pula pra frente, cada etapa libera
@@ -214,6 +277,8 @@ export default async function DossieAgenciaPage({
     documentosPendentes,
     indiceTrilha,
     trilhaRecusada,
+    analiseIaContratoSocial,
+    analiseIaPorSocioId,
   } = view;
 
   const session = await getServerSession(nextAuthOptions);
@@ -341,6 +406,9 @@ export default async function DossieAgenciaPage({
               <Campo label="Contrato Social">
                 <CampoDocumento documento={contratoSocial} />
               </Campo>
+              <Campo label="Análise de IA" className="sm:col-span-2">
+                <AnaliseIaDetalhe analise={analiseIaContratoSocial} />
+              </Campo>
             </dl>
           </SecaoColapsavel>
 
@@ -375,6 +443,9 @@ export default async function DossieAgenciaPage({
                         <CampoDocumento documento={socio.procuracao} />
                       </Campo>
                     ) : null}
+                    <Campo label="Análise de IA (RG)" className="sm:col-span-2">
+                      <AnaliseIaDetalhe analise={analiseIaPorSocioId.get(socio.id) ?? null} />
+                    </Campo>
                   </dl>
                 </div>
               ))}

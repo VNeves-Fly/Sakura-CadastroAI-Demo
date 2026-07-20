@@ -4,6 +4,7 @@ import {
   separarDocumentosPorStatus,
   calcularProgressoTrilha,
   montarFilaAssinatura,
+  paraAnaliseIaResumo,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -21,13 +22,34 @@ export async function obterDossieView(id: string) {
   // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
   // por e-mail, cobre tanto os sócios quanto os signatários fixos da
   // Sakura, sem depender de terem uma linha em ContratoSignatario.
-  const [emailsFalhaEntrega, signatariosPadraoAtivos] = contratoAtual
-    ? await Promise.all([
-        cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id),
-        cadastroAdminController.listarSignatariosPadraoAtivos(),
-      ])
-    : [[], []];
+  // Análise de IA (contrato social + RG de cada sócio) já é gravada de
+  // verdade pelo FinalizarCadastroUseCase — aqui só lê de volta pra
+  // mostrar no dossiê, algo que nenhum use-case fazia até agora.
+  const [emailsFalhaEntrega, signatariosPadraoAtivos, analiseContratoSocialRaw, analisesSociosRaw] =
+    await Promise.all([
+      contratoAtual
+        ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
+        : Promise.resolve([]),
+      contratoAtual ? cadastroAdminController.listarSignatariosPadraoAtivos() : Promise.resolve([]),
+      contratoSocial
+        ? cadastroAdminController.obterAnaliseDocumento(contratoSocial.id)
+        : Promise.resolve(null),
+      Promise.all(
+        representantesLegais.map((socio) =>
+          socio.rg
+            ? cadastroAdminController.obterAnaliseDocumento(socio.rg.id)
+            : Promise.resolve(null),
+        ),
+      ),
+    ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
+  const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
+  const analiseIaPorSocioId = new Map(
+    representantesLegais.map((socio, index) => [
+      socio.id,
+      paraAnaliseIaResumo(analisesSociosRaw[index] ?? null),
+    ]),
+  );
 
   const documentosParaRevisao = [
     ...paraDocumentoRevisao(contratoSocial, "Contrato Social"),
@@ -64,5 +86,7 @@ export async function obterDossieView(id: string) {
     documentosPendentes,
     indiceTrilha,
     trilhaRecusada: recusado,
+    analiseIaContratoSocial,
+    analiseIaPorSocioId,
   };
 }
