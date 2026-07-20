@@ -27,6 +27,11 @@ bun-debug.log*
 # env files
 .env
 .env*.local
+.env.production
+
+# credenciais de service account (GCP etc.) — nunca commitar
+*-sakura-*.json
+service-account*.json
 
 # vercel
 .vercel

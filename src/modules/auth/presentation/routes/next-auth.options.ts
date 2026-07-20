@@ -33,20 +33,31 @@ export const nextAuthOptions: NextAuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
+        token.mustChangePassword = user.mustChangePassword;
       }
+
+      // Disparado por useSession().update({ mustChangePassword: false })
+      // depois que o usuário troca a senha no primeiro acesso — evita
+      // exigir um novo login só pra refletir a flag no token.
+      if (trigger === "update" && session?.mustChangePassword !== undefined) {
+        token.mustChangePassword = session.mustChangePassword;
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.mustChangePassword = token.mustChangePassword as boolean;
       }
       return session;
     },

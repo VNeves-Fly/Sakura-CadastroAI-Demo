@@ -7,4 +7,5 @@ export interface AuthenticateUserOutput {
   id: string;
   name: string;
   email: string;
+  mustChangePassword: boolean;
 }

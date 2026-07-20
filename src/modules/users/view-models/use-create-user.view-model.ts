@@ -8,17 +8,22 @@ import type { CreateUserFormValues } from "@/modules/users/types/user.types";
 
 export function useCreateUserViewModel() {
   const addUser = useUsersStore((state) => state.addUser);
+  const lastCreatedResult = useUsersStore((state) => state.lastCreatedResult);
+  const setLastCreatedResult = useUsersStore((state) => state.setLastCreatedResult);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(values: CreateUserFormValues) {
     setIsSubmitting(true);
     setError(null);
+    setLastCreatedResult(null);
 
     try {
       const serviceInput = usersAdapter.toServiceInput(values);
       const raw = await usersService.create(serviceInput);
-      addUser(usersAdapter.toView(raw));
+      const result = usersAdapter.toCreatedResult(raw);
+      addUser(result.user);
+      setLastCreatedResult(result);
       return true;
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "Erro inesperado.";
@@ -29,5 +34,11 @@ export function useCreateUserViewModel() {
     }
   }
 
-  return { isSubmitting, error, submit };
+  return {
+    isSubmitting,
+    error,
+    submit,
+    lastCreatedResult,
+    dismissSuccess: () => setLastCreatedResult(null),
+  };
 }

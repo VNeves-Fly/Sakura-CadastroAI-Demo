@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { animate } from "animejs";
 import { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import { AnaliseCadastroOverlay } from "@/modules/cadastro/components/analise-cadastro-overlay";
 import { WizardStepper } from "@/modules/cadastro/components/wizard-stepper";
 import { SecaoCard } from "@/modules/cadastro/components/secao-card";
 import { Passo1Documentos } from "@/modules/cadastro/components/steps/passo1-documentos";
@@ -57,32 +58,10 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
 
   const secoesVisiveis = Array.from({ length: wizard.secoesReveladas }, (_, index) => index + 1);
 
-  if (wizard.submitSuccess) {
-    return (
-      <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10">
-        <div className="border-border bg-card shadow-sakura-900/5 w-full max-w-md rounded-[2rem] border p-8 text-center shadow-xl">
-          {wizard.submitPrecisaRevisaoManual ? (
-            <>
-              <h1 className="text-foreground text-2xl font-semibold">Cadastro recebido!</h1>
-              <p className="text-muted-foreground mt-2 text-sm">
-                Identificamos um ponto que precisa de uma checagem manual. Um analista vai revisar
-                seu caso e entrar em contato por telefone e e-mail em breve.
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-foreground text-2xl font-semibold">Contrato gerado!</h1>
-              <p className="text-muted-foreground mt-2 text-sm">
-                Seu cadastro foi enviado e o contrato já foi gerado. Cada sócio vai receber um
-                e-mail do D4Sign com o link pra assinatura.
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
+  // O desfecho de sucesso (aprovado ou enviado pra análise) é mostrado só
+  // pelo AnaliseCadastroOverlay em tela cheia (fase "aprovado"/"revisao",
+  // renderizado mais abaixo) — nenhuma tela adicional troca por trás
+  // disso, pra não duplicar a mensagem em duas telas diferentes.
   if (wizard.submitDuplicado) {
     return (
       <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10">
@@ -175,6 +154,8 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
           </a>
         </div>
       </footer>
+
+      {wizard.faseSubmit !== "idle" ? <AnaliseCadastroOverlay fase={wizard.faseSubmit} /> : null}
     </div>
   );
 }

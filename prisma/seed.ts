@@ -1,22 +1,12 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { seedAdminUser } from "./seeds/admin-user";
+import { seedSignatariosPadrao } from "./seeds/signatarios-padrao";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("password123", 10);
-
-  await prisma.user.upsert({
-    where: { email: "admin@cadastro-ia-sakura.com" },
-    update: {},
-    create: {
-      name: "Admin",
-      email: "admin@cadastro-ia-sakura.com",
-      password: passwordHash,
-    },
-  });
-
-  console.log("Seed concluído: usuário admin@cadastro-ia-sakura.com / password123");
+  await seedAdminUser(prisma);
+  await seedSignatariosPadrao(prisma);
 }
 
 main()

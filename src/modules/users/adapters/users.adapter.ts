@@ -1,28 +1,48 @@
 import type { RawUserResponse } from "@/modules/users/services/users.service";
-import type { CreateUserFormValues, UserView } from "@/modules/users/types/user.types";
+import type {
+  CreatedUserResult,
+  CreateUserFormValues,
+  CreateUserPayload,
+  UserView,
+} from "@/modules/users/types/user.types";
 
 // Traduz a forma de dados da API (RawUserResponse) para a forma consumida
 // pela View/ViewModel (UserView), isolando o restante do módulo do
 // formato exato da resposta HTTP.
 export const usersAdapter = {
-  toServiceInput(values: CreateUserFormValues): CreateUserFormValues {
+  toServiceInput(values: CreateUserFormValues): CreateUserPayload {
     return {
-      name: values.name.trim(),
+      firstName: values.firstName.trim(),
+      lastName: values.lastName.trim(),
       email: values.email.trim().toLowerCase(),
-      password: values.password,
+      phone: values.phone.trim(),
+      cargo: values.cargo,
+      password: values.useTemporaryPassword ? undefined : values.password,
+      mustChangePassword: values.mustChangePassword,
+      useTemporaryPassword: values.useTemporaryPassword,
     };
   },
 
   toView(raw: RawUserResponse): UserView {
     return {
       id: raw.id,
-      name: raw.name,
+      firstName: raw.firstName,
+      lastName: raw.lastName,
       email: raw.email,
+      phone: raw.phone,
+      cargo: raw.cargo,
       createdAt: raw.createdAt,
     };
   },
 
   toViewList(raw: RawUserResponse[]): UserView[] {
     return raw.map((item) => usersAdapter.toView(item));
+  },
+
+  toCreatedResult(raw: RawUserResponse): CreatedUserResult {
+    return {
+      user: usersAdapter.toView(raw),
+      temporaryPassword: raw.temporaryPassword,
+    };
   },
 };

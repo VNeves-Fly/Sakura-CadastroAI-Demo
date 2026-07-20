@@ -2,6 +2,7 @@ export interface AuthenticatedUserProps {
   id: string;
   name: string;
   email: string;
+  mustChangePassword: boolean;
 }
 
 export class AuthenticatedUser {
@@ -21,6 +22,10 @@ export class AuthenticatedUser {
 
   get email(): string {
     return this.props.email;
+  }
+
+  get mustChangePassword(): boolean {
+    return this.props.mustChangePassword;
   }
 
   toJSON(): AuthenticatedUserProps {

@@ -1,0 +1,95 @@
+import type {
+  DocumentAnalysisInput,
+  DocumentAnalysisResultado,
+  DocumentAnalysisService,
+} from "@/modules/cadastro/domain/services/document-analysis-service";
+
+// Integração real com o agente de análise de documento da Sakura
+// (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/documents/analyze/sync.
+//
+// Usa `internal_document_url` (gs://GCS_BUCKET_NAME/documentPath) em vez de assinar uma
+// URL pública: o agents-service já tem IAM direto no bucket compartilhado, então não há
+// necessidade de signed URL pra esse endpoint (diferente do FlysakuraAnaliseIaAdapter, que
+// chama /agency-analysis/json e ainda depende de signed URLs).
+//
+// `session_id` é sempre o CNPJ: o mesmo valor é passado depois pro FlysakuraAnaliseIaAdapter
+// (avaliação final), e como os dois endpoints compartilham o checkpoint do LangGraph por
+// session_id, a análise final já enxerga o contexto de cada documento analisado aqui.
+//
+// Chamada "fire and forget" tolerante a falha — hoje serve só pra alimentar o contexto da
+// sessão antes da avaliação final; nenhuma decisão de negócio depende do retorno ainda. Se o
+// agente falhar ou responder algo não parseável, loga um aviso e devolve um resultado vazio
+// em vez de interromper o cadastro.
+function baseUrl(): string {
+  return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
+}
+
+const RESULTADO_VAZIO: DocumentAnalysisResultado = {
+  camposExtraidos: {},
+  confiancaExtracao: 0,
+  alertas: [],
+};
+
+export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService {
+  async analisar(input: DocumentAnalysisInput): Promise<DocumentAnalysisResultado> {
+    try {
+      const response = await fetch(`${baseUrl()}/api/v1/agency-analysis/documents/analyze/sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Internal-Secret": requireApiKey(),
+        },
+        body: JSON.stringify({
+          internal_document_url: `gs://${requireBucketName()}/${input.documentPath}`,
+          document_type: input.documentType,
+          session_id: input.cnpj,
+          channel: "api",
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(
+          `document-analysis respondeu ${response.status} pra ${input.documentType} (cnpj=${input.cnpj})`,
+        );
+        return RESULTADO_VAZIO;
+      }
+
+      const data = (await response.json()) as { result?: { message?: string } };
+      const parsed = JSON.parse(data.result?.message ?? "{}") as {
+        extracted_content?: { fields?: Record<string, unknown>; confidence_score?: number };
+        observations?: string[];
+      };
+
+      return {
+        camposExtraidos: parsed.extracted_content?.fields ?? {},
+        confiancaExtracao: parsed.extracted_content?.confidence_score ?? 0,
+        alertas: parsed.observations ?? [],
+      };
+    } catch (error) {
+      console.warn(
+        `falha ao analisar documento ${input.documentType} (cnpj=${input.cnpj}): ${String(error)}`,
+      );
+      return RESULTADO_VAZIO;
+    }
+  }
+}
+
+function requireApiKey(): string {
+  const apiKey = process.env.AGENCY_ANALYSIS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "AGENCY_ANALYSIS_API_KEY não configurada — necessária para FlysakuraDocumentAnalysisAdapter.",
+    );
+  }
+  return apiKey;
+}
+
+function requireBucketName(): string {
+  const bucketName = process.env.GCS_BUCKET_NAME;
+  if (!bucketName) {
+    throw new Error(
+      "GCS_BUCKET_NAME não configurada — necessária para montar internal_document_url.",
+    );
+  }
+  return bucketName;
+}

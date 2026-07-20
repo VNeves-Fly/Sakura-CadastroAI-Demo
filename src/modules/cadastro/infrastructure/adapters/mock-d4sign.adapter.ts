@@ -4,11 +4,10 @@ import type {
   GerarContratoResult,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 
-// Sem integração real com o D4Sign (sem credencial/API disponível neste
-// projeto ainda). Simula a geração + envio do contrato pra assinatura dos
-// sócios, até a integração real ser conectada nesta mesma porta
-// (ContratoAssinaturaService) — trocar a implementação aqui não afeta
-// use-case/domain.
+// Simula a geração + envio do contrato pra assinatura dos sócios — usado
+// quando D4SIGN_TOKEN_API não está configurada. A integração real
+// (D4SignAdapter, mesma pasta) já está pronta e ativa no composition root
+// quando essa env existir.
 export class MockD4SignService implements ContratoAssinaturaService {
   async gerarEEnviar(input: GerarContratoInput): Promise<GerarContratoResult> {
     const provedorId = `mock-d4sign-${input.cnpj}`;

@@ -38,6 +38,16 @@ export class AprovarCadastroComplementarUseCase implements UseCase<string, Agenc
     const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
       cnpj: detalhe.agencia.cnpj,
       razaoSocial: detalhe.agencia.razaoSocial,
+      origem: detalhe.agencia.origem,
+      endereco: detalhe.complementar?.enderecoAgencia ?? {
+        cep: "",
+        logradouro: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        uf: "",
+      },
       signatarios,
     });
 

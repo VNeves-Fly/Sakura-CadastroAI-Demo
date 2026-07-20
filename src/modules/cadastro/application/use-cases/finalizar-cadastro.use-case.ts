@@ -9,6 +9,7 @@ import type { FileStorage } from "@/modules/cadastro/domain/services/file-storag
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { AnaliseIaService } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type { DocumentAnalysisService } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type {
   EnderecoInput,
   FinalizarCadastroInput,
@@ -35,6 +36,7 @@ export class FinalizarCadastroUseCase implements UseCase<
     private readonly qsaConsultaService: QsaConsultaService,
     private readonly contratoAssinaturaService: ContratoAssinaturaService,
     private readonly analiseIaService: AnaliseIaService,
+    private readonly documentAnalysisService: DocumentAnalysisService,
   ) {}
 
   async execute(input: FinalizarCadastroInput): Promise<FinalizarCadastroOutput> {
@@ -88,30 +90,63 @@ export class FinalizarCadastroUseCase implements UseCase<
       cpf: socio.cpf,
     }));
 
+    // "Aquece" a sessão de análise (session_id = cnpj) com cada documento
+    // individual antes da avaliação final — o agents-service compartilha o
+    // checkpoint do LangGraph por session_id, então a chamada final de
+    // analiseIaService.avaliar() já enxerga esse contexto. Sequencial (não
+    // Promise.all) porque as chamadas dividem o mesmo thread_id no agente;
+    // rodar em paralelo arriscaria concorrência no checkpoint.
+    await this.documentAnalysisService.analisar({
+      cnpj: input.cnpj,
+      documentPath: contratoSocialPath,
+      documentType: "contrato_social",
+    });
+    for (const socio of socios) {
+      await this.documentAnalysisService.analisar({
+        cnpj: input.cnpj,
+        documentPath: socio.rgPath,
+        documentType: "cnh_rg",
+      });
+    }
+
     // A IA avalia o cadastro logo no envio: se achar algo errado, o caso
     // vai pra fila "em_complementar" (revisão manual, sem contrato ainda
     // — um analista entra em contato por telefone/e-mail); se estiver
     // tudo certo, gera e envia o contrato na hora (fila
     // "aguardando_assinatura"). Chamado antes de gravar no banco: se o
     // D4Sign falhar quando a IA aprova, nada é persistido.
-    const analiseIa = await this.analiseIaService.avaliar({ cnpj: input.cnpj });
+    const analiseIa = await this.analiseIaService.avaliar({
+      cnpj: input.cnpj,
+      razaoSocial,
+      contratoSocialPath,
+      socios: socios.map((socio) => ({
+        nome: socio.nome,
+        cpf: socio.cpf,
+        rgPath: socio.rgPath,
+        procuracaoPath: socio.procuracaoPath,
+      })),
+    });
+
+    // Quando o endereço da agência é "o mesmo do sócio", o formulário não
+    // manda um endereço próprio (`enderecoBanco.endereco` vem null) — copia
+    // do sócio vinculado, já que agora existe uma linha real de endereço
+    // por sócio pra copiar (antes ficava null dentro do JSON). Calculado
+    // antes do contrato porque o gerador de contrato precisa do endereço
+    // pra preencher o template.
+    const enderecoAgencia =
+      (input.enderecoBanco.enderecoMesmoSocio
+        ? socios[input.enderecoBanco.socioEnderecoVinculado ?? -1]?.endereco
+        : input.enderecoBanco.endereco) ?? ENDERECO_VAZIO;
 
     const contratoResult = analiseIa.aprovado
       ? await this.contratoAssinaturaService.gerarEEnviar({
           cnpj: input.cnpj,
           razaoSocial,
+          origem: input.origem,
+          endereco: enderecoAgencia,
           signatarios,
         })
       : null;
-
-    // Quando o endereço da agência é "o mesmo do sócio", o formulário não
-    // manda um endereço próprio (`enderecoBanco.endereco` vem null) — copia
-    // do sócio vinculado, já que agora existe uma linha real de endereço
-    // por sócio pra copiar (antes ficava null dentro do JSON).
-    const enderecoAgencia =
-      (input.enderecoBanco.enderecoMesmoSocio
-        ? socios[input.enderecoBanco.socioEnderecoVinculado ?? -1]?.endereco
-        : input.enderecoBanco.endereco) ?? ENDERECO_VAZIO;
 
     const agencia = await this.agenciaRepository.create({
       razaoSocial,

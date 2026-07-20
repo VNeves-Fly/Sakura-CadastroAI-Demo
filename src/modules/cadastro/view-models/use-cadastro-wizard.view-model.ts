@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useCadastroWizardStore,
   TOTAL_ETAPAS,
@@ -394,6 +394,32 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     procuracaoErro: sociosArquivoErros[index]?.procuracao ?? null,
   }));
 
+  // Orquestra a tela cheia de análise (AnaliseCadastroOverlay) exibida
+  // entre o clique em "Enviar Cadastro" e o resultado final. "idle" é o
+  // estado de repouso; "analisando" cobre a chamada real ao backend
+  // (reconsulta QSA, análise de documentos pela IA, geração do
+  // contrato); "aprovado"/"revisao" é o desfecho final — fica exibido
+  // (sem trocar pra nenhuma outra tela por trás, que seria uma segunda
+  // mensagem redundante). A duração mínima de "analisando" vale pra
+  // QUALQUER desfecho (sucesso, duplicado ou erro) — sem isso, uma
+  // resposta rápida do servidor (ex: erro de validação em <1s) fazia a
+  // animação sumir quase instantaneamente.
+  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "aprovado" | "revisao">(
+    "idle",
+  );
+  const inicioAnaliseRef = useRef<number | null>(null);
+
+  const DURACAO_MINIMA_ANALISE_MS = 10000;
+
+  async function aguardarDuracaoMinimaAnalise() {
+    const decorrido = Date.now() - (inicioAnaliseRef.current ?? Date.now());
+    const restante = Math.max(0, DURACAO_MINIMA_ANALISE_MS - decorrido);
+
+    if (restante > 0) {
+      await new Promise((resolve) => setTimeout(resolve, restante));
+    }
+  }
+
   const documentosPendentes: string[] = [];
   if (!contratoSocial) documentosPendentes.push("Contrato Social da empresa");
   socios.forEach((socio, index) => {
@@ -412,6 +438,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
     setSubmitting(true);
     setSubmitError(null);
+    setFaseSubmit("analisando");
+    inicioAnaliseRef.current = Date.now();
 
     const formData = agenciaAdapter.toFinalizarCadastroFormData({
       cnpjMascarado: cnpj,
@@ -431,22 +459,32 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       const raw = await agenciaService.criarAgencia(formData);
       const resultado = agenciaAdapter.toSubmitResultView(raw);
 
+      // Espera o mínimo ANTES de decidir qualquer desfecho — mesmo um erro
+      // de validação que volta em milissegundos precisa manter a tela de
+      // análise no ar pelo tempo mínimo configurado.
+      await aguardarDuracaoMinimaAnalise();
+
       if (resultado.success) {
         setSubmitPrecisaRevisaoManual(Boolean(resultado.precisaRevisaoManual));
         setSubmitSuccess(true);
         // Cadastro já persistido de verdade no banco — o rascunho salvo
         // localmente (autosave) não tem mais função, limpa.
         void useCadastroWizardStore.persist.clearStorage();
+        setFaseSubmit(resultado.precisaRevisaoManual ? "revisao" : "aprovado");
         return;
       }
 
       if (resultado.duplicado) {
+        setFaseSubmit("idle");
         setSubmitDuplicado(true);
         return;
       }
 
+      setFaseSubmit("idle");
       setSubmitError(resultado.error ?? "Não foi possível enviar o cadastro.");
     } catch {
+      await aguardarDuracaoMinimaAnalise();
+      setFaseSubmit("idle");
       setSubmitError("Falha de conexão. Verifique sua internet e tente novamente.");
     } finally {
       setSubmitting(false);
@@ -508,5 +546,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     submitPrecisaRevisaoManual,
     submitDuplicado,
     submit,
+    faseSubmit,
   };
 }
