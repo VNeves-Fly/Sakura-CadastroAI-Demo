@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { QsaResultView } from "@/modules/cadastro/types/agencia.types";
+import type {
+  QsaResultView,
+  ContratoSocialAnaliseView,
+} from "@/modules/cadastro/types/agencia.types";
 import {
   criarSocioWizardVazio,
   type SocioWizardFormValues,
@@ -30,6 +33,8 @@ interface CadastroWizardState {
   qsaResult: QsaResultView | null;
   avisoAlfanumerico: boolean;
   contratoSocial: File | null;
+  analisandoContratoSocial: boolean;
+  contratoSocialAnalise: ContratoSocialAnaliseView | null;
 
   telefoneComercial: string;
   telefoneComercialPais: string;
@@ -61,6 +66,8 @@ interface CadastroWizardState {
   setQsaResult: (result: QsaResultView | null) => void;
   setAvisoAlfanumerico: (aviso: boolean) => void;
   setContratoSocial: (file: File | null) => void;
+  setAnalisandoContratoSocial: (analisando: boolean) => void;
+  setContratoSocialAnalise: (analise: ContratoSocialAnaliseView | null) => void;
 
   setTelefoneComercial: (telefone: string) => void;
   setTelefoneComercialPais: (pais: string) => void;
@@ -69,10 +76,14 @@ interface CadastroWizardState {
   setEmailComercial: (email: string) => void;
   setEmailFinanceiro: (email: string) => void;
 
-  setSocios: (socios: SocioWizardFormValues[]) => void;
+  setSocios: (
+    socios: SocioWizardFormValues[] | ((atual: SocioWizardFormValues[]) => SocioWizardFormValues[]),
+  ) => void;
   setSocioCepBuscando: (indice: number | null) => void;
 
-  setEnderecoBanco: (dados: EnderecoBancoFormValues) => void;
+  setEnderecoBanco: (
+    dados: EnderecoBancoFormValues | ((atual: EnderecoBancoFormValues) => EnderecoBancoFormValues),
+  ) => void;
   setEnderecoBancoCepBuscando: (buscando: boolean) => void;
 
   setSubmitting: (isSubmitting: boolean) => void;
@@ -104,6 +115,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       qsaResult: null,
       avisoAlfanumerico: false,
       contratoSocial: null,
+      analisandoContratoSocial: false,
+      contratoSocialAnalise: null,
 
       telefoneComercial: "",
       telefoneComercialPais: "BR",
@@ -135,6 +148,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       setQsaResult: (qsaResult) => set({ qsaResult }),
       setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
       setContratoSocial: (contratoSocial) => set({ contratoSocial }),
+      setAnalisandoContratoSocial: (analisandoContratoSocial) => set({ analisandoContratoSocial }),
+      setContratoSocialAnalise: (contratoSocialAnalise) => set({ contratoSocialAnalise }),
 
       setTelefoneComercial: (telefoneComercial) => set({ telefoneComercial }),
       setTelefoneComercialPais: (telefoneComercialPais) => set({ telefoneComercialPais }),
@@ -143,10 +158,17 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       setEmailComercial: (emailComercial) => set({ emailComercial }),
       setEmailFinanceiro: (emailFinanceiro) => set({ emailFinanceiro }),
 
-      setSocios: (socios) => set({ socios }),
+      setSocios: (socios) =>
+        set((state) => ({ socios: typeof socios === "function" ? socios(state.socios) : socios })),
       setSocioCepBuscando: (socioCepBuscando) => set({ socioCepBuscando }),
 
-      setEnderecoBanco: (enderecoBanco) => set({ enderecoBanco }),
+      setEnderecoBanco: (enderecoBanco) =>
+        set((state) => ({
+          enderecoBanco:
+            typeof enderecoBanco === "function"
+              ? enderecoBanco(state.enderecoBanco)
+              : enderecoBanco,
+        })),
       setEnderecoBancoCepBuscando: (enderecoBancoCepBuscando) => set({ enderecoBancoCepBuscando }),
 
       setSubmitting: (isSubmitting) => set({ isSubmitting }),
@@ -164,6 +186,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
           qsaResult: null,
           avisoAlfanumerico: false,
           contratoSocial: null,
+          analisandoContratoSocial: false,
+          contratoSocialAnalise: null,
           telefoneComercial: "",
           telefoneComercialPais: "BR",
           semTelefoneComercial: false,

@@ -43,8 +43,8 @@ describe("processarWebhookD4SignRoute", () => {
     expect(mockProcessar).not.toHaveBeenCalled();
   });
 
-  it("processa sem checar HMAC quando D4SIGN_WEBHOOK_SECRET não está configurada", async () => {
-    process.env = { ...originalEnv };
+  it("processa sem checar HMAC quando D4SIGN_WEBHOOK_SECRET não está configurada (fora de produção)", async () => {
+    process.env = { ...originalEnv, NODE_ENV: "test" };
     delete process.env.D4SIGN_WEBHOOK_SECRET;
     mockProcessar.mockResolvedValueOnce({ processado: true });
 
@@ -54,6 +54,17 @@ describe("processarWebhookD4SignRoute", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ processado: true });
     expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
+  });
+
+  it("bloqueia com 500 em produção quando D4SIGN_WEBHOOK_SECRET não está configurada (fail-closed)", async () => {
+    process.env = { ...originalEnv, NODE_ENV: "production" };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+
+    const request = buildFormDataRequest({ uuid: "doc-1", type_post: "1" });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(500);
+    expect(mockProcessar).not.toHaveBeenCalled();
   });
 
   it("rejeita com 401 quando D4SIGN_WEBHOOK_SECRET está configurada e o HMAC não bate", async () => {
@@ -92,6 +103,48 @@ describe("processarWebhookD4SignRoute", () => {
 
     expect(response.status).toBe(200);
     expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
+  });
+
+  it("repassa o e-mail do signatário quando presente no form-data (typePost 4)", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    const request = buildFormDataRequest({
+      uuid: "doc-1",
+      type_post: "4",
+      email: "cadastro@sakuratur.com.br",
+    });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({
+      provedorId: "doc-1",
+      typePost: "4",
+      email: "cadastro@sakuratur.com.br",
+    });
+  });
+
+  it("repassa email e message quando presentes no form-data (typePost 2 — e-mail não entregue)", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    const request = buildFormDataRequest({
+      uuid: "doc-1",
+      type_post: "2",
+      email: "socio@agencia.com",
+      message: "Caixa de entrada cheia",
+    });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({
+      provedorId: "doc-1",
+      typePost: "2",
+      email: "socio@agencia.com",
+      message: "Caixa de entrada cheia",
+    });
   });
 
   it("sempre responde 200 mesmo quando o use-case não reconhece o evento (evita retry do D4Sign)", async () => {

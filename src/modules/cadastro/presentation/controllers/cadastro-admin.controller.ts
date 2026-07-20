@@ -6,7 +6,10 @@ import { PrismaEnderecoRepository } from "@/modules/cadastro/infrastructure/repo
 import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import { PrismaContratoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato.repository";
 import { PrismaContratoSignatarioRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-signatario.repository";
+import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
+import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
+import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
@@ -25,9 +28,35 @@ import {
 } from "@/modules/cadastro/application/use-cases/obter-endereco.use-case";
 import { ListarDocumentosUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos.use-case";
 import { ObterDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-documento.use-case";
+import { AprovarDocumentoUseCase } from "@/modules/cadastro/application/use-cases/aprovar-documento.use-case";
+import {
+  ReprovarDocumentoUseCase,
+  type ReprovarDocumentoInput,
+} from "@/modules/cadastro/application/use-cases/reprovar-documento.use-case";
+import { ObterArquivoDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-documento.use-case";
+import { LocalDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/local-documento-arquivo.adapter";
+import { GcsDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/gcs-documento-arquivo.adapter";
+import {
+  SolicitarReenvioDocumentosUseCase,
+  type SolicitarReenvioDocumentosInput,
+} from "@/modules/cadastro/application/use-cases/solicitar-reenvio-documentos.use-case";
+import { ResendEmailAdapter } from "@/modules/shared/infrastructure/adapters/resend-email.adapter";
+import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
 import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos.use-case";
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
+import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
+import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
+import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
+import { ObterSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/obter-signatario-padrao.use-case";
+import { CriarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/criar-signatario-padrao.use-case";
+import {
+  AtualizarSignatarioPadraoUseCase,
+  type AtualizarSignatarioPadraoInput,
+} from "@/modules/cadastro/application/use-cases/atualizar-signatario-padrao.use-case";
+import { RemoverSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/remover-signatario-padrao.use-case";
+import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/restaurar-signatario-padrao.use-case";
+import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import {
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_ATIVO,
@@ -44,7 +73,24 @@ const enderecoRepository = new PrismaEnderecoRepository(prisma);
 const documentoRepository = new PrismaDocumentoRepository(prisma);
 const contratoRepository = new PrismaContratoRepository(prisma);
 const contratoSignatarioRepository = new PrismaContratoSignatarioRepository(prisma);
-const contratoAssinaturaService = new MockD4SignService();
+const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
+const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaRepository(prisma);
+// Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
+// configurada, senão lê do disco local (uploads/).
+const documentoArquivoService = process.env.GCS_BUCKET_NAME
+  ? new GcsDocumentoArquivoAdapter()
+  : new LocalDocumentoArquivoAdapter();
+// Mesmo critério dos outros adapters externos: Resend real quando
+// RESEND_API_KEY está configurada, senão só loga (ver ConsoleEmailAdapter).
+const emailSender = process.env.RESEND_API_KEY
+  ? new ResendEmailAdapter()
+  : new ConsoleEmailAdapter();
+// Mesma regra do controller público: D4Sign real quando D4SIGN_TOKEN_API
+// está configurada, senão mock — antes ficava sempre no mock aqui, então
+// aprovarComplementar nunca mandava contrato de verdade em produção.
+const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
+  ? new D4SignAdapter(signatarioPadraoRepository)
+  : new MockD4SignService();
 
 export const cadastroAdminController = {
   listarCadastros(filtros: ListarCadastrosFiltros) {
@@ -122,6 +168,26 @@ export const cadastroAdminController = {
     return useCase.execute(id);
   },
 
+  aprovarDocumento(id: string) {
+    const useCase = new AprovarDocumentoUseCase(documentoRepository);
+    return useCase.execute(id);
+  },
+
+  reprovarDocumento(input: ReprovarDocumentoInput) {
+    const useCase = new ReprovarDocumentoUseCase(documentoRepository);
+    return useCase.execute(input);
+  },
+
+  obterArquivoDocumento(id: string) {
+    const useCase = new ObterArquivoDocumentoUseCase(documentoRepository, documentoArquivoService);
+    return useCase.execute(id);
+  },
+
+  solicitarReenvioDocumentos(input: SolicitarReenvioDocumentosInput) {
+    const useCase = new SolicitarReenvioDocumentosUseCase(agenciaRepository, emailSender);
+    return useCase.execute(input);
+  },
+
   listarContratos(agenciaId: string) {
     const useCase = new ListarContratosUseCase(contratoRepository);
     return useCase.execute(agenciaId);
@@ -135,5 +201,47 @@ export const cadastroAdminController = {
   listarSignatariosContrato(contratoId: string) {
     const useCase = new ListarSignatariosContratoUseCase(contratoSignatarioRepository);
     return useCase.execute(contratoId);
+  },
+
+  listarEmailsFalhaEntregaContrato(contratoId: string) {
+    const useCase = new ListarEmailsFalhaEntregaContratoUseCase(
+      contratoEmailFalhaEntregaRepository,
+    );
+    return useCase.execute(contratoId);
+  },
+
+  listarSignatariosPadraoAtivos() {
+    const useCase = new ListarSignatariosPadraoAtivosUseCase(signatarioPadraoRepository);
+    return useCase.execute();
+  },
+
+  listarSignatariosPadrao() {
+    const useCase = new ListarSignatariosPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute();
+  },
+
+  obterSignatarioPadrao(id: string) {
+    const useCase = new ObterSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(id);
+  },
+
+  criarSignatarioPadrao(data: CreateSignatarioPadraoData) {
+    const useCase = new CriarSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(data);
+  },
+
+  atualizarSignatarioPadrao(input: AtualizarSignatarioPadraoInput) {
+    const useCase = new AtualizarSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(input);
+  },
+
+  removerSignatarioPadrao(id: string) {
+    const useCase = new RemoverSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(id);
+  },
+
+  restaurarSignatarioPadrao(id: string) {
+    const useCase = new RestaurarSignatarioPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(id);
   },
 };

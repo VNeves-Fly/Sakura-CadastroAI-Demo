@@ -34,6 +34,7 @@ export class AuthenticateUserUseCase implements UseCase<
       id: record.id,
       name: record.name,
       email: record.email,
+      mustChangePassword: record.mustChangePassword,
     });
 
     return authenticatedUser.toJSON();

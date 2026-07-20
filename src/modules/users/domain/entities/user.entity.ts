@@ -1,7 +1,13 @@
+import type { Cargo } from "@/modules/users/domain/enums";
+
 export interface UserProps {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone: string;
+  cargo: Cargo;
+  mustChangePassword: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,12 +23,28 @@ export class User {
     return this.props.id;
   }
 
-  get name(): string {
-    return this.props.name;
+  get firstName(): string {
+    return this.props.firstName;
+  }
+
+  get lastName(): string {
+    return this.props.lastName;
   }
 
   get email(): string {
     return this.props.email;
+  }
+
+  get phone(): string {
+    return this.props.phone;
+  }
+
+  get cargo(): Cargo {
+    return this.props.cargo;
+  }
+
+  get mustChangePassword(): boolean {
+    return this.props.mustChangePassword;
   }
 
   get createdAt(): Date {
@@ -39,8 +61,12 @@ export class User {
   } {
     return {
       id: this.props.id,
-      name: this.props.name,
+      firstName: this.props.firstName,
+      lastName: this.props.lastName,
       email: this.props.email,
+      phone: this.props.phone,
+      cargo: this.props.cargo,
+      mustChangePassword: this.props.mustChangePassword,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
     };

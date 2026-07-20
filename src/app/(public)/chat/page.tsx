@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Rubik } from "next/font/google";
 import Image from "next/image";
+import { AnimatedGradientBackground } from "@/components/animated-gradient-background";
 import { ChatWizard } from "./chat-wizard";
 
 export const metadata: Metadata = {
@@ -21,8 +22,13 @@ const rubik = Rubik({
 export default function ChatPage() {
   return (
     <div
-      className={`${rubik.variable} font-rubik chat-scope relative flex h-dvh w-full flex-col items-center gap-3 overflow-hidden bg-gradient-to-br from-[hsl(320,60%,9%)] via-black to-black p-3 sm:gap-4 sm:p-4`}
+      className={`${rubik.variable} font-rubik chat-scope relative flex h-dvh w-full flex-col items-center gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4`}
     >
+      {/* Substitui o antigo bg-gradient-to-br estático — precisa vir sem
+          fundo próprio no container acima, senão ocultaria esta camada
+          (fixed + z-index negativo) atrás dela. */}
+      <AnimatedGradientBackground />
+
       <div className="bg-pink-glow/30 absolute top-[-10%] left-[-10%] size-[420px] rounded-full blur-[120px]" />
       <div className="bg-violet-glow/20 absolute right-[-10%] bottom-[-10%] size-[420px] rounded-full blur-[120px]" />
 

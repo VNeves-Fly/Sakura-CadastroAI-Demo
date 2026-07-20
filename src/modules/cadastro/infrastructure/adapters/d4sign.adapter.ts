@@ -3,14 +3,17 @@ import type {
   GerarContratoInput,
   GerarContratoResult,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
+import type { PapelSignatarioPadrao } from "@/modules/cadastro/domain/enums";
+import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 
 // Integração real com o D4Sign (https://docapi.d4sign.com.br/). Fluxo:
 // 1. Gera o documento a partir do template Word (variáveis substituídas).
 // 2. Registra a URL de webhook nesse documento (se D4SIGN_WEBHOOK_URL
 //    existir — sem URL pública configurada, pula esse passo e o avanço
 //    de status depois da assinatura fica manual, como já é hoje).
-// 3. Cadastra os sócios como signatários.
-// 4. Envia o documento pra fase "Aguardando Assinaturas".
+// 3. Cadastra os signatários em estágios (sócios + os fixos da Sakura).
+// 4. Envia o documento pra fase "Aguardando Assinaturas", respeitando a
+//    ordem dos estágios.
 //
 // Autenticação é via query string (tokenAPI + cryptKey), não header —
 // assim que o D4Sign exige (confirmado no OpenAPI oficial deles).
@@ -21,7 +24,33 @@ function baseUrl(): string {
   return process.env.D4SIGN_API_BASE_URL ?? "https://secure.d4sign.com.br/api/v1";
 }
 
+// Estágio 0 é sempre os sócios da agência (dinâmico, por cadastro) — os
+// signatários fixos da Sakura ocupam os estágios seguintes, conforme o
+// campo `estagio` de cada um em SignatarioPadrao.
+const ESTAGIO_SOCIOS = 0;
+
+// Espelha 1:1 o campo `act` da API do D4Sign (ver enum PapelSignatarioPadrao
+// no schema) — traduz o papel do signatário fixo pro código numérico que a
+// API espera.
+const ACT_POR_PAPEL: Record<PapelSignatarioPadrao, string> = {
+  ASSINAR: "1",
+  APROVAR: "2",
+  RECONHECER: "3",
+  ASSINAR_COMO_PARTE: "4",
+  ASSINAR_COMO_TESTEMUNHA: "5",
+  ASSINAR_COMO_INTERVENIENTE: "6",
+  ACUSAR_RECEBIMENTO: "7",
+  ASSINAR_COMO_EMISSOR_ENDOSSANTE_AVALISTA: "8",
+  ASSINAR_COMO_EMISSOR_ENDOSSANTE_AVALISTA_FIADOR: "9",
+  ASSINAR_COMO_FIADOR: "10",
+  ASSINAR_COMO_PARTE_E_FIADOR: "11",
+  ASSINAR_COMO_RESPONSAVEL_SOLIDARIO: "12",
+  ASSINAR_COMO_PARTE_E_RESPONSAVEL_SOLIDARIO: "13",
+};
+
 export class D4SignAdapter implements ContratoAssinaturaService {
+  constructor(private readonly signatarioPadraoRepository: SignatarioPadraoRepository) {}
+
   async gerarEEnviar(input: GerarContratoInput): Promise<GerarContratoResult> {
     const templateId = requireEnv("D4SIGN_TEMPLATE_ID");
     const safeUuid = requireEnv("D4SIGN_SAFE_UUID");
@@ -84,21 +113,37 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     documentUuid: string,
     signatarios: GerarContratoInput["signatarios"],
   ): Promise<void> {
+    const signatariosPadrao = await this.signatarioPadraoRepository.findAtivos();
+
+    const socios = signatarios.map((socio) => ({
+      email: socio.email,
+      act: "1", // 1 = assinar
+      foreign: "0", // signatário brasileiro
+      certificadoicpbr: "0", // sem certificado ICP-Brasil
+      assinatura_presencial: "0", // assinatura remota
+      after_position: String(ESTAGIO_SOCIOS),
+    }));
+
+    const fixos = signatariosPadrao
+      .filter((padrao) => padrao.email)
+      .map((padrao) => ({
+        email: padrao.email as string,
+        act: ACT_POR_PAPEL[padrao.papel],
+        foreign: "0",
+        certificadoicpbr: "0",
+        assinatura_presencial: "0",
+        after_position: String(padrao.estagio),
+      }));
+
     await this.request("POST", `/documents/${documentUuid}/createlist`, {
-      signers: signatarios.map((socio) => ({
-        email: socio.email,
-        act: "1", // 1 = assinar
-        foreign: "0", // signatário brasileiro
-        certificadoicpbr: "0", // sem certificado ICP-Brasil
-        assinatura_presencial: "0", // assinatura remota
-      })),
+      signers: [...socios, ...fixos],
     });
   }
 
   private async enviarParaAssinatura(documentUuid: string): Promise<void> {
     await this.request("POST", `/documents/${documentUuid}/sendtosigner`, {
       skip_email: "0", // envia e-mail de notificação
-      workflow: "0", // dispara pra todos os signatários ao mesmo tempo
+      workflow: "1", // respeita a ordem de after_position (estágios)
     });
   }
 

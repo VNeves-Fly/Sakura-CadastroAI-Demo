@@ -9,6 +9,7 @@ import type { FileStorage } from "@/modules/cadastro/domain/services/file-storag
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { AnaliseIaService } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type { DocumentAnalysisService } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type {
   EnderecoInput,
   FinalizarCadastroInput,
@@ -35,6 +36,7 @@ export class FinalizarCadastroUseCase implements UseCase<
     private readonly qsaConsultaService: QsaConsultaService,
     private readonly contratoAssinaturaService: ContratoAssinaturaService,
     private readonly analiseIaService: AnaliseIaService,
+    private readonly documentAnalysisService: DocumentAnalysisService,
   ) {}
 
   async execute(input: FinalizarCadastroInput): Promise<FinalizarCadastroOutput> {
@@ -87,6 +89,25 @@ export class FinalizarCadastroUseCase implements UseCase<
       email: socio.email,
       cpf: socio.cpf,
     }));
+
+    // "Aquece" a sessão de análise (session_id = cnpj) com cada documento
+    // individual antes da avaliação final — o agents-service compartilha o
+    // checkpoint do LangGraph por session_id, então a chamada final de
+    // analiseIaService.avaliar() já enxerga esse contexto. Sequencial (não
+    // Promise.all) porque as chamadas dividem o mesmo thread_id no agente;
+    // rodar em paralelo arriscaria concorrência no checkpoint.
+    await this.documentAnalysisService.analisar({
+      cnpj: input.cnpj,
+      documentPath: contratoSocialPath,
+      documentType: "contrato_social",
+    });
+    for (const socio of socios) {
+      await this.documentAnalysisService.analisar({
+        cnpj: input.cnpj,
+        documentPath: socio.rgPath,
+        documentType: "cnh_rg",
+      });
+    }
 
     // A IA avalia o cadastro logo no envio: se achar algo errado, o caso
     // vai pra fila "em_complementar" (revisão manual, sem contrato ainda

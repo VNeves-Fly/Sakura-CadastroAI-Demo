@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { validarCnpjComMensagem, unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { validarCpfComMensagem, maskCpf, unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
@@ -59,6 +60,11 @@ function aguardar(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+// Depois de 3 erros seguidos (em qualquer campo — o contador zera a cada
+// resposta válida), o roteiro desiste de insistir na validação e oferece
+// atendimento humano via WhatsApp em vez de repetir a mesma pergunta.
+const LIMITE_ERROS_CONSECUTIVOS = 3;
+
 // Roteiro do chat: protótipo visual isolado (decisão do usuário,
 // 2026-07-17) — nenhuma chamada a adapter/service/use-case real. CNPJ,
 // CPF e e-mail usam os mesmos validadores puros do wizard real;
@@ -72,6 +78,8 @@ export function useChatScript() {
   const contextoRef = useRef<ContextoChat>(contextoVazio());
   const idCounterRef = useRef(0);
   const iniciouRef = useRef(false);
+  const errosConsecutivosRef = useRef(0);
+  const router = useRouter();
 
   // Sub-fluxo de telefone (tipo → número → WhatsApp se celular) é
   // idêntico pra empresa/sócio/procurador — a continuação decide onde
@@ -130,13 +138,91 @@ export function useChatScript() {
     );
   }
 
+  // ---------- Validação com limite de tentativas ----------
+
+  // Centraliza todo ponto de "resposta inválida, tente de novo" do
+  // roteiro — em vez de cada função decidir sozinha se repete a
+  // pergunta, aqui é onde o contador de erros consecutivos vive. Retorna
+  // true (siga em frente) ou false (já tratou o que fazer: repetiu a
+  // pergunta ou acionou o fallback de WhatsApp).
+  async function validarOuFalhar(
+    valido: boolean,
+    mensagemErro: string,
+    pendingReenviar: PendingInput,
+  ): Promise<boolean> {
+    if (valido) {
+      errosConsecutivosRef.current = 0;
+      return true;
+    }
+
+    errosConsecutivosRef.current += 1;
+    if (errosConsecutivosRef.current >= LIMITE_ERROS_CONSECUTIVOS) {
+      await ativarFallbackWhatsapp();
+      return false;
+    }
+
+    await falarBot(mensagemErro);
+    setPending(pendingReenviar);
+    return false;
+  }
+
+  async function ativarFallbackWhatsapp() {
+    errosConsecutivosRef.current = 0;
+    await falarBot(
+      "Estou vendo que está com dificuldade para responder. Informe seu WhatsApp e um analista entrará em contato contigo para auxiliar no cadastro.",
+    );
+    setPending({ kind: "texto", tag: "whatsapp_fallback", placeholder: "(11) 99999-9999" });
+  }
+
+  // Sem limite de tentativas aqui de propósito — já estamos no fallback
+  // porque o roteiro automático não deu certo; travar o usuário de novo
+  // seria o oposto do objetivo.
+  async function receberWhatsappFallback(valorDigitado: string) {
+    if (!telefoneChatValido(valorDigitado, "celular")) {
+      await falarBot(
+        "Esse número não parece completo. Pode digitar seu WhatsApp com DDD, no formato (11) 99999-9999?",
+      );
+      setPending({ kind: "texto", tag: "whatsapp_fallback", placeholder: "(11) 99999-9999" });
+      return;
+    }
+
+    await falarBot("Estamos registrando seu número...");
+    await aguardar(3000);
+    setResultadoFinal({
+      tipo: "manual",
+      titulo: "Vamos continuar por WhatsApp!",
+      mensagem: "Um analista da Sakura vai entrar em contato por lá para concluir seu cadastro.",
+    });
+    setFase("resultado");
+  }
+
   // ---------- Início / Empresa ----------
 
   async function iniciar() {
     await falarBot(
-      "Olá! Seja bem-vindo(a). Esta é a página de cadastro de agências da Sakura Consolidadora. Para prosseguir, digite o CNPJ da agência.",
+      "Olá! Seja bem-vindo(a) à Sakura Consolidadora. Eu sou a assistente virtual e vou te ajudar com o cadastro da sua agência.",
       600,
     );
+    await falarBot("Você prefere continuar por aqui, no chat, ou preencher um formulário?");
+    setPending({
+      kind: "quick-replies",
+      tag: "escolha_modo_inicial",
+      opcoes: [
+        { valor: "chat", label: "Continuar no chat" },
+        { valor: "formulario", label: "Preencher formulário" },
+      ],
+    });
+  }
+
+  async function escolherModoInicial(valor: string) {
+    if (valor === "formulario") {
+      await falarBot("Estamos enviando seu cadastro para o formulário...");
+      await aguardar(3000);
+      router.push("/cadastro");
+      return;
+    }
+
+    await falarBot("Combinado! Para prosseguir, digite o CNPJ da agência.");
     setPending({ kind: "texto", tag: "cnpj", placeholder: "00.000.000/0000-00" });
   }
 
@@ -149,11 +235,12 @@ export function useChatScript() {
 
   async function receberCnpj(valorDigitado: string) {
     const { valido } = validarCnpjComMensagem(valorDigitado);
-    if (!valido) {
-      await falarBot("Hmm, não conseguimos validar esse CNPJ. Pode conferir e digitar novamente?");
-      setPending({ kind: "texto", tag: "cnpj", placeholder: "00.000.000/0000-00" });
-      return;
-    }
+    const ok = await validarOuFalhar(
+      valido,
+      "Hmm, não conseguimos validar esse CNPJ. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "cnpj", placeholder: "00.000.000/0000-00" },
+    );
+    if (!ok) return;
 
     const limpo = unmaskCnpj(valorDigitado);
     const empresa = gerarEmpresaMock(limpo);
@@ -214,11 +301,12 @@ export function useChatScript() {
   }
 
   async function receberEmailContato(valorDigitado: string) {
-    if (!validarEmail(valorDigitado)) {
-      await falarBot("Esse e-mail não parece válido. Pode conferir e digitar novamente?");
-      setPending({ kind: "texto", tag: "email_contato", placeholder: "contato@agencia.com.br" });
-      return;
-    }
+    const ok = await validarOuFalhar(
+      validarEmail(valorDigitado),
+      "Esse e-mail não parece válido. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "email_contato", placeholder: "contato@agencia.com.br" },
+    );
+    if (!ok) return;
     contextoRef.current.emailContato = valorDigitado.trim();
     await falarBot("Existe algum e-mail diferente pro comercial ou financeiro?");
     setPending({
@@ -262,29 +350,23 @@ export function useChatScript() {
   }
 
   async function receberEmailComercial(valorDigitado: string) {
-    if (!validarEmail(valorDigitado)) {
-      await falarBot("Esse e-mail não parece válido. Pode conferir e digitar novamente?");
-      setPending({
-        kind: "texto",
-        tag: "email_comercial",
-        placeholder: "comercial@agencia.com.br",
-      });
-      return;
-    }
+    const ok = await validarOuFalhar(
+      validarEmail(valorDigitado),
+      "Esse e-mail não parece válido. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "email_comercial", placeholder: "comercial@agencia.com.br" },
+    );
+    if (!ok) return;
     contextoRef.current.emailComercial = valorDigitado.trim();
     await avancarEmailsAdicionais();
   }
 
   async function receberEmailFinanceiro(valorDigitado: string) {
-    if (!validarEmail(valorDigitado)) {
-      await falarBot("Esse e-mail não parece válido. Pode conferir e digitar novamente?");
-      setPending({
-        kind: "texto",
-        tag: "email_financeiro",
-        placeholder: "financeiro@agencia.com.br",
-      });
-      return;
-    }
+    const ok = await validarOuFalhar(
+      validarEmail(valorDigitado),
+      "Esse e-mail não parece válido. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "email_financeiro", placeholder: "financeiro@agencia.com.br" },
+    );
+    if (!ok) return;
     contextoRef.current.emailFinanceiro = valorDigitado.trim();
     await avancarEmailsAdicionais();
   }
@@ -318,19 +400,18 @@ export function useChatScript() {
   }
 
   async function receberTelefoneNumero(valorDigitado: string, tipo: "fixo" | "celular") {
-    if (!telefoneChatValido(valorDigitado, tipo)) {
-      const placeholder = tipo === "celular" ? "(11) 99999-9999" : "(11) 3333-4444";
-      const rotulo = tipo === "celular" ? "celular" : "telefone fixo";
-      await falarBot(
-        `Esse número não parece um ${rotulo} válido. Pode digitar novamente no formato ${placeholder}?`,
-      );
-      setPending({
+    const placeholder = tipo === "celular" ? "(11) 99999-9999" : "(11) 3333-4444";
+    const rotulo = tipo === "celular" ? "celular" : "telefone fixo";
+    const ok = await validarOuFalhar(
+      telefoneChatValido(valorDigitado, tipo),
+      `Esse número não parece um ${rotulo} válido. Pode digitar novamente no formato ${placeholder}?`,
+      {
         kind: "texto",
         tag: tipo === "celular" ? "telefone_celular" : "telefone_fixo",
         placeholder,
-      });
-      return;
-    }
+      },
+    );
+    if (!ok) return;
 
     const telefone: TelefoneChat = {
       tipo,
@@ -393,21 +474,21 @@ export function useChatScript() {
 
   async function receberCpf(valorDigitado: string) {
     const { valido } = validarCpfComMensagem(valorDigitado);
-    if (!valido) {
-      await falarBot("Hmm, esse CPF não parece válido. Pode conferir e digitar novamente?");
-      setPending({ kind: "texto", tag: "cpf", placeholder: "000.000.000-00" });
-      return;
-    }
+    const okValido = await validarOuFalhar(
+      valido,
+      "Hmm, esse CPF não parece válido. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "cpf", placeholder: "000.000.000-00" },
+    );
+    if (!okValido) return;
 
     const limpo = unmaskCpf(valorDigitado);
     const indice = contextoRef.current.socioAtualIndex!;
-    if (cpfDuplicadoEntreSocios(limpo, indice)) {
-      await falarBot(
-        "Esse CPF já foi informado para outro sócio deste cadastro. Cada sócio precisa de um CPF diferente — pode conferir e digitar novamente?",
-      );
-      setPending({ kind: "texto", tag: "cpf", placeholder: "000.000.000-00" });
-      return;
-    }
+    const okUnico = await validarOuFalhar(
+      !cpfDuplicadoEntreSocios(limpo, indice),
+      "Esse CPF já foi informado para outro sócio deste cadastro. Cada sócio precisa de um CPF diferente — pode conferir e digitar novamente?",
+      { kind: "texto", tag: "cpf", placeholder: "000.000.000-00" },
+    );
+    if (!okUnico) return;
 
     contextoRef.current.socios[indice]!.cpf = maskCpf(valorDigitado);
     await falarBot("Qual o e-mail do sócio?");
@@ -415,21 +496,21 @@ export function useChatScript() {
   }
 
   async function receberEmail(valorDigitado: string) {
-    if (!validarEmail(valorDigitado)) {
-      await falarBot("Esse e-mail não parece válido. Pode conferir e digitar novamente?");
-      setPending({ kind: "texto", tag: "email", placeholder: "socio@email.com" });
-      return;
-    }
+    const okValido = await validarOuFalhar(
+      validarEmail(valorDigitado),
+      "Esse e-mail não parece válido. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "email", placeholder: "socio@email.com" },
+    );
+    if (!okValido) return;
 
     const normalizado = valorDigitado.trim().toLowerCase();
     const indice = contextoRef.current.socioAtualIndex!;
-    if (emailDuplicadoEntreSocios(normalizado, indice)) {
-      await falarBot(
-        "Esse e-mail já está sendo usado por outro sócio deste cadastro. Pode informar um e-mail diferente?",
-      );
-      setPending({ kind: "texto", tag: "email", placeholder: "socio@email.com" });
-      return;
-    }
+    const okUnico = await validarOuFalhar(
+      !emailDuplicadoEntreSocios(normalizado, indice),
+      "Esse e-mail já está sendo usado por outro sócio deste cadastro. Pode informar um e-mail diferente?",
+      { kind: "texto", tag: "email", placeholder: "socio@email.com" },
+    );
+    if (!okUnico) return;
 
     contextoRef.current.socios[indice]!.email = valorDigitado.trim();
     await falarBot("Qual o estado civil?");
@@ -539,20 +620,20 @@ export function useChatScript() {
 
   async function receberCpfProcurador(valorDigitado: string) {
     const { valido } = validarCpfComMensagem(valorDigitado);
-    if (!valido) {
-      await falarBot("Hmm, esse CPF não parece válido. Pode conferir e digitar novamente?");
-      setPending({ kind: "texto", tag: "cpf_procurador", placeholder: "000.000.000-00" });
-      return;
-    }
+    const okValido = await validarOuFalhar(
+      valido,
+      "Hmm, esse CPF não parece válido. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "cpf_procurador", placeholder: "000.000.000-00" },
+    );
+    if (!okValido) return;
 
     const limpo = unmaskCpf(valorDigitado);
-    if (cpfDuplicadoEntreSocios(limpo, null)) {
-      await falarBot(
-        "Esse CPF já foi informado por um dos sócios. Pode conferir e digitar novamente?",
-      );
-      setPending({ kind: "texto", tag: "cpf_procurador", placeholder: "000.000.000-00" });
-      return;
-    }
+    const okUnico = await validarOuFalhar(
+      !cpfDuplicadoEntreSocios(limpo, null),
+      "Esse CPF já foi informado por um dos sócios. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "cpf_procurador", placeholder: "000.000.000-00" },
+    );
+    if (!okUnico) return;
 
     contextoRef.current.procurador!.cpf = maskCpf(valorDigitado);
     await falarBot("Qual o e-mail do procurador?");
@@ -560,20 +641,20 @@ export function useChatScript() {
   }
 
   async function receberEmailProcurador(valorDigitado: string) {
-    if (!validarEmail(valorDigitado)) {
-      await falarBot("Esse e-mail não parece válido. Pode conferir e digitar novamente?");
-      setPending({ kind: "texto", tag: "email_procurador", placeholder: "procurador@email.com" });
-      return;
-    }
+    const okValido = await validarOuFalhar(
+      validarEmail(valorDigitado),
+      "Esse e-mail não parece válido. Pode conferir e digitar novamente?",
+      { kind: "texto", tag: "email_procurador", placeholder: "procurador@email.com" },
+    );
+    if (!okValido) return;
 
     const normalizado = valorDigitado.trim().toLowerCase();
-    if (emailDuplicadoEntreSocios(normalizado, null)) {
-      await falarBot(
-        "Esse e-mail já está sendo usado por um dos sócios. Pode informar um e-mail diferente?",
-      );
-      setPending({ kind: "texto", tag: "email_procurador", placeholder: "procurador@email.com" });
-      return;
-    }
+    const okUnico = await validarOuFalhar(
+      !emailDuplicadoEntreSocios(normalizado, null),
+      "Esse e-mail já está sendo usado por um dos sócios. Pode informar um e-mail diferente?",
+      { kind: "texto", tag: "email_procurador", placeholder: "procurador@email.com" },
+    );
+    if (!okUnico) return;
 
     contextoRef.current.procurador!.email = valorDigitado.trim();
     await pedirTelefone(async (telefone) => {
@@ -828,7 +909,8 @@ export function useChatScript() {
     pushUserTexto(valorDigitado);
     setPending(null);
 
-    if (tag === "cnpj") await receberCnpj(valor);
+    if (tag === "whatsapp_fallback") await receberWhatsappFallback(valor);
+    else if (tag === "cnpj") await receberCnpj(valor);
     else if (tag === "email_contato") await receberEmailContato(valor);
     else if (tag === "email_comercial") await receberEmailComercial(valor);
     else if (tag === "email_financeiro") await receberEmailFinanceiro(valor);
@@ -848,7 +930,8 @@ export function useChatScript() {
     pushUserTexto(opcaoEscolhida?.label ?? valor);
     setPending(null);
 
-    if (tag === "telefone_comercial_pergunta") await responderTelefoneComercial(valor);
+    if (tag === "escolha_modo_inicial") await escolherModoInicial(valor);
+    else if (tag === "telefone_comercial_pergunta") await responderTelefoneComercial(valor);
     else if (tag === "tipo_telefone") await escolherTipoTelefone(valor as "fixo" | "celular");
     else if (tag === "confirma_whatsapp") await responderWhatsapp(valor);
     else if (tag === "escolha_socio") await escolherSocio(Number(valor));

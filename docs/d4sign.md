@@ -117,7 +117,7 @@ Só roda se `D4SIGN_WEBHOOK_URL` estiver configurada — hoje está vazia (sem d
 
 ## 5. Cadastrar signatário — `POST /documents/{uuid}/createlist`
 
-**Request** (e-mail real do signatário mascarado aqui por privacidade — testado de verdade duas vezes, com dois signatários reais diferentes):
+**Request** (e-mail real do signatário mascarado aqui por privacidade — testado de verdade duas vezes, com dois signatários reais diferentes, na versão sem estágios/`after_position` do adapter):
 
 ```json
 {
@@ -135,19 +135,78 @@ Só roda se `D4SIGN_WEBHOOK_URL` estiver configurada — hoje está vazia (sem d
 
 **Response:** `200 OK` (corpo não logado pelo adapter — só `response.ok` é checado; a doc oficial mostra um retorno com `key_signer`, `status: "created"`, etc.)
 
+### 5.1 Estágios de assinatura (`after_position`) — não testado ao vivo ainda
+
+O adapter agora monta a lista com **todos** os signatários de uma vez (sócios + os 4 fixos da Sakura, lidos de `signatarios_padrao` via `SignatarioPadraoRepository`), cada um com `after_position` = seu estágio. Confirmado na doc oficial (`docs/endpoints-1.md`): "Define a posição após a qual o signatário será inserido na ordem".
+
+| Estágio (`after_position`) | Quem                                              | `act`                                           |
+| -------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `"0"`                      | Sócios da agência (dinâmico, `input.signatarios`) | `"1"` (assinar)                                 |
+| `"1"`                      | Jean — `cadastro@sakuratur.com.br`                | `"2"` (aprovar)                                 |
+| `"2"`                      | Vivi, Wagner, Jennifer                            | `"4"` (assinar como parte) / `"5"` (testemunha) |
+
+```json
+{
+  "signers": [
+    {
+      "email": "socio@agencia.com",
+      "act": "1",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "0"
+    },
+    {
+      "email": "cadastro@sakuratur.com.br",
+      "act": "2",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "1"
+    },
+    {
+      "email": "vivi.siqueira@sakuratur.com.br",
+      "act": "4",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "2"
+    },
+    {
+      "email": "wagner.chaves@sakuratur.com.br",
+      "act": "5",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "2"
+    },
+    {
+      "email": "jennifer.araujo@sakuratur.com.br",
+      "act": "5",
+      "foreign": "0",
+      "certificadoicpbr": "0",
+      "assinatura_presencial": "0",
+      "after_position": "2"
+    }
+  ]
+}
+```
+
+**⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário (fetch mockado). O `act` de cada signatário fixo vem do enum `PapelSignatarioPadrao` (schema.prisma), traduzido em `ACT_POR_PAPEL` no adapter.
+
 ## 6. Enviar pra assinatura — `POST /documents/{uuid}/sendtosigner`
 
 **Request:**
 
 ```json
-{ "skip_email": "0", "workflow": "0" }
+{ "skip_email": "0", "workflow": "1" }
 ```
 
-`skip_email: "0"` → manda e-mail de notificação de verdade pro signatário. `workflow: "0"` → dispara pra todos os signatários ao mesmo tempo (sem ordem).
+`skip_email: "0"` → manda e-mail de notificação de verdade pro signatário. `workflow: "1"` → respeita a ordem de `after_position`: o D4Sign só notifica o próximo estágio depois que todos do estágio anterior assinarem (confirmado em `docs/endpoints-2.md`: "o segundo signatário só receberá a mensagem [...] DEPOIS que o primeiro signatário efetuar a assinatura").
 
 **Response:** `200 OK` (corpo não logado pelo adapter).
 
-**Confirmado no teste:** e-mail de convite pra assinar foi enviado de verdade pro signatário de teste (2 vezes, com pessoas/e-mails diferentes) — documento passou pro status "Aguardando Assinaturas" (visto na chamada 3 acima).
+**Confirmado no teste (ao vivo, ainda na versão `workflow: "0"`):** e-mail de convite pra assinar foi enviado de verdade pro signatário de teste (2 vezes, com pessoas/e-mails diferentes) — documento passou pro status "Aguardando Assinaturas" (visto na chamada 3 acima). **A versão com `workflow: "1"` + estágios ainda não foi testada contra a conta real** — só unitário, pra não dar sinal de assinatura pros 4 signatários fixos (Jean/Vivi/Wagner/Jennifer) de verdade num teste.
 
 ## 7. Cancelar documento de teste — `POST /documents/{uuid}/cancel`
 
@@ -190,13 +249,47 @@ Response — `200 OK`:
 
 Efeito real confirmado no banco: `contrato.status` → `assinado`, `agencia.status` → `aguardando_validacao`.
 
-**Teste B — evento não tratado (`type_post=2`, e-mail não entregue):**
+### 8.1 Aprovação intermediária (`type_post=4`) — não testado ao vivo ainda
 
-Response — `200 OK`:
+Confirmado na doc oficial (`docs/webhook-postback.md`): `type_post=4` = assinatura de **um** signatário específico, com o campo `email` identificando quem foi (a rota agora lê esse campo — `webhook-d4sign.routes.ts`).
 
-```json
-{ "processado": false, "motivo": "typePost \"2\" reconhecido, sem ação." }
+O use-case só age se o `email` bater com o signatário fixo de papel `APROVAR` (Jean, estágio 1 — sozinho nesse estágio, já que os sócios do estágio 0 assinam antes dele por causa do `after_position`/`workflow: "1"`, seção 5.1). Quando bate:
+
+- `contrato.status` → `assinado_agencia` (novo valor do enum `StatusContrato` — nem "aguardando" nem "assinado" de vez, só a agência).
+- `agencia.status` → `aguardando_validacao` — **sem esperar** os signatários fixos restantes (estágio 2: Vivi, Wagner, Jennifer) terminarem.
+
+Se o `email` for de outro signatário (sócio, ou um dos 3 do estágio 2), o evento é reconhecido e ignorado (sem side-effect) — só o aprovador dispara o avanço antecipado.
+
 ```
+uuid=doc-uuid-123, type_post=4, email=cadastro@sakuratur.com.br
+→ { "processado": true }
+```
+
+```
+uuid=doc-uuid-123, type_post=4, email=wagner.chaves@sakuratur.com.br
+→ { "processado": false, "motivo": "Assinatura individual não é do aprovador — sem ação." }
+```
+
+Quando o `type_post=1` (documento inteiro finalizado) chega depois disso, o use-case aceita tanto `aguardando_assinatura` quanto `aguardando_validacao` como estado válido da agência (o segundo é o caso comum, já avançado pela aprovação intermediária) — fecha `contrato.status = assinado` e garante `agencia.status = aguardando_validacao` de forma idempotente.
+
+**⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário. Sem `D4SIGN_WEBHOOK_URL` pública em dev, não há como confirmar o formato exato do `type_post=4` num evento real (a doc oficial não mostra um payload de exemplo completo, só a lista de campos).
+
+### 8.2 E-mail não entregue (`type_post=2`) — indicativo na tela de Contrato
+
+Confirmado na doc oficial: `type_post=2` traz `email` (quem não recebeu) e `message` (motivo/erro de entrega). O use-case registra isso em `ContratoEmailFalhaEntrega` (tabela nova, chave `contratoId`+`email`, upsert idempotente — não em `ContratoSignatario`, pra cobrir também os 4 signatários fixos da Sakura sem precisar de CPF deles). Não muda nenhum status de contrato/agência — é só visibilidade.
+
+```
+uuid=doc-uuid-123, type_post=2, email=socio@agencia.com, message=Caixa de entrada cheia
+→ { "processado": true }
+```
+
+A tela `/painel/[id]` (seção "Contrato") mostra um badge **"E-mail não entregue"** ao lado do nome de quem está na lista, tanto na Fase 1 (sócios) quanto na Fase 2 (Sakura — que passou a listar os signatários fixos ativos de verdade, em vez do texto fixo "Sakura Consolidadora").
+
+**⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário, mesma limitação do 8.1 (sem `D4SIGN_WEBHOOK_URL` pública em dev).
+
+### 8.3 Documento cancelado (`type_post=3`) — pendente, documentado pra resolver depois
+
+D4Sign também manda esse evento quando o documento é cancelado (manualmente no painel deles, ou por `sign_limit_date` vencido). Hoje o use-case só reconhece e ignora (mesmo bucket genérico dos typePost sem transição definida) — `agencia.status` fica preso em `aguardando_assinatura` pra sempre, sem qualquer sinalização pro analista. Falta decidir: pra onde a agência deveria ir (não existe hoje um status tipo "contrato cancelado, precisa gerar de novo" no enum `StatusAgencia`) e se precisa de algum alerta ativo (hoje não há canal de notificação — Slack/e-mail — nesse projeto). Não implementado ainda.
 
 **Teste C — `provedorId` desconhecido:**
 
@@ -218,4 +311,8 @@ Response — `422 Unprocessable Entity`:
 
 ### Segurança do webhook (HMAC)
 
-Se `D4SIGN_WEBHOOK_SECRET` estiver configurada, a rota valida o header `Content-Hmac: sha256=<hash>` (HMAC-SHA256 do `uuid` do documento com a secret). Sem essa variável, aceita qualquer payload sem validar origem — documentado no código, não testado ao vivo (não temos a Secret Key MAC gerada na conta ainda).
+Se `D4SIGN_WEBHOOK_SECRET` estiver configurada, a rota valida o header `Content-Hmac: sha256=<hash>` (HMAC-SHA256 do `uuid` do documento com a secret). Sem essa variável: em produção (`NODE_ENV=production`) a rota **bloqueia com 500** — não faz sentido aceitar webhook sem autenticação num ambiente real; fora de produção, aceita sem validar (documentado, só pra não travar o webhook em dev antes da secret existir). Não testado ao vivo contra a conta real ainda.
+
+### Corrida entre "assinatura individual" (aprovador) e "documento finalizado"
+
+Os dois eventos (`type_post=4` do aprovador e `type_post=1` do documento inteiro) podem chegar em qualquer ordem, ou quase simultâneos — `ProcessarWebhookD4SignUseCase` não usa transação nem lock entre a leitura e a escrita do status. Pra evitar que uma entrega tardia/atrasada do "4" regrida `contrato.status` de `assinado` (final) de volta pra `assinado_agencia` (intermediário), o handler do "4" confere o status atual do contrato (não só da agência) e não age se ele já estiver `assinado`. Não elimina 100% a corrida (duas leituras exatamente simultâneas antes de qualquer escrita ainda são possíveis), mas cobre o caso prático de entregas próximas, não instantâneas.
