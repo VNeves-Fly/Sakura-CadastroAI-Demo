@@ -52,6 +52,7 @@ export class AnalisarContratoSocialUseCase implements UseCase<
       confianca: resultado.confiancaExtracao,
       resumoAnalise: resultado.resumoAnalise,
       camposObrigatoriosPresentes: resultado.checagens?.camposObrigatoriosPresentes ?? null,
+      camposExtras: resultado.camposExtras,
     };
   }
 }

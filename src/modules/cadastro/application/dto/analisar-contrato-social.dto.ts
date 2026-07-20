@@ -14,4 +14,5 @@ export interface AnalisarContratoSocialOutput {
   confianca: number;
   resumoAnalise: string | null;
   camposObrigatoriosPresentes: boolean | null;
+  camposExtras: Record<string, unknown>;
 }

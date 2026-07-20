@@ -13,9 +13,11 @@ export interface DocumentAnalysisChecagens {
 
 export interface DocumentAnalysisResultado {
   camposExtraidos: Record<string, unknown>;
+  camposExtras: Record<string, unknown>;
   confiancaExtracao: number;
   alertas: string[];
   resumoAnalise: string | null;
+  textoBruto: string | null;
   checagens: DocumentAnalysisChecagens | null;
 }
 

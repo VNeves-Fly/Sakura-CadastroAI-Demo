@@ -45,3 +45,6 @@ prisma/dev.db
 
 # uploads locais (armazenamento de arquivos do módulo cadastro em dev)
 /uploads
+
+#dev-files (arquivos que não devem ser versionados, mas são necessários para o desenvolvimento local)
+dev-files
