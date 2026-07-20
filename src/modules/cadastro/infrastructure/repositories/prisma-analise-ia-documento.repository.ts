@@ -1,4 +1,8 @@
-import type { PrismaClient, AnaliseIaDocumento as AnaliseIaDocumentoRecord } from "@prisma/client";
+import type {
+  Prisma,
+  PrismaClient,
+  AnaliseIaDocumento as AnaliseIaDocumentoRecord,
+} from "@prisma/client";
 import { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type {
   AnaliseIaDocumentoRepository,
@@ -16,7 +20,9 @@ export class PrismaAnaliseIaDocumentoRepository implements AnaliseIaDocumentoRep
   }
 
   async create(data: CreateAnaliseIaDocumentoData): Promise<AnaliseIaDocumento> {
-    const record = await this.prisma.analiseIaDocumento.create({ data });
+    const record = await this.prisma.analiseIaDocumento.create({
+      data: data as Prisma.AnaliseIaDocumentoUncheckedCreateInput,
+    });
     return this.toDomain(record);
   }
 
@@ -24,13 +30,16 @@ export class PrismaAnaliseIaDocumentoRepository implements AnaliseIaDocumentoRep
     return AnaliseIaDocumento.create({
       id: record.id,
       documentoId: record.documentoId,
-      numeroCadastur: record.numeroCadastur,
-      razaoSocialExtraida: record.razaoSocialExtraida,
-      dataCadastroExtraida: record.dataCadastroExtraida,
-      dataValidadeExtraida: record.dataValidadeExtraida,
-      situacaoExtraida: record.situacaoExtraida,
-      cnaeExtraido: record.cnaeExtraido,
-      scoreConfianca: record.scoreConfianca?.toNumber() ?? null,
+      camposExtraidos: record.camposExtraidos as Record<string, unknown>,
+      camposExtras: record.camposExtras as Record<string, unknown>,
+      confiancaExtracao: record.confiancaExtracao.toNumber(),
+      alertas: record.alertas,
+      resumoAnalise: record.resumoAnalise,
+      textoBruto: record.textoBruto,
+      formatoValido: record.formatoValido,
+      camposObrigatoriosPresentes: record.camposObrigatoriosPresentes,
+      referenciaCruzadaOk: record.referenciaCruzadaOk,
+      detalhesChecagem: record.detalhesChecagem as Record<string, unknown> | null,
       processadoEm: record.processadoEm,
     });
   }

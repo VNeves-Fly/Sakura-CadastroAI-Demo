@@ -45,9 +45,11 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
 
     expect(resultado).toEqual({
       camposExtraidos: { cnpj: input.cnpj },
+      camposExtras: {},
       confiancaExtracao: 0.92,
       alertas: ["ALERT_CRITICAL: campo capital_social ausente"],
       resumoAnalise: "O contrato social apresenta a maioria dos campos esperados.",
+      textoBruto: null,
       checagens: {
         formatoValido: true,
         camposObrigatoriosPresentes: false,
@@ -75,9 +77,11 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
 
     expect(resultado).toEqual({
       camposExtraidos: {},
+      camposExtras: {},
       confiancaExtracao: 0,
       alertas: [],
       resumoAnalise: null,
+      textoBruto: null,
       checagens: null,
     });
   });
@@ -95,9 +99,11 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
 
     expect(resultado).toEqual({
       camposExtraidos: {},
+      camposExtras: {},
       confiancaExtracao: 0,
       alertas: [],
       resumoAnalise: null,
+      textoBruto: null,
       checagens: null,
     });
   });
@@ -109,9 +115,11 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
 
     expect(resultado).toEqual({
       camposExtraidos: {},
+      camposExtras: {},
       confiancaExtracao: 0,
       alertas: [],
       resumoAnalise: null,
+      textoBruto: null,
       checagens: null,
     });
     expect(global.fetch).not.toHaveBeenCalled();
