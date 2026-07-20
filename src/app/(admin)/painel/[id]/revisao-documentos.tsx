@@ -12,7 +12,10 @@ export interface DocumentoRevisao {
 
 interface RevisaoDocumentosComplementarProps {
   agenciaId: string;
-  documentos: DocumentoRevisao[];
+  // Já vêm separados de quem prepara os dados da página (page.tsx) — a
+  // View só renderiza, não decide o que é "ativo" ou "pendente".
+  documentosAtivos: DocumentoRevisao[];
+  documentosPendentes: DocumentoRevisao[];
   aprovarDocumentoAction: (agenciaId: string, documentoId: string) => Promise<void>;
   reprovarDocumentoAction: (
     agenciaId: string,
@@ -51,7 +54,8 @@ function CopiarLinkButton({ link }: { link: string }) {
 // cliente reenvia pela página pública (link mostrado embaixo).
 export function RevisaoDocumentosComplementar({
   agenciaId,
-  documentos,
+  documentosAtivos,
+  documentosPendentes,
   aprovarDocumentoAction,
   reprovarDocumentoAction,
   solicitarReenvioDocumentosAction,
@@ -67,9 +71,6 @@ export function RevisaoDocumentosComplementar({
     setLinkReenvio(`${window.location.origin}/cadastro/documentos-pendentes/${agenciaId}`);
   }, [agenciaId]);
 
-  const ativos = documentos.filter((doc) => doc.status !== "REPROVADO");
-  const pendentes = documentos.filter((doc) => doc.status === "REPROVADO");
-
   return (
     <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-5">
       <span className="text-primary text-xs font-bold tracking-wide uppercase">
@@ -77,7 +78,7 @@ export function RevisaoDocumentosComplementar({
       </span>
 
       <div className="flex flex-col gap-2">
-        {ativos.map((doc) => (
+        {documentosAtivos.map((doc) => (
           <div
             key={doc.id}
             className="border-border bg-muted/30 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
@@ -158,7 +159,7 @@ export function RevisaoDocumentosComplementar({
         ))}
       </div>
 
-      {pendentes.length > 0 ? (
+      {documentosPendentes.length > 0 ? (
         <div className="border-warning/30 bg-warning/5 flex flex-col gap-3 rounded-xl border p-4 text-sm">
           <span className="text-warning text-xs font-bold tracking-wide uppercase">
             Documentos pendentes de reenvio
@@ -169,7 +170,7 @@ export function RevisaoDocumentosComplementar({
             className="flex flex-col gap-3"
           >
             <div className="flex flex-col gap-2">
-              {pendentes.map((doc) => (
+              {documentosPendentes.map((doc) => (
                 <label key={doc.id} className="text-foreground flex items-start gap-2">
                   <input type="checkbox" name="documentoIds" value={doc.id} className="mt-0.5" />
                   <span>

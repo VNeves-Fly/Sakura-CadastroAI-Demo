@@ -229,6 +229,13 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
       ...paraRevisao(socio.procuracao, `Procuração — ${socio.nome}`),
     ]),
   ];
+  // Decisão de quais documentos entram em cada bloco da tela é dado
+  // (status), não apresentação — calculada aqui em vez de dentro da View
+  // (RevisaoDocumentosComplementar só recebe as duas listas já prontas).
+  const documentosAtivos = documentosParaRevisao.filter((doc) => doc.status !== "REPROVADO");
+  const documentosPendentesReenvio = documentosParaRevisao.filter(
+    (doc) => doc.status === "REPROVADO",
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -441,7 +448,8 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
 
               <RevisaoDocumentosComplementar
                 agenciaId={agencia.id}
-                documentos={documentosParaRevisao}
+                documentosAtivos={documentosAtivos}
+                documentosPendentes={documentosPendentesReenvio}
                 aprovarDocumentoAction={aprovarDocumentoAction}
                 reprovarDocumentoAction={reprovarDocumentoAction}
                 solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
