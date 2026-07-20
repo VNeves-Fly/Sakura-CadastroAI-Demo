@@ -1,0 +1,84 @@
+import type { UseCase } from "@/modules/shared/application/use-case";
+import { DomainError, NotFoundError } from "@/modules/shared/domain/errors";
+import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+
+export interface SolicitarReenvioDocumentosInput {
+  agenciaId: string;
+  documentoIds: string[];
+}
+
+const LABEL_TIPO: Record<string, string> = {
+  CONTRATO_SOCIAL: "Contrato Social",
+  RG_CNPJ: "RG/CNH",
+  PROCURACAO: "Procuração",
+};
+
+function urlBase(): string {
+  return process.env.APP_URL ?? "http://localhost:3000";
+}
+
+// Notifica a agência (e-mail de contato do cadastro) sobre os documentos
+// reprovados que precisam de reenvio, com o link da página pública onde
+// o cliente sobe o arquivo novo. Best-effort: se o Resend não estiver
+// configurado, EmailSender cai pro console (ver composition root) — a
+// página do dossiê mostra o link mesmo assim, então o analista consegue
+// copiar/colar manualmente independente do e-mail ir ou não.
+export class SolicitarReenvioDocumentosUseCase implements UseCase<
+  SolicitarReenvioDocumentosInput,
+  void
+> {
+  constructor(
+    private readonly agenciaRepository: AgenciaRepository,
+    private readonly emailSender: EmailSender,
+  ) {}
+
+  async execute(input: SolicitarReenvioDocumentosInput): Promise<void> {
+    if (input.documentoIds.length === 0) {
+      throw new DomainError("Selecione ao menos um documento pra solicitar.");
+    }
+
+    const detalhe = await this.agenciaRepository.obterDetalhe(input.agenciaId);
+
+    if (!detalhe) {
+      throw new NotFoundError("Agência");
+    }
+
+    const idsSelecionados = new Set(input.documentoIds);
+    const itens: string[] = [];
+
+    if (detalhe.contratoSocial && idsSelecionados.has(detalhe.contratoSocial.id)) {
+      itens.push(LABEL_TIPO[detalhe.contratoSocial.tipo] ?? detalhe.contratoSocial.tipo);
+    }
+
+    for (const socio of detalhe.representantesLegais) {
+      if (socio.rg && idsSelecionados.has(socio.rg.id)) {
+        itens.push(`${LABEL_TIPO[socio.rg.tipo] ?? socio.rg.tipo} — ${socio.nome}`);
+      }
+      if (socio.procuracao && idsSelecionados.has(socio.procuracao.id)) {
+        itens.push(`${LABEL_TIPO[socio.procuracao.tipo] ?? socio.procuracao.tipo} — ${socio.nome}`);
+      }
+    }
+
+    if (itens.length === 0) {
+      throw new DomainError("Nenhum dos documentos selecionados pertence a esta agência.");
+    }
+
+    const link = `${urlBase()}/cadastro/documentos-pendentes/${input.agenciaId}`;
+    const listaHtml = itens.map((item) => `<li>${item}</li>`).join("");
+
+    await this.emailSender.send({
+      to: detalhe.agencia.emailContato,
+      subject: "Documentos pendentes — Cadastro Sakura",
+      html: `
+        <div style="font-family: sans-serif; font-size: 15px; color: #1f2937;">
+          <p>Olá!</p>
+          <p>Pra continuar a análise do cadastro de <strong>${detalhe.agencia.razaoSocial}</strong>,
+          precisamos que os documentos abaixo sejam reenviados:</p>
+          <ul>${listaHtml}</ul>
+          <p><a href="${link}">${link}</a></p>
+        </div>
+      `,
+    });
+  }
+}

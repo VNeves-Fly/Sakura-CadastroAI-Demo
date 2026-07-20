@@ -69,6 +69,8 @@ export interface CampoInlineForm {
 }
 
 export type PendingTag =
+  | "escolha_modo_inicial"
+  | "whatsapp_fallback"
   | "cnpj"
   | "contrato_social_empresa"
   | "telefone_comercial_pergunta"

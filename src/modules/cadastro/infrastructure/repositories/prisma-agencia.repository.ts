@@ -1,10 +1,12 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
 import {
   StatusAgencia as PrismaStatusAgencia,
   StatusContrato as PrismaStatusContrato,
   TipoDocumento,
 } from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import { documentoRecordToDomain } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import {
   CONTRATO_STATUS_ASSINADO,
   STATUS_ATIVO,
@@ -84,15 +86,30 @@ interface RepresentanteLegalRecord {
   estadoCivil: string;
   isRepresentanteLegal: boolean;
   endereco: EnderecoRecord | null;
-  documentos: { tipo: string; gcsPath: string }[];
 }
 
-function representanteToDomain(record: RepresentanteLegalRecord): RepresentanteLegalDetalhe {
-  const rg = record.documentos.find((documento) => documento.tipo === TipoDocumento.RG_CNPJ);
-  const procuracao = record.documentos.find(
-    (documento) => documento.tipo === TipoDocumento.PROCURACAO,
+// `documentosDaAgencia` já vem ordenado createdAt desc (ver
+// obterDetalhe) — o primeiro match de cada tipo é sempre o mais recente,
+// ou seja, "o documento atual" daquele slot. Reprovar não apaga a linha
+// antiga do banco (fica de histórico/auditoria); quando o cliente
+// reenvia, a linha nova (mais recente) passa a ser a atual automaticamente,
+// sem precisar de nenhuma flag extra de "ativo".
+function documentoAtual(
+  documentosDaAgencia: DocumentoRecord[],
+  tipo: TipoDocumento,
+  representanteLegalId: string | null,
+): Documento | null {
+  const record = documentosDaAgencia.find(
+    (documento) =>
+      documento.tipo === tipo && documento.representanteLegalId === representanteLegalId,
   );
+  return record ? documentoRecordToDomain(record) : null;
+}
 
+function representanteToDomain(
+  record: RepresentanteLegalRecord,
+  documentosDaAgencia: DocumentoRecord[],
+): RepresentanteLegalDetalhe {
   return {
     id: record.id,
     nome: record.nome,
@@ -102,8 +119,8 @@ function representanteToDomain(record: RepresentanteLegalRecord): RepresentanteL
     estadoCivil: record.estadoCivil,
     isRepresentanteLegal: record.isRepresentanteLegal,
     endereco: enderecoToDomain(record.endereco),
-    rgPath: rg?.gcsPath ?? "",
-    procuracaoPath: procuracao?.gcsPath ?? null,
+    rg: documentoAtual(documentosDaAgencia, TipoDocumento.RG_CNPJ, record.id),
+    procuracao: documentoAtual(documentosDaAgencia, TipoDocumento.PROCURACAO, record.id),
   };
 }
 
@@ -168,7 +185,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       where: { id },
       include: {
         complementar: { include: { enderecoAgencia: true } },
-        representantesLegais: { include: { endereco: true, documentos: true } },
+        representantesLegais: { include: { endereco: true } },
+        // Todos os documentos da agência numa lista só (sócios +
+        // contrato social) — mais barato que incluir por sócio, e
+        // `documentoAtual` já filtra por representanteLegalId na hora
+        // de montar cada slot.
+        documentos: { orderBy: { createdAt: "desc" } },
         contratos: { orderBy: { createdAt: "desc" } },
       },
     });
@@ -178,7 +200,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return {
       agencia: this.toDomain(record),
       complementar: record.complementar ? complementarToDomain(record.complementar) : null,
-      representantesLegais: record.representantesLegais.map(representanteToDomain),
+      representantesLegais: record.representantesLegais.map((socio) =>
+        representanteToDomain(socio, record.documentos),
+      ),
+      contratoSocial: documentoAtual(record.documentos, TipoDocumento.CONTRATO_SOCIAL, null),
       contratos: record.contratos.map((contrato) => ({
         id: contrato.id,
         provedorId: contrato.provedorId,
@@ -230,36 +255,48 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         agencia.representantesLegais.map((record) => [record.cpf, record]),
       );
 
+      const documentosSocios = data.socios.flatMap((socio) => {
+        const socioRecord = socioRecordPorCpf.get(socio.cpf);
+        if (!socioRecord) return [];
+
+        const documentos: {
+          agenciaId: string;
+          representanteLegalId: string | null;
+          tipo: TipoDocumento;
+          gcsPath: string;
+        }[] = [
+          {
+            agenciaId: agencia.id,
+            representanteLegalId: socioRecord.id,
+            tipo: TipoDocumento.RG_CNPJ,
+            gcsPath: socio.rgPath,
+          },
+        ];
+
+        if (socio.procuracaoPath) {
+          documentos.push({
+            agenciaId: agencia.id,
+            representanteLegalId: socioRecord.id,
+            tipo: TipoDocumento.PROCURACAO,
+            gcsPath: socio.procuracaoPath,
+          });
+        }
+
+        return documentos;
+      });
+
+      // Contrato social não tem representanteLegalId (pertence à agência
+      // como um todo) — mesma tabela Documento, só sem esse vínculo.
       await tx.documento.createMany({
-        data: data.socios.flatMap((socio) => {
-          const socioRecord = socioRecordPorCpf.get(socio.cpf);
-          if (!socioRecord) return [];
-
-          const documentos: {
-            agenciaId: string;
-            representanteLegalId: string;
-            tipo: TipoDocumento;
-            gcsPath: string;
-          }[] = [
-            {
-              agenciaId: agencia.id,
-              representanteLegalId: socioRecord.id,
-              tipo: TipoDocumento.RG_CNPJ,
-              gcsPath: socio.rgPath,
-            },
-          ];
-
-          if (socio.procuracaoPath) {
-            documentos.push({
-              agenciaId: agencia.id,
-              representanteLegalId: socioRecord.id,
-              tipo: TipoDocumento.PROCURACAO,
-              gcsPath: socio.procuracaoPath,
-            });
-          }
-
-          return documentos;
-        }),
+        data: [
+          {
+            agenciaId: agencia.id,
+            representanteLegalId: null,
+            tipo: TipoDocumento.CONTRATO_SOCIAL,
+            gcsPath: data.contratoSocialPath,
+          },
+          ...documentosSocios,
+        ],
       });
 
       const socioVinculado =
