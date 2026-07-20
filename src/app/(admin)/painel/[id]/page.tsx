@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { Building2, Users, Landmark, FileSignature } from "lucide-react";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import { SecaoColapsavel } from "./secao-colapsavel";
 import { RevisaoDocumentosComplementar, type DocumentoRevisao } from "./revisao-documentos";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
@@ -23,6 +24,9 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import {
   aprovarComplementarAction,
+  aprovarDocumentoAction,
+  reprovarDocumentoAction,
+  solicitarReenvioDocumentosAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
@@ -86,6 +90,26 @@ function Arquivo({ path }: { path: string }) {
       {path.split("/").pop()}
     </span>
   );
+}
+
+// Documento reprovado sai do rol "oficial" da ficha (Empresa/Sócios) —
+// mostra que está faltando reenvio em vez do arquivo que foi rejeitado,
+// já que o soft-delete só marca o status, não apaga a linha do banco.
+function CampoDocumento({ documento }: { documento: Documento | null }) {
+  if (!documento) return <span className="text-muted-foreground">—</span>;
+
+  if (documento.status === "REPROVADO") {
+    return (
+      <span
+        className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
+        title={documento.motivoReprovacao ?? undefined}
+      >
+        Aguardando reenvio
+      </span>
+    );
+  }
+
+  return <Arquivo path={documento.gcsPath} />;
 }
 
 // D4Sign avisou (webhook type_post=2) que o convite pra assinar nunca
@@ -165,7 +189,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
     notFound();
   }
 
-  const { agencia, complementar, representantesLegais, contratos } = detalhe;
+  const { agencia, complementar, representantesLegais, contratoSocial, contratos } = detalhe;
   const contratoAtual = contratos[0] ?? null;
 
   // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
@@ -180,21 +204,29 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
 
   // Documentos revisáveis do cadastro complementar — contrato social +
-  // RG/procuração de cada sócio, com o mesmo path já usado no restante do
-  // dossiê (nada inventado, só reaproveita o que já vem de AgenciaDetalhe).
+  // RG/procuração de cada sócio, agora com o Documento real do banco
+  // (id/status/motivoReprovacao), não mais um path solto inventado aqui.
+  // Agências criadas antes desta tabela existir podem não ter um
+  // Documento pra algum slot — nesse caso não entra na lista (nada real
+  // pra aprovar/reprovar).
+  function paraRevisao(documento: Documento | null, label: string): DocumentoRevisao[] {
+    if (!documento) return [];
+    return [
+      {
+        id: documento.id,
+        label,
+        gcsPath: documento.gcsPath,
+        status: documento.status,
+        motivoReprovacao: documento.motivoReprovacao,
+      },
+    ];
+  }
+
   const documentosParaRevisao: DocumentoRevisao[] = [
-    { id: "contrato-social", label: "Contrato Social", path: agencia.contratoSocialPath },
+    ...paraRevisao(contratoSocial, "Contrato Social"),
     ...representantesLegais.flatMap((socio) => [
-      { id: `rg-${socio.id}`, label: `RG/CNH — ${socio.nome}`, path: socio.rgPath },
-      ...(socio.procuracaoPath
-        ? [
-            {
-              id: `procuracao-${socio.id}`,
-              label: `Procuração — ${socio.nome}`,
-              path: socio.procuracaoPath,
-            },
-          ]
-        : []),
+      ...paraRevisao(socio.rg, `RG/CNH — ${socio.nome}`),
+      ...paraRevisao(socio.procuracao, `Procuração — ${socio.nome}`),
     ]),
   ];
 
@@ -275,7 +307,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
               <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
               <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
               <Campo label="Contrato Social">
-                <Arquivo path={agencia.contratoSocialPath} />
+                <CampoDocumento documento={contratoSocial} />
               </Campo>
             </dl>
           </SecaoColapsavel>
@@ -304,11 +336,11 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                       {formatarEndereco(socio.endereco)}
                     </Campo>
                     <Campo label="RG/CNH">
-                      <Arquivo path={socio.rgPath} />
+                      <CampoDocumento documento={socio.rg} />
                     </Campo>
-                    {socio.procuracaoPath ? (
+                    {socio.procuracao ? (
                       <Campo label="Procuração">
-                        <Arquivo path={socio.procuracaoPath} />
+                        <CampoDocumento documento={socio.procuracao} />
                       </Campo>
                     ) : null}
                   </dl>
@@ -407,7 +439,13 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
                 contrato foi criado ainda.
               </p>
 
-              <RevisaoDocumentosComplementar documentos={documentosParaRevisao} />
+              <RevisaoDocumentosComplementar
+                agenciaId={agencia.id}
+                documentos={documentosParaRevisao}
+                aprovarDocumentoAction={aprovarDocumentoAction}
+                reprovarDocumentoAction={reprovarDocumentoAction}
+                solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
+              />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
                 <strong className="text-foreground">Parecer da IA indisponível:</strong> a

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 
 // Server Actions do dossiê — cada uma só dispara a ação no controller e
@@ -29,4 +31,31 @@ export async function ativarClienteAction(id: string) {
 export async function recusarCadastroAction(id: string) {
   await cadastroAdminController.recusarCadastro(id);
   revalidatePath(`/painel/${id}`);
+}
+
+export async function aprovarDocumentoAction(agenciaId: string, documentoId: string) {
+  await cadastroAdminController.aprovarDocumento(documentoId);
+  revalidatePath(`/painel/${agenciaId}`);
+}
+
+export async function reprovarDocumentoAction(
+  agenciaId: string,
+  documentoId: string,
+  formData: FormData,
+) {
+  const session = await getServerSession(nextAuthOptions);
+  const motivo = String(formData.get("motivo") ?? "");
+
+  await cadastroAdminController.reprovarDocumento({
+    id: documentoId,
+    motivo,
+    reprovadoPor: session?.user?.email ?? null,
+  });
+  revalidatePath(`/painel/${agenciaId}`);
+}
+
+export async function solicitarReenvioDocumentosAction(agenciaId: string, formData: FormData) {
+  const documentoIds = formData.getAll("documentoIds").map(String);
+  await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds });
+  revalidatePath(`/painel/${agenciaId}`);
 }

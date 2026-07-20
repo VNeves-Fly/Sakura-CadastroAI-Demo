@@ -28,6 +28,20 @@ import {
 } from "@/modules/cadastro/application/use-cases/obter-endereco.use-case";
 import { ListarDocumentosUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos.use-case";
 import { ObterDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-documento.use-case";
+import { AprovarDocumentoUseCase } from "@/modules/cadastro/application/use-cases/aprovar-documento.use-case";
+import {
+  ReprovarDocumentoUseCase,
+  type ReprovarDocumentoInput,
+} from "@/modules/cadastro/application/use-cases/reprovar-documento.use-case";
+import { ObterArquivoDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-documento.use-case";
+import { LocalDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/local-documento-arquivo.adapter";
+import { GcsDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/gcs-documento-arquivo.adapter";
+import {
+  SolicitarReenvioDocumentosUseCase,
+  type SolicitarReenvioDocumentosInput,
+} from "@/modules/cadastro/application/use-cases/solicitar-reenvio-documentos.use-case";
+import { ResendEmailAdapter } from "@/modules/shared/infrastructure/adapters/resend-email.adapter";
+import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
 import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos.use-case";
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
@@ -61,6 +75,16 @@ const contratoRepository = new PrismaContratoRepository(prisma);
 const contratoSignatarioRepository = new PrismaContratoSignatarioRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaRepository(prisma);
+// Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
+// configurada, senão lê do disco local (uploads/).
+const documentoArquivoService = process.env.GCS_BUCKET_NAME
+  ? new GcsDocumentoArquivoAdapter()
+  : new LocalDocumentoArquivoAdapter();
+// Mesmo critério dos outros adapters externos: Resend real quando
+// RESEND_API_KEY está configurada, senão só loga (ver ConsoleEmailAdapter).
+const emailSender = process.env.RESEND_API_KEY
+  ? new ResendEmailAdapter()
+  : new ConsoleEmailAdapter();
 // Mesma regra do controller público: D4Sign real quando D4SIGN_TOKEN_API
 // está configurada, senão mock — antes ficava sempre no mock aqui, então
 // aprovarComplementar nunca mandava contrato de verdade em produção.
@@ -142,6 +166,26 @@ export const cadastroAdminController = {
   obterDocumento(id: string) {
     const useCase = new ObterDocumentoUseCase(documentoRepository);
     return useCase.execute(id);
+  },
+
+  aprovarDocumento(id: string) {
+    const useCase = new AprovarDocumentoUseCase(documentoRepository);
+    return useCase.execute(id);
+  },
+
+  reprovarDocumento(input: ReprovarDocumentoInput) {
+    const useCase = new ReprovarDocumentoUseCase(documentoRepository);
+    return useCase.execute(input);
+  },
+
+  obterArquivoDocumento(id: string) {
+    const useCase = new ObterArquivoDocumentoUseCase(documentoRepository, documentoArquivoService);
+    return useCase.execute(id);
+  },
+
+  solicitarReenvioDocumentos(input: SolicitarReenvioDocumentosInput) {
+    const useCase = new SolicitarReenvioDocumentosUseCase(agenciaRepository, emailSender);
+    return useCase.execute(input);
   },
 
   listarContratos(agenciaId: string) {
