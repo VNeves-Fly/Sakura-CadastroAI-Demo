@@ -12,6 +12,8 @@ export class MockDocumentAnalysisService implements DocumentAnalysisService {
       camposExtraidos: {},
       confiancaExtracao: 0,
       alertas: [],
+      resumoAnalise: null,
+      checagens: null,
     };
   }
 }

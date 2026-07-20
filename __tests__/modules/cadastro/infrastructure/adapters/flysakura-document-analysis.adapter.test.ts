@@ -29,11 +29,14 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
       ok: true,
       status: 200,
       json: async () => ({
-        result: {
-          message: JSON.stringify({
-            extracted_content: { fields: { cnpj: input.cnpj }, confidence_score: 0.92 },
-            observations: ["ALERT_CRITICAL: campo capital_social ausente"],
-          }),
+        extracted_content: { fields: { cnpj: input.cnpj }, confidence_score: 0.92 },
+        observations: ["ALERT_CRITICAL: campo capital_social ausente"],
+        agent_analysis: "O contrato social apresenta a maioria dos campos esperados.",
+        validation_checks: {
+          format_valid: true,
+          required_fields_present: false,
+          cross_reference_ok: false,
+          details: { page_count_valid: true, text_extracted: true },
         },
       }),
     });
@@ -44,6 +47,13 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
       camposExtraidos: { cnpj: input.cnpj },
       confiancaExtracao: 0.92,
       alertas: ["ALERT_CRITICAL: campo capital_social ausente"],
+      resumoAnalise: "O contrato social apresenta a maioria dos campos esperados.",
+      checagens: {
+        formatoValido: true,
+        camposObrigatoriosPresentes: false,
+        referenciaCruzadaOk: false,
+        detalhes: { page_count_valid: true, text_extracted: true },
+      },
     });
 
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
@@ -63,19 +73,33 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
 
     const resultado = await new FlysakuraDocumentAnalysisAdapter().analisar(input);
 
-    expect(resultado).toEqual({ camposExtraidos: {}, confiancaExtracao: 0, alertas: [] });
+    expect(resultado).toEqual({
+      camposExtraidos: {},
+      confiancaExtracao: 0,
+      alertas: [],
+      resumoAnalise: null,
+      checagens: null,
+    });
   });
 
-  it("devolve resultado vazio (sem lançar) quando result.message não é JSON válido", async () => {
+  it("devolve resultado vazio (sem lançar) quando o corpo da resposta não é JSON válido", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ result: { message: "não é json" } }),
+      json: async () => {
+        throw new SyntaxError("Unexpected token");
+      },
     });
 
     const resultado = await new FlysakuraDocumentAnalysisAdapter().analisar(input);
 
-    expect(resultado).toEqual({ camposExtraidos: {}, confiancaExtracao: 0, alertas: [] });
+    expect(resultado).toEqual({
+      camposExtraidos: {},
+      confiancaExtracao: 0,
+      alertas: [],
+      resumoAnalise: null,
+      checagens: null,
+    });
   });
 
   it("devolve resultado vazio (sem lançar) se AGENCY_ANALYSIS_API_KEY não está configurada", async () => {
@@ -83,7 +107,13 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
 
     const resultado = await new FlysakuraDocumentAnalysisAdapter().analisar(input);
 
-    expect(resultado).toEqual({ camposExtraidos: {}, confiancaExtracao: 0, alertas: [] });
+    expect(resultado).toEqual({
+      camposExtraidos: {},
+      confiancaExtracao: 0,
+      alertas: [],
+      resumoAnalise: null,
+      checagens: null,
+    });
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

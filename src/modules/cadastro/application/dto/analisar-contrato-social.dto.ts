@@ -12,4 +12,6 @@ export interface AnalisarContratoSocialOutput {
   nomesSocios: string[];
   alertas: string[];
   confianca: number;
+  resumoAnalise: string | null;
+  camposObrigatoriosPresentes: boolean | null;
 }
