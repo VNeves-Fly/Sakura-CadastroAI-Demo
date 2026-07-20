@@ -162,6 +162,13 @@ export interface RepresentanteLegalDetalhe {
   // ser null se o cliente ainda não reenviou depois de uma reprovação.
   rg: Documento | null;
   procuracao: Documento | null;
+  // Dado digitado (não o arquivo) — hoje nenhum wizard (/cadastro, /chat)
+  // pergunta isso, então vem null pra praticamente todo sócio existente.
+  // Exposto mesmo assim pra já refletir automaticamente o dia em que
+  // algum fluxo passar a coletar.
+  rgNumero: string | null;
+  rgOrgaoEmissor: string | null;
+  dataNascimento: Date | null;
 }
 
 export interface CadastroComplementarDetalhe {

@@ -11,3 +11,16 @@ export interface DocumentoRevisao {
   status: StatusDocumento;
   motivoReprovacao: string | null;
 }
+
+// Linha da fila de assinatura do contrato (sócio da agência ou
+// signatário fixo da Sakura) — ver montarFilaAssinatura em
+// dossie.adapter.ts pra como `assinado` é derivado.
+export interface SignatarioFila {
+  id: string;
+  nome: string;
+  email: string | null;
+  grupo: "Agência" | "Sakura";
+  ordem: number;
+  assinado: boolean;
+  emailNaoEntregue: boolean;
+}

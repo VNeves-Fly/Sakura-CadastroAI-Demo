@@ -3,6 +3,7 @@ import {
   paraDocumentoRevisao,
   separarDocumentosPorStatus,
   calcularProgressoTrilha,
+  montarFilaAssinatura,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -43,6 +44,13 @@ export async function obterDossieView(id: string) {
     contratoAtual !== null,
   );
 
+  const filaAssinatura = montarFilaAssinatura(
+    representantesLegais,
+    signatariosPadraoAtivos,
+    contratoAtual?.status ?? null,
+    emailsNaoEntregues,
+  );
+
   return {
     agencia,
     complementar,
@@ -51,6 +59,7 @@ export async function obterDossieView(id: string) {
     contratoAtual,
     emailsNaoEntregues,
     signatariosPadraoAtivos,
+    filaAssinatura,
     documentosAtivos,
     documentosPendentes,
     indiceTrilha,
