@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-export interface DocumentoRevisao {
-  id: string;
-  label: string;
-  gcsPath: string;
-  status: "PENDENTE" | "APROVADO" | "REPROVADO";
-  motivoReprovacao: string | null;
-}
+import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
 
 interface RevisaoDocumentosComplementarProps {
   agenciaId: string;

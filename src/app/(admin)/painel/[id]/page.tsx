@@ -3,16 +3,19 @@ import { notFound } from "next/navigation";
 import { Building2, Users, Landmark, FileSignature } from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import { SecaoColapsavel } from "./secao-colapsavel";
-import { RevisaoDocumentosComplementar, type DocumentoRevisao } from "./revisao-documentos";
+import { RevisaoDocumentosComplementar } from "./revisao-documentos";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
-import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
+import {
+  labelOrigemContrato,
+  labelEstadoCivil,
+  labelTipoConta,
+  labelBancoPais,
+  formatarEndereco,
+  ETAPAS_PIPELINE,
+} from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
-import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
-import {
-  TIPO_CONTA_OPCOES,
-  BANCO_PAIS_OPCOES,
-} from "@/modules/cadastro/types/endereco-banco.types";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -32,35 +35,6 @@ import {
   recusarCadastroAction,
   validarContratoAction,
 } from "./actions";
-
-function labelOrigemContrato(origem: "ia" | "humano" | null): string {
-  if (origem === "ia") return "gerado pela IA";
-  if (origem === "humano") return "gerado pelo analista";
-  return "origem desconhecida";
-}
-
-function labelEstadoCivil(valor: string): string {
-  return ESTADO_CIVIL_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function labelTipoConta(valor: string): string {
-  return TIPO_CONTA_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function labelBancoPais(valor: string): string {
-  return BANCO_PAIS_OPCOES.find((opcao) => opcao.valor === valor)?.label ?? valor;
-}
-
-function formatarEndereco(endereco: {
-  logradouro: string;
-  numero: string;
-  bairro: string;
-  cidade: string;
-  uf: string;
-}): string {
-  if (!endereco.logradouro) return "—";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
-}
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
 // de marca (em vez do cinza neutro anterior) e valor em destaque.
@@ -126,29 +100,12 @@ function BadgeEmailNaoEntregue() {
   );
 }
 
-const ETAPAS_PIPELINE = [
-  { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
-  { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
-  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
-  { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
-  { status: STATUS_ATIVO, label: "Ativo" },
-];
-
 // Trilha só informativa — o fluxo é sequencial (o analista não navega
 // livremente entre etapas, cada uma libera a próxima por uma ação real),
-// então não é clicável, só mostra onde a agência está agora. "Recusado"
-// não é uma etapa da trilha (é uma saída do fluxo normal): usamos a
-// existência de um Contrato como sinal real de onde a recusa aconteceu
-// (com contrato = recusado depois de enviado; sem contrato = recusado
-// ainda em Complementar) em vez de inventar um campo novo pra isso.
-function TrilhaProgresso({ status, temContrato }: { status: string; temContrato: boolean }) {
-  const recusado = status === STATUS_RECUSADO;
-  const indiceAtual = recusado
-    ? temContrato
-      ? 1
-      : 0
-    : ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === status);
-
+// então não é clicável, só mostra onde a agência está agora. Recebe o
+// índice/recusado já calculados (ver calcularProgressoTrilha no
+// adapter) — só decide como desenhar, não decide onde a agência está.
+function TrilhaProgresso({ indiceAtual, recusado }: { indiceAtual: number; recusado: boolean }) {
   return (
     <div className="flex items-start">
       {ETAPAS_PIPELINE.map((etapa, index) => {
@@ -183,59 +140,25 @@ function TrilhaProgresso({ status, temContrato }: { status: string; temContrato:
 }
 
 export default async function DossieAgenciaPage({ params }: { params: { id: string } }) {
-  const detalhe = await cadastroAdminController.obterDetalhe(params.id).catch(() => null);
+  const view = await obterDossieView(params.id);
 
-  if (!detalhe) {
+  if (!view) {
     notFound();
   }
 
-  const { agencia, complementar, representantesLegais, contratoSocial, contratos } = detalhe;
-  const contratoAtual = contratos[0] ?? null;
-
-  // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
-  // por e-mail, cobre tanto os sócios quanto os signatários fixos da
-  // Sakura, sem depender de terem uma linha em ContratoSignatario.
-  const [emailsFalhaEntrega, signatariosPadraoAtivos] = contratoAtual
-    ? await Promise.all([
-        cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id),
-        cadastroAdminController.listarSignatariosPadraoAtivos(),
-      ])
-    : [[], []];
-  const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
-
-  // Documentos revisáveis do cadastro complementar — contrato social +
-  // RG/procuração de cada sócio, agora com o Documento real do banco
-  // (id/status/motivoReprovacao), não mais um path solto inventado aqui.
-  // Agências criadas antes desta tabela existir podem não ter um
-  // Documento pra algum slot — nesse caso não entra na lista (nada real
-  // pra aprovar/reprovar).
-  function paraRevisao(documento: Documento | null, label: string): DocumentoRevisao[] {
-    if (!documento) return [];
-    return [
-      {
-        id: documento.id,
-        label,
-        gcsPath: documento.gcsPath,
-        status: documento.status,
-        motivoReprovacao: documento.motivoReprovacao,
-      },
-    ];
-  }
-
-  const documentosParaRevisao: DocumentoRevisao[] = [
-    ...paraRevisao(contratoSocial, "Contrato Social"),
-    ...representantesLegais.flatMap((socio) => [
-      ...paraRevisao(socio.rg, `RG/CNH — ${socio.nome}`),
-      ...paraRevisao(socio.procuracao, `Procuração — ${socio.nome}`),
-    ]),
-  ];
-  // Decisão de quais documentos entram em cada bloco da tela é dado
-  // (status), não apresentação — calculada aqui em vez de dentro da View
-  // (RevisaoDocumentosComplementar só recebe as duas listas já prontas).
-  const documentosAtivos = documentosParaRevisao.filter((doc) => doc.status !== "REPROVADO");
-  const documentosPendentesReenvio = documentosParaRevisao.filter(
-    (doc) => doc.status === "REPROVADO",
-  );
+  const {
+    agencia,
+    complementar,
+    representantesLegais,
+    contratoSocial,
+    contratoAtual,
+    emailsNaoEntregues,
+    signatariosPadraoAtivos,
+    documentosAtivos,
+    documentosPendentes,
+    indiceTrilha,
+    trilhaRecusada,
+  } = view;
 
   return (
     <div className="flex flex-col gap-4">
@@ -297,7 +220,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
       </div>
 
       <div className="border-border bg-card rounded-2xl border p-5">
-        <TrilhaProgresso status={agencia.status} temContrato={contratoAtual !== null} />
+        <TrilhaProgresso indiceAtual={indiceTrilha} recusado={trilhaRecusada} />
       </div>
 
       {!complementar ? (
@@ -449,7 +372,7 @@ export default async function DossieAgenciaPage({ params }: { params: { id: stri
               <RevisaoDocumentosComplementar
                 agenciaId={agencia.id}
                 documentosAtivos={documentosAtivos}
-                documentosPendentes={documentosPendentesReenvio}
+                documentosPendentes={documentosPendentes}
                 aprovarDocumentoAction={aprovarDocumentoAction}
                 reprovarDocumentoAction={reprovarDocumentoAction}
                 solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
