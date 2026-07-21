@@ -9,6 +9,12 @@ export const ESTADO_CIVIL_OPCOES = [
   { valor: "uniao_estavel", label: "União Estável" },
 ];
 
+// Mapa valor → rótulo, pro `items` do Select — sem ele, `<Select.Value>`
+// mostra o valor bruto (ex: "uniao_estavel") em vez do rótulo formatado.
+export const ESTADO_CIVIL_OPCOES_ITEMS: Record<string, string> = Object.fromEntries(
+  ESTADO_CIVIL_OPCOES.map((opcao) => [opcao.valor, opcao.label]),
+);
+
 // Sócio e representante pedem os mesmos campos — o representante é só
 // um sócio (ou uma pessoa adicionada manualmente) marcado com a flag
 // isRepresentante, que libera o slot extra de Procuração.

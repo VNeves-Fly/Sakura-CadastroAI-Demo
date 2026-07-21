@@ -40,6 +40,14 @@ export function Passo6EnderecoBanco({
       ? (socios[enderecoBanco.socioEnderecoVinculado] ?? null)
       : null;
   const bancoInternacional = enderecoBanco.bancoPais === "internacional";
+  // items do Select — sem isso, `<Select.Value>` mostra o índice bruto
+  // ("0") em vez do nome do sócio.
+  const sociosItems: Record<string, string> = Object.fromEntries(
+    socios.map((socio, index) => [index.toString(), socio.nome || `Sócio ${index + 1}`]),
+  );
+  const tipoContaItems: Record<string, string> = Object.fromEntries(
+    TIPO_CONTA_OPCOES.map((opcao) => [opcao.valor, opcao.label]),
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -66,6 +74,7 @@ export function Passo6EnderecoBanco({
 
         {enderecoBanco.enderecoMesmoSocio && socios.length > 1 ? (
           <Select
+            items={sociosItems}
             value={enderecoBanco.socioEnderecoVinculado?.toString() ?? ""}
             onValueChange={(valor) =>
               updateEnderecoBanco({ socioEnderecoVinculado: valor ? Number(valor) : null })
@@ -276,6 +285,7 @@ export function Passo6EnderecoBanco({
               Tipo de Conta<span className="text-destructive"> *</span>
             </label>
             <Select
+              items={tipoContaItems}
               value={enderecoBanco.tipoConta}
               onValueChange={(valor) => updateEnderecoBanco({ tipoConta: valor ?? "" })}
             >

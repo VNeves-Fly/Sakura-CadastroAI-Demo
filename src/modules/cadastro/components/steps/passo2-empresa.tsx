@@ -1,6 +1,10 @@
 "use client";
 
-import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
+import {
+  PAISES_TELEFONE,
+  PAISES_TELEFONE_ITEMS,
+  paisTelefonePorCodigo,
+} from "@/modules/shared/utils/telefone.util";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import {
   Select,
@@ -56,6 +60,7 @@ export function Passo2Empresa({
         </label>
         <div className="flex gap-2">
           <Select
+            items={PAISES_TELEFONE_ITEMS}
             value={telefoneComercialPais}
             disabled={bloqueado || semTelefoneComercial}
             onValueChange={(valor) => setTelefoneComercialPais(valor ?? "")}

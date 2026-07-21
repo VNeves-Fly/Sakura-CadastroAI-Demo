@@ -101,6 +101,13 @@ export const PAISES_TELEFONE: PaisTelefone[] = [
   OUTRO_PAIS,
 ];
 
+// Mapa código → rótulo (bandeira + DDI), pro `items` do Select — sem ele,
+// `<Select.Value>` mostra o código bruto ("BR") em vez do rótulo
+// formatado (ver base-ui Select.Root `items`).
+export const PAISES_TELEFONE_ITEMS: Record<string, string> = Object.fromEntries(
+  PAISES_TELEFONE.map((pais) => [pais.codigo, `${pais.bandeira} ${pais.ddi || "Outro"}`]),
+);
+
 export function paisTelefonePorCodigo(codigo: string): PaisTelefone {
   return PAISES_TELEFONE.find((pais) => pais.codigo === codigo) ?? BRASIL;
 }

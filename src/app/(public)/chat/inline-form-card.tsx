@@ -58,6 +58,9 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
             ) : null}
             {campo.tipo === "select" ? (
               <Select
+                items={Object.fromEntries(
+                  (campo.opcoes ?? []).map((opcao) => [opcao.valor, opcao.label]),
+                )}
                 value={String(valores[campo.nome] ?? "")}
                 onValueChange={(valor) => atualizar(campo.nome, valor ?? "")}
               >

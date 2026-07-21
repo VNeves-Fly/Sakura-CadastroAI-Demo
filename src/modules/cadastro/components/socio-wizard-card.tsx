@@ -2,8 +2,15 @@
 
 import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
-import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
-import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import {
+  PAISES_TELEFONE,
+  PAISES_TELEFONE_ITEMS,
+  paisTelefonePorCodigo,
+} from "@/modules/shared/utils/telefone.util";
+import {
+  ESTADO_CIVIL_OPCOES,
+  ESTADO_CIVIL_OPCOES_ITEMS,
+} from "@/modules/cadastro/types/socio-wizard.types";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
 import { verificarDivergenciaCampo } from "@/modules/cadastro/utils/divergencia-ia.util";
@@ -302,6 +309,7 @@ export function SocioWizardCard({
             </label>
             <div className="flex gap-2">
               <Select
+                items={PAISES_TELEFONE_ITEMS}
                 value={socio.telefonePais}
                 onValueChange={(valor) => onUpdate({ telefonePais: valor ?? "" })}
               >
@@ -337,6 +345,7 @@ export function SocioWizardCard({
               Estado Civil<span className="text-destructive"> *</span>
             </label>
             <Select
+              items={ESTADO_CIVIL_OPCOES_ITEMS}
               value={socio.estadoCivil}
               onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
             >
