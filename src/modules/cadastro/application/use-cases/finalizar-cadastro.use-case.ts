@@ -179,6 +179,7 @@ export class FinalizarCadastroUseCase implements UseCase<
         emailFinanceiro: input.emailFinanceiro,
       },
       analiseIaContratoSocial,
+      analiseIaFinal: analiseIa,
       socios: socios.map((socio) => ({
         nome: socio.nome,
         cpf: socio.cpf,
