@@ -17,12 +17,19 @@ import {
 import { maskTelefone, validarTelefone } from "@/modules/shared/utils/telefone.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
 import { maskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
+import { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
 import { maskCep } from "@/modules/cadastro/utils/cep.util";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import { cepService } from "@/modules/cadastro/services/cep.service";
 import { criarSocioWizardVazio } from "@/modules/cadastro/types/socio-wizard.types";
 import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
 import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
+import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
+
+interface SocioAnaliseIdentificacaoState {
+  analisando: boolean;
+  analise: DocumentoIdentificacaoAnaliseView | null;
+}
 
 // Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só. A
 // seção Comercial foi removida e Representação virou uma flag dentro do
@@ -73,6 +80,9 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const [contratoSocialErro, setContratoSocialErro] = useState<string | null>(null);
   const [sociosArquivoErros, setSociosArquivoErros] = useState<
     Record<number, { rg: string | null; procuracao: string | null }>
+  >({});
+  const [sociosAnaliseIdentificacao, setSociosAnaliseIdentificacao] = useState<
+    Record<number, SocioAnaliseIdentificacaoState>
   >({});
 
   const telefoneComercial = useCadastroWizardStore((state) => state.telefoneComercial);
@@ -190,6 +200,66 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  // Análise "preview" do RG/CNH do sócio, disparada assim que o arquivo é
+  // anexado (Passo 5) — mesmo padrão de analisarContratoSocialSeCompleto.
+  // cnpjMascarado é sempre recebido por parâmetro (nunca lido do `cnpj` do
+  // closure): setCnpj precisa re-disparar a análise de todos os sócios já
+  // anexados usando o CNPJ recém-digitado, antes desse valor ter passado
+  // por um novo render.
+  async function analisarDocumentoIdentificacaoSeCompleto(
+    cnpjMascarado: string,
+    indice: number,
+    arquivo: File | null,
+  ) {
+    if (!arquivo) return;
+
+    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+    if (!validarCnpjComMensagem(cnpjMascarado).valido || isCnpjAlfanumerico(cnpjLimpo)) {
+      return;
+    }
+
+    setSociosAnaliseIdentificacao((atual) => ({
+      ...atual,
+      [indice]: { analisando: true, analise: null },
+    }));
+
+    try {
+      const formData = agenciaAdapter.toAnalisarDocumentoIdentificacaoFormData({
+        cnpjMascarado,
+        indice,
+        documento: arquivo,
+      });
+      const raw = await agenciaService.analisarDocumentoIdentificacao(formData);
+      const analise = agenciaAdapter.toDocumentoIdentificacaoAnaliseView(raw);
+
+      setSociosAnaliseIdentificacao((atual) => ({
+        ...atual,
+        [indice]: { analisando: false, analise },
+      }));
+
+      // Nunca sobrescreve o que o usuário já digitou — mesma regra
+      // não-destrutiva do preenchimento de nome via QSA/contrato social.
+      setSocios((current) =>
+        current.map((socio, i) => {
+          if (i !== indice) return socio;
+          const atualizado = { ...socio };
+          if (analise.nome && !atualizado.nome) atualizado.nome = analise.nome;
+          if (analise.cpf && !atualizado.cpf) atualizado.cpf = maskCpf(analise.cpf);
+          if (analise.dataNascimento && !atualizado.dataNascimento) {
+            atualizado.dataNascimento = analise.dataNascimento;
+          }
+          return atualizado;
+        }),
+      );
+    } catch {
+      // Best-effort — falha na análise não deve travar o preenchimento manual.
+      setSociosAnaliseIdentificacao((atual) => ({
+        ...atual,
+        [indice]: { analisando: false, analise: null },
+      }));
+    }
+  }
+
   async function consultarQsaSeCompleto(cnpjMascarado: string) {
     const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
 
@@ -244,6 +314,11 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setCnpjStatus(validarCnpjComMensagem(mascarado));
     void consultarQsaSeCompleto(mascarado);
     void analisarContratoSocialSeCompleto(mascarado, contratoSocial);
+    socios.forEach((socio, index) => {
+      if (socio.rgArquivo) {
+        void analisarDocumentoIdentificacaoSeCompleto(mascarado, index, socio.rgArquivo);
+      }
+    });
   }
 
   function setTelefoneComercial(valorDigitado: string) {
@@ -267,9 +342,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   function removeSocio(index: number) {
     setSocios(socios.filter((_, i) => i !== index));
     // Índices deslocam depois da remoção — mais simples limpar os erros de
-    // arquivo do que tentar realinhar o mapa (reaparecem se o usuário
-    // reanexar um arquivo inválido).
+    // arquivo e o estado de análise do que tentar realinhar os mapas
+    // (reaparecem se o usuário reanexar um arquivo).
     setSociosArquivoErros({});
+    setSociosAnaliseIdentificacao({});
   }
 
   function updateSocio(index: number, patch: Partial<SocioWizardFormValues>) {
@@ -285,6 +361,16 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
         [index]: { ...(atual[index] ?? SEM_ERRO_ARQUIVO), rg: erro },
       }));
       patchValidado.rgArquivo = erro ? null : arquivo;
+
+      if (patchValidado.rgArquivo) {
+        void analisarDocumentoIdentificacaoSeCompleto(cnpj, index, patchValidado.rgArquivo);
+      } else {
+        setSociosAnaliseIdentificacao((atual) => {
+          const proximo = { ...atual };
+          delete proximo[index];
+          return proximo;
+        });
+      }
     }
 
     if ("procuracaoArquivo" in patch) {
@@ -480,6 +566,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
   const sociosValidacao = socios.map((socio, index) => ({
     cpfStatus: validarCpfComMensagem(socio.cpf),
+    dataNascimentoStatus: validarDataNascimentoComMensagem(socio.dataNascimento),
     emailInvalido: socio.email.length > 0 && !validarEmail(socio.email),
     telefoneInvalido:
       socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais),
@@ -622,6 +709,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
     socios,
     sociosValidacao,
+    sociosAnaliseIdentificacao,
     socioCepBuscando,
     addSocio,
     removeSocio,

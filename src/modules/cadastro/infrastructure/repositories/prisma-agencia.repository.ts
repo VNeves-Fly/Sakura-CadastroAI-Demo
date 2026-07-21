@@ -44,6 +44,12 @@ interface AgenciaRecord {
   origem: string | null;
   createdAt: Date;
   updatedAt: Date;
+  sicaCodigo: string | null;
+  sicaSalvoPor: string | null;
+  sicaSalvoEm: Date | null;
+  travelLinkCriado: boolean;
+  travelLinkSalvoPor: string | null;
+  travelLinkSalvoEm: Date | null;
 }
 
 const ENDERECO_VAZIO: EnderecoData = {
@@ -263,6 +269,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
               cpf: socio.cpf,
               email: socio.email,
               telefone: socio.telefone,
+              dataNascimento: socio.dataNascimento,
               estadoCivil: socio.estadoCivil,
               isRepresentanteLegal: socio.isRepresentanteLegal,
               endereco: { create: socio.endereco },
@@ -396,6 +403,33 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     const record = await this.prisma.agencia.update({
       where: { id },
       data: { status: status as PrismaStatusAgencia },
+    });
+    return this.toDomain(record);
+  }
+
+  async salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia> {
+    const record = await this.prisma.agencia.update({
+      where: { id },
+      data: {
+        sicaCodigo: data.codigo,
+        sicaSalvoPor: data.salvoPor,
+        sicaSalvoEm: new Date(),
+      },
+    });
+    return this.toDomain(record);
+  }
+
+  async salvarTravelLink(
+    id: string,
+    data: { criado: boolean; salvoPor: string },
+  ): Promise<Agencia> {
+    const record = await this.prisma.agencia.update({
+      where: { id },
+      data: {
+        travelLinkCriado: data.criado,
+        travelLinkSalvoPor: data.salvoPor,
+        travelLinkSalvoEm: new Date(),
+      },
     });
     return this.toDomain(record);
   }
@@ -558,6 +592,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       origem: record.origem,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      sicaCodigo: record.sicaCodigo,
+      sicaSalvoPor: record.sicaSalvoPor,
+      sicaSalvoEm: record.sicaSalvoEm,
+      travelLinkCriado: record.travelLinkCriado,
+      travelLinkSalvoPor: record.travelLinkSalvoPor,
+      travelLinkSalvoEm: record.travelLinkSalvoEm,
     });
   }
 }

@@ -1,18 +1,26 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
 import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import type {
   SocioWizardFormValues,
   SocioWizardValidacao,
 } from "@/modules/cadastro/types/socio-wizard.types";
+import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
+
+interface SocioAnaliseIdentificacaoProps {
+  analisando: boolean;
+  analise: DocumentoIdentificacaoAnaliseView | null;
+}
 
 interface SocioWizardCardProps {
   index: number;
   socio: SocioWizardFormValues;
   validacao: SocioWizardValidacao;
+  analiseIdentificacao: SocioAnaliseIdentificacaoProps;
   podeRemover: boolean;
   cepBuscando: boolean;
   onUpdate: (patch: Partial<SocioWizardFormValues>) => void;
@@ -28,6 +36,7 @@ export function SocioWizardCard({
   index,
   socio,
   validacao,
+  analiseIdentificacao,
   podeRemover,
   cepBuscando,
   onUpdate,
@@ -36,8 +45,18 @@ export function SocioWizardCard({
   onBuscarCep,
 }: SocioWizardCardProps) {
   const numero = String(index + 1).padStart(2, "0");
-  const { cpfStatus, emailInvalido, telefoneInvalido, rgErro, procuracaoErro } = validacao;
+  const {
+    cpfStatus,
+    dataNascimentoStatus,
+    emailInvalido,
+    telefoneInvalido,
+    rgErro,
+    procuracaoErro,
+  } = validacao;
   const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
+  const alertasIdentificacao = analiseIdentificacao.analise
+    ? alertasVisiveis(analiseIdentificacao.analise.alertas)
+    : [];
 
   return (
     <div className="border-border bg-card flex flex-col gap-4 rounded-2xl border p-4">
@@ -109,6 +128,23 @@ export function SocioWizardCard({
             <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+          Data de nascimento<span className="text-destructive"> *</span>
+        </label>
+        <input
+          type="date"
+          value={socio.dataNascimento}
+          onChange={(event) => onUpdate({ dataNascimento: event.target.value })}
+          className={INPUT_CLASSNAME}
+        />
+        {dataNascimentoStatus.mensagem ? (
+          <span className="text-destructive text-xs font-medium">
+            {dataNascimentoStatus.mensagem}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -259,6 +295,26 @@ export function SocioWizardCard({
         helperText="Foto ou PDF do documento"
         required
       />
+
+      {analiseIdentificacao.analisando ? (
+        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <Loader2 className="size-3.5 animate-spin" />
+          Analisando o documento...
+        </span>
+      ) : null}
+
+      {!analiseIdentificacao.analisando && alertasIdentificacao.length > 0 ? (
+        <ul className="flex flex-col gap-0.5 text-xs font-medium">
+          {alertasIdentificacao.map((alerta, alertaIndex) => (
+            <li
+              key={alertaIndex}
+              className={alerta.tipo === "erro" ? "text-destructive" : "text-warning"}
+            >
+              {alerta.mensagem}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <label className="text-foreground flex items-center gap-2 text-sm font-medium">
         <input type="checkbox" checked={socio.isRepresentante} onChange={onToggleRepresentante} />

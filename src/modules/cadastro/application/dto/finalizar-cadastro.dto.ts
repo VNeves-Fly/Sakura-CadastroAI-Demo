@@ -19,6 +19,7 @@ export interface SocioSubmitInput {
   cpf: string;
   email: string;
   telefone: string;
+  dataNascimento: string; // ISO (YYYY-MM-DD)
   estadoCivil: string;
   endereco: EnderecoInput;
   rg: UploadedFileInput;

@@ -55,6 +55,7 @@ export interface SocioData {
   cpf: string;
   email: string;
   telefone: string;
+  dataNascimento: Date | null;
   estadoCivil: string;
   endereco: EnderecoData;
   isRepresentanteLegal: boolean;
@@ -234,6 +235,8 @@ export interface AgenciaRepository {
   obterDetalhe(id: string): Promise<AgenciaDetalhe | null>;
   create(data: CreateAgenciaData): Promise<Agencia>;
   atualizarStatus(id: string, status: string): Promise<Agencia>;
+  salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
+  salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;
   criarContrato(
     agenciaId: string,
     data: {

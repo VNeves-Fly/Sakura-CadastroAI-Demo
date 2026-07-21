@@ -21,6 +21,24 @@ export const socioMetaSchema = z.object({
   cpf: z.string().min(1, "CPF é obrigatório."),
   email: z.string().min(1, "E-mail é obrigatório.").email("E-mail inválido."),
   telefone: z.string().min(6, "Telefone inválido."),
+  dataNascimento: z
+    .string()
+    .min(1, "Data de nascimento é obrigatória.")
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data de nascimento inválida.")
+    .refine((valor) => !Number.isNaN(new Date(`${valor}T00:00:00`).getTime()), {
+      message: "Data de nascimento inválida.",
+    })
+    .refine((valor) => new Date(`${valor}T00:00:00`) <= new Date(), {
+      message: "Data de nascimento não pode ser no futuro.",
+    })
+    .refine(
+      (valor) => {
+        const hoje = new Date();
+        const limite = new Date(hoje.getFullYear() - 18, hoje.getMonth(), hoje.getDate());
+        return new Date(`${valor}T00:00:00`) <= limite;
+      },
+      { message: "Sócio deve ser maior de idade (18 anos)." },
+    ),
   estadoCivil: z.string().min(1, "Estado civil é obrigatório."),
   endereco: enderecoMetaSchema,
   isRepresentante: z.boolean(),

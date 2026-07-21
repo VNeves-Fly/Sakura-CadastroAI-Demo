@@ -10,6 +10,12 @@ export interface AgenciaProps {
   origem: string | null;
   createdAt: Date;
   updatedAt: Date;
+  sicaCodigo: string | null;
+  sicaSalvoPor: string | null;
+  sicaSalvoEm: Date | null;
+  travelLinkCriado: boolean;
+  travelLinkSalvoPor: string | null;
+  travelLinkSalvoEm: Date | null;
 }
 
 export class Agencia {
@@ -55,9 +61,35 @@ export class Agencia {
     return this.props.origem;
   }
 
-  toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt"> & {
+  get sicaCodigo(): string | null {
+    return this.props.sicaCodigo;
+  }
+
+  get sicaSalvoPor(): string | null {
+    return this.props.sicaSalvoPor;
+  }
+
+  get sicaSalvoEm(): Date | null {
+    return this.props.sicaSalvoEm;
+  }
+
+  get travelLinkCriado(): boolean {
+    return this.props.travelLinkCriado;
+  }
+
+  get travelLinkSalvoPor(): string | null {
+    return this.props.travelLinkSalvoPor;
+  }
+
+  get travelLinkSalvoEm(): Date | null {
+    return this.props.travelLinkSalvoEm;
+  }
+
+  toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt" | "sicaSalvoEm" | "travelLinkSalvoEm"> & {
     createdAt: string;
     updatedAt: string;
+    sicaSalvoEm: string | null;
+    travelLinkSalvoEm: string | null;
   } {
     return {
       id: this.props.id,
@@ -71,6 +103,12 @@ export class Agencia {
       origem: this.props.origem,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
+      sicaCodigo: this.props.sicaCodigo,
+      sicaSalvoPor: this.props.sicaSalvoPor,
+      sicaSalvoEm: this.props.sicaSalvoEm?.toISOString() ?? null,
+      travelLinkCriado: this.props.travelLinkCriado,
+      travelLinkSalvoPor: this.props.travelLinkSalvoPor,
+      travelLinkSalvoEm: this.props.travelLinkSalvoEm?.toISOString() ?? null,
     };
   }
 }
