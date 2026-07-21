@@ -53,6 +53,11 @@ export class AnalisarContratoSocialUseCase implements UseCase<
       resumoAnalise: resultado.resumoAnalise,
       camposObrigatoriosPresentes: resultado.checagens?.camposObrigatoriosPresentes ?? null,
       camposExtras: resultado.camposExtras,
+      razaoSocialExtraida: extrairString(resultado.camposExtraidos.razao_social),
+      capitalSocial: extrairString(resultado.camposExtraidos.capital_social),
+      enderecoEmpresa: extrairString(resultado.camposExtraidos.endereco_completo),
+      objetoSocial: extrairString(resultado.camposExtraidos.objeto_social),
+      dataConstituicao: extrairString(resultado.camposExtraidos.data_constituicao),
     };
   }
 }
