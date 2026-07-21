@@ -202,3 +202,43 @@ export async function analisarContratoSocialRoute(request: Request) {
     return mapErrorToResponse(error);
   }
 }
+
+export async function analisarDocumentoIdentificacaoRoute(request: Request) {
+  try {
+    const chaveRateLimit = `cadastro-analise-documento:${obterIpCliente(request)}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ANALISE_DOCUMENTO)) {
+      throw new RateLimitError();
+    }
+
+    const formData = await request.formData();
+    const cnpj = formData.get("cnpj");
+    const indiceRaw = formData.get("indice");
+    const documentoFile = formData.get("documento");
+
+    if (typeof cnpj !== "string" || !cnpj) {
+      return httpError("CNPJ é obrigatório.", 422);
+    }
+    const indice = typeof indiceRaw === "string" ? Number(indiceRaw) : NaN;
+    if (!Number.isInteger(indice) || indice < 0) {
+      return httpError("Índice do sócio é obrigatório.", 422);
+    }
+    if (!(documentoFile instanceof File)) {
+      return httpError("RG ou CNH é obrigatório.", 422);
+    }
+
+    const erroArquivo = validarArquivoUpload(documentoFile, "RG ou CNH");
+    if (erroArquivo) {
+      return httpError(erroArquivo, 422);
+    }
+
+    const resultado = await cadastroPublicoController.analisarDocumentoIdentificacao({
+      cnpj,
+      indice,
+      documento: await toUploadedFile(documentoFile),
+    });
+
+    return httpOk(resultado);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}

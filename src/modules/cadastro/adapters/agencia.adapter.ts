@@ -6,11 +6,13 @@ import type {
   RawQsaResponse,
   CriarAgenciaResult,
   RawAnaliseContratoSocialResponse,
+  RawAnaliseDocumentoIdentificacaoResponse,
 } from "@/modules/cadastro/services/agencia.service";
 import type {
   QsaResultView,
   SubmitResultView,
   ContratoSocialAnaliseView,
+  DocumentoIdentificacaoAnaliseView,
 } from "@/modules/cadastro/types/agencia.types";
 import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
 import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
@@ -53,6 +55,35 @@ export const agenciaAdapter = {
     return {
       cnpjConfere: raw.cnpjConfere,
       nomesSocios: raw.nomesSocios,
+      alertas: raw.alertas,
+      confianca: raw.confianca,
+    };
+  },
+
+  toAnalisarDocumentoIdentificacaoFormData(params: {
+    cnpjMascarado: string;
+    indice: number;
+    documento: File;
+  }): FormData {
+    const formData = new FormData();
+    formData.set("cnpj", unmaskCnpj(params.cnpjMascarado));
+    formData.set("indice", String(params.indice));
+    formData.set("documento", params.documento);
+    return formData;
+  },
+
+  toDocumentoIdentificacaoAnaliseView(
+    raw: RawAnaliseDocumentoIdentificacaoResponse,
+  ): DocumentoIdentificacaoAnaliseView {
+    const dataNascimentoValida =
+      raw.dataNascimento && /^\d{4}-\d{2}-\d{2}$/.test(raw.dataNascimento)
+        ? raw.dataNascimento
+        : null;
+
+    return {
+      nome: raw.nome,
+      cpf: raw.cpf ? unmaskCpf(raw.cpf) : null,
+      dataNascimento: dataNascimentoValida,
       alertas: raw.alertas,
       confianca: raw.confianca,
     };

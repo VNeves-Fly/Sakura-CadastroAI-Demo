@@ -6,8 +6,20 @@ import { SwipeSwitch } from "./swipe-switch";
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
+function formatarDataHora(data: Date): string {
+  return data.toLocaleString("pt-BR");
+}
+
 interface ValidacaoSicaTravelLinkProps {
   agenciaId: string;
+  sicaCodigo: string | null;
+  sicaSalvoPor: string | null;
+  sicaSalvoEm: Date | null;
+  travelLinkCriado: boolean;
+  travelLinkSalvoPor: string | null;
+  travelLinkSalvoEm: Date | null;
+  salvarSicaAction: (agenciaId: string, formData: FormData) => Promise<void>;
+  salvarTravelLinkAction: (agenciaId: string, criado: boolean) => Promise<void>;
   validarContratoAction: (id: string) => Promise<void>;
   recusarCadastroAction: (id: string) => Promise<void>;
   // true quando o analista está revendo esta etapa a partir de uma etapa
@@ -16,77 +28,126 @@ interface ValidacaoSicaTravelLinkProps {
   somenteLeitura?: boolean;
 }
 
-// SICA e Travel Link ainda não têm campo no schema (decisão explícita:
-// nenhuma migration nova sem desenhar com o usuário antes) — esse estado
-// só existe aqui, no componente, e some se a página recarregar. Mas o
-// bloqueio de "Validar Contrato" enquanto os dois não estiverem
-// preenchidos já é a regra de negócio real pedida, só falta persistir.
+// SICA e Travel Link salvos de verdade em Agencia (sicaCodigo/
+// sicaSalvoPor/sicaSalvoEm, travelLinkCriado/travelLinkSalvoPor/
+// travelLinkSalvoEm) — sobrevivem a recarregar a página e ficam visíveis
+// pra qualquer analista que abrir o dossiê depois, com quem confirmou e
+// quando.
 export function ValidacaoSicaTravelLink({
   agenciaId,
+  sicaCodigo,
+  sicaSalvoPor,
+  sicaSalvoEm,
+  travelLinkCriado,
+  travelLinkSalvoPor,
+  travelLinkSalvoEm,
+  salvarSicaAction,
+  salvarTravelLinkAction,
   validarContratoAction,
   recusarCadastroAction,
   somenteLeitura = false,
 }: ValidacaoSicaTravelLinkProps) {
-  const [sica, setSica] = useState("");
-  const [sicaSalvo, setSicaSalvo] = useState(false);
-  const [travelLinkAtivo, setTravelLinkAtivo] = useState(false);
+  const [editandoSica, setEditandoSica] = useState(false);
+  const [rascunhoSica, setRascunhoSica] = useState(sicaCodigo ?? "");
+  const [salvandoSica, setSalvandoSica] = useState(false);
+  const [salvandoTravelLink, setSalvandoTravelLink] = useState(false);
 
-  const podeValidar = sicaSalvo && travelLinkAtivo;
+  const podeValidar = sicaCodigo !== null && travelLinkCriado;
+  const mostrarInputSica = editandoSica || sicaCodigo === null;
+
+  async function handleSalvarSica(formData: FormData) {
+    setSalvandoSica(true);
+    await salvarSicaAction(agenciaId, formData);
+    setSalvandoSica(false);
+    setEditandoSica(false);
+  }
+
+  async function handleToggleTravelLink(checked: boolean) {
+    setSalvandoTravelLink(true);
+    await salvarTravelLinkAction(agenciaId, checked);
+    setSalvandoTravelLink(false);
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <label htmlFor="sica" className="text-foreground text-sm font-bold">
           Código SICA
         </label>
-        <div className="flex gap-2">
-          <input
-            id="sica"
-            type="text"
-            inputMode="numeric"
-            value={sica}
-            disabled={sicaSalvo || somenteLeitura}
-            onChange={(event) => setSica(event.target.value.replace(/\D/g, ""))}
-            placeholder="Somente números"
-            className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
-          />
-          {!somenteLeitura &&
-            (sicaSalvo ? (
+
+        {mostrarInputSica ? (
+          <form action={handleSalvarSica} className="flex gap-2">
+            <input
+              id="sica"
+              name="codigo"
+              type="text"
+              inputMode="numeric"
+              value={rascunhoSica}
+              disabled={somenteLeitura || salvandoSica}
+              onChange={(event) => setRascunhoSica(event.target.value.replace(/\D/g, ""))}
+              placeholder="Somente números"
+              className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+            />
+            <button
+              type="submit"
+              disabled={rascunhoSica.length === 0 || somenteLeitura || salvandoSica}
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {salvandoSica ? "Salvando..." : "Salvar"}
+            </button>
+            {sicaCodigo !== null ? (
               <button
                 type="button"
-                onClick={() => setSicaSalvo(false)}
+                onClick={() => {
+                  setRascunhoSica(sicaCodigo);
+                  setEditandoSica(false);
+                }}
                 className="border-input text-foreground hover:bg-accent shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition"
+              >
+                Cancelar
+              </button>
+            ) : null}
+          </form>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="bg-success/15 text-success rounded-full px-3 py-1.5 font-mono text-sm font-bold">
+              {sicaCodigo}
+            </span>
+            {!somenteLeitura ? (
+              <button
+                type="button"
+                onClick={() => setEditandoSica(true)}
+                className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1 text-xs font-medium transition"
               >
                 Editar
               </button>
-            ) : (
-              <button
-                type="button"
-                disabled={sica.length === 0}
-                onClick={() => setSicaSalvo(true)}
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Salvar
-              </button>
-            ))}
+            ) : null}
+          </div>
+        )}
+
+        {sicaCodigo !== null && sicaSalvoPor && sicaSalvoEm ? (
+          <span className="text-success text-xs font-medium">
+            ✓ Salvo por {sicaSalvoPor} em {formatarDataHora(sicaSalvoEm)}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-3">
+          <span className="text-foreground text-sm font-bold">Travel Link criado</span>
+          <SwipeSwitch
+            id="travel-link"
+            checked={travelLinkCriado}
+            onChange={(checked) => void handleToggleTravelLink(checked)}
+            disabled={somenteLeitura || salvandoTravelLink}
+          />
         </div>
-        {sicaSalvo ? <span className="text-success text-xs font-medium">✓ SICA salvo</span> : null}
-      </div>
 
-      <div className="flex items-center gap-3">
-        <span className="text-foreground text-sm font-bold">Travel Link criado</span>
-        <SwipeSwitch
-          id="travel-link"
-          checked={travelLinkAtivo}
-          onChange={setTravelLinkAtivo}
-          disabled={somenteLeitura}
-        />
-      </div>
-
-      <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-        <strong className="text-foreground">Ainda não salva de verdade:</strong> SICA e Travel Link
-        não têm campo no banco ainda — esse estado só vive aqui na tela (some se recarregar a
-        página). O bloqueio abaixo já é real: sem os dois preenchidos, não dá pra validar.
+        {travelLinkCriado && travelLinkSalvoPor && travelLinkSalvoEm ? (
+          <span className="text-success text-xs font-medium">
+            ✓ Confirmado por {travelLinkSalvoPor} em {formatarDataHora(travelLinkSalvoEm)}
+          </span>
+        ) : null}
       </div>
 
       {!somenteLeitura ? (

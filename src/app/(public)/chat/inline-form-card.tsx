@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { SwipeSwitch } from "./swipe-switch";
 import type { CampoInlineForm } from "./types";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 interface InlineFormCardProps {
   titulo: string;
@@ -50,20 +57,25 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
               />
             ) : null}
             {campo.tipo === "select" ? (
-              <select
+              <Select
                 value={String(valores[campo.nome] ?? "")}
-                onChange={(event) => atualizar(campo.nome, event.target.value)}
-                className={`${INPUT_CLASSNAME} [color-scheme:dark]`}
+                onValueChange={(valor) => atualizar(campo.nome, valor ?? "")}
               >
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {campo.opcoes?.map((opcao) => (
-                  <option key={opcao.valor} value={opcao.valor}>
-                    {opcao.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="focus:border-accent border-white/20 bg-white/10 text-white focus:ring-0">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent className="border-white/10 bg-zinc-900/95 text-white backdrop-blur-md">
+                  {campo.opcoes?.map((opcao) => (
+                    <SelectItem
+                      key={opcao.valor}
+                      value={opcao.valor}
+                      className="data-highlighted:bg-white/10 data-highlighted:text-white"
+                    >
+                      {opcao.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : null}
             {campo.tipo === "checkbox" ? (
               <div className="flex items-center justify-between gap-3">

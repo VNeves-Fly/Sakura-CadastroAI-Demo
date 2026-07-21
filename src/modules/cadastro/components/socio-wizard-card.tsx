@@ -1,18 +1,34 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
 import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import type {
   SocioWizardFormValues,
   SocioWizardValidacao,
 } from "@/modules/cadastro/types/socio-wizard.types";
+import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
+
+interface SocioAnaliseIdentificacaoProps {
+  analisando: boolean;
+  analise: DocumentoIdentificacaoAnaliseView | null;
+}
 
 interface SocioWizardCardProps {
   index: number;
   socio: SocioWizardFormValues;
   validacao: SocioWizardValidacao;
+  analiseIdentificacao: SocioAnaliseIdentificacaoProps;
   podeRemover: boolean;
   cepBuscando: boolean;
   onUpdate: (patch: Partial<SocioWizardFormValues>) => void;
@@ -28,6 +44,7 @@ export function SocioWizardCard({
   index,
   socio,
   validacao,
+  analiseIdentificacao,
   podeRemover,
   cepBuscando,
   onUpdate,
@@ -45,6 +62,9 @@ export function SocioWizardCard({
     procuracaoErro,
   } = validacao;
   const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
+  const alertasIdentificacao = analiseIdentificacao.analise
+    ? alertasVisiveis(analiseIdentificacao.analise.alertas)
+    : [];
 
   return (
     <div className="border-border bg-card flex flex-col gap-4 rounded-2xl border p-4">
@@ -122,11 +142,10 @@ export function SocioWizardCard({
         <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Data de nascimento<span className="text-destructive"> *</span>
         </label>
-        <input
-          type="date"
+        <DatePicker
           value={socio.dataNascimento}
-          onChange={(event) => onUpdate({ dataNascimento: event.target.value })}
-          className={INPUT_CLASSNAME}
+          onChange={(valor) => onUpdate({ dataNascimento: valor })}
+          disabledDays={{ after: new Date() }}
         />
         {dataNascimentoStatus.mensagem ? (
           <span className="text-destructive text-xs font-medium">
@@ -140,17 +159,21 @@ export function SocioWizardCard({
           Telefone<span className="text-destructive"> *</span>
         </label>
         <div className="flex gap-2">
-          <select
+          <Select
             value={socio.telefonePais}
-            onChange={(event) => onUpdate({ telefonePais: event.target.value })}
-            className="border-input bg-background text-foreground focus:border-primary focus:ring-ring/30 w-[6.5rem] shrink-0 rounded-full border px-2 text-sm outline-none focus:ring-2"
+            onValueChange={(valor) => onUpdate({ telefonePais: valor ?? "" })}
           >
-            {PAISES_TELEFONE.map((pais) => (
-              <option key={pais.codigo} value={pais.codigo}>
-                {pais.bandeira} {pais.ddi || "Outro"}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAISES_TELEFONE.map((pais) => (
+                <SelectItem key={pais.codigo} value={pais.codigo}>
+                  {pais.bandeira} {pais.ddi || "Outro"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <input
             type="tel"
             inputMode="numeric"
@@ -171,23 +194,21 @@ export function SocioWizardCard({
         <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Estado Civil<span className="text-destructive"> *</span>
         </label>
-        <div className="relative">
-          <select
-            value={socio.estadoCivil}
-            onChange={(event) => onUpdate({ estadoCivil: event.target.value })}
-            className={`w-full appearance-none pr-10 ${INPUT_CLASSNAME}`}
-          >
-            <option value="" disabled>
-              Selecione
-            </option>
+        <Select
+          value={socio.estadoCivil}
+          onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
             {ESTADO_CIVIL_OPCOES.map((opcao) => (
-              <option key={opcao.valor} value={opcao.valor}>
+              <SelectItem key={opcao.valor} value={opcao.valor}>
                 {opcao.label}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-          <ChevronDown className="text-muted-foreground pointer-events-none absolute inset-y-0 right-4 my-auto size-4" />
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-col gap-1">
@@ -283,6 +304,26 @@ export function SocioWizardCard({
         helperText="Foto ou PDF do documento"
         required
       />
+
+      {analiseIdentificacao.analisando ? (
+        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <Loader2 className="size-3.5 animate-spin" />
+          Analisando o documento...
+        </span>
+      ) : null}
+
+      {!analiseIdentificacao.analisando && alertasIdentificacao.length > 0 ? (
+        <ul className="flex flex-col gap-0.5 text-xs font-medium">
+          {alertasIdentificacao.map((alerta, alertaIndex) => (
+            <li
+              key={alertaIndex}
+              className={alerta.tipo === "erro" ? "text-destructive" : "text-warning"}
+            >
+              {alerta.mensagem}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <label className="text-foreground flex items-center gap-2 text-sm font-medium">
         <input type="checkbox" checked={socio.isRepresentante} onChange={onToggleRepresentante} />

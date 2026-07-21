@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import { PAPEL_SIGNATARIO_PADRAO_OPCOES } from "@/modules/admin/utils/papel-signatario-padrao.util";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 const INPUT_CLASSES =
   "border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 w-full rounded-full border px-4 py-2 text-sm outline-none focus:ring-2";
@@ -52,21 +59,18 @@ export function SignatarioPadraoForm({
           />
         </Campo>
         <Campo label="Papel (ato no D4Sign)">
-          <select
-            name="papel"
-            defaultValue={signatario?.papel ?? ""}
-            required
-            className={INPUT_CLASSES}
-          >
-            <option value="" disabled>
-              Selecione...
-            </option>
-            {PAPEL_SIGNATARIO_PADRAO_OPCOES.map((opcao) => (
-              <option key={opcao.valor} value={opcao.valor}>
-                {opcao.label}
-              </option>
-            ))}
-          </select>
+          <Select name="papel" defaultValue={signatario?.papel ?? undefined} required>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+            <SelectContent>
+              {PAPEL_SIGNATARIO_PADRAO_OPCOES.map((opcao) => (
+                <SelectItem key={opcao.valor} value={opcao.valor}>
+                  {opcao.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Campo>
         <Campo label="Estágio (fila de assinatura — sócios = 0)">
           <input

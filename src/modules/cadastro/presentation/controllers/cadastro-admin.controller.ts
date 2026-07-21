@@ -20,6 +20,14 @@ import {
   AtualizarStatusCadastroUseCase,
   type AtualizarStatusCadastroInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-status-cadastro.use-case";
+import {
+  SalvarSicaUseCase,
+  type SalvarSicaInput,
+} from "@/modules/cadastro/application/use-cases/salvar-sica.use-case";
+import {
+  SalvarTravelLinkUseCase,
+  type SalvarTravelLinkInput,
+} from "@/modules/cadastro/application/use-cases/salvar-travel-link.use-case";
 import { ObterCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/obter-cadastro-complementar.use-case";
 import { ListarRepresentantesLegaisUseCase } from "@/modules/cadastro/application/use-cases/listar-representantes-legais.use-case";
 import { ObterRepresentanteLegalUseCase } from "@/modules/cadastro/application/use-cases/obter-representante-legal.use-case";
@@ -121,6 +129,16 @@ export const cadastroAdminController = {
 
   atualizarStatus(input: AtualizarStatusCadastroInput) {
     const useCase = new AtualizarStatusCadastroUseCase(agenciaRepository);
+    return useCase.execute(input);
+  },
+
+  salvarSica(input: SalvarSicaInput) {
+    const useCase = new SalvarSicaUseCase(agenciaRepository);
+    return useCase.execute(input);
+  },
+
+  salvarTravelLink(input: SalvarTravelLinkInput) {
+    const useCase = new SalvarTravelLinkUseCase(agenciaRepository);
     return useCase.execute(input);
   },
 
