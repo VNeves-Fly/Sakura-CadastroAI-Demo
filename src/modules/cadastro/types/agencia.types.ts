@@ -14,6 +14,14 @@ export interface ContratoSocialAnaliseView {
   confianca: number;
 }
 
+export interface DocumentoIdentificacaoAnaliseView {
+  nome: string | null;
+  cpf: string | null;
+  dataNascimento: string | null;
+  alertas: string[];
+  confianca: number;
+}
+
 export interface SubmitResultView {
   success: boolean;
   precisaRevisaoManual?: boolean;
