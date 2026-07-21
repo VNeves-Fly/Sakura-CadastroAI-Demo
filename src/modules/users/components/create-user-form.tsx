@@ -22,6 +22,12 @@ interface CreateUserFormProps {
 const inputClassName =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
+// items do Select — sem isso, `<Select.Value>` mostra o valor bruto do
+// enum (ex: "DIRETOR_ANALISTA") em vez do rótulo em português.
+const CARGO_ITEMS: Record<string, string> = Object.fromEntries(
+  CARGO_OPTIONS.map((option) => [option.value, option.label]),
+);
+
 export function CreateUserForm({ isSubmitting, error, onSubmit }: CreateUserFormProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -136,6 +142,7 @@ export function CreateUserForm({ isSubmitting, error, onSubmit }: CreateUserForm
           Cargo
         </label>
         <Select
+          items={CARGO_ITEMS}
           value={cargo}
           onValueChange={(valor) => setCargo((valor ?? DEFAULT_CARGO) as Cargo)}
         >

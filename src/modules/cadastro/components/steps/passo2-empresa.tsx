@@ -1,6 +1,10 @@
 "use client";
 
-import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
+import {
+  PAISES_TELEFONE,
+  PAISES_TELEFONE_ITEMS,
+  paisTelefonePorCodigo,
+} from "@/modules/shared/utils/telefone.util";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import {
   Select,
@@ -28,6 +32,7 @@ export function Passo2Empresa({
   emailOperacionalInvalido,
   emailComercialInvalido,
   emailFinanceiroInvalido,
+  empresaCamposDesbloqueados,
   setTelefoneComercial,
   setTelefoneComercialPais,
   setSemTelefoneComercial,
@@ -37,9 +42,17 @@ export function Passo2Empresa({
   usarEmailOperacionalParaTodos,
 }: Passo2EmpresaProps) {
   const paisTelefone = paisTelefonePorCodigo(telefoneComercialPais);
+  const bloqueado = !empresaCamposDesbloqueados;
 
   return (
     <div className="flex flex-col gap-5">
+      {bloqueado ? (
+        <p className="text-muted-foreground bg-muted/40 rounded-2xl px-4 py-2.5 text-xs">
+          Anexe o contrato social acima pra liberar os campos da empresa — a IA usa o que conseguir
+          ler dele pra ajudar a preencher.
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-1">
         <label className="text-foreground text-sm font-bold">
           Telefone Comercial
@@ -47,8 +60,9 @@ export function Passo2Empresa({
         </label>
         <div className="flex gap-2">
           <Select
+            items={PAISES_TELEFONE_ITEMS}
             value={telefoneComercialPais}
-            disabled={semTelefoneComercial}
+            disabled={bloqueado || semTelefoneComercial}
             onValueChange={(valor) => setTelefoneComercialPais(valor ?? "")}
           >
             <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
@@ -66,7 +80,7 @@ export function Passo2Empresa({
             type="tel"
             inputMode="numeric"
             value={telefoneComercial}
-            disabled={semTelefoneComercial}
+            disabled={bloqueado || semTelefoneComercial}
             onChange={(event) => setTelefoneComercial(event.target.value)}
             className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
             placeholder={paisTelefone.placeholder}
@@ -81,6 +95,7 @@ export function Passo2Empresa({
           <input
             type="checkbox"
             checked={semTelefoneComercial}
+            disabled={bloqueado}
             onChange={(event) => setSemTelefoneComercial(event.target.checked)}
           />
           Não possui telefone comercial
@@ -95,7 +110,8 @@ export function Passo2Empresa({
           <button
             type="button"
             onClick={usarEmailOperacionalParaTodos}
-            className="text-primary text-xs font-semibold hover:underline"
+            disabled={bloqueado}
+            className="text-primary text-xs font-semibold hover:underline disabled:cursor-not-allowed disabled:opacity-50"
           >
             Usar o mesmo para todos
           </button>
@@ -108,6 +124,7 @@ export function Passo2Empresa({
           <input
             type="email"
             value={emailOperacional}
+            disabled={bloqueado}
             onChange={(event) => setEmailOperacional(event.target.value)}
             className={INPUT_CLASSNAME}
             placeholder="operacional@empresa.com"
@@ -122,6 +139,7 @@ export function Passo2Empresa({
           <input
             type="email"
             value={emailComercial}
+            disabled={bloqueado}
             onChange={(event) => setEmailComercial(event.target.value)}
             className={INPUT_CLASSNAME}
             placeholder="comercial@empresa.com"
@@ -136,6 +154,7 @@ export function Passo2Empresa({
           <input
             type="email"
             value={emailFinanceiro}
+            disabled={bloqueado}
             onChange={(event) => setEmailFinanceiro(event.target.value)}
             className={INPUT_CLASSNAME}
             placeholder="financeiro@empresa.com"

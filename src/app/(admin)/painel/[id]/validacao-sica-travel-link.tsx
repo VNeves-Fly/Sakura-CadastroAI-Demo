@@ -169,7 +169,7 @@ export function ValidacaoSicaTravelLink({
           <form action={recusarCadastroAction.bind(null, agenciaId)}>
             <button
               type="submit"
-              className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+              className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
             >
               Recusar
             </button>

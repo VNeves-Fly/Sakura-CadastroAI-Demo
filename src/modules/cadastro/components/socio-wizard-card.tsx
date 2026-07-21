@@ -2,9 +2,18 @@
 
 import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
-import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
-import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import {
+  PAISES_TELEFONE,
+  PAISES_TELEFONE_ITEMS,
+  paisTelefonePorCodigo,
+} from "@/modules/shared/utils/telefone.util";
+import {
+  ESTADO_CIVIL_OPCOES,
+  ESTADO_CIVIL_OPCOES_ITEMS,
+} from "@/modules/cadastro/types/socio-wizard.types";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
+import { unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
+import { verificarDivergenciaCampo } from "@/modules/cadastro/utils/divergencia-ia.util";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
@@ -16,6 +25,7 @@ import {
 import type {
   SocioWizardFormValues,
   SocioWizardValidacao,
+  SocioWizardValoresExtraidosIa,
 } from "@/modules/cadastro/types/socio-wizard.types";
 import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
 
@@ -29,6 +39,7 @@ interface SocioWizardCardProps {
   socio: SocioWizardFormValues;
   validacao: SocioWizardValidacao;
   analiseIdentificacao: SocioAnaliseIdentificacaoProps;
+  valoresExtraidosIa: SocioWizardValoresExtraidosIa;
   podeRemover: boolean;
   cepBuscando: boolean;
   onUpdate: (patch: Partial<SocioWizardFormValues>) => void;
@@ -40,11 +51,17 @@ interface SocioWizardCardProps {
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30";
 
+function AvisoDivergencia({ mensagem }: { mensagem: string | null }) {
+  if (!mensagem) return null;
+  return <span className="text-warning text-xs font-medium">⚠ {mensagem}</span>;
+}
+
 export function SocioWizardCard({
   index,
   socio,
   validacao,
   analiseIdentificacao,
+  valoresExtraidosIa,
   podeRemover,
   cepBuscando,
   onUpdate,
@@ -65,6 +82,58 @@ export function SocioWizardCard({
   const alertasIdentificacao = analiseIdentificacao.analise
     ? alertasVisiveis(analiseIdentificacao.analise.alertas)
     : [];
+  const endereco = valoresExtraidosIa.endereco;
+
+  const divergenciaNome = verificarDivergenciaCampo("Nome", socio.nome, valoresExtraidosIa.nome);
+  const divergenciaCpf = verificarDivergenciaCampo(
+    "CPF",
+    socio.cpf,
+    valoresExtraidosIa.cpf,
+    unmaskCpf,
+  );
+  const divergenciaDataNascimento = verificarDivergenciaCampo(
+    "Data de nascimento",
+    socio.dataNascimento,
+    valoresExtraidosIa.dataNascimento,
+  );
+  const divergenciaRg = verificarDivergenciaCampo("RG", socio.rg, valoresExtraidosIa.rg);
+  const divergenciaRgOrgao = verificarDivergenciaCampo(
+    "Órgão emissor",
+    socio.rgOrgaoEmissor,
+    valoresExtraidosIa.rgOrgaoEmissor,
+  );
+  const divergenciaRgUf = verificarDivergenciaCampo(
+    "UF do RG",
+    socio.rgUf,
+    valoresExtraidosIa.rgUf,
+  );
+  const divergenciaLogradouro = verificarDivergenciaCampo(
+    "Logradouro",
+    socio.logradouro,
+    endereco?.logradouro ?? null,
+  );
+  const divergenciaNumero = verificarDivergenciaCampo(
+    "Número",
+    socio.numero,
+    endereco?.numero ?? null,
+  );
+  const divergenciaBairro = verificarDivergenciaCampo(
+    "Bairro",
+    socio.bairro,
+    endereco?.bairro ?? null,
+  );
+  const divergenciaCidade = verificarDivergenciaCampo(
+    "Cidade",
+    socio.cidade,
+    endereco?.cidade ?? null,
+  );
+  const divergenciaUf = verificarDivergenciaCampo("UF", socio.uf, endereco?.uf ?? null);
+  const divergenciaCep = verificarDivergenciaCampo(
+    "CEP",
+    socio.cep,
+    endereco?.cep ?? null,
+    (valor) => valor.replace(/\D/g, ""),
+  );
 
   return (
     <div className="border-border bg-card flex flex-col gap-4 rounded-2xl border p-4">
@@ -88,220 +157,13 @@ export function SocioWizardCard({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-          Nome completo<span className="text-destructive"> *</span>
-        </label>
-        <input
-          type="text"
-          value={socio.nome}
-          onChange={(event) => onUpdate({ nome: event.target.value })}
-          className={INPUT_CLASSNAME}
-          placeholder="Nome conforme QSA"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-            CPF<span className="text-destructive"> *</span>
-          </label>
-          <input
-            type="text"
-            value={socio.cpf}
-            onChange={(event) => onUpdate({ cpf: event.target.value })}
-            className={INPUT_CLASSNAME}
-            placeholder="000.000.000-00"
-          />
-          {cpfStatus.mensagem ? (
-            <span className="text-destructive text-xs font-medium">{cpfStatus.mensagem}</span>
-          ) : null}
-          {cpfStatus.valido ? (
-            <span className="text-success text-xs font-medium">✓ CPF válido</span>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-            E-mail<span className="text-destructive"> *</span>
-          </label>
-          <input
-            type="email"
-            value={socio.email}
-            onChange={(event) => onUpdate({ email: event.target.value })}
-            className={INPUT_CLASSNAME}
-            placeholder="socio@email.com"
-          />
-          {emailInvalido ? (
-            <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-          Data de nascimento<span className="text-destructive"> *</span>
-        </label>
-        <DatePicker
-          value={socio.dataNascimento}
-          onChange={(valor) => onUpdate({ dataNascimento: valor })}
-          disabledDays={{ after: new Date() }}
-        />
-        {dataNascimentoStatus.mensagem ? (
-          <span className="text-destructive text-xs font-medium">
-            {dataNascimentoStatus.mensagem}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-          Telefone<span className="text-destructive"> *</span>
-        </label>
-        <div className="flex gap-2">
-          <Select
-            value={socio.telefonePais}
-            onValueChange={(valor) => onUpdate({ telefonePais: valor ?? "" })}
-          >
-            <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAISES_TELEFONE.map((pais) => (
-                <SelectItem key={pais.codigo} value={pais.codigo}>
-                  {pais.bandeira} {pais.ddi || "Outro"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <input
-            type="tel"
-            inputMode="numeric"
-            value={socio.telefone}
-            onChange={(event) => onUpdate({ telefone: event.target.value })}
-            className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
-            placeholder={paisTelefone.placeholder}
-          />
-        </div>
-        {telefoneInvalido ? (
-          <span className="text-destructive text-xs font-medium">
-            Telefone incompleto para {paisTelefone.nome}.
-          </span>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-          Estado Civil<span className="text-destructive"> *</span>
-        </label>
-        <Select
-          value={socio.estadoCivil}
-          onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione" />
-          </SelectTrigger>
-          <SelectContent>
-            {ESTADO_CIVIL_OPCOES.map((opcao) => (
-              <SelectItem key={opcao.valor} value={opcao.valor}>
-                {opcao.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-          CEP<span className="text-destructive"> *</span>
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={socio.cep}
-            onChange={(event) => onUpdate({ cep: event.target.value })}
-            className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
-            placeholder="00000-000"
-          />
-          <button
-            type="button"
-            onClick={onBuscarCep}
-            disabled={cepBuscando}
-            className="border-input text-foreground hover:bg-accent shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {cepBuscando ? "Buscando..." : "Buscar"}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-          Logradouro<span className="text-destructive"> *</span>
-        </label>
-        <input
-          type="text"
-          value={socio.logradouro}
-          onChange={(event) => onUpdate({ logradouro: event.target.value })}
-          className={INPUT_CLASSNAME}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-            Número<span className="text-destructive"> *</span>
-          </label>
-          <input
-            type="text"
-            value={socio.numero}
-            onChange={(event) => onUpdate({ numero: event.target.value })}
-            className={INPUT_CLASSNAME}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-            Bairro<span className="text-destructive"> *</span>
-          </label>
-          <input
-            type="text"
-            value={socio.bairro}
-            onChange={(event) => onUpdate({ bairro: event.target.value })}
-            className={INPUT_CLASSNAME}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-            UF<span className="text-destructive"> *</span>
-          </label>
-          <input
-            type="text"
-            maxLength={2}
-            value={socio.uf}
-            onChange={(event) => onUpdate({ uf: event.target.value.toUpperCase() })}
-            className={INPUT_CLASSNAME}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-          Cidade<span className="text-destructive"> *</span>
-        </label>
-        <input
-          type="text"
-          value={socio.cidade}
-          onChange={(event) => onUpdate({ cidade: event.target.value })}
-          className={INPUT_CLASSNAME}
-        />
-      </div>
-
       <FileDropInput
         label="RG ou CNH"
         accept=".pdf,.jpg,.jpeg,.png"
         file={socio.rgArquivo}
         erro={rgErro}
         onChange={(file) => onUpdate({ rgArquivo: file })}
-        helperText="Foto ou PDF do documento"
+        helperText="Anexe primeiro — a IA analisa e ajuda a preencher o resto do cadastro"
         required
       />
 
@@ -325,22 +187,293 @@ export function SocioWizardCard({
         </ul>
       ) : null}
 
-      <label className="text-foreground flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" checked={socio.isRepresentante} onChange={onToggleRepresentante} />
-        Este sócio é o representante legal (procurador)
-      </label>
+      {!socio.rgArquivo ? (
+        <p className="text-muted-foreground text-xs">
+          Anexe o RG ou CNH do sócio pra liberar o restante do cadastro.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+              Nome completo<span className="text-destructive"> *</span>
+            </label>
+            <input
+              type="text"
+              value={socio.nome}
+              onChange={(event) => onUpdate({ nome: event.target.value })}
+              className={INPUT_CLASSNAME}
+              placeholder="Nome conforme QSA"
+            />
+            <AvisoDivergencia mensagem={divergenciaNome.mensagem} />
+          </div>
 
-      {socio.isRepresentante ? (
-        <FileDropInput
-          label="Procuração Válida"
-          accept=".pdf,.jpg,.jpeg,.png"
-          file={socio.procuracaoArquivo}
-          erro={procuracaoErro}
-          onChange={(file) => onUpdate({ procuracaoArquivo: file })}
-          helperText="Analisada por IA no envio final"
-          required
-        />
-      ) : null}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                CPF<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="text"
+                value={socio.cpf}
+                onChange={(event) => onUpdate({ cpf: event.target.value })}
+                className={INPUT_CLASSNAME}
+                placeholder="000.000.000-00"
+              />
+              {cpfStatus.mensagem ? (
+                <span className="text-destructive text-xs font-medium">{cpfStatus.mensagem}</span>
+              ) : null}
+              {cpfStatus.valido ? (
+                <span className="text-success text-xs font-medium">✓ CPF válido</span>
+              ) : null}
+              <AvisoDivergencia mensagem={divergenciaCpf.mensagem} />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                E-mail<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="email"
+                value={socio.email}
+                onChange={(event) => onUpdate({ email: event.target.value })}
+                className={INPUT_CLASSNAME}
+                placeholder="socio@email.com"
+              />
+              {emailInvalido ? (
+                <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+              Data de nascimento<span className="text-destructive"> *</span>
+            </label>
+            <DatePicker
+              value={socio.dataNascimento}
+              onChange={(valor) => onUpdate({ dataNascimento: valor })}
+              disabledDays={{ after: new Date() }}
+            />
+            {dataNascimentoStatus.mensagem ? (
+              <span className="text-destructive text-xs font-medium">
+                {dataNascimentoStatus.mensagem}
+              </span>
+            ) : null}
+            <AvisoDivergencia mensagem={divergenciaDataNascimento.mensagem} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Número do RG
+              </label>
+              <input
+                type="text"
+                value={socio.rg}
+                onChange={(event) => onUpdate({ rg: event.target.value })}
+                className={INPUT_CLASSNAME}
+              />
+              <AvisoDivergencia mensagem={divergenciaRg.mensagem} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Órgão emissor
+              </label>
+              <input
+                type="text"
+                value={socio.rgOrgaoEmissor}
+                onChange={(event) => onUpdate({ rgOrgaoEmissor: event.target.value })}
+                className={INPUT_CLASSNAME}
+                placeholder="SSP"
+              />
+              <AvisoDivergencia mensagem={divergenciaRgOrgao.mensagem} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                UF do RG
+              </label>
+              <input
+                type="text"
+                maxLength={2}
+                value={socio.rgUf}
+                onChange={(event) => onUpdate({ rgUf: event.target.value.toUpperCase() })}
+                className={INPUT_CLASSNAME}
+              />
+              <AvisoDivergencia mensagem={divergenciaRgUf.mensagem} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+              Telefone<span className="text-destructive"> *</span>
+            </label>
+            <div className="flex gap-2">
+              <Select
+                items={PAISES_TELEFONE_ITEMS}
+                value={socio.telefonePais}
+                onValueChange={(valor) => onUpdate({ telefonePais: valor ?? "" })}
+              >
+                <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAISES_TELEFONE.map((pais) => (
+                    <SelectItem key={pais.codigo} value={pais.codigo}>
+                      {pais.bandeira} {pais.ddi || "Outro"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={socio.telefone}
+                onChange={(event) => onUpdate({ telefone: event.target.value })}
+                className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+                placeholder={paisTelefone.placeholder}
+              />
+            </div>
+            {telefoneInvalido ? (
+              <span className="text-destructive text-xs font-medium">
+                Telefone incompleto para {paisTelefone.nome}.
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+              Estado Civil<span className="text-destructive"> *</span>
+            </label>
+            <Select
+              items={ESTADO_CIVIL_OPCOES_ITEMS}
+              value={socio.estadoCivil}
+              onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {ESTADO_CIVIL_OPCOES.map((opcao) => (
+                  <SelectItem key={opcao.valor} value={opcao.valor}>
+                    {opcao.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+              CEP<span className="text-destructive"> *</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={socio.cep}
+                onChange={(event) => onUpdate({ cep: event.target.value })}
+                className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+                placeholder="00000-000"
+              />
+              <button
+                type="button"
+                onClick={onBuscarCep}
+                disabled={cepBuscando}
+                className="border-input text-foreground hover:bg-accent shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cepBuscando ? "Buscando..." : "Buscar"}
+              </button>
+            </div>
+            <AvisoDivergencia mensagem={divergenciaCep.mensagem} />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+              Logradouro<span className="text-destructive"> *</span>
+            </label>
+            <input
+              type="text"
+              value={socio.logradouro}
+              onChange={(event) => onUpdate({ logradouro: event.target.value })}
+              className={INPUT_CLASSNAME}
+            />
+            <AvisoDivergencia mensagem={divergenciaLogradouro.mensagem} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Número<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="text"
+                value={socio.numero}
+                onChange={(event) => onUpdate({ numero: event.target.value })}
+                className={INPUT_CLASSNAME}
+              />
+              <AvisoDivergencia mensagem={divergenciaNumero.mensagem} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Bairro<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="text"
+                value={socio.bairro}
+                onChange={(event) => onUpdate({ bairro: event.target.value })}
+                className={INPUT_CLASSNAME}
+              />
+              <AvisoDivergencia mensagem={divergenciaBairro.mensagem} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                UF<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="text"
+                maxLength={2}
+                value={socio.uf}
+                onChange={(event) => onUpdate({ uf: event.target.value.toUpperCase() })}
+                className={INPUT_CLASSNAME}
+              />
+              <AvisoDivergencia mensagem={divergenciaUf.mensagem} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+              Cidade<span className="text-destructive"> *</span>
+            </label>
+            <input
+              type="text"
+              value={socio.cidade}
+              onChange={(event) => onUpdate({ cidade: event.target.value })}
+              className={INPUT_CLASSNAME}
+            />
+            <AvisoDivergencia mensagem={divergenciaCidade.mensagem} />
+          </div>
+
+          <label className="text-foreground flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={socio.isRepresentante}
+              onChange={onToggleRepresentante}
+            />
+            Este sócio é o representante legal (procurador)
+          </label>
+
+          {socio.isRepresentante ? (
+            <FileDropInput
+              label="Procuração Válida"
+              accept=".pdf,.jpg,.jpeg,.png"
+              file={socio.procuracaoArquivo}
+              erro={procuracaoErro}
+              onChange={(file) => onUpdate({ procuracaoArquivo: file })}
+              helperText="Analisada por IA no envio final"
+              required
+            />
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

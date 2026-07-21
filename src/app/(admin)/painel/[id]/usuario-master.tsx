@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { UserCog, Copy, Check, ClipboardCopy } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { UserCog, Copy, Check, CheckCircle2, Clock, ClipboardCopy } from "lucide-react";
 import type { RepresentanteLegalDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
+import type { UsuarioMasterView } from "@/modules/admin/adapters/dossie.adapter";
 import { DatePicker } from "@/components/ui/date-picker";
 import { SecaoColapsavel } from "./secao-colapsavel";
 
@@ -45,6 +46,45 @@ const LABEL_CAMPO: Record<keyof FormValues, string> = {
 function formatarDataNascimento(data: Date | null): string {
   if (!data) return "";
   return data.toISOString().slice(0, 10);
+}
+
+// Valores do form a partir do que já está salvo no banco (reload da
+// página) — usado só na inicialização do useState, uma vez.
+function formValoresDoPersistido(usuarioMaster: UsuarioMasterView): FormValues {
+  return {
+    nome: usuarioMaster.nome,
+    email: usuarioMaster.email,
+    cpf: usuarioMaster.cpf,
+    rg: usuarioMaster.rg,
+    rgOrgaoEmissor: usuarioMaster.rgOrgaoEmissor,
+    rgUf: usuarioMaster.rgUf,
+    dataNascimento: formatarDataNascimento(usuarioMaster.dataNascimento),
+    telefone: usuarioMaster.telefone,
+  };
+}
+
+function formValoresDoSocio(socio: RepresentanteLegalDetalhe): FormValues {
+  return {
+    nome: socio.nome,
+    email: socio.email,
+    cpf: socio.cpf,
+    rg: socio.rgNumero ?? "",
+    rgOrgaoEmissor: socio.rgOrgaoEmissor ?? "",
+    rgUf: "",
+    dataNascimento: formatarDataNascimento(socio.dataNascimento),
+    telefone: socio.telefone,
+  };
+}
+
+// Cabeçalho de subseção — agrupa campos relacionados dentro do form
+// (mesmo tratamento visual usado em "Dados da Receita", pro Usuário
+// Master ganhar hierarquia sem virar uma parede plana de 8 campos).
+function SubsecaoLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-muted-foreground text-[10px] font-bold tracking-wide uppercase">
+      {children}
+    </span>
+  );
 }
 
 function PillCompletude({ label, presente }: { label: string; presente: boolean }) {
@@ -127,46 +167,66 @@ function Campo({
 // Sessão "Usuário Master" da etapa de Ativação — o analista escolhe qual
 // sócio do dossiê vai receber o login master (dados reais pré-preenchidos:
 // nome/e-mail/CPF/telefone) ou preenche do zero pra alguém fora do quadro
-// societário. RG/órgão emissor/UF/data de nascimento começam em branco:
-// nenhum wizard (/cadastro, /chat) pergunta isso hoje, então não existe
-// dado real pra pré-preencher — o analista digita manualmente por ora.
+// societário. RG/órgão emissor/UF/data de nascimento começam em branco
+// quando vem de um sócio: nenhum wizard (/cadastro, /chat) pergunta isso
+// hoje, então não existe dado real pra pré-preencher — o analista digita
+// manualmente por ora. Salvo de verdade em UsuarioMaster (banco) via
+// `salvarUsuarioMasterAction` — sobrevive a recarregar a página.
 export function UsuarioMaster({
+  agenciaId,
   representantesLegais,
-  analistaLogado,
+  usuarioMaster,
   somenteLeitura = false,
+  salvarUsuarioMasterAction,
 }: {
+  agenciaId: string;
   representantesLegais: RepresentanteLegalDetalhe[];
-  analistaLogado: string;
+  usuarioMaster: UsuarioMasterView | null;
   // true quando o analista está revendo esta etapa a partir de uma etapa
   // posterior (ver `etapaExibida` na page) — trava a seleção/edição/save,
   // só sobra a leitura (copiar continua liberado, não é uma ação de
-  // negócio).
+  // negócio). Quem salvou (`salvoPor`) vem do lado do servidor, via sessão
+  // dentro de `salvarUsuarioMasterAction` — o client não precisa mais
+  // receber `analistaLogado` como prop.
   somenteLeitura?: boolean;
+  salvarUsuarioMasterAction: (agenciaId: string, formData: FormData) => Promise<void>;
 }) {
-  const [socioSelecionadoId, setSocioSelecionadoId] = useState<string | null>(null);
-  const [modoManual, setModoManual] = useState(false);
-  const [form, setForm] = useState<FormValues>(FORM_VAZIO);
-  const [origemSocio, setOrigemSocio] = useState<FormValues>(FORM_VAZIO);
-  const [bloqueado, setBloqueado] = useState(false);
-  const [salvo, setSalvo] = useState<{ por: string; em: Date } | null>(null);
+  const socioOrigemInicial = usuarioMaster?.origemRepresentanteLegalId
+    ? (representantesLegais.find((s) => s.id === usuarioMaster.origemRepresentanteLegalId) ?? null)
+    : null;
+
+  const [socioSelecionadoId, setSocioSelecionadoId] = useState<string | null>(
+    socioOrigemInicial?.id ?? null,
+  );
+  const [modoManual, setModoManual] = useState(
+    usuarioMaster !== null && usuarioMaster.origemRepresentanteLegalId === null,
+  );
+  const [form, setForm] = useState<FormValues>(
+    usuarioMaster ? formValoresDoPersistido(usuarioMaster) : FORM_VAZIO,
+  );
+  const [origemSocio, setOrigemSocio] = useState<FormValues>(
+    socioOrigemInicial ? formValoresDoSocio(socioOrigemInicial) : FORM_VAZIO,
+  );
+  const [bloqueado, setBloqueado] = useState(usuarioMaster !== null);
+  const [salvando, setSalvando] = useState(false);
+
+  // A "auditoria" (quem salvou, quando) vem sempre da prop persistida, não
+  // de estado local — assim continua refletindo o dado real do banco
+  // mesmo enquanto o analista mexe num rascunho novo ainda não salvo
+  // (mesmo padrão de ValidacaoSicaTravelLink: mostra o último salvo real,
+  // não uma cópia local que poderia dessincronizar).
+  const salvo =
+    usuarioMaster?.salvoPor && usuarioMaster?.salvoEm
+      ? { por: usuarioMaster.salvoPor, em: usuarioMaster.salvoEm }
+      : null;
 
   function selecionarSocio(socio: RepresentanteLegalDetalhe) {
-    const valores: FormValues = {
-      nome: socio.nome,
-      email: socio.email,
-      cpf: socio.cpf,
-      rg: socio.rgNumero ?? "",
-      rgOrgaoEmissor: socio.rgOrgaoEmissor ?? "",
-      rgUf: "",
-      dataNascimento: formatarDataNascimento(socio.dataNascimento),
-      telefone: socio.telefone,
-    };
+    const valores = formValoresDoSocio(socio);
     setSocioSelecionadoId(socio.id);
     setModoManual(false);
     setForm(valores);
     setOrigemSocio(valores);
     setBloqueado(false);
-    setSalvo(null);
   }
 
   function selecionarManual() {
@@ -175,7 +235,6 @@ export function UsuarioMaster({
     setForm(FORM_VAZIO);
     setOrigemSocio(FORM_VAZIO);
     setBloqueado(false);
-    setSalvo(null);
   }
 
   function limpar() {
@@ -184,7 +243,6 @@ export function UsuarioMaster({
     setForm(FORM_VAZIO);
     setOrigemSocio(FORM_VAZIO);
     setBloqueado(false);
-    setSalvo(null);
   }
 
   // "Pré-preenchido" só é honesto enquanto o valor ainda é exatamente o
@@ -216,6 +274,13 @@ export function UsuarioMaster({
     setForm((atual) => ({ ...atual, [name]: value }));
   }
 
+  async function handleSalvar(formData: FormData) {
+    setSalvando(true);
+    await salvarUsuarioMasterAction(agenciaId, formData);
+    setSalvando(false);
+    setBloqueado(true);
+  }
+
   const formIniciado = socioSelecionadoId !== null || modoManual;
   const todosOsCamposPreenchidos = Object.values(form).every((valor) => valor.trim() !== "");
   const completo = salvo !== null && todosOsCamposPreenchidos;
@@ -228,10 +293,11 @@ export function UsuarioMaster({
           manualmente pra alguém fora do quadro societário.
         </p>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-            completo ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+          className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+            completo ? "bg-success-bg text-success-text" : "bg-muted text-muted-foreground"
           }`}
         >
+          {completo ? <CheckCircle2 className="size-3.5" /> : <Clock className="size-3.5" />}
           {completo ? "Completo" : "Pendente"}
         </span>
       </div>
@@ -245,13 +311,16 @@ export function UsuarioMaster({
               type="button"
               disabled={somenteLeitura}
               onClick={() => selecionarSocio(socio)}
-              className={`rounded-xl border p-3 text-left transition disabled:cursor-not-allowed ${
+              className={`relative rounded-xl border p-3 text-left transition disabled:cursor-not-allowed ${
                 selecionado
                   ? "border-primary bg-primary/5 ring-primary/30 ring-2"
                   : "border-border hover:bg-muted/40"
               }`}
             >
-              <p className="text-foreground text-sm font-semibold">{socio.nome}</p>
+              {selecionado ? (
+                <CheckCircle2 className="text-primary absolute top-2.5 right-2.5 size-4" />
+              ) : null}
+              <p className="text-foreground pr-5 text-sm font-semibold">{socio.nome}</p>
               <p className="text-muted-foreground text-xs">
                 CPF: {socio.cpf} · {socio.email}
               </p>
@@ -297,105 +366,106 @@ export function UsuarioMaster({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Campo
-              label="Nome completo"
-              name="nome"
-              value={form.nome}
-              onChange={atualizarCampo}
-              disabled={bloqueado || somenteLeitura}
-              preenchido={preenchidoAutomaticamente("nome")}
-              copiado={campoCopiado === "nome"}
-              onCopy={() => copiar(form.nome, "nome")}
-            />
-            <Campo
-              label="E-mail"
-              name="email"
-              value={form.email}
-              onChange={atualizarCampo}
-              disabled={bloqueado || somenteLeitura}
-              preenchido={preenchidoAutomaticamente("email")}
-              copiado={campoCopiado === "email"}
-              onCopy={() => copiar(form.email, "email")}
-              type="email"
-            />
-            <Campo
-              label="CPF"
-              name="cpf"
-              value={form.cpf}
-              onChange={atualizarCampo}
-              disabled={bloqueado || somenteLeitura}
-              preenchido={preenchidoAutomaticamente("cpf")}
-              copiado={campoCopiado === "cpf"}
-              onCopy={() => copiar(form.cpf, "cpf")}
-            />
-            <Campo
-              label="Telefone"
-              name="telefone"
-              value={form.telefone}
-              onChange={atualizarCampo}
-              disabled={bloqueado || somenteLeitura}
-              preenchido={preenchidoAutomaticamente("telefone")}
-              copiado={campoCopiado === "telefone"}
-              onCopy={() => copiar(form.telefone, "telefone")}
-            />
-            <Campo
-              label="RG"
-              name="rg"
-              value={form.rg}
-              onChange={atualizarCampo}
-              disabled={bloqueado || somenteLeitura}
-              preenchido={preenchidoAutomaticamente("rg")}
-              copiado={campoCopiado === "rg"}
-              onCopy={() => copiar(form.rg, "rg")}
-            />
-            <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-2">
+            <SubsecaoLabel>Identificação</SubsecaoLabel>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Campo
-                label="Órgão emissor"
-                name="rgOrgaoEmissor"
-                value={form.rgOrgaoEmissor}
+                label="Nome completo"
+                name="nome"
+                value={form.nome}
                 onChange={atualizarCampo}
                 disabled={bloqueado || somenteLeitura}
-                preenchido={preenchidoAutomaticamente("rgOrgaoEmissor")}
-                copiado={campoCopiado === "rgOrgaoEmissor"}
-                onCopy={() => copiar(form.rgOrgaoEmissor, "rgOrgaoEmissor")}
+                preenchido={preenchidoAutomaticamente("nome")}
+                copiado={campoCopiado === "nome"}
+                onCopy={() => copiar(form.nome, "nome")}
               />
               <Campo
-                label="UF"
-                name="rgUf"
-                value={form.rgUf}
+                label="E-mail"
+                name="email"
+                value={form.email}
                 onChange={atualizarCampo}
                 disabled={bloqueado || somenteLeitura}
-                preenchido={false}
-                copiado={campoCopiado === "rgUf"}
-                onCopy={() => copiar(form.rgUf, "rgUf")}
+                preenchido={preenchidoAutomaticamente("email")}
+                copiado={campoCopiado === "email"}
+                onCopy={() => copiar(form.email, "email")}
+                type="email"
+              />
+              <Campo
+                label="CPF"
+                name="cpf"
+                value={form.cpf}
+                onChange={atualizarCampo}
+                disabled={bloqueado || somenteLeitura}
+                preenchido={preenchidoAutomaticamente("cpf")}
+                copiado={campoCopiado === "cpf"}
+                onCopy={() => copiar(form.cpf, "cpf")}
+              />
+              <Campo
+                label="Telefone"
+                name="telefone"
+                value={form.telefone}
+                onChange={atualizarCampo}
+                disabled={bloqueado || somenteLeitura}
+                preenchido={preenchidoAutomaticamente("telefone")}
+                copiado={campoCopiado === "telefone"}
+                onCopy={() => copiar(form.telefone, "telefone")}
               />
             </div>
-            <Campo
-              label="Data de nascimento"
-              name="dataNascimento"
-              value={form.dataNascimento}
-              onChange={atualizarCampo}
-              disabled={bloqueado || somenteLeitura}
-              preenchido={preenchidoAutomaticamente("dataNascimento")}
-              copiado={campoCopiado === "dataNascimento"}
-              onCopy={() => copiar(form.dataNascimento, "dataNascimento")}
-              type="date"
-            />
           </div>
 
-          <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-            <strong className="text-foreground">Ainda não salva de verdade:</strong> Usuário Master
-            não tem campos de RG/órgão emissor/UF/data de nascimento nem log de auditoria no banco
-            hoje — esse estado só vive aqui na tela (some se recarregar a página) e o botão Ativar
-            cliente não trava nisso ainda. RG/órgão emissor/UF/data de nascimento também não são
-            coletados no formulário ou no chat ainda — por isso começam em branco mesmo escolhendo
-            um sócio.
+          <div className="flex flex-col gap-2">
+            <SubsecaoLabel>Documento</SubsecaoLabel>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Campo
+                label="RG"
+                name="rg"
+                value={form.rg}
+                onChange={atualizarCampo}
+                disabled={bloqueado || somenteLeitura}
+                preenchido={preenchidoAutomaticamente("rg")}
+                copiado={campoCopiado === "rg"}
+                onCopy={() => copiar(form.rg, "rg")}
+              />
+              <Campo
+                label="Data de nascimento"
+                name="dataNascimento"
+                value={form.dataNascimento}
+                onChange={atualizarCampo}
+                disabled={bloqueado || somenteLeitura}
+                preenchido={preenchidoAutomaticamente("dataNascimento")}
+                copiado={campoCopiado === "dataNascimento"}
+                onCopy={() => copiar(form.dataNascimento, "dataNascimento")}
+                type="date"
+              />
+              <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:w-1/2">
+                <Campo
+                  label="Órgão emissor"
+                  name="rgOrgaoEmissor"
+                  value={form.rgOrgaoEmissor}
+                  onChange={atualizarCampo}
+                  disabled={bloqueado || somenteLeitura}
+                  preenchido={preenchidoAutomaticamente("rgOrgaoEmissor")}
+                  copiado={campoCopiado === "rgOrgaoEmissor"}
+                  onCopy={() => copiar(form.rgOrgaoEmissor, "rgOrgaoEmissor")}
+                />
+                <Campo
+                  label="UF"
+                  name="rgUf"
+                  value={form.rgUf}
+                  onChange={atualizarCampo}
+                  disabled={bloqueado || somenteLeitura}
+                  preenchido={false}
+                  copiado={campoCopiado === "rgUf"}
+                  onCopy={() => copiar(form.rgUf, "rgUf")}
+                />
+              </div>
+            </div>
           </div>
 
           {salvo ? (
-            <p className="text-success text-xs font-medium">
-              ✓ Salvo por {salvo.por} em {salvo.em.toLocaleString("pt-BR")}
+            <p className="text-success flex items-center gap-1.5 text-xs font-medium">
+              <CheckCircle2 className="size-3.5" />
+              Salvo por {salvo.por} em {salvo.em.toLocaleString("pt-BR")}
             </p>
           ) : null}
 
@@ -410,16 +480,28 @@ export function UsuarioMaster({
                   Editar
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBloqueado(true);
-                    setSalvo({ por: analistaLogado, em: new Date() });
-                  }}
-                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                >
-                  Salvar
-                </button>
+                <form action={handleSalvar}>
+                  <input type="hidden" name="nome" value={form.nome} />
+                  <input type="hidden" name="email" value={form.email} />
+                  <input type="hidden" name="cpf" value={form.cpf} />
+                  <input type="hidden" name="telefone" value={form.telefone} />
+                  <input type="hidden" name="rg" value={form.rg} />
+                  <input type="hidden" name="rgOrgaoEmissor" value={form.rgOrgaoEmissor} />
+                  <input type="hidden" name="rgUf" value={form.rgUf} />
+                  <input type="hidden" name="dataNascimento" value={form.dataNascimento} />
+                  <input
+                    type="hidden"
+                    name="origemRepresentanteLegalId"
+                    value={socioSelecionadoId ?? ""}
+                  />
+                  <button
+                    type="submit"
+                    disabled={salvando}
+                    className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {salvando ? "Salvando..." : "Salvar"}
+                  </button>
+                </form>
               )}
               <button
                 type="button"

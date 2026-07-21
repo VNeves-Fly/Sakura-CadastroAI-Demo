@@ -36,29 +36,29 @@ interface CadastrosPageProps {
 // validado, vira "aguardando_ativacao" (só falta SICA/Travel
 // Link/Usuário Master + clicar ativar).
 const FILAS = [
-  { status: STATUS_EM_COMPLEMENTAR, label: "Em Complementar", sublabel: "IA sinalizou revisão" },
+  { status: STATUS_EM_COMPLEMENTAR, label: "Em complementar", sublabel: "IA sinalizou revisão" },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
-    label: "Aguardando Assinatura",
+    label: "Aguardando assinatura",
     sublabel: "contrato enviado aos sócios",
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
-    label: "Aguardando Validação",
+    label: "Aguardando validação",
     sublabel: "contrato assinado, falta validar",
   },
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
-    label: "Aguardando Ativação",
+    label: "Aguardando ativação",
     sublabel: "falta SICA/Travel Link/ativar",
   },
 ];
 
 const KPIS = [
-  { chave: "emComplementar" as const, label: "Em Complementar" },
-  { chave: "aguardandoAssinatura" as const, label: "Aguard. Assinatura" },
-  { chave: "aguardandoValidacao" as const, label: "Aguard. Validação" },
-  { chave: "aguardandoAtivacao" as const, label: "Aguard. Ativação" },
+  { chave: "emComplementar" as const, label: "Em complementar" },
+  { chave: "aguardandoAssinatura" as const, label: "Aguard. assinatura" },
+  { chave: "aguardandoValidacao" as const, label: "Aguard. validação" },
+  { chave: "aguardandoAtivacao" as const, label: "Aguard. ativação" },
   { chave: "ativas" as const, label: "Ativas" },
   { chave: "recusadas" as const, label: "Recusadas" },
 ];
@@ -120,11 +120,12 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Banner de boas-vindas — estilo do print de referência
-          (mapa-redesign-sakura.html): gradiente sólido na cor da marca. */}
-      <div className="from-primary to-sakura-700 text-primary-foreground rounded-2xl bg-gradient-to-br p-6 shadow-lg">
-        <h1 className="text-xl font-bold">Cadastros</h1>
-        <p className="text-primary-foreground/80 mt-1 text-sm">
+      {/* Banner de boas-vindas — tom suave da marca (fundo claro + texto
+          rosa escuro) em vez de fundo sólido saturado, pra não competir
+          com os badges de status semânticos (revisão de tokens visuais). */}
+      <div className="rounded-2xl bg-[#fdf1f7] p-6 shadow-sm">
+        <h1 className="text-xl font-bold text-[#72243e]">Cadastros</h1>
+        <p className="mt-1 text-sm text-[#72243e]/75">
           Acompanhe o ciclo completo de onboarding das agências, da análise da IA até a ativação.
         </p>
       </div>
@@ -138,11 +139,11 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           não existe no schema ainda. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {KPIS.map((kpi) => (
-          <div key={kpi.chave} className="border-border bg-card rounded-xl border p-4 shadow-sm">
-            <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide uppercase">
+          <div key={kpi.chave} className="rounded-xl bg-neutral-50 p-4">
+            <span className="line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide text-neutral-500">
               {kpi.label}
             </span>
-            <p className="text-primary mt-1 text-3xl font-bold">{kpis[kpi.chave]}</p>
+            <p className="mt-1 text-3xl font-bold text-neutral-900">{kpis[kpi.chave]}</p>
           </div>
         ))}
       </div>
@@ -178,7 +179,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           />
         </form>
         <div className="flex gap-2">
-          <Select disabled defaultValue="executivo">
+          <Select disabled items={{ executivo: "Executivo" }} defaultValue="executivo">
             <SelectTrigger className="bg-muted w-auto py-2">
               <SelectValue />
             </SelectTrigger>
@@ -186,7 +187,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
               <SelectItem value="executivo">Executivo</SelectItem>
             </SelectContent>
           </Select>
-          <Select disabled defaultValue="associacao">
+          <Select disabled items={{ associacao: "Associação" }} defaultValue="associacao">
             <SelectTrigger className="bg-muted w-auto py-2">
               <SelectValue />
             </SelectTrigger>
@@ -194,7 +195,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
               <SelectItem value="associacao">Associação</SelectItem>
             </SelectContent>
           </Select>
-          <Select disabled defaultValue="evento">
+          <Select disabled items={{ evento: "Evento" }} defaultValue="evento">
             <SelectTrigger className="bg-muted w-auto py-2">
               <SelectValue />
             </SelectTrigger>
@@ -218,7 +219,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                 ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
               }`}
             >
-              <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              <span className="text-muted-foreground text-xs font-medium tracking-wide">
                 {fila.label}
               </span>
               <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>

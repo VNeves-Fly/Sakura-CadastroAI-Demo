@@ -1,6 +1,8 @@
 import type {
   QsaConsultaService,
   QsaResult,
+  QsaEndereco,
+  QsaCnae,
 } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 
 // Integração real com a API Comercial do ReceitaWS
@@ -23,15 +25,82 @@ interface ReceitaWsSocio {
   qual?: string;
 }
 
+interface ReceitaWsAtividade {
+  code: string;
+  text: string;
+}
+
 interface ReceitaWsSuccess {
   status: "OK";
   cnpj: string;
   nome: string;
-  atividade_principal?: Array<{ code: string; text: string }>;
+  atividade_principal?: ReceitaWsAtividade[];
+  atividades_secundarias?: ReceitaWsAtividade[];
   qsa?: ReceitaWsSocio[];
   abertura: string;
   telefone: string;
   email: string;
+  // Campos abaixo vêm da API comercial (não documentados no adapter até
+  // agora) — nomes conhecidos publicamente, não confirmados contra uma
+  // resposta real neste projeto. Extraídos defensivamente (ver
+  // extrairString/extrairNumero/extrairEndereco abaixo).
+  situacao?: unknown;
+  natureza_juridica?: unknown;
+  porte?: unknown;
+  capital_social?: unknown;
+  simples?: { optante?: unknown; data_opcao?: unknown };
+  logradouro?: unknown;
+  numero?: unknown;
+  complemento?: unknown;
+  bairro?: unknown;
+  municipio?: unknown;
+  uf?: unknown;
+  cep?: unknown;
+}
+
+function extrairString(valor: unknown): string | null {
+  return typeof valor === "string" && valor.length > 0 ? valor : null;
+}
+
+// ReceitaWS devolve capital_social como string formatada (ex:
+// "10.000,00") — remove separador de milhar e troca vírgula por ponto
+// antes de converter; nunca lança em formato inesperado.
+function extrairCapitalSocial(valor: unknown): number | null {
+  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
+  if (typeof valor !== "string") return null;
+
+  const normalizado = valor.replace(/\./g, "").replace(",", ".");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function extrairEndereco(resultado: ReceitaWsSuccess): QsaEndereco | null {
+  const endereco: QsaEndereco = {
+    logradouro: extrairString(resultado.logradouro),
+    numero: extrairString(resultado.numero),
+    complemento: extrairString(resultado.complemento),
+    bairro: extrairString(resultado.bairro),
+    cidade: extrairString(resultado.municipio),
+    uf: extrairString(resultado.uf),
+    cep: extrairString(resultado.cep),
+  };
+
+  const temAlgumCampo = Object.values(endereco).some((campo) => campo !== null);
+  return temAlgumCampo ? endereco : null;
+}
+
+function extrairCnaes(resultado: ReceitaWsSuccess): QsaCnae[] {
+  const principal = (resultado.atividade_principal ?? []).map((atividade) => ({
+    codigo: extrairString(atividade.code),
+    descricao: extrairString(atividade.text),
+    principal: true,
+  }));
+  const secundarios = (resultado.atividades_secundarias ?? []).map((atividade) => ({
+    codigo: extrairString(atividade.code),
+    descricao: extrairString(atividade.text),
+    principal: false,
+  }));
+  return [...principal, ...secundarios];
 }
 
 interface ReceitaWsError {
@@ -80,6 +149,14 @@ export class ReceitaWsQsaConsultaAdapter implements QsaConsultaService {
       dataAbertura: resultado.abertura,
       telefoneReceita: resultado.telefone,
       emailReceita: resultado.email,
+      situacaoCadastral: extrairString(resultado.situacao),
+      naturezaJuridica: extrairString(resultado.natureza_juridica),
+      porte: extrairString(resultado.porte),
+      capitalSocial: extrairCapitalSocial(resultado.capital_social),
+      optanteSimples: resultado.simples?.optante === true,
+      dataOpcaoSimples: extrairString(resultado.simples?.data_opcao),
+      endereco: extrairEndereco(resultado),
+      cnaes: extrairCnaes(resultado),
     };
   }
 

@@ -25,6 +25,40 @@ export interface AnaliseIaInput {
   socios: AnaliseIaSocioInput[];
 }
 
+// Um item do array `campos` dentro de cada bloco de documento em `stage3`
+// — comparação de um campo entre o que foi extraído do documento, a fonte
+// oficial (quando existe) e o que o cadastrante digitou no formulário.
+export interface AnaliseIaComparacaoCampo {
+  campo: string;
+  extraido: string | null;
+  oficial: string | null;
+  fornecido: string | null;
+  confere: boolean;
+}
+
+// Resultado do cruzamento de um documento específico (stage3) — nome do
+// campo de resposta é `tipo` (não `document_type`, que é o que se manda
+// na requisição — nomenclatura diferente entre request/response da API).
+export interface AnaliseIaDocumentoDetalhe {
+  tipo: string;
+  campos: AnaliseIaComparacaoCampo[];
+  alertasExtracao: string[];
+  valido: boolean;
+}
+
+export interface AnaliseIaSocioDetalhe {
+  nome: string;
+  documentos: AnaliseIaDocumentoDetalhe[];
+}
+
+// Detalhamento do stage3 (cruzamento documental) devolvido pelo
+// /agency-analysis/sync — usado pra dar contexto ao analista quando o
+// parecer não é APROVADO, em vez de só "algo divergiu".
+export interface AnaliseIaDetalhamento {
+  documentosEmpresa: AnaliseIaDocumentoDetalhe[];
+  socios: AnaliseIaSocioDetalhe[];
+}
+
 export interface AnaliseIaResultado {
   aprovado: boolean;
   motivo: string | null;
@@ -32,6 +66,9 @@ export interface AnaliseIaResultado {
   // (ver FlysakuraAnaliseIaAdapter) — o mock não popula.
   parecer?: string;
   flagsRisco?: string[];
+  // Idem — detalhamento do cruzamento (stage3), null quando a resposta não
+  // trouxer (ex.: mock, ou API antiga sem esse campo).
+  detalhamento?: AnaliseIaDetalhamento | null;
 }
 
 export interface AnaliseIaService {

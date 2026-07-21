@@ -1,3 +1,19 @@
+export interface DadosReceitaEndereco {
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+}
+
+export interface DadosReceitaCnae {
+  codigo: string | null;
+  descricao: string | null;
+  principal: boolean;
+}
+
 export interface DadosReceitaProps {
   id: string;
   agenciaId: string;
@@ -11,6 +27,8 @@ export interface DadosReceitaProps {
   email: string | null;
   optanteSimples: boolean;
   dataOpcaoSimples: Date | null;
+  endereco: DadosReceitaEndereco | null;
+  cnaes: DadosReceitaCnae[];
 
   consultadoEm: Date;
 }
@@ -64,6 +82,14 @@ export class DadosReceita {
 
   get dataOpcaoSimples(): Date | null {
     return this.props.dataOpcaoSimples;
+  }
+
+  get endereco(): DadosReceitaEndereco | null {
+    return this.props.endereco;
+  }
+
+  get cnaes(): DadosReceitaCnae[] {
+    return this.props.cnaes;
   }
 
   get consultadoEm(): Date {

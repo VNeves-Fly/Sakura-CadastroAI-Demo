@@ -12,6 +12,8 @@ interface FileDropInputProps {
   onChange: (file: File | null) => void;
   required?: boolean;
   helperText?: string;
+  disabled?: boolean;
+  disabledHelperText?: string;
 }
 
 function UploadIcon() {
@@ -45,6 +47,8 @@ export function FileDropInput({
   onChange,
   required,
   helperText,
+  disabled = false,
+  disabledHelperText,
 }: FileDropInputProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +56,7 @@ export function FileDropInput({
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    if (disabled) return;
     setIsDraggingOver(false);
     onChange(event.dataTransfer.files[0] ?? null);
   }
@@ -68,18 +73,25 @@ export function FileDropInput({
       <div
         onDragOver={(event) => {
           event.preventDefault();
-          setIsDraggingOver(true);
+          if (!disabled) setIsDraggingOver(true);
         }}
         onDragLeave={() => setIsDraggingOver(false)}
         onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        className={`group hover:border-primary hover:bg-accent flex cursor-pointer flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-6 text-center text-sm transition ${
-          isDraggingOver ? "border-primary bg-accent" : "border-input bg-background"
-        }`}
+        onClick={() => !disabled && inputRef.current?.click()}
+        aria-disabled={disabled}
+        className={`group flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-6 text-center text-sm transition ${
+          disabled
+            ? "border-input bg-muted/30 cursor-not-allowed opacity-60"
+            : "hover:border-primary hover:bg-accent cursor-pointer"
+        } ${isDraggingOver ? "border-primary bg-accent" : "border-input bg-background"}`}
       >
         <span
-          className={`group-hover:text-primary transition ${
-            isDraggingOver ? "text-primary" : "text-muted-foreground"
+          className={`transition ${
+            disabled
+              ? "text-muted-foreground"
+              : isDraggingOver
+                ? "text-primary"
+                : "group-hover:text-primary text-muted-foreground"
           }`}
         >
           <UploadIcon />
@@ -88,10 +100,14 @@ export function FileDropInput({
         <span
           className={`w-full break-words ${file ? "text-foreground" : "text-muted-foreground"}`}
         >
-          {file ? file.name : (helperText ?? "Clique ou arraste o arquivo aqui")}
+          {file
+            ? file.name
+            : disabled
+              ? (disabledHelperText ?? helperText ?? "Complete o campo anterior primeiro")
+              : (helperText ?? "Clique ou arraste o arquivo aqui")}
         </span>
 
-        {file ? (
+        {file && !disabled ? (
           <button
             type="button"
             onClick={(event) => {
@@ -110,6 +126,7 @@ export function FileDropInput({
         id={inputId}
         type="file"
         accept={accept}
+        disabled={disabled}
         className="hidden"
         onChange={(event) => onChange(event.target.files?.[0] ?? null)}
       />

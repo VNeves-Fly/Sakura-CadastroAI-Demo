@@ -8,10 +8,10 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 export const STATUS_LABELS: Record<string, string> = {
-  [STATUS_EM_COMPLEMENTAR]: "Em Complementar",
-  [STATUS_AGUARDANDO_ASSINATURA]: "Aguardando Assinatura",
-  [STATUS_AGUARDANDO_VALIDACAO]: "Aguardando Validação",
-  [STATUS_AGUARDANDO_ATIVACAO]: "Aguardando Ativação",
+  [STATUS_EM_COMPLEMENTAR]: "Em complementar",
+  [STATUS_AGUARDANDO_ASSINATURA]: "Aguardando assinatura",
+  [STATUS_AGUARDANDO_VALIDACAO]: "Aguardando validação",
+  [STATUS_AGUARDANDO_ATIVACAO]: "Aguardando ativação",
   [STATUS_ATIVO]: "Ativo",
   [STATUS_RECUSADO]: "Recusado",
 };
@@ -20,17 +20,17 @@ export function labelStatus(status: string): string {
   return STATUS_LABELS[status] ?? status;
 }
 
-// Classes tintadas por status — mesmo tratamento visual usado nos cards
-// de KPI, na badge da listagem e na badge do cabeçalho da ficha (estilo
-// "pending actions" do mapa-redesign-sakura.html: fundo tintado por
-// cor semântica, não neutro).
+// Cor por semântica de estado, não por cor de marca: âmbar pra tudo que
+// ainda está em andamento/depende de ação, verde pra estado final
+// positivo, vermelho pra estado final negativo — rosa (marca) fica
+// reservado pra elementos de identidade/ação primária, não pra status.
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
-  [STATUS_EM_COMPLEMENTAR]: "bg-primary/10 text-primary",
-  [STATUS_AGUARDANDO_ASSINATURA]: "bg-info/10 text-info",
-  [STATUS_AGUARDANDO_VALIDACAO]: "bg-warning/15 text-warning",
-  [STATUS_AGUARDANDO_ATIVACAO]: "bg-violet-glow/15 text-violet-glow",
-  [STATUS_ATIVO]: "bg-success/15 text-success",
-  [STATUS_RECUSADO]: "bg-destructive/15 text-destructive",
+  [STATUS_EM_COMPLEMENTAR]: "bg-warning-bg text-warning-text",
+  [STATUS_AGUARDANDO_ASSINATURA]: "bg-warning-bg text-warning-text",
+  [STATUS_AGUARDANDO_VALIDACAO]: "bg-warning-bg text-warning-text",
+  [STATUS_AGUARDANDO_ATIVACAO]: "bg-warning-bg text-warning-text",
+  [STATUS_ATIVO]: "bg-success-bg text-success-text",
+  [STATUS_RECUSADO]: "bg-destructive-bg text-destructive-text",
 };
 
 export function classesBadgeStatus(status: string): string {

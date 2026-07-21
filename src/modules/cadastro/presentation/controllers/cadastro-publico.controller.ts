@@ -1,6 +1,7 @@
 import { prisma } from "@/modules/shared/infrastructure/prisma/client";
 import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-agencia.repository";
 import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
+import { PrismaDadosReceitaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-dados-receita.repository";
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
@@ -38,6 +39,7 @@ import type { AnalisarDocumentoIdentificacaoInput } from "@/modules/cadastro/app
 // AnaliseIaService (AGENCY_ANALYSIS_API_KEY) — são o mesmo agente.
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const documentoRepository = new PrismaDocumentoRepository(prisma);
+const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 const qsaConsultaService = createQsaConsultaService();
@@ -60,6 +62,7 @@ export const cadastroPublicoController = {
       contratoAssinaturaService,
       analiseIaService,
       documentAnalysisService,
+      dadosReceitaRepository,
     );
     return useCase.execute(input);
   },

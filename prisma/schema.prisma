@@ -141,6 +141,7 @@ model Agencia {
   representantesLegais RepresentanteLegal[]
   documentos           Documento[]
   contratos            Contrato[]
+  analiseIa            AnaliseIaAgencia?
   dadosReceita         DadosReceita?
   gateValidacoes       GateValidacao[]
   alertas              Alerta[]
@@ -220,16 +221,29 @@ model Alerta {
   @@map("alertas")
 }
 
-// Credencial de acesso da Etapa 4 (Usuário Master) — roadmap, fora do
-// fluxo implementado.
+// Credencial de acesso da Etapa 4 (Usuário Master) — salvo de verdade
+// pelo analista no dossiê (SalvarUsuarioMasterUseCase). `ativo` marca que
+// existe um registro salvo (equivalente ao `salvo !== null` que a tela já
+// calculava só localmente antes). `origemRepresentanteLegalId` é só
+// referência de exibição (qual sócio, se houver, os dados vieram) — sem
+// FK formal, não trava se o sócio for removido depois.
 model UsuarioMaster {
   id        String   @id @default(cuid())
   agenciaId String   @unique
   agencia   Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
   nome      String?
   email     String?
-  ativo     Boolean  @default(false)
-  criadoEm  DateTime @default(now())
+  cpf       String?
+  telefone  String?
+  rg             String?
+  rgOrgaoEmissor String?
+  rgUf           String?
+  dataNascimento DateTime?
+  origemRepresentanteLegalId String?
+  ativo     Boolean   @default(false)
+  salvoPor  String?
+  salvoEm   DateTime?
+  criadoEm  DateTime  @default(now())
 
   @@map("usuarios_master")
 }
@@ -441,6 +455,26 @@ model AnaliseIaDocumento {
   processadoEm DateTime @default(now())
 
   @@map("analises_ia_documentos")
+}
+
+// Veredito final do /agency-analysis/sync (parecer/justificativa/flags_risco
+// + stage3, o cruzamento documento×fonte oficial×fornecido) — uma linha por
+// agência, gravada na mesma transação de FinalizarCadastroUseCase. Existe
+// pra dar contexto real ao analista quando o parecer não é APROVADO, em vez
+// de só o status "em_complementar" sem explicação.
+model AnaliseIaAgencia {
+  id        String  @id @default(cuid())
+  agenciaId String  @unique
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  parecer      String?
+  motivo       String?
+  flagsRisco   String[]
+  detalhamento Json?
+
+  avaliadoEm DateTime @default(now())
+
+  @@map("analises_ia_agencias")
 }
 
 model Contrato {

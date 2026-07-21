@@ -56,17 +56,45 @@ const config: Config = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        // Alias semântico de `destructive` — mesmas CSS vars, nome novo
+        // pra código futuro que queira ser explícito sobre "cor de risco/
+        // crítico" sem renomear os usos existentes de text-destructive.
+        danger: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+          bg: "hsl(var(--destructive-bg))",
+          text: "hsl(var(--destructive-text))",
+        },
+        "destructive-bg": "hsl(var(--destructive-bg))",
+        "destructive-text": "hsl(var(--destructive-text))",
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        "success-bg": "hsl(var(--success-bg))",
+        "success-text": "hsl(var(--success-text))",
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        "warning-bg": "hsl(var(--warning-bg))",
+        "warning-text": "hsl(var(--warning-text))",
         info: "hsl(var(--info))",
         "pink-glow": "hsl(var(--pink-glow))",
         "violet-glow": "hsl(var(--violet-glow))",
+        // Alias semântico de `primary` — cor de marca preservada, nome
+        // explícito pra usos de identidade (logo, header, ação primária)
+        // em vez do genérico "primary".
+        brand: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        neutral: {
+          900: "#1a1a1a",
+          500: "#6b6b6b",
+          200: "#e5e5e5",
+          50: "#fafafa",
+        },
         sakura: {
           50: "#fff0f8",
           100: "#ffe0f1",

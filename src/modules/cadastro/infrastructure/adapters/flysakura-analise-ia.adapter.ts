@@ -1,11 +1,15 @@
 import type {
+  AnaliseIaDetalhamento,
+  AnaliseIaDocumentoDetalhe,
   AnaliseIaInput,
   AnaliseIaResultado,
   AnaliseIaService,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 
 // Integração real com o agente de análise da Sakura
-// (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/json.
+// (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/sync
+// (renomeado de /agency-analysis/json na padronização sync/async/stream do
+// agents-service — mesmo body, mesma resposta tipada, só o path mudou).
 // Todos os dados de negócio vão dentro de `analysis_data` — não no nível
 // raiz do body, que só carrega cnpj/channel/language/session_id.
 //
@@ -30,16 +34,6 @@ function baseUrl(): string {
   return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
 }
 
-// `document_url` fica de fora enquanto não tivermos um valor real pra
-// mandar (reservado pra uma atualização futura) — só `internal_document_url`
-// (gs://) por enquanto.
-function documentoInterno(documentPath: string, documentType: string) {
-  return {
-    internal_document_url: `gs://${requireBucketName()}/${documentPath}`,
-    document_type: documentType,
-  };
-}
-
 export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
   async avaliar(input: AnaliseIaInput): Promise<AnaliseIaResultado> {
     const socios = input.socios.map((socio) => ({
@@ -48,13 +42,13 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       data_nascimento: socio.dataNascimento,
       documentos: [
         {
-          // "doc_identificacao" (não "cnh_rg", vocabulário da etapa 3) —
-          // testando contra a API real, document_type aqui só aceita
-          // 'cnh' | 'rg' | 'doc_identificacao' | 'rne' | 'rnm' | 'iata' |
-          // 'cadastur' | 'comprovante_endereco' | 'certidao_casamento'. O
-          // wizard não distingue se o sócio enviou RG ou CNH (mesmo slot de
-          // upload), então usamos o valor genérico em vez de arriscar.
-          ...documentoInterno(socio.rgPath, "doc_identificacao"),
+          // "doc_identificacao" é um DocumentType de primeira classe no
+          // schema deles — pensado exatamente pra esse caso, onde o wizard
+          // não distingue RG de CNH no upload (mesmo slot) e o agente
+          // classifica sozinho via `campos_extraidos.tipo_documento_identificado`.
+          // Sem `internal_document_url`: essa etapa não reprocessa o
+          // arquivo, só cruza os campos que a etapa 3 já extraiu.
+          document_type: "doc_identificacao",
           campos_extraidos: socio.rgAnalise.camposExtraidos,
           confidence_score: socio.rgAnalise.confiancaExtracao,
           alertas: socio.rgAnalise.alertas,
@@ -62,7 +56,7 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       ],
     }));
 
-    const response = await fetch(`${baseUrl()}/api/v1/agency-analysis/json`, {
+    const response = await fetch(`${baseUrl()}/api/v1/agency-analysis/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -96,6 +90,10 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       parecer: "APROVADO" | "PENDENTE" | "REPROVADO" | null;
       justificativa: string;
       flags_risco: string[];
+      stage3?: {
+        documentos_empresa?: RawDocumentoDetalhe[];
+        socios?: RawSocioDetalhe[];
+      };
     };
 
     return {
@@ -103,8 +101,51 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       motivo: resultado.parecer === "APROVADO" ? null : resultado.justificativa || null,
       parecer: resultado.parecer ?? undefined,
       flagsRisco: resultado.flags_risco,
+      detalhamento: resultado.stage3 ? mapDetalhamento(resultado.stage3) : null,
     };
   }
+}
+
+interface RawComparacaoCampo {
+  campo: string;
+  extraido: string | null;
+  oficial: string | null;
+  fornecido: string | null;
+  confere: boolean;
+}
+
+interface RawDocumentoDetalhe {
+  tipo: string;
+  campos: RawComparacaoCampo[];
+  alertas_extracao: string[];
+  valido: boolean;
+}
+
+interface RawSocioDetalhe {
+  nome: string;
+  documentos: RawDocumentoDetalhe[];
+}
+
+function mapDocumentoDetalhe(raw: RawDocumentoDetalhe): AnaliseIaDocumentoDetalhe {
+  return {
+    tipo: raw.tipo,
+    campos: raw.campos,
+    alertasExtracao: raw.alertas_extracao,
+    valido: raw.valido,
+  };
+}
+
+function mapDetalhamento(stage3: {
+  documentos_empresa?: RawDocumentoDetalhe[];
+  socios?: RawSocioDetalhe[];
+}): AnaliseIaDetalhamento {
+  return {
+    documentosEmpresa: (stage3.documentos_empresa ?? []).map(mapDocumentoDetalhe),
+    socios: (stage3.socios ?? []).map((socio) => ({
+      nome: socio.nome,
+      documentos: socio.documentos.map(mapDocumentoDetalhe),
+    })),
+  };
 }
 
 function requireApiKey(): string {
@@ -115,14 +156,4 @@ function requireApiKey(): string {
     );
   }
   return apiKey;
-}
-
-function requireBucketName(): string {
-  const bucketName = process.env.GCS_BUCKET_NAME;
-  if (!bucketName) {
-    throw new Error(
-      "GCS_BUCKET_NAME não configurada — necessária para montar internal_document_url.",
-    );
-  }
-  return bucketName;
 }

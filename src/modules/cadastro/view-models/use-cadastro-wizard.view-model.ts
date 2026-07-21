@@ -22,7 +22,10 @@ import { maskCep } from "@/modules/cadastro/utils/cep.util";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import { cepService } from "@/modules/cadastro/services/cep.service";
 import { criarSocioWizardVazio } from "@/modules/cadastro/types/socio-wizard.types";
-import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
+import type {
+  SocioWizardFormValues,
+  SocioWizardValoresExtraidosIa,
+} from "@/modules/cadastro/types/socio-wizard.types";
 import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
 import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
 
@@ -30,6 +33,16 @@ interface SocioAnaliseIdentificacaoState {
   analisando: boolean;
   analise: DocumentoIdentificacaoAnaliseView | null;
 }
+
+const VALORES_EXTRAIDOS_IA_VAZIO: SocioWizardValoresExtraidosIa = {
+  nome: null,
+  cpf: null,
+  dataNascimento: null,
+  rg: null,
+  rgOrgaoEmissor: null,
+  rgUf: null,
+  endereco: null,
+};
 
 // Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só. A
 // seção Comercial foi removida e Representação virou uma flag dentro do
@@ -83,6 +96,13 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   >({});
   const [sociosAnaliseIdentificacao, setSociosAnaliseIdentificacao] = useState<
     Record<number, SocioAnaliseIdentificacaoState>
+  >({});
+  // Valores brutos que a IA extraiu (RG/CNH + contrato social) por sócio —
+  // nunca é a fonte de verdade do formulário, só serve pra sinalizar
+  // divergência quando o usuário digita algo diferente (ver
+  // divergencia-ia.util.ts, usado pelo SocioWizardCard).
+  const [sociosValoresExtraidosIa, setSociosValoresExtraidosIa] = useState<
+    Record<number, SocioWizardValoresExtraidosIa>
   >({});
 
   const telefoneComercial = useCadastroWizardStore((state) => state.telefoneComercial);
@@ -155,22 +175,52 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   }, [qsaResult]);
 
   // Quando a análise do contrato social resolve, tenta preencher um card
-  // de sócio pra cada nome extraído — mesma regra não-destrutiva da QSA
-  // (nunca sobrescreve nome já preenchido nem remove sócio adicionado a
-  // mais pelo usuário).
+  // de sócio pra cada nome extraído (e o endereço, se o contrato social
+  // trouxer — MEI às vezes não tem) — mesma regra não-destrutiva da QSA
+  // (nunca sobrescreve nome/endereço já preenchidos nem remove sócio
+  // adicionado a mais pelo usuário). Também guarda o valor bruto extraído
+  // em sociosValoresExtraidosIa, pra sinalizar divergência depois.
   useEffect(() => {
     if (!contratoSocialAnalise) return;
 
     const atualizados = [...socios];
-    contratoSocialAnalise.nomesSocios.forEach((nome, index) => {
+    contratoSocialAnalise.socios.forEach((socioExtraido, index) => {
       if (!atualizados[index]) {
         atualizados[index] = criarSocioWizardVazio();
       }
       if (!atualizados[index].nome) {
-        atualizados[index] = { ...atualizados[index], nome };
+        atualizados[index] = { ...atualizados[index], nome: socioExtraido.nome };
+      }
+      const endereco = socioExtraido.endereco;
+      if (endereco) {
+        const semEnderecoAinda =
+          !atualizados[index].logradouro && !atualizados[index].cep && !atualizados[index].cidade;
+        if (semEnderecoAinda) {
+          atualizados[index] = {
+            ...atualizados[index],
+            cep: endereco.cep ? maskCep(endereco.cep) : atualizados[index].cep,
+            logradouro: endereco.logradouro ?? atualizados[index].logradouro,
+            numero: endereco.numero ?? atualizados[index].numero,
+            bairro: endereco.bairro ?? atualizados[index].bairro,
+            cidade: endereco.cidade ?? atualizados[index].cidade,
+            uf: endereco.uf ?? atualizados[index].uf,
+          };
+        }
       }
     });
     setSocios(atualizados);
+
+    setSociosValoresExtraidosIa((atual) => {
+      const proximo = { ...atual };
+      contratoSocialAnalise.socios.forEach((socioExtraido, index) => {
+        proximo[index] = {
+          ...(proximo[index] ?? VALORES_EXTRAIDOS_IA_VAZIO),
+          nome: socioExtraido.nome,
+          endereco: socioExtraido.endereco,
+        };
+      });
+      return proximo;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contratoSocialAnalise]);
 
@@ -248,9 +298,26 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
           if (analise.dataNascimento && !atualizado.dataNascimento) {
             atualizado.dataNascimento = analise.dataNascimento;
           }
+          if (analise.rg && !atualizado.rg) atualizado.rg = analise.rg;
+          if (analise.rgOrgaoEmissor && !atualizado.rgOrgaoEmissor) {
+            atualizado.rgOrgaoEmissor = analise.rgOrgaoEmissor;
+          }
+          if (analise.rgUf && !atualizado.rgUf) atualizado.rgUf = analise.rgUf;
           return atualizado;
         }),
       );
+
+      setSociosValoresExtraidosIa((atual) => ({
+        ...atual,
+        [indice]: {
+          ...(atual[indice] ?? VALORES_EXTRAIDOS_IA_VAZIO),
+          cpf: analise.cpf,
+          dataNascimento: analise.dataNascimento,
+          rg: analise.rg,
+          rgOrgaoEmissor: analise.rgOrgaoEmissor,
+          rgUf: analise.rgUf,
+        },
+      }));
     } catch {
       // Best-effort — falha na análise não deve travar o preenchimento manual.
       setSociosAnaliseIdentificacao((atual) => ({
@@ -346,6 +413,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // (reaparecem se o usuário reanexar um arquivo).
     setSociosArquivoErros({});
     setSociosAnaliseIdentificacao({});
+    setSociosValoresExtraidosIa({});
   }
 
   function updateSocio(index: number, patch: Partial<SocioWizardFormValues>) {
@@ -369,6 +437,22 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
           const proximo = { ...atual };
           delete proximo[index];
           return proximo;
+        });
+        // Só limpa o que vinha do RG/CNH — nome/endereço extraídos do
+        // contrato social não dependem desse arquivo e continuam válidos.
+        setSociosValoresExtraidosIa((atual) => {
+          if (!atual[index]) return atual;
+          return {
+            ...atual,
+            [index]: {
+              ...atual[index],
+              cpf: null,
+              dataNascimento: null,
+              rg: null,
+              rgOrgaoEmissor: null,
+              rgUf: null,
+            },
+          };
         });
       }
     }
@@ -574,31 +658,14 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     procuracaoErro: sociosArquivoErros[index]?.procuracao ?? null,
   }));
 
-  // Orquestra a tela cheia de análise (AnaliseCadastroOverlay) exibida
-  // entre o clique em "Enviar Cadastro" e o resultado final. "idle" é o
-  // estado de repouso; "analisando" cobre a chamada real ao backend
-  // (reconsulta QSA, análise de documentos pela IA, geração do
-  // contrato); "aprovado"/"revisao" é o desfecho final — fica exibido
-  // (sem trocar pra nenhuma outra tela por trás, que seria uma segunda
-  // mensagem redundante). A duração mínima de "analisando" vale pra
-  // QUALQUER desfecho (sucesso, duplicado ou erro) — sem isso, uma
-  // resposta rápida do servidor (ex: erro de validação em <1s) fazia a
-  // animação sumir quase instantaneamente.
-  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "aprovado" | "revisao">(
-    "idle",
-  );
-  const inicioAnaliseRef = useRef<number | null>(null);
-
-  const DURACAO_MINIMA_ANALISE_MS = 10000;
-
-  async function aguardarDuracaoMinimaAnalise() {
-    const decorrido = Date.now() - (inicioAnaliseRef.current ?? Date.now());
-    const restante = Math.max(0, DURACAO_MINIMA_ANALISE_MS - decorrido);
-
-    if (restante > 0) {
-      await new Promise((resolve) => setTimeout(resolve, restante));
-    }
-  }
+  // Gating: contrato social só libera upload depois do CNPJ completo (14
+  // dígitos); telefone/e-mails da empresa só liberam depois da análise do
+  // contrato social resolver (com ou sem sucesso — best-effort, não trava
+  // o usuário se a IA falhar). Cada sócio só libera o resto do form depois
+  // do upload do RG/CNH — ver socio-wizard-card.tsx.
+  const cnpjCompleto = agenciaAdapter.toQsaConsultaInput(cnpj).length >= 14;
+  const empresaCamposDesbloqueados = Boolean(contratoSocial) && !analisandoContratoSocial;
+  const sociosGating = socios.map((socio) => ({ rgUploadPendente: !socio.rgArquivo }));
 
   const documentosPendentes: string[] = [];
   if (!contratoSocial) documentosPendentes.push("Contrato Social da empresa");
@@ -688,6 +755,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     contratoSocialAnalise,
     setCnpj,
     setContratoSocial,
+    cnpjCompleto,
+    empresaCamposDesbloqueados,
 
     telefoneComercial,
     telefoneComercialPais,
@@ -710,6 +779,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     socios,
     sociosValidacao,
     sociosAnaliseIdentificacao,
+    sociosValoresExtraidosIa,
+    sociosGating,
     socioCepBuscando,
     addSocio,
     removeSocio,

@@ -1,9 +1,15 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { animate } from "animejs";
+import { Loader2 } from "lucide-react";
 import { SocioWizardCard } from "@/modules/cadastro/components/socio-wizard-card";
 import { PersonPlusIcon } from "@/modules/cadastro/components/icons";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
-import type { SocioWizardValidacao } from "@/modules/cadastro/types/socio-wizard.types";
+import type {
+  SocioWizardValidacao,
+  SocioWizardValoresExtraidosIa,
+} from "@/modules/cadastro/types/socio-wizard.types";
 
 type Passo5SociosProps = ReturnType<typeof useCadastroWizardViewModel>;
 
@@ -18,15 +24,34 @@ const VALIDACAO_VAZIA: SocioWizardValidacao = {
   procuracaoErro: null,
 };
 
-// Componente apenas de renderização: recebe estado e callbacks do
-// ViewModel do wizard via props. Sócios vêm pré-preenchidos do QSA
-// (Seção Empresa); o representante é só um sócio com a flag marcada.
 const ANALISE_IDENTIFICACAO_VAZIA = { analisando: false, analise: null };
 
+const VALORES_EXTRAIDOS_IA_VAZIO: SocioWizardValoresExtraidosIa = {
+  nome: null,
+  cpf: null,
+  dataNascimento: null,
+  rg: null,
+  rgOrgaoEmissor: null,
+  rgUf: null,
+  endereco: null,
+};
+
+function prefereMovimentoReduzido(): boolean {
+  return (
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+// Componente apenas de renderização: recebe estado e callbacks do
+// ViewModel do wizard via props. Carrossel — só o sócio ativo aparece com
+// o formulário completo montado; o índice ativo é estado puramente de UI
+// (não vive no ViewModel, igual secao-colapsavel.tsx trata aberta/animando).
 export function Passo5Socios({
   socios,
   sociosValidacao,
   sociosAnaliseIdentificacao,
+  sociosValoresExtraidosIa,
+  sociosGating,
   socioCepBuscando,
   addSocio,
   removeSocio,
@@ -34,16 +59,54 @@ export function Passo5Socios({
   toggleRepresentante,
   buscarCepSocio,
 }: Passo5SociosProps) {
+  const [socioAtivoIndex, setSocioAtivoIndex] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const primeiraRenderizacao = useRef(true);
+
+  // Se um sócio for removido e o índice ativo ficar fora do range, cai
+  // pro último sócio restante em vez de apontar pra um índice inexistente.
+  useEffect(() => {
+    if (socioAtivoIndex > socios.length - 1) {
+      setSocioAtivoIndex(Math.max(0, socios.length - 1));
+    }
+  }, [socios.length, socioAtivoIndex]);
+
+  // Anima a entrada do card do sócio ativo (fade + leve deslocamento
+  // horizontal, estilo carrossel) a cada troca — pula na primeira
+  // renderização e respeita "menos movimento" do SO, mesmo padrão de
+  // secao-colapsavel.tsx e cadastro-wizard-view.tsx.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const ehPrimeira = primeiraRenderizacao.current;
+    primeiraRenderizacao.current = false;
+    if (ehPrimeira || prefereMovimentoReduzido()) return;
+
+    animate(el, {
+      opacity: [0, 1],
+      translateX: [16, 0],
+      duration: 320,
+      ease: "outQuad",
+    });
+  }, [socioAtivoIndex]);
+
+  function handleAddSocio() {
+    addSocio();
+    setSocioAtivoIndex(socios.length);
+  }
+
+  const socioAtivo = socios[socioAtivoIndex];
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground min-w-0 flex-1 text-sm">
-          Preencha os dados do sócio — assim que a consulta à Receita Federal resolver, o nome é
-          pré-preenchido automaticamente.
+          Anexe o RG ou CNH de cada sócio — a IA analisa e ajuda a preencher o resto do cadastro.
         </p>
         <button
           type="button"
-          onClick={addSocio}
+          onClick={handleAddSocio}
           className="text-primary flex shrink-0 items-center gap-1.5 text-sm font-semibold hover:underline"
         >
           <PersonPlusIcon />
@@ -51,21 +114,58 @@ export function Passo5Socios({
         </button>
       </div>
 
-      {socios.map((socio, index) => (
-        <SocioWizardCard
-          key={index}
-          index={index}
-          socio={socio}
-          validacao={sociosValidacao[index] ?? VALIDACAO_VAZIA}
-          analiseIdentificacao={sociosAnaliseIdentificacao[index] ?? ANALISE_IDENTIFICACAO_VAZIA}
-          podeRemover={socios.length > 1}
-          cepBuscando={socioCepBuscando === index}
-          onUpdate={(patch) => updateSocio(index, patch)}
-          onRemove={() => removeSocio(index)}
-          onToggleRepresentante={() => toggleRepresentante(index)}
-          onBuscarCep={() => buscarCepSocio(index)}
-        />
-      ))}
+      <div className="flex flex-wrap gap-2">
+        {socios.map((socio, index) => {
+          const analise = sociosAnaliseIdentificacao[index] ?? ANALISE_IDENTIFICACAO_VAZIA;
+          const gating = sociosGating[index];
+          const ativo = index === socioAtivoIndex;
+          const rotulo = socio.nome || `Sócio ${index + 1}`;
+
+          return (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setSocioAtivoIndex(index)}
+              aria-current={ativo}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                ativo
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-input bg-background text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {analise.analisando ? <Loader2 className="size-3 animate-spin" /> : null}
+              {rotulo}
+              {gating?.rgUploadPendente ? (
+                <span className="text-warning" title="RG ou CNH pendente">
+                  •
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      {socioAtivo ? (
+        <div key={socioAtivoIndex} ref={cardRef}>
+          <SocioWizardCard
+            index={socioAtivoIndex}
+            socio={socioAtivo}
+            validacao={sociosValidacao[socioAtivoIndex] ?? VALIDACAO_VAZIA}
+            analiseIdentificacao={
+              sociosAnaliseIdentificacao[socioAtivoIndex] ?? ANALISE_IDENTIFICACAO_VAZIA
+            }
+            valoresExtraidosIa={
+              sociosValoresExtraidosIa[socioAtivoIndex] ?? VALORES_EXTRAIDOS_IA_VAZIO
+            }
+            podeRemover={socios.length > 1}
+            cepBuscando={socioCepBuscando === socioAtivoIndex}
+            onUpdate={(patch) => updateSocio(socioAtivoIndex, patch)}
+            onRemove={() => removeSocio(socioAtivoIndex)}
+            onToggleRepresentante={() => toggleRepresentante(socioAtivoIndex)}
+            onBuscarCep={() => buscarCepSocio(socioAtivoIndex)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
