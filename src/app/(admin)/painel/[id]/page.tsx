@@ -24,6 +24,7 @@ import {
   ETAPAS_PIPELINE,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import {
   STATUS_ATIVO,
@@ -131,6 +132,7 @@ function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null }) {
   }
 
   const campos = Object.entries(analise.camposExtraidos);
+  const alertas = alertasVisiveis(analise.alertas);
 
   return (
     <div className="flex flex-col gap-1.5 text-xs">
@@ -138,9 +140,9 @@ function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null }) {
         <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
           Confiança: {analise.confiancaExtracao}
         </span>
-        {analise.alertas.length > 0 ? (
+        {alertas.length > 0 ? (
           <span className="bg-warning/15 text-warning rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
-            {analise.alertas.length} alerta{analise.alertas.length > 1 ? "s" : ""}
+            {alertas.length} alerta{alertas.length > 1 ? "s" : ""}
           </span>
         ) : null}
       </div>
@@ -149,10 +151,15 @@ function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null }) {
         <p className="text-muted-foreground">{analise.resumoAnalise}</p>
       ) : null}
 
-      {analise.alertas.length > 0 ? (
-        <ul className="text-warning list-inside list-disc">
-          {analise.alertas.map((alerta) => (
-            <li key={alerta}>{alerta}</li>
+      {alertas.length > 0 ? (
+        <ul className="list-inside list-disc">
+          {alertas.map((alerta, index) => (
+            <li
+              key={index}
+              className={alerta.tipo === "erro" ? "text-destructive" : "text-warning"}
+            >
+              {alerta.mensagem}
+            </li>
           ))}
         </ul>
       ) : null}
