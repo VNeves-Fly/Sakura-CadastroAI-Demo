@@ -12,6 +12,12 @@ import {
 const INPUT_CLASSES =
   "border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 w-full rounded-full border px-4 py-2 text-sm outline-none focus:ring-2";
 
+// items do Select — sem isso, `<Select.Value>` mostra o valor bruto do
+// enum (ex: "ASSINAR_COMO_PARTE_E_FIADOR") em vez do rótulo em português.
+const PAPEL_SIGNATARIO_PADRAO_ITEMS: Record<string, string> = Object.fromEntries(
+  PAPEL_SIGNATARIO_PADRAO_OPCOES.map((opcao) => [opcao.valor, opcao.label]),
+);
+
 function Campo({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
@@ -59,7 +65,12 @@ export function SignatarioPadraoForm({
           />
         </Campo>
         <Campo label="Papel (ato no D4Sign)">
-          <Select name="papel" defaultValue={signatario?.papel ?? undefined} required>
+          <Select
+            items={PAPEL_SIGNATARIO_PADRAO_ITEMS}
+            name="papel"
+            defaultValue={signatario?.papel ?? undefined}
+            required
+          >
             <SelectTrigger>
               <SelectValue placeholder="Selecione..." />
             </SelectTrigger>

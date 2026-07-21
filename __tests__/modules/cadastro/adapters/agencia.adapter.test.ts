@@ -4,6 +4,8 @@ import { criarEnderecoBancoVazio } from "@/modules/cadastro/types/endereco-banco
 import type {
   RawQsaResponse,
   CriarAgenciaResult,
+  RawAnaliseContratoSocialResponse,
+  RawAnaliseDocumentoIdentificacaoResponse,
 } from "@/modules/cadastro/services/agencia.service";
 
 function arquivoFake(nome: string): File {
@@ -36,6 +38,75 @@ describe("agenciaAdapter.toQsaResultView", () => {
       telefoneReceita: "(11) 3333-4444",
       emailReceita: "contato@empresateste.com.br",
     });
+  });
+});
+
+describe("agenciaAdapter.toContratoSocialAnaliseView", () => {
+  it("repassa os sócios com endereço, deixando a UF em maiúsculas", () => {
+    const raw: RawAnaliseContratoSocialResponse = {
+      cnpjConfere: true,
+      socios: [
+        {
+          nome: "Fulano de Tal",
+          endereco: {
+            logradouro: "Rua Teste",
+            numero: "100",
+            bairro: "Centro",
+            cidade: "São Paulo",
+            uf: "sp",
+            cep: "01310-100",
+          },
+        },
+        { nome: "Beltrana", endereco: null },
+      ],
+      alertas: [],
+      confianca: 0.9,
+    };
+
+    const view = agenciaAdapter.toContratoSocialAnaliseView(raw);
+
+    expect(view.socios[0]?.endereco?.uf).toBe("SP");
+    expect(view.socios[1]?.endereco).toBeNull();
+  });
+});
+
+describe("agenciaAdapter.toDocumentoIdentificacaoAnaliseView", () => {
+  it("desmascara o CPF e deixa a UF do RG em maiúsculas", () => {
+    const raw: RawAnaliseDocumentoIdentificacaoResponse = {
+      nome: "Fulano de Tal",
+      cpf: "111.444.777-35",
+      dataNascimento: "1990-01-01",
+      rg: "12.345.678-9",
+      rgOrgaoEmissor: "SSP",
+      rgUf: "sp",
+      alertas: [],
+      confianca: 0.9,
+    };
+
+    const view = agenciaAdapter.toDocumentoIdentificacaoAnaliseView(raw);
+
+    expect(view.cpf).toBe("11144477735");
+    expect(view.rgUf).toBe("SP");
+    expect(view.rg).toBe("12.345.678-9");
+  });
+
+  it("devolve null pra rg/rgOrgaoEmissor/rgUf quando a IA não extraiu (campos especulativos)", () => {
+    const raw: RawAnaliseDocumentoIdentificacaoResponse = {
+      nome: null,
+      cpf: null,
+      dataNascimento: null,
+      rg: null,
+      rgOrgaoEmissor: null,
+      rgUf: null,
+      alertas: [],
+      confianca: 0,
+    };
+
+    const view = agenciaAdapter.toDocumentoIdentificacaoAnaliseView(raw);
+
+    expect(view.rg).toBeNull();
+    expect(view.rgOrgaoEmissor).toBeNull();
+    expect(view.rgUf).toBeNull();
   });
 });
 

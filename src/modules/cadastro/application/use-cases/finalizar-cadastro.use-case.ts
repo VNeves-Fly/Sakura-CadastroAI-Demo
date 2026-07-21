@@ -5,6 +5,7 @@ import {
   STATUS_EM_COMPLEMENTAR,
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
+import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
@@ -29,6 +30,19 @@ const ENDERECO_VAZIO: EnderecoInput = {
   uf: "",
 };
 
+// ReceitaWS devolve datas em DD/MM/YYYY — degrada pra null em vez de
+// lançar se vier em outro formato (mesmo espírito defensivo do resto da
+// extração de Dados da Receita).
+function parseDataBr(valor: string | null): Date | null {
+  if (!valor) return null;
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor);
+  if (!match) return null;
+
+  const [, dia, mes, ano] = match;
+  const data = new Date(`${ano}-${mes}-${dia}T00:00:00`);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
 export class FinalizarCadastroUseCase implements UseCase<
   FinalizarCadastroInput,
   FinalizarCadastroOutput
@@ -40,6 +54,7 @@ export class FinalizarCadastroUseCase implements UseCase<
     private readonly contratoAssinaturaService: ContratoAssinaturaService,
     private readonly analiseIaService: AnaliseIaService,
     private readonly documentAnalysisService: DocumentAnalysisService,
+    private readonly dadosReceitaRepository: DadosReceitaRepository,
   ) {}
 
   async execute(input: FinalizarCadastroInput): Promise<FinalizarCadastroOutput> {
@@ -218,6 +233,32 @@ export class FinalizarCadastroUseCase implements UseCase<
           }
         : null,
     });
+
+    // Cache normalizado da consulta à Receita (Dados da Receita, exibido
+    // no dossiê do painel admin) — best-effort: a agência já foi criada
+    // com sucesso acima, então uma falha aqui (Receita fora do ar, campo
+    // em formato inesperado etc.) nunca deve derrubar o cadastro, só fica
+    // sem esse dado suplementar.
+    if (qsaResult) {
+      try {
+        await this.dadosReceitaRepository.create({
+          agenciaId: agencia.id,
+          situacaoCadastral: qsaResult.situacaoCadastral,
+          dataAbertura: parseDataBr(qsaResult.dataAbertura),
+          naturezaJuridica: qsaResult.naturezaJuridica,
+          porte: qsaResult.porte,
+          capitalSocial: qsaResult.capitalSocial,
+          telefone: qsaResult.telefoneReceita || null,
+          email: qsaResult.emailReceita || null,
+          optanteSimples: qsaResult.optanteSimples,
+          dataOpcaoSimples: parseDataBr(qsaResult.dataOpcaoSimples),
+          endereco: qsaResult.endereco,
+          cnaes: qsaResult.cnaes,
+        });
+      } catch (error) {
+        console.warn(`Falha ao persistir Dados da Receita (cnpj=${input.cnpj}): ${String(error)}`);
+      }
+    }
 
     return {
       id: agencia.id,

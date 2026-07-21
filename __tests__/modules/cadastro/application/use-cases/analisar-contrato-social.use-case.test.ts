@@ -90,4 +90,57 @@ describe("AnalisarContratoSocialUseCase", () => {
     expect(resultado.capitalSocial).toBeNull();
     expect(resultado.enderecoEmpresa).toBeNull();
   });
+
+  it("usa o shape rico `socios: [{nome, endereco}]` quando a IA devolve (especulativo — sem confirmação do agente real)", async () => {
+    const useCase = criarUseCase({
+      socios: [
+        {
+          nome: "Fulano de Tal",
+          endereco: { logradouro: "Rua Teste", numero: "100", cidade: "São Paulo", uf: "SP" },
+        },
+        { nome: "Beltrana" },
+      ],
+    });
+
+    const resultado = await useCase.execute({ cnpj: "62572350000180", contratoSocial: ARQUIVO });
+
+    expect(resultado.socios).toEqual([
+      {
+        nome: "Fulano de Tal",
+        endereco: {
+          logradouro: "Rua Teste",
+          numero: "100",
+          bairro: null,
+          cidade: "São Paulo",
+          uf: "SP",
+          cep: null,
+        },
+      },
+      { nome: "Beltrana", endereco: null },
+    ]);
+  });
+
+  it("degrada pro shape confirmado (socios_nomes_completos, só nomes) quando a IA não devolve o shape rico", async () => {
+    const useCase = criarUseCase({
+      socios_nomes_completos: ["Fulano de Tal", "Beltrana"],
+    });
+
+    const resultado = await useCase.execute({ cnpj: "62572350000180", contratoSocial: ARQUIVO });
+
+    expect(resultado.socios).toEqual([
+      { nome: "Fulano de Tal", endereco: null },
+      { nome: "Beltrana", endereco: null },
+    ]);
+  });
+
+  it("degrada com segurança quando `socios` vem em formato inesperado, sem lançar erro", async () => {
+    const useCase = criarUseCase({
+      socios: "não é uma lista",
+      socios_nomes_completos: ["Fulano de Tal"],
+    });
+
+    const resultado = await useCase.execute({ cnpj: "62572350000180", contratoSocial: ARQUIVO });
+
+    expect(resultado.socios).toEqual([{ nome: "Fulano de Tal", endereco: null }]);
+  });
 });

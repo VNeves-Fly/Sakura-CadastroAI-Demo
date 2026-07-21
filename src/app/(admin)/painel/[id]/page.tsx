@@ -1,11 +1,21 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { Building2, Users, Landmark, FileSignature, FileCheck2, CheckCircle2 } from "lucide-react";
+import {
+  Building2,
+  Users,
+  Landmark,
+  FileSignature,
+  FileCheck2,
+  CheckCircle2,
+  ScrollText,
+} from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type {
+  DadosReceitaEndereco,
+  DadosReceitaCnae,
+} from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type { AnaliseIaResumo } from "@/modules/admin/types/dossie.types";
-import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SecaoColapsavel } from "./secao-colapsavel";
 import { RevisaoDocumentosComplementar } from "./revisao-documentos";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
@@ -22,6 +32,8 @@ import {
   formatarEndereco,
   labelStatusContrato,
   ETAPAS_PIPELINE,
+  paraUsuarioMasterView,
+  usuarioMasterEstaCompleto,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
@@ -47,6 +59,7 @@ import {
   validarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
+  salvarUsuarioMasterAction,
 } from "./actions";
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
@@ -79,6 +92,95 @@ function ChecklistEtapaConcluida({ label }: { label: string }) {
 
 function formatarData(data: Date): string {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
+}
+
+function formatarDataCurta(data: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
+}
+
+function formatarMoedaBrl(valor: number | null): string {
+  if (valor === null) return "—";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+}
+
+// Endereço de Dados da Receita tem campos todos opcionais (a Receita nem
+// sempre devolve tudo) — formatação própria, diferente de formatarEndereco
+// (que espera os campos sempre preenchidos, vindos do que o próprio
+// usuário digitou no wizard).
+function formatarEnderecoReceita(endereco: DadosReceitaEndereco | null): string {
+  if (!endereco || !endereco.logradouro) return "—";
+  const complemento = endereco.complemento ? `, ${endereco.complemento}` : "";
+  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro ?? "—"}, ${endereco.cidade ?? "—"}/${endereco.uf ?? "—"}`;
+}
+
+// Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
+// relacionados (ex: "Contato", "Endereço") sem precisar de outra seção
+// colapsável só pra isso.
+function SubsecaoLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-muted-foreground text-[10px] font-bold tracking-wide uppercase">
+      {children}
+    </span>
+  );
+}
+
+// Situação cadastral vira badge colorido (mesma linguagem semântica dos
+// badges de status do funil) em vez de texto plano — bate o olho se a
+// empresa está ativa/baixada sem precisar ler a palavra toda.
+function SituacaoCadastralBadge({ situacao }: { situacao: string | null }) {
+  if (!situacao) return <span className="text-muted-foreground">—</span>;
+
+  const normalizado = situacao.toLowerCase();
+  const classes = normalizado.includes("ativa")
+    ? "bg-success-bg text-success-text"
+    : /baixada|inapta|suspensa|nula/.test(normalizado)
+      ? "bg-destructive-bg text-destructive-text"
+      : "bg-muted text-muted-foreground";
+
+  return (
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${classes}`}>
+      {situacao}
+    </span>
+  );
+}
+
+// CNAEs vêm como lista plana (principal + secundários) — destaca o
+// principal e esconde os secundários atrás de um <details> pra não
+// poluir a ficha quando a empresa tem muitas atividades cadastradas.
+function CnaesDetalhe({ cnaes }: { cnaes: DadosReceitaCnae[] }) {
+  if (cnaes.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const principal = cnaes.find((cnae) => cnae.principal);
+  const secundarios = cnaes.filter((cnae) => !cnae.principal);
+
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      {principal ? (
+        <span>
+          <span className="bg-primary/15 text-primary mr-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
+            Principal
+          </span>
+          {principal.codigo} — {principal.descricao}
+        </span>
+      ) : null}
+      {secundarios.length > 0 ? (
+        <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs">
+          <summary className="text-primary cursor-pointer font-semibold">
+            Ver CNAEs secundários ({secundarios.length})
+          </summary>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {secundarios.map((cnae, index) => (
+              <li key={index}>
+                {cnae.codigo} — {cnae.descricao}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
+  );
 }
 
 // Referência de arquivo (contrato social, RG, procuração) em destaque —
@@ -294,10 +396,11 @@ export default async function DossieAgenciaPage({
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    dadosReceita,
+    usuarioMaster,
   } = view;
 
-  const session = await getServerSession(nextAuthOptions);
-  const analistaLogado = session?.user?.email ?? session?.user?.name ?? "analista não identificado";
+  const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
 
   // Etapas concluídas ficam navegáveis em modo leitura (?etapa=N na URL) —
   // etapas futuras (index > indiceTrilha) são ignoradas e caem no fallback
@@ -425,6 +528,60 @@ export default async function DossieAgenciaPage({
                 <AnaliseIaDetalhe analise={analiseIaContratoSocial} />
               </Campo>
             </dl>
+          </SecaoColapsavel>
+
+          <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
+            {!dadosReceita ? (
+              <p className="text-muted-foreground text-sm">
+                Dados da Receita não disponíveis — cadastro anterior a esta funcionalidade (só
+                cadastros novos passam a gravar esse dado).
+              </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                  <Campo label="Situação Cadastral">
+                    <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
+                  </Campo>
+                  <Campo label="Natureza Jurídica">{dadosReceita.naturezaJuridica || "—"}</Campo>
+                  <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
+                  <Campo label="Capital Social">
+                    {formatarMoedaBrl(dadosReceita.capitalSocial)}
+                  </Campo>
+                  <Campo label="Data de Abertura">
+                    {dadosReceita.dataAbertura ? formatarDataCurta(dadosReceita.dataAbertura) : "—"}
+                  </Campo>
+                  <Campo label="Optante pelo Simples">
+                    {dadosReceita.optanteSimples
+                      ? `Sim${dadosReceita.dataOpcaoSimples ? ` (desde ${formatarDataCurta(dadosReceita.dataOpcaoSimples)})` : ""}`
+                      : "Não"}
+                  </Campo>
+                </dl>
+
+                <div className="flex flex-col gap-2">
+                  <SubsecaoLabel>Contato</SubsecaoLabel>
+                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <Campo label="Telefone (Receita)">{dadosReceita.telefone || "—"}</Campo>
+                    <Campo label="E-mail (Receita)">{dadosReceita.email || "—"}</Campo>
+                  </dl>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <SubsecaoLabel>Endereço</SubsecaoLabel>
+                  <p className="text-foreground text-sm font-medium">
+                    {formatarEnderecoReceita(dadosReceita.endereco)}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <SubsecaoLabel>Atividades (CNAE)</SubsecaoLabel>
+                  <CnaesDetalhe cnaes={dadosReceita.cnaes} />
+                </div>
+
+                <p className="border-border text-muted-foreground border-t pt-3 text-xs">
+                  Consultado em {formatarData(dadosReceita.consultadoEm)}
+                </p>
+              </div>
+            )}
           </SecaoColapsavel>
 
           <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
@@ -596,7 +753,7 @@ export default async function DossieAgenciaPage({
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
                     <button
                       type="submit"
-                      className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
                     >
                       Recusar
                     </button>
@@ -646,9 +803,11 @@ export default async function DossieAgenciaPage({
               </div>
 
               <UsuarioMaster
+                agenciaId={agencia.id}
                 representantesLegais={representantesLegais}
-                analistaLogado={analistaLogado}
+                usuarioMaster={usuarioMasterView}
                 somenteLeitura={!mostrandoEtapaAtual}
+                salvarUsuarioMasterAction={salvarUsuarioMasterAction}
               />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
@@ -662,7 +821,13 @@ export default async function DossieAgenciaPage({
                   <form action={ativarClienteAction.bind(null, agencia.id)}>
                     <button
                       type="submit"
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                      disabled={!usuarioMasterEstaCompleto(usuarioMasterView)}
+                      title={
+                        usuarioMasterEstaCompleto(usuarioMasterView)
+                          ? undefined
+                          : "Salve o Usuário Master completo antes de ativar o cliente"
+                      }
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Ativar cliente
                     </button>
@@ -670,7 +835,7 @@ export default async function DossieAgenciaPage({
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
                     <button
                       type="submit"
-                      className="border-destructive/40 text-destructive hover:bg-destructive/10 rounded-full border px-4 py-2 text-sm font-medium transition"
+                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
                     >
                       Recusar
                     </button>

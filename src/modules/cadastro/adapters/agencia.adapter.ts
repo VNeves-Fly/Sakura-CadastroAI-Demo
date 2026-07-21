@@ -54,7 +54,12 @@ export const agenciaAdapter = {
   toContratoSocialAnaliseView(raw: RawAnaliseContratoSocialResponse): ContratoSocialAnaliseView {
     return {
       cnpjConfere: raw.cnpjConfere,
-      nomesSocios: raw.nomesSocios,
+      socios: raw.socios.map((socio) => ({
+        nome: socio.nome,
+        endereco: socio.endereco
+          ? { ...socio.endereco, uf: socio.endereco.uf?.toUpperCase() ?? null }
+          : null,
+      })),
       alertas: raw.alertas,
       confianca: raw.confianca,
     };
@@ -84,6 +89,9 @@ export const agenciaAdapter = {
       nome: raw.nome,
       cpf: raw.cpf ? unmaskCpf(raw.cpf) : null,
       dataNascimento: dataNascimentoValida,
+      rg: raw.rg,
+      rgOrgaoEmissor: raw.rgOrgaoEmissor,
+      rgUf: raw.rgUf ? raw.rgUf.toUpperCase() : null,
       alertas: raw.alertas,
       confianca: raw.confianca,
     };

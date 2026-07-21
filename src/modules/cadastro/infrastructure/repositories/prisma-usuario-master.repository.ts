@@ -1,7 +1,7 @@
 import type { PrismaClient, UsuarioMaster as UsuarioMasterRecord } from "@prisma/client";
 import { UsuarioMaster } from "@/modules/cadastro/domain/entities/usuario-master.entity";
 import type {
-  CreateUsuarioMasterData,
+  SalvarUsuarioMasterData,
   UsuarioMasterRepository,
 } from "@/modules/cadastro/domain/repositories/usuario-master-repository";
 
@@ -15,15 +15,26 @@ export class PrismaUsuarioMasterRepository implements UsuarioMasterRepository {
     return record ? this.toDomain(record) : null;
   }
 
-  async create(data: CreateUsuarioMasterData): Promise<UsuarioMaster> {
-    const record = await this.prisma.usuarioMaster.create({ data });
-    return this.toDomain(record);
-  }
+  async salvar(agenciaId: string, data: SalvarUsuarioMasterData): Promise<UsuarioMaster> {
+    const campos = {
+      nome: data.nome,
+      email: data.email,
+      cpf: data.cpf,
+      telefone: data.telefone,
+      rg: data.rg,
+      rgOrgaoEmissor: data.rgOrgaoEmissor,
+      rgUf: data.rgUf,
+      dataNascimento: data.dataNascimento,
+      origemRepresentanteLegalId: data.origemRepresentanteLegalId,
+      ativo: true,
+      salvoPor: data.salvoPor,
+      salvoEm: new Date(),
+    };
 
-  async ativar(agenciaId: string): Promise<UsuarioMaster> {
-    const record = await this.prisma.usuarioMaster.update({
+    const record = await this.prisma.usuarioMaster.upsert({
       where: { agenciaId },
-      data: { ativo: true },
+      create: { agenciaId, ...campos },
+      update: campos,
     });
     return this.toDomain(record);
   }
@@ -34,7 +45,16 @@ export class PrismaUsuarioMasterRepository implements UsuarioMasterRepository {
       agenciaId: record.agenciaId,
       nome: record.nome,
       email: record.email,
+      cpf: record.cpf,
+      telefone: record.telefone,
+      rg: record.rg,
+      rgOrgaoEmissor: record.rgOrgaoEmissor,
+      rgUf: record.rgUf,
+      dataNascimento: record.dataNascimento,
+      origemRepresentanteLegalId: record.origemRepresentanteLegalId,
       ativo: record.ativo,
+      salvoPor: record.salvoPor,
+      salvoEm: record.salvoEm,
       criadoEm: record.criadoEm,
     });
   }
