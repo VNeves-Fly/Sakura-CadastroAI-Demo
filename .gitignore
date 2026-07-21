@@ -48,3 +48,7 @@ prisma/dev.db
 
 #dev-files (arquivos que não devem ser versionados, mas são necessários para o desenvolvimento local)
 dev-files
+
+# scripts de teste manual temporários (ex.: Playwright ad-hoc) — nunca
+# devem ser commitados, só existem durante uma verificação pontual
+*.tmp.js
