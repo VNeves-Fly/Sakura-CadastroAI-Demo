@@ -83,3 +83,31 @@ export async function salvarTravelLinkAction(agenciaId: string, criado: boolean)
   });
   revalidatePath(`/painel/${agenciaId}`);
 }
+
+// Data de nascimento chega como ISO (YYYY-MM-DD, mesmo formato do
+// DatePicker/<input type="date">) — string vazia (campo não preenchido)
+// vira null em vez de uma Data inválida.
+function parseDataIso(valor: string): Date | null {
+  if (!valor) return null;
+  const data = new Date(`${valor}T00:00:00`);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+export async function salvarUsuarioMasterAction(agenciaId: string, formData: FormData) {
+  const origemRepresentanteLegalId = String(formData.get("origemRepresentanteLegalId") ?? "");
+
+  await cadastroAdminController.salvarUsuarioMaster({
+    agenciaId,
+    nome: String(formData.get("nome") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    cpf: String(formData.get("cpf") ?? ""),
+    telefone: String(formData.get("telefone") ?? ""),
+    rg: String(formData.get("rg") ?? ""),
+    rgOrgaoEmissor: String(formData.get("rgOrgaoEmissor") ?? ""),
+    rgUf: String(formData.get("rgUf") ?? ""),
+    dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+    origemRepresentanteLegalId: origemRepresentanteLegalId || null,
+    salvoPor: await analistaLogado(),
+  });
+  revalidatePath(`/painel/${agenciaId}`);
+}

@@ -31,6 +31,7 @@ export async function obterDossieView(id: string) {
     analiseContratoSocialRaw,
     analisesSociosRaw,
     dadosReceita,
+    usuarioMaster,
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
@@ -49,6 +50,8 @@ export async function obterDossieView(id: string) {
     // Só existe pra cadastros criados depois da funcionalidade "Dados da
     // Receita" — null é o estado normal de agência mais antiga.
     cadastroAdminController.obterDadosReceita(agencia.id),
+    // null = analista ainda não salvou o Usuário Master pra essa agência.
+    cadastroAdminController.obterUsuarioMaster(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
@@ -97,5 +100,6 @@ export async function obterDossieView(id: string) {
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     dadosReceita,
+    usuarioMaster,
   };
 }

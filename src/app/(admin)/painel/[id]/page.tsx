@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getServerSession } from "next-auth";
 import {
   Building2,
   Users,
@@ -17,7 +16,6 @@ import type {
   DadosReceitaCnae,
 } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type { AnaliseIaResumo } from "@/modules/admin/types/dossie.types";
-import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SecaoColapsavel } from "./secao-colapsavel";
 import { RevisaoDocumentosComplementar } from "./revisao-documentos";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
@@ -34,6 +32,8 @@ import {
   formatarEndereco,
   labelStatusContrato,
   ETAPAS_PIPELINE,
+  paraUsuarioMasterView,
+  usuarioMasterEstaCompleto,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
@@ -59,6 +59,7 @@ import {
   validarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
+  salvarUsuarioMasterAction,
 } from "./actions";
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
@@ -365,10 +366,10 @@ export default async function DossieAgenciaPage({
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     dadosReceita,
+    usuarioMaster,
   } = view;
 
-  const session = await getServerSession(nextAuthOptions);
-  const analistaLogado = session?.user?.email ?? session?.user?.name ?? "analista não identificado";
+  const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
 
   // Etapas concluídas ficam navegáveis em modo leitura (?etapa=N na URL) —
   // etapas futuras (index > indiceTrilha) são ignoradas e caem no fallback
@@ -752,9 +753,11 @@ export default async function DossieAgenciaPage({
               </div>
 
               <UsuarioMaster
+                agenciaId={agencia.id}
                 representantesLegais={representantesLegais}
-                analistaLogado={analistaLogado}
+                usuarioMaster={usuarioMasterView}
                 somenteLeitura={!mostrandoEtapaAtual}
+                salvarUsuarioMasterAction={salvarUsuarioMasterAction}
               />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
@@ -768,7 +771,13 @@ export default async function DossieAgenciaPage({
                   <form action={ativarClienteAction.bind(null, agencia.id)}>
                     <button
                       type="submit"
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                      disabled={!usuarioMasterEstaCompleto(usuarioMasterView)}
+                      title={
+                        usuarioMasterEstaCompleto(usuarioMasterView)
+                          ? undefined
+                          : "Salve o Usuário Master completo antes de ativar o cliente"
+                      }
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Ativar cliente
                     </button>

@@ -1,6 +1,7 @@
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
+import type { UsuarioMaster } from "@/modules/cadastro/domain/entities/usuario-master.entity";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import {
   TIPO_CONTA_OPCOES,
@@ -185,4 +186,59 @@ export function paraAnaliseIaResumo(analise: AnaliseIaDocumento | null): Analise
     resumoAnalise: analise.resumoAnalise,
     camposExtraidos: analise.camposExtraidos,
   };
+}
+
+// Recorte plano do Usuário Master — a entidade de domínio (classe com
+// getters) não pode atravessar a fronteira Server → Client Component
+// (UsuarioMaster, em usuario-master.tsx, é "use client"); esse objeto
+// plano é o que de fato vira prop.
+export interface UsuarioMasterView {
+  nome: string;
+  email: string;
+  cpf: string;
+  telefone: string;
+  rg: string;
+  rgOrgaoEmissor: string;
+  rgUf: string;
+  dataNascimento: Date | null;
+  origemRepresentanteLegalId: string | null;
+  salvoPor: string | null;
+  salvoEm: Date | null;
+}
+
+export function paraUsuarioMasterView(
+  usuarioMaster: UsuarioMaster | null,
+): UsuarioMasterView | null {
+  if (!usuarioMaster) return null;
+  return {
+    nome: usuarioMaster.nome ?? "",
+    email: usuarioMaster.email ?? "",
+    cpf: usuarioMaster.cpf ?? "",
+    telefone: usuarioMaster.telefone ?? "",
+    rg: usuarioMaster.rg ?? "",
+    rgOrgaoEmissor: usuarioMaster.rgOrgaoEmissor ?? "",
+    rgUf: usuarioMaster.rgUf ?? "",
+    dataNascimento: usuarioMaster.dataNascimento,
+    origemRepresentanteLegalId: usuarioMaster.origemRepresentanteLegalId,
+    salvoPor: usuarioMaster.salvoPor,
+    salvoEm: usuarioMaster.salvoEm,
+  };
+}
+
+// "Completo" trava o botão "Ativar cliente" — mesmo critério que a
+// própria tela de Usuário Master já usa pro selo "Completo"/"Pendente".
+export function usuarioMasterEstaCompleto(usuarioMaster: UsuarioMasterView | null): boolean {
+  if (!usuarioMaster) return false;
+  return (
+    usuarioMaster.dataNascimento !== null &&
+    [
+      usuarioMaster.nome,
+      usuarioMaster.email,
+      usuarioMaster.cpf,
+      usuarioMaster.telefone,
+      usuarioMaster.rg,
+      usuarioMaster.rgOrgaoEmissor,
+      usuarioMaster.rgUf,
+    ].every((campo) => campo.trim() !== "")
+  );
 }
