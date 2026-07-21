@@ -55,6 +55,7 @@ export interface SocioData {
   cpf: string;
   email: string;
   telefone: string;
+  dataNascimento: Date | null;
   estadoCivil: string;
   endereco: EnderecoData;
   isRepresentanteLegal: boolean;

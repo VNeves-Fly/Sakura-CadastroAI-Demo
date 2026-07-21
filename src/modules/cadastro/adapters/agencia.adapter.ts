@@ -92,6 +92,7 @@ export const agenciaAdapter = {
       cpf: unmaskCpf(socio.cpf),
       email: socio.email,
       telefone: telefoneComDdi(socio.telefone, socio.telefonePais),
+      dataNascimento: socio.dataNascimento,
       estadoCivil: socio.estadoCivil,
       isRepresentante: socio.isRepresentante,
       endereco: {

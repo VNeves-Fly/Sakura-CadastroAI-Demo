@@ -22,6 +22,7 @@ function socioValido() {
     cpf: "11144477735",
     email: "fulano@empresa.com",
     telefone: "+55 11999999999",
+    dataNascimento: "1990-04-12",
     estadoCivil: "solteiro",
     endereco: enderecoValido(),
     isRepresentante: false,
@@ -140,6 +141,35 @@ describe("socioMetaSchema", () => {
   it("e-mail do sócio continua obrigatório (só o da empresa ficou opcional)", () => {
     const resultado = socioMetaSchema.safeParse({ ...socioValido(), email: "" });
     expect(resultado.success).toBe(false);
+  });
+
+  it("rejeita data de nascimento vazia", () => {
+    const resultado = socioMetaSchema.safeParse({ ...socioValido(), dataNascimento: "" });
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rejeita data de nascimento no futuro", () => {
+    const anoQueVem = new Date().getFullYear() + 1;
+    const resultado = socioMetaSchema.safeParse({
+      ...socioValido(),
+      dataNascimento: `${anoQueVem}-01-01`,
+    });
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rejeita sócio menor de idade", () => {
+    const hoje = new Date();
+    const nascimentoMenor = `${hoje.getFullYear() - 10}-01-01`;
+    const resultado = socioMetaSchema.safeParse({
+      ...socioValido(),
+      dataNascimento: nascimentoMenor,
+    });
+    expect(resultado.success).toBe(false);
+  });
+
+  it("aceita data de nascimento válida (maior de idade)", () => {
+    const resultado = socioMetaSchema.safeParse(socioValido());
+    expect(resultado.success).toBe(true);
   });
 });
 

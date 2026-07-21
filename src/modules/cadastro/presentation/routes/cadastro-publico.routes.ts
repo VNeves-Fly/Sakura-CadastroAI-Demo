@@ -120,6 +120,7 @@ export async function createAgenciaRoute(request: Request) {
           cpf: socioMetaItem.cpf,
           email: socioMetaItem.email,
           telefone: socioMetaItem.telefone,
+          dataNascimento: socioMetaItem.dataNascimento,
           estadoCivil: socioMetaItem.estadoCivil,
           endereco: socioMetaItem.endereco,
           isRepresentante: socioMetaItem.isRepresentante,

@@ -11,6 +11,7 @@ const input: AnaliseIaInput = {
     {
       nome: "Fulano de Tal",
       cpf: "39053344705",
+      dataNascimento: "1990-04-12",
       rgPath: "cadastro-ai/agencias/x/socio-0-rg.pdf",
       rgAnalise: {
         camposExtraidos: { nome: "Fulano de Tal", cpf: "390.533.447-05" },
@@ -75,6 +76,7 @@ describe("FlysakuraAnaliseIaAdapter", () => {
           {
             nome: "Fulano de Tal",
             documento_identificacao: "39053344705",
+            data_nascimento: "1990-04-12",
             documentos: [
               {
                 internal_document_url: "gs://bucket-teste/cadastro-ai/agencias/x/socio-0-rg.pdf",

@@ -79,6 +79,7 @@ export class FinalizarCadastroUseCase implements UseCase<
           cpf: socio.cpf,
           email: socio.email,
           telefone: socio.telefone,
+          dataNascimento: socio.dataNascimento,
           estadoCivil: socio.estadoCivil,
           endereco: socio.endereco,
           isRepresentante: socio.isRepresentante,
@@ -115,7 +116,7 @@ export class FinalizarCadastroUseCase implements UseCase<
       const analiseIaSocio = await this.documentAnalysisService.analisar({
         cnpj: input.cnpj,
         documentPath: socio.rgPath,
-        documentType: "cnh_rg",
+        documentType: "doc_identificacao",
       });
       analisesIaSociosPorCpf.set(socio.cpf, analiseIaSocio);
     }
@@ -133,6 +134,7 @@ export class FinalizarCadastroUseCase implements UseCase<
       socios: socios.map((socio) => ({
         nome: socio.nome,
         cpf: socio.cpf,
+        dataNascimento: socio.dataNascimento,
         rgPath: socio.rgPath,
         // Garantido: todo sócio passou pelo loop de documentAnalysisService
         // acima antes de chegar aqui.
@@ -182,6 +184,7 @@ export class FinalizarCadastroUseCase implements UseCase<
         cpf: socio.cpf,
         email: socio.email,
         telefone: socio.telefone,
+        dataNascimento: new Date(`${socio.dataNascimento}T00:00:00`),
         estadoCivil: socio.estadoCivil,
         endereco: socio.endereco,
         isRepresentanteLegal: socio.isRepresentante,

@@ -17,6 +17,7 @@ import {
 import { maskTelefone, validarTelefone } from "@/modules/shared/utils/telefone.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
 import { maskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
+import { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
 import { maskCep } from "@/modules/cadastro/utils/cep.util";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import { cepService } from "@/modules/cadastro/services/cep.service";
@@ -480,6 +481,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
   const sociosValidacao = socios.map((socio, index) => ({
     cpfStatus: validarCpfComMensagem(socio.cpf),
+    dataNascimentoStatus: validarDataNascimentoComMensagem(socio.dataNascimento),
     emailInvalido: socio.email.length > 0 && !validarEmail(socio.email),
     telefoneInvalido:
       socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais),
