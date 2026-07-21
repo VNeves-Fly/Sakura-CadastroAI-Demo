@@ -32,14 +32,14 @@ export class AnalisarContratoSocialUseCase implements UseCase<
   ) {}
 
   async execute(input: AnalisarContratoSocialInput): Promise<AnalisarContratoSocialOutput> {
-    const documentPath = await this.fileStorage.save(
+    const contratoSocialSalvo = await this.fileStorage.save(
       input.contratoSocial,
       `agencias/${input.cnpj}/contrato-social-preview`,
     );
 
     const resultado = await this.documentAnalysisService.analisar({
       cnpj: input.cnpj,
-      documentPath,
+      documentPath: contratoSocialSalvo.path,
       documentType: "contrato_social",
     });
 

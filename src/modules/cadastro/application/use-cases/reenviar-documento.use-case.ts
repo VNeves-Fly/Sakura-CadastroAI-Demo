@@ -36,7 +36,7 @@ export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput,
       throw new ConflictError("Este documento não está aguardando reenvio.");
     }
 
-    const gcsPath = await this.fileStorage.save(
+    const arquivoSalvo = await this.fileStorage.save(
       input.arquivo,
       `agencias/${input.agenciaId}/reenvio-${documentoReprovado.tipo.toLowerCase()}`,
     );
@@ -47,7 +47,8 @@ export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput,
       tipo: documentoReprovado.tipo,
       fileName: input.arquivo.originalName,
       mimeType: input.arquivo.mimeType,
-      gcsPath,
+      gcsPath: arquivoSalvo.path,
+      gcsBucket: arquivoSalvo.bucket,
     });
   }
 }

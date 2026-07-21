@@ -293,6 +293,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           representanteLegalId: null,
           tipo: TipoDocumento.CONTRATO_SOCIAL,
           gcsPath: data.contratoSocialPath,
+          gcsBucket: data.contratoSocialBucket,
         },
       });
       if (data.analiseIaContratoSocial) {
@@ -314,6 +315,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
             representanteLegalId: socioRecord.id,
             tipo: TipoDocumento.RG_CNPJ,
             gcsPath: socio.rgPath,
+            gcsBucket: socio.rgBucket,
           },
         });
         if (socio.analiseIa) {
@@ -332,6 +334,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
               representanteLegalId: socioRecord.id,
               tipo: TipoDocumento.PROCURACAO,
               gcsPath: socio.procuracaoPath,
+              gcsBucket: socio.procuracaoBucket,
             },
           });
         }

@@ -1,4 +1,5 @@
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import {
@@ -17,7 +18,11 @@ import {
   CONTRATO_STATUS_ASSINADO,
   type RepresentanteLegalDetalhe,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
-import type { DocumentoRevisao, SignatarioFila } from "@/modules/admin/types/dossie.types";
+import type {
+  DocumentoRevisao,
+  SignatarioFila,
+  AnaliseIaResumo,
+} from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
 // a View do dossiê consome — nenhum desses cálculos deve viver dentro do
@@ -168,4 +173,16 @@ export function labelStatusContrato(status: string | null): string {
   if (status === CONTRATO_STATUS_ASSINADO_AGENCIA) return "Sócios assinaram — aguardando Sakura";
   if (status === CONTRATO_STATUS_AGUARDANDO_ASSINATURA) return "Aguardando assinaturas";
   return "—";
+}
+
+// Recorte plano da análise de IA — null se o documento ainda não foi
+// analisado (não é erro, é o estado normal antes da IA rodar).
+export function paraAnaliseIaResumo(analise: AnaliseIaDocumento | null): AnaliseIaResumo | null {
+  if (!analise) return null;
+  return {
+    confiancaExtracao: analise.confiancaExtracao,
+    alertas: analise.alertas,
+    resumoAnalise: analise.resumoAnalise,
+    camposExtraidos: analise.camposExtraidos,
+  };
 }
