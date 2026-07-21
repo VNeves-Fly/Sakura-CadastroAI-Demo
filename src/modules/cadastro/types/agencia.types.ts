@@ -7,9 +7,23 @@ export interface QsaResultView {
   emailReceita: string;
 }
 
+export interface EnderecoSocioContratoSocialView {
+  logradouro: string | null;
+  numero: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  cep: string | null;
+}
+
+export interface SocioContratoSocialView {
+  nome: string;
+  endereco: EnderecoSocioContratoSocialView | null;
+}
+
 export interface ContratoSocialAnaliseView {
   cnpjConfere: boolean | null;
-  nomesSocios: string[];
+  socios: SocioContratoSocialView[];
   alertas: string[];
   confianca: number;
 }
@@ -18,6 +32,9 @@ export interface DocumentoIdentificacaoAnaliseView {
   nome: string | null;
   cpf: string | null;
   dataNascimento: string | null;
+  rg: string | null;
+  rgOrgaoEmissor: string | null;
+  rgUf: string | null;
   alertas: string[];
   confianca: number;
 }

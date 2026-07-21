@@ -74,6 +74,12 @@ export class AnalisarDocumentoIdentificacaoUseCase implements UseCase<
       nome: extrairString(resultado.camposExtraidos.nome_completo),
       cpf: extrairString(resultado.camposExtraidos.cpf),
       dataNascimento: extrairDataNascimentoIso(resultado.camposExtraidos.data_nascimento),
+      // Especulativo — chaves `rg`/`rg_orgao_emissor`/`rg_uf` não confirmadas
+      // em nenhuma documentação/teste/dado real de produção; degrada pra
+      // null sem lançar erro se a IA não devolver ou vier em outro formato.
+      rg: extrairString(resultado.camposExtraidos.rg),
+      rgOrgaoEmissor: extrairString(resultado.camposExtraidos.rg_orgao_emissor),
+      rgUf: extrairString(resultado.camposExtraidos.rg_uf),
       alertas: resultado.alertas,
       confianca: resultado.confiancaExtracao,
     };

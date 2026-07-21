@@ -7,9 +7,28 @@ export interface AnalisarContratoSocialInput {
   };
 }
 
+export interface EnderecoSocioContratoSocial {
+  logradouro: string | null;
+  numero: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  cep: string | null;
+}
+
+export interface SocioContratoSocialExtraido {
+  nome: string;
+  // Especulativo — MEI às vezes não traz endereço dos sócios no contrato
+  // social, e não há confirmação de que o agente devolva esse shape rico
+  // (`socios: [{nome, endereco}]`); quando ausente, fica null sem travar
+  // nada (ver extrairSocios() no use-case, que degrada pro shape hoje
+  // confirmado, só nomes).
+  endereco: EnderecoSocioContratoSocial | null;
+}
+
 export interface AnalisarContratoSocialOutput {
   cnpjConfere: boolean | null;
-  nomesSocios: string[];
+  socios: SocioContratoSocialExtraido[];
   alertas: string[];
   confianca: number;
   resumoAnalise: string | null;

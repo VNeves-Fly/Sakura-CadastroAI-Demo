@@ -87,6 +87,28 @@ describe("AnalisarDocumentoIdentificacaoUseCase", () => {
     expect(resultado.nome).toBeNull();
     expect(resultado.cpf).toBeNull();
     expect(resultado.dataNascimento).toBeNull();
+    expect(resultado.rg).toBeNull();
+    expect(resultado.rgOrgaoEmissor).toBeNull();
+    expect(resultado.rgUf).toBeNull();
+  });
+
+  it("extrai rg/rgOrgaoEmissor/rgUf quando a IA devolve essas chaves (especulativo — sem confirmação do agente real)", async () => {
+    const useCase = criarUseCase({
+      nome_completo: "BRUNO HENRIQUE NASCIMENTO BAZOTI",
+      rg: "12.345.678-9",
+      rg_orgao_emissor: "SSP",
+      rg_uf: "SP",
+    });
+
+    const resultado = await useCase.execute({
+      cnpj: "62572350000180",
+      indice: 0,
+      documento: ARQUIVO,
+    });
+
+    expect(resultado.rg).toBe("12.345.678-9");
+    expect(resultado.rgOrgaoEmissor).toBe("SSP");
+    expect(resultado.rgUf).toBe("SP");
   });
 
   it("não usa mais a chave antiga 'nome' (regressão do bug original)", async () => {

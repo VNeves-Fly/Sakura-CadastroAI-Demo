@@ -19,9 +19,23 @@ export interface RawQsaResponse {
 export type CriarAgenciaResult =
   { ok: true; data: RawAgenciaResponse } | { ok: false; duplicado: boolean; error: string };
 
+export interface RawEnderecoSocioContratoSocial {
+  logradouro: string | null;
+  numero: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  cep: string | null;
+}
+
+export interface RawSocioContratoSocial {
+  nome: string;
+  endereco: RawEnderecoSocioContratoSocial | null;
+}
+
 export interface RawAnaliseContratoSocialResponse {
   cnpjConfere: boolean | null;
-  nomesSocios: string[];
+  socios: RawSocioContratoSocial[];
   alertas: string[];
   confianca: number;
 }
@@ -30,6 +44,9 @@ export interface RawAnaliseDocumentoIdentificacaoResponse {
   nome: string | null;
   cpf: string | null;
   dataNascimento: string | null;
+  rg: string | null;
+  rgOrgaoEmissor: string | null;
+  rgUf: string | null;
   alertas: string[];
   confianca: number;
 }
