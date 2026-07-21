@@ -44,6 +44,8 @@ import {
   marcarContratoAssinadoAction,
   recusarCadastroAction,
   validarContratoAction,
+  salvarSicaAction,
+  salvarTravelLinkAction,
 } from "./actions";
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
@@ -606,6 +608,14 @@ export default async function DossieAgenciaPage({
               </p>
               <ValidacaoSicaTravelLink
                 agenciaId={agencia.id}
+                sicaCodigo={agencia.sicaCodigo}
+                sicaSalvoPor={agencia.sicaSalvoPor}
+                sicaSalvoEm={agencia.sicaSalvoEm}
+                travelLinkCriado={agencia.travelLinkCriado}
+                travelLinkSalvoPor={agencia.travelLinkSalvoPor}
+                travelLinkSalvoEm={agencia.travelLinkSalvoEm}
+                salvarSicaAction={salvarSicaAction}
+                salvarTravelLinkAction={salvarTravelLinkAction}
                 validarContratoAction={validarContratoAction}
                 recusarCadastroAction={recusarCadastroAction}
                 somenteLeitura={!mostrandoEtapaAtual}

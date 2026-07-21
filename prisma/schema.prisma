@@ -127,6 +127,16 @@ model Agencia {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
+  // Confirmados manualmente pelo analista na etapa de Validação, antes de
+  // liberar a Ativação — com log de quem confirmou e quando (mesmo padrão
+  // de leituraConfirmadaPor/Em em Contrato).
+  sicaCodigo         String?
+  sicaSalvoPor       String?
+  sicaSalvoEm        DateTime?
+  travelLinkCriado   Boolean       @default(false)
+  travelLinkSalvoPor String?
+  travelLinkSalvoEm  DateTime?
+
   complementar         CadastroComplementar?
   representantesLegais RepresentanteLegal[]
   documentos           Documento[]

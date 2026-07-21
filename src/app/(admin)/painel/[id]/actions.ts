@@ -59,3 +59,27 @@ export async function solicitarReenvioDocumentosAction(agenciaId: string, formDa
   await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds });
   revalidatePath(`/painel/${agenciaId}`);
 }
+
+async function analistaLogado(): Promise<string> {
+  const session = await getServerSession(nextAuthOptions);
+  return session?.user?.email ?? session?.user?.name ?? "analista não identificado";
+}
+
+export async function salvarSicaAction(agenciaId: string, formData: FormData) {
+  const codigo = String(formData.get("codigo") ?? "");
+  await cadastroAdminController.salvarSica({
+    agenciaId,
+    codigo,
+    salvoPor: await analistaLogado(),
+  });
+  revalidatePath(`/painel/${agenciaId}`);
+}
+
+export async function salvarTravelLinkAction(agenciaId: string, criado: boolean) {
+  await cadastroAdminController.salvarTravelLink({
+    agenciaId,
+    criado,
+    salvoPor: await analistaLogado(),
+  });
+  revalidatePath(`/painel/${agenciaId}`);
+}
