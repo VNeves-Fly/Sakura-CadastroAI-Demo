@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
+import { VisualizarDocumento } from "./visualizar-documento";
 
 interface RevisaoDocumentosComplementarProps {
   agenciaId: string;
@@ -84,14 +85,9 @@ export function RevisaoDocumentosComplementar({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-foreground font-medium">{doc.label}</span>
-                <a
-                  href={`/api/painel/documentos/${doc.id}/arquivo`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary text-xs font-semibold hover:underline"
-                >
-                  Ver anexo
-                </a>
+                <VisualizarDocumento documentoId={doc.id} gcsPath={doc.gcsPath} label={doc.label}>
+                  <span className="text-primary text-xs font-semibold">Ver anexo</span>
+                </VisualizarDocumento>
                 {doc.status === "APROVADO" ? (
                   <span className="bg-success/15 text-success rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
                     Aprovado
