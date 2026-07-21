@@ -36,7 +36,14 @@ export function SocioWizardCard({
   onBuscarCep,
 }: SocioWizardCardProps) {
   const numero = String(index + 1).padStart(2, "0");
-  const { cpfStatus, emailInvalido, telefoneInvalido, rgErro, procuracaoErro } = validacao;
+  const {
+    cpfStatus,
+    dataNascimentoStatus,
+    emailInvalido,
+    telefoneInvalido,
+    rgErro,
+    procuracaoErro,
+  } = validacao;
   const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
 
   return (
@@ -109,6 +116,23 @@ export function SocioWizardCard({
             <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+          Data de nascimento<span className="text-destructive"> *</span>
+        </label>
+        <input
+          type="date"
+          value={socio.dataNascimento}
+          onChange={(event) => onUpdate({ dataNascimento: event.target.value })}
+          className={INPUT_CLASSNAME}
+        />
+        {dataNascimentoStatus.mensagem ? (
+          <span className="text-destructive text-xs font-medium">
+            {dataNascimentoStatus.mensagem}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1">

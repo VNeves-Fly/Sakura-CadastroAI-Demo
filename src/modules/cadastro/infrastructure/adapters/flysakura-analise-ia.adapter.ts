@@ -23,9 +23,9 @@ import type {
 // endereço da agência) e `socios[].documentos` com comprovante de endereço
 // do sócio ficam de fora — são documentos que o wizard atual não coleta
 // (roadmap). Procuração também não entra ainda: documentAnalysisService só
-// analisa contrato_social e cnh_rg hoje; quando "procuracao" for um
-// document_type suportado lá, o resultado entra em socios[].documentos do
-// mesmo jeito que o de cnh_rg.
+// analisa contrato_social e doc_identificacao hoje; quando "procuracao" for
+// um document_type suportado lá, o resultado entra em socios[].documentos
+// do mesmo jeito que o de doc_identificacao.
 function baseUrl(): string {
   return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
 }
@@ -45,6 +45,7 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
     const socios = input.socios.map((socio) => ({
       nome: socio.nome,
       documento_identificacao: socio.cpf,
+      data_nascimento: socio.dataNascimento,
       documentos: [
         {
           // "doc_identificacao" (não "cnh_rg", vocabulário da etapa 3) —

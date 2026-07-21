@@ -263,6 +263,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
               cpf: socio.cpf,
               email: socio.email,
               telefone: socio.telefone,
+              dataNascimento: socio.dataNascimento,
               estadoCivil: socio.estadoCivil,
               isRepresentanteLegal: socio.isRepresentanteLegal,
               endereco: { create: socio.endereco },

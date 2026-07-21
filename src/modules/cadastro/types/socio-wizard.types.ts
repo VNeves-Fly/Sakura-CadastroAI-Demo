@@ -1,4 +1,5 @@
 import type { validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
+import type { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
 
 export const ESTADO_CIVIL_OPCOES = [
   { valor: "solteiro", label: "Solteiro(a)" },
@@ -17,6 +18,7 @@ export interface SocioWizardFormValues {
   telefonePais: string;
   email: string;
   cpf: string;
+  dataNascimento: string; // ISO (YYYY-MM-DD), de <input type="date">
   estadoCivil: string;
   cep: string;
   logradouro: string;
@@ -33,6 +35,7 @@ export interface SocioWizardFormValues {
 // fonte de verdade), consumido pelo SocioWizardCard só pra exibir.
 export interface SocioWizardValidacao {
   cpfStatus: ReturnType<typeof validarCpfComMensagem>;
+  dataNascimentoStatus: ReturnType<typeof validarDataNascimentoComMensagem>;
   emailInvalido: boolean;
   telefoneInvalido: boolean;
   rgErro: string | null;
@@ -46,6 +49,7 @@ export function criarSocioWizardVazio(nome = ""): SocioWizardFormValues {
     telefonePais: "BR",
     email: "",
     cpf: "",
+    dataNascimento: "",
     estadoCivil: "",
     cep: "",
     logradouro: "",

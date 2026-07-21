@@ -11,6 +11,7 @@ type Passo5SociosProps = ReturnType<typeof useCadastroWizardViewModel>;
 // (mesmo tamanho); o fallback só existe pra satisfazer o tipo.
 const VALIDACAO_VAZIA: SocioWizardValidacao = {
   cpfStatus: { valido: false, mensagem: null },
+  dataNascimentoStatus: { valido: false, mensagem: null },
   emailInvalido: false,
   telefoneInvalido: false,
   rgErro: null,
