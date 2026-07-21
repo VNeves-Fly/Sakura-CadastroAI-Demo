@@ -1,22 +1,4 @@
-// Declarados dentro da factory (ver mesmo comentário em
-// gcs-file-storage.adapter.test.ts) — recuperados depois via jest.requireMock.
-jest.mock("@google-cloud/storage", () => {
-  const mockGetSignedUrl = jest.fn();
-  const mockFile = jest.fn().mockReturnValue({ getSignedUrl: mockGetSignedUrl });
-  const mockBucket = jest.fn().mockReturnValue({ file: mockFile });
-  return {
-    Storage: jest.fn().mockImplementation(() => ({ bucket: mockBucket })),
-    __mockGcs: { mockGetSignedUrl, mockFile, mockBucket },
-  };
-});
-
 import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter";
-
-const { mockGetSignedUrl, mockBucket } = (
-  jest.requireMock("@google-cloud/storage") as unknown as {
-    __mockGcs: { mockGetSignedUrl: jest.Mock; mockFile: jest.Mock; mockBucket: jest.Mock };
-  }
-).__mockGcs;
 import type { AnaliseIaInput } from "@/modules/cadastro/domain/services/analise-ia-service";
 
 const originalEnv = process.env;
@@ -24,13 +6,21 @@ const originalEnv = process.env;
 const input: AnaliseIaInput = {
   cnpj: "19131243000197",
   razaoSocial: "Agência Teste",
-  contratoSocialPath: "cadastro-ai/agencias/x/contrato-social.pdf",
+  email: "contato@agenciateste.com",
   socios: [
     {
       nome: "Fulano de Tal",
       cpf: "39053344705",
       rgPath: "cadastro-ai/agencias/x/socio-0-rg.pdf",
-      procuracaoPath: "cadastro-ai/agencias/x/socio-0-procuracao.pdf",
+      rgAnalise: {
+        camposExtraidos: { nome: "Fulano de Tal", cpf: "390.533.447-05" },
+        camposExtras: {},
+        confiancaExtracao: 0.97,
+        alertas: [],
+        resumoAnalise: null,
+        textoBruto: null,
+        checagens: null,
+      },
     },
   ],
 };
@@ -40,18 +30,17 @@ describe("FlysakuraAnaliseIaAdapter", () => {
     process.env = {
       ...originalEnv,
       AGENCY_ANALYSIS_API_KEY: "secret-teste",
-      GCS_BUCKET_NAME: "bucket-teste",
       AGENCY_ANALYSIS_BASE_URL: "https://agente.teste",
+      GCS_BUCKET_NAME: "bucket-teste",
     };
     global.fetch = jest.fn();
-    mockGetSignedUrl.mockResolvedValue(["https://signed-url.exemplo/arquivo.pdf"]);
   });
 
   afterEach(() => {
     process.env = originalEnv;
   });
 
-  it("assina os documentos no GCS e monta o payload certo pro agente", async () => {
+  it("monta o payload certo pro agente, reaproveitando o resultado já extraído na etapa 3", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -67,34 +56,37 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       flagsRisco: [],
     });
 
-    expect(mockBucket).toHaveBeenCalledWith("bucket-teste");
-    // contrato social + rg + procuração do sócio = 3 assinaturas
-    expect(mockGetSignedUrl).toHaveBeenCalledTimes(3);
-    expect(mockGetSignedUrl).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "read", expires: expect.any(Number) }),
-    );
-
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
     expect(url).toBe("https://agente.teste/api/v1/agency-analysis/json");
     expect(opts.headers["X-Internal-Secret"]).toBe("secret-teste");
     expect(JSON.parse(opts.body)).toEqual({
       cnpj: "19131243000197",
-      company_name: "Agência Teste",
-      partners: [
-        {
-          name: "Fulano de Tal",
-          document: "39053344705",
-          attachments: [
-            "https://signed-url.exemplo/arquivo.pdf",
-            "https://signed-url.exemplo/arquivo.pdf",
-          ],
-        },
-      ],
-      documents: ["https://signed-url.exemplo/arquivo.pdf"],
-      analysis_data: { cnpj: "19131243000197", focus: "completo" },
-      include_receita_data: false,
-      raw: false,
+      channel: "api",
+      language: "pt-br",
       session_id: "19131243000197",
+      analysis_data: {
+        cnpj: "19131243000197",
+        focus: "completo",
+        verificar_processos: false,
+        verificar_amat: false,
+        razao_social: "Agência Teste",
+        email: "contato@agenciateste.com",
+        socios: [
+          {
+            nome: "Fulano de Tal",
+            documento_identificacao: "39053344705",
+            documentos: [
+              {
+                internal_document_url: "gs://bucket-teste/cadastro-ai/agencias/x/socio-0-rg.pdf",
+                document_type: "doc_identificacao",
+                campos_extraidos: { nome: "Fulano de Tal", cpf: "390.533.447-05" },
+                confidence_score: 0.97,
+                alertas: [],
+              },
+            ],
+          },
+        ],
+      },
     });
   });
 
@@ -119,23 +111,7 @@ describe("FlysakuraAnaliseIaAdapter", () => {
     });
   });
 
-  it("não assina anexo de procuração quando o sócio não tem procuração", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ parecer: "APROVADO", justificativa: "", flags_risco: [] }),
-    });
-
-    await new FlysakuraAnaliseIaAdapter().avaliar({
-      ...input,
-      socios: [{ ...input.socios[0]!, procuracaoPath: null }],
-    });
-
-    // contrato social + rg (sem procuração) = 2 assinaturas
-    expect(mockGetSignedUrl).toHaveBeenCalledTimes(2);
-  });
-
-  it("lança erro descritivo quando o agente responde erro (ex: instabilidade real observada — 'agent_execution_failed')", async () => {
+  it("lança erro descritivo quando o agente responde erro (ex: 'agent_execution_failed')", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -153,9 +129,10 @@ describe("FlysakuraAnaliseIaAdapter", () => {
     await expect(new FlysakuraAnaliseIaAdapter().avaliar(input)).rejects.toThrow(
       "AGENCY_ANALYSIS_API_KEY não configurada",
     );
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("lança erro claro se GCS_BUCKET_NAME não está configurada (necessária pra assinar os documentos)", async () => {
+  it("lança erro claro se GCS_BUCKET_NAME não está configurada (necessária pra montar internal_document_url)", async () => {
     delete process.env.GCS_BUCKET_NAME;
 
     await expect(new FlysakuraAnaliseIaAdapter().avaliar(input)).rejects.toThrow(

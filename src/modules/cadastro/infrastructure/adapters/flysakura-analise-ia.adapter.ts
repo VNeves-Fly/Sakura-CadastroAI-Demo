@@ -1,4 +1,3 @@
-import { Storage } from "@google-cloud/storage";
 import type {
   AnaliseIaInput,
   AnaliseIaResultado,
@@ -6,48 +5,61 @@ import type {
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 
 // Integração real com o agente de análise da Sakura
-// (https://agents.flysakura.com/redoc). Usa o endpoint
-// POST /api/v1/agency-analysis/json em vez do POST /api/v1/agency-analysis/
-// "genérico" porque só o /json força channel="api" e garante resposta
-// tipada (parecer/justificativa/flags_risco) — o endpoint genérico responde
-// no formato de chat (webchat por default), que não dá pra mapear pra
-// aprovado/motivo com confiança.
+// (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/json.
+// Todos os dados de negócio vão dentro de `analysis_data` — não no nível
+// raiz do body, que só carrega cnpj/channel/language/session_id.
 //
-// Pendências pra ativar (troca de MockAnaliseIaService por esta classe em
-// cadastro-publico.controller.ts — só isso, o use-case já manda os dados
-// certos):
-// 1. AGENCY_ANALYSIS_API_KEY no .env — valor do header X-Internal-Secret
-//    (esquema "InternalSecret" no OpenAPI). Sem ela, toda chamada falha.
-// 2. Os documentos (contrato social, RG, procuração) precisam estar no GCS
-//    — este adapter gera URLs assinadas (válidas por 15 min) a partir de
-//    GCS_BUCKET_NAME/GCS_FOLDER_PREFIX pra mandar em `documents`/
-//    `partners[].attachments`. Se o storage ativo for o LocalFileStorage
-//    (disco local), a análise real não tem como buscar esses arquivos.
-// Lida a cada chamada (não como const de módulo) pra não travar o valor
-// no primeiro import — importa pra troca de ambiente em teste.
+// Decisão (2026-07-20, debatida com o usuário): em vez de mandar só a
+// referência do arquivo e deixar a etapa 4 reprocessar do zero (o que batia
+// em "agent_execution_failed"), cada documento em
+// `analysis_data.socios[].documentos` já leva o resultado que
+// documentAnalysisService.analisar() (etapa 3, /documents/analyze/sync) já
+// calculou — campos extraídos, confiança e alertas — pra etapa 4 só cruzar
+// dado em vez de reanalisar. `razao_social`/`email`/`cnpj` continuam vindo
+// da fonte "de verdade" (QSA/formulário), não do OCR do contrato social —
+// contrato social não entra em `documentos`, só alimenta esses campos.
+//
+// `analysis_data.documentos` (nível empresa: cadastur/iata/comprovante de
+// endereço da agência) e `socios[].documentos` com comprovante de endereço
+// do sócio ficam de fora — são documentos que o wizard atual não coleta
+// (roadmap). Procuração também não entra ainda: documentAnalysisService só
+// analisa contrato_social e cnh_rg hoje; quando "procuracao" for um
+// document_type suportado lá, o resultado entra em socios[].documentos do
+// mesmo jeito que o de cnh_rg.
 function baseUrl(): string {
   return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
 }
-const SIGNED_URL_TTL_MS = 15 * 60 * 1000;
 
-const storage = new Storage();
+// `document_url` fica de fora enquanto não tivermos um valor real pra
+// mandar (reservado pra uma atualização futura) — só `internal_document_url`
+// (gs://) por enquanto.
+function documentoInterno(documentPath: string, documentType: string) {
+  return {
+    internal_document_url: `gs://${requireBucketName()}/${documentPath}`,
+    document_type: documentType,
+  };
+}
 
 export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
   async avaliar(input: AnaliseIaInput): Promise<AnaliseIaResultado> {
-    const [contratoSocialUrl, socios] = await Promise.all([
-      this.assinarUrl(input.contratoSocialPath),
-      Promise.all(
-        input.socios.map(async (socio) => ({
-          name: socio.nome,
-          document: socio.cpf,
-          attachments: await Promise.all(
-            [socio.rgPath, socio.procuracaoPath]
-              .filter((path): path is string => path !== null)
-              .map((path) => this.assinarUrl(path)),
-          ),
-        })),
-      ),
-    ]);
+    const socios = input.socios.map((socio) => ({
+      nome: socio.nome,
+      documento_identificacao: socio.cpf,
+      documentos: [
+        {
+          // "doc_identificacao" (não "cnh_rg", vocabulário da etapa 3) —
+          // testando contra a API real, document_type aqui só aceita
+          // 'cnh' | 'rg' | 'doc_identificacao' | 'rne' | 'rnm' | 'iata' |
+          // 'cadastur' | 'comprovante_endereco' | 'certidao_casamento'. O
+          // wizard não distingue se o sócio enviou RG ou CNH (mesmo slot de
+          // upload), então usamos o valor genérico em vez de arriscar.
+          ...documentoInterno(socio.rgPath, "doc_identificacao"),
+          campos_extraidos: socio.rgAnalise.camposExtraidos,
+          confidence_score: socio.rgAnalise.confiancaExtracao,
+          alertas: socio.rgAnalise.alertas,
+        },
+      ],
+    }));
 
     const response = await fetch(`${baseUrl()}/api/v1/agency-analysis/json`, {
       method: "POST",
@@ -57,17 +69,21 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       },
       body: JSON.stringify({
         cnpj: input.cnpj,
-        company_name: input.razaoSocial,
-        partners: socios,
-        documents: [contratoSocialUrl],
-        analysis_data: { cnpj: input.cnpj, focus: "completo" },
-        include_receita_data: false,
-        raw: false,
-        // Mesmo valor usado pelo FlysakuraDocumentAnalysisAdapter — os dois
-        // endpoints compartilham o checkpoint do LangGraph por session_id,
-        // então essa análise final já enxerga o contexto de cada documento
-        // analisado individualmente antes (contrato social, RG dos sócios).
+        channel: "api",
+        language: "pt-br",
         session_id: input.cnpj,
+        analysis_data: {
+          cnpj: input.cnpj,
+          focus: "completo",
+          verificar_processos: false,
+          verificar_amat: false,
+          razao_social: input.razaoSocial,
+          email: input.email,
+          socios,
+          // Documentos de nível empresa (cadastur/iata) ficam de fora
+          // enquanto o array estiver vazio — o wizard não coleta esses
+          // documentos ainda. Reaparece aqui quando houver item real.
+        },
       }),
     });
 
@@ -88,14 +104,6 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       flagsRisco: resultado.flags_risco,
     };
   }
-
-  private async assinarUrl(objectPath: string): Promise<string> {
-    const [url] = await storage
-      .bucket(requireBucketName())
-      .file(objectPath)
-      .getSignedUrl({ action: "read", expires: Date.now() + SIGNED_URL_TTL_MS });
-    return url;
-  }
 }
 
 function requireApiKey(): string {
@@ -112,7 +120,7 @@ function requireBucketName(): string {
   const bucketName = process.env.GCS_BUCKET_NAME;
   if (!bucketName) {
     throw new Error(
-      "GCS_BUCKET_NAME não configurada — necessária para assinar URLs dos documentos.",
+      "GCS_BUCKET_NAME não configurada — necessária para montar internal_document_url.",
     );
   }
   return bucketName;
