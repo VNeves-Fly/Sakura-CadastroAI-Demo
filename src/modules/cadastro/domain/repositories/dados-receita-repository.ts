@@ -1,4 +1,8 @@
-import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
+import type {
+  DadosReceita,
+  DadosReceitaEndereco,
+  DadosReceitaCnae,
+} from "@/modules/cadastro/domain/entities/dados-receita.entity";
 
 export interface CreateDadosReceitaData {
   agenciaId: string;
@@ -11,6 +15,8 @@ export interface CreateDadosReceitaData {
   email?: string | null;
   optanteSimples?: boolean;
   dataOpcaoSimples?: Date | null;
+  endereco?: DadosReceitaEndereco | null;
+  cnaes?: DadosReceitaCnae[];
 }
 
 export type UpdateDadosReceitaData = Partial<Omit<CreateDadosReceitaData, "agenciaId">>;

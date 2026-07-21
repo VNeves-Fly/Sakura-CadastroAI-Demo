@@ -1,5 +1,6 @@
 import { prisma } from "@/modules/shared/infrastructure/prisma/client";
 import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-agencia.repository";
+import { PrismaDadosReceitaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-dados-receita.repository";
 import { PrismaCadastroComplementarRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-cadastro-complementar.repository";
 import { PrismaRepresentanteLegalRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-representante-legal.repository";
 import { PrismaEnderecoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-endereco.repository";
@@ -13,6 +14,7 @@ import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mo
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
+import { ObterDadosReceitaUseCase } from "@/modules/cadastro/application/use-cases/obter-dados-receita.use-case";
 import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
 import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
 import { ObterAnaliseContratosUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-contratos.use-case";
@@ -77,6 +79,7 @@ import type { ListarCadastrosFiltros } from "@/modules/cadastro/domain/repositor
 // Composition root do módulo cadastro (área Admin) — mesmo domínio do
 // controller público (Agencia), só que pra leitura/gestão interna.
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
+const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const cadastroComplementarRepository = new PrismaCadastroComplementarRepository(prisma);
 const representanteLegalRepository = new PrismaRepresentanteLegalRepository(prisma);
 const enderecoRepository = new PrismaEnderecoRepository(prisma);
@@ -112,6 +115,11 @@ export const cadastroAdminController = {
   obterDetalhe(id: string) {
     const useCase = new ObterDetalheAgenciaUseCase(agenciaRepository);
     return useCase.execute(id);
+  },
+
+  obterDadosReceita(agenciaId: string) {
+    const useCase = new ObterDadosReceitaUseCase(dadosReceitaRepository);
+    return useCase.execute(agenciaId);
   },
 
   aprovarComplementar(id: string) {

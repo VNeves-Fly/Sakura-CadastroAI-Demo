@@ -25,23 +25,31 @@ export async function obterDossieView(id: string) {
   // Análise de IA (contrato social + RG de cada sócio) já é gravada de
   // verdade pelo FinalizarCadastroUseCase — aqui só lê de volta pra
   // mostrar no dossiê, algo que nenhum use-case fazia até agora.
-  const [emailsFalhaEntrega, signatariosPadraoAtivos, analiseContratoSocialRaw, analisesSociosRaw] =
-    await Promise.all([
-      contratoAtual
-        ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
-        : Promise.resolve([]),
-      contratoAtual ? cadastroAdminController.listarSignatariosPadraoAtivos() : Promise.resolve([]),
-      contratoSocial
-        ? cadastroAdminController.obterAnaliseDocumento(contratoSocial.id)
-        : Promise.resolve(null),
-      Promise.all(
-        representantesLegais.map((socio) =>
-          socio.rg
-            ? cadastroAdminController.obterAnaliseDocumento(socio.rg.id)
-            : Promise.resolve(null),
-        ),
+  const [
+    emailsFalhaEntrega,
+    signatariosPadraoAtivos,
+    analiseContratoSocialRaw,
+    analisesSociosRaw,
+    dadosReceita,
+  ] = await Promise.all([
+    contratoAtual
+      ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
+      : Promise.resolve([]),
+    contratoAtual ? cadastroAdminController.listarSignatariosPadraoAtivos() : Promise.resolve([]),
+    contratoSocial
+      ? cadastroAdminController.obterAnaliseDocumento(contratoSocial.id)
+      : Promise.resolve(null),
+    Promise.all(
+      representantesLegais.map((socio) =>
+        socio.rg
+          ? cadastroAdminController.obterAnaliseDocumento(socio.rg.id)
+          : Promise.resolve(null),
       ),
-    ]);
+    ),
+    // Só existe pra cadastros criados depois da funcionalidade "Dados da
+    // Receita" — null é o estado normal de agência mais antiga.
+    cadastroAdminController.obterDadosReceita(agencia.id),
+  ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
   const analiseIaPorSocioId = new Map(
@@ -88,5 +96,6 @@ export async function obterDossieView(id: string) {
     trilhaRecusada: recusado,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    dadosReceita,
   };
 }

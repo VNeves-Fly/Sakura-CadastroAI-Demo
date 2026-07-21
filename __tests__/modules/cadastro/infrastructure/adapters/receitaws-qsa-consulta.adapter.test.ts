@@ -52,7 +52,99 @@ describe("ReceitaWsQsaConsultaAdapter", () => {
       dataAbertura: "03/10/2013",
       telefoneReceita: "(11) 2385-1939",
       emailReceita: "torres.contab@gmail.com",
+      situacaoCadastral: null,
+      naturezaJuridica: null,
+      porte: null,
+      capitalSocial: null,
+      optanteSimples: false,
+      dataOpcaoSimples: null,
+      endereco: null,
+      cnaes: [
+        {
+          codigo: "94.30-8-00",
+          descricao: "Atividades de associações de defesa de direitos sociais",
+          principal: true,
+        },
+      ],
     });
+  });
+
+  it("extrai os campos ampliados (situação cadastral, natureza jurídica, porte, capital social, Simples, endereço, CNAEs secundários) quando presentes", async () => {
+    mockFetchResolvedOnce({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        cnpj: "19131243000197",
+        nome: "LARIAN GROUP LTDA",
+        situacao: "ATIVA",
+        natureza_juridica: "206-2 - Sociedade Empresária Limitada",
+        porte: "Demais",
+        capital_social: "784.314,00",
+        simples: { optante: true, data_opcao: "01/01/2020" },
+        logradouro: "Rua Santa Cruz",
+        numero: "2187",
+        complemento: "sala 10",
+        bairro: "Vila Mariana",
+        municipio: "São Paulo",
+        uf: "SP",
+        cep: "04.121-002",
+        atividade_principal: [{ code: "79.11-2-00", text: "Agências de viagens" }],
+        atividades_secundarias: [{ code: "79.12-1-00", text: "Operadores turísticos" }],
+        qsa: [],
+        abertura: "16/12/2025",
+        telefone: "",
+        email: "",
+      }),
+    });
+
+    const resultado = await new ReceitaWsQsaConsultaAdapter().consultar("19131243000197");
+
+    expect(resultado?.situacaoCadastral).toBe("ATIVA");
+    expect(resultado?.naturezaJuridica).toBe("206-2 - Sociedade Empresária Limitada");
+    expect(resultado?.porte).toBe("Demais");
+    expect(resultado?.capitalSocial).toBe(784314);
+    expect(resultado?.optanteSimples).toBe(true);
+    expect(resultado?.dataOpcaoSimples).toBe("01/01/2020");
+    expect(resultado?.endereco).toEqual({
+      logradouro: "Rua Santa Cruz",
+      numero: "2187",
+      complemento: "sala 10",
+      bairro: "Vila Mariana",
+      cidade: "São Paulo",
+      uf: "SP",
+      cep: "04.121-002",
+    });
+    expect(resultado?.cnaes).toEqual([
+      { codigo: "79.11-2-00", descricao: "Agências de viagens", principal: true },
+      { codigo: "79.12-1-00", descricao: "Operadores turísticos", principal: false },
+    ]);
+  });
+
+  it("degrada com segurança os campos ampliados quando ausentes ou em formato inesperado", async () => {
+    mockFetchResolvedOnce({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        nome: "Empresa Sem Dados Extras",
+        capital_social: { valor: 123 },
+        simples: undefined,
+        qsa: [],
+        abertura: "01/01/2020",
+        telefone: "",
+        email: "",
+      }),
+    });
+
+    const resultado = await new ReceitaWsQsaConsultaAdapter().consultar("19131243000197");
+
+    expect(resultado?.situacaoCadastral).toBeNull();
+    expect(resultado?.capitalSocial).toBeNull();
+    expect(resultado?.optanteSimples).toBe(false);
+    expect(resultado?.dataOpcaoSimples).toBeNull();
+    expect(resultado?.endereco).toBeNull();
+    expect(resultado?.cnaes).toEqual([]);
   });
 
   it("respeita RECEITAWS_MAX_DAYS quando configurada", async () => {
