@@ -113,6 +113,37 @@ function formatarEnderecoReceita(endereco: DadosReceitaEndereco | null): string 
   return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro ?? "—"}, ${endereco.cidade ?? "—"}/${endereco.uf ?? "—"}`;
 }
 
+// Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
+// relacionados (ex: "Contato", "Endereço") sem precisar de outra seção
+// colapsável só pra isso.
+function SubsecaoLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-muted-foreground text-[10px] font-bold tracking-wide uppercase">
+      {children}
+    </span>
+  );
+}
+
+// Situação cadastral vira badge colorido (mesma linguagem semântica dos
+// badges de status do funil) em vez de texto plano — bate o olho se a
+// empresa está ativa/baixada sem precisar ler a palavra toda.
+function SituacaoCadastralBadge({ situacao }: { situacao: string | null }) {
+  if (!situacao) return <span className="text-muted-foreground">—</span>;
+
+  const normalizado = situacao.toLowerCase();
+  const classes = normalizado.includes("ativa")
+    ? "bg-success-bg text-success-text"
+    : /baixada|inapta|suspensa|nula/.test(normalizado)
+      ? "bg-destructive-bg text-destructive-text"
+      : "bg-muted text-muted-foreground";
+
+  return (
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${classes}`}>
+      {situacao}
+    </span>
+  );
+}
+
 // CNAEs vêm como lista plana (principal + secundários) — destaca o
 // principal e esconde os secundários atrás de um <details> pra não
 // poluir a ficha quando a empresa tem muitas atividades cadastradas.
@@ -506,31 +537,50 @@ export default async function DossieAgenciaPage({
                 cadastros novos passam a gravar esse dado).
               </p>
             ) : (
-              <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                <Campo label="Situação Cadastral">{dadosReceita.situacaoCadastral || "—"}</Campo>
-                <Campo label="Natureza Jurídica">{dadosReceita.naturezaJuridica || "—"}</Campo>
-                <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
-                <Campo label="Capital Social">{formatarMoedaBrl(dadosReceita.capitalSocial)}</Campo>
-                <Campo label="Data de Abertura">
-                  {dadosReceita.dataAbertura ? formatarDataCurta(dadosReceita.dataAbertura) : "—"}
-                </Campo>
-                <Campo label="Optante pelo Simples">
-                  {dadosReceita.optanteSimples
-                    ? `Sim${dadosReceita.dataOpcaoSimples ? ` (desde ${formatarDataCurta(dadosReceita.dataOpcaoSimples)})` : ""}`
-                    : "Não"}
-                </Campo>
-                <Campo label="Telefone (Receita)">{dadosReceita.telefone || "—"}</Campo>
-                <Campo label="E-mail (Receita)">{dadosReceita.email || "—"}</Campo>
-                <Campo label="Endereço" className="sm:col-span-2">
-                  {formatarEnderecoReceita(dadosReceita.endereco)}
-                </Campo>
-                <Campo label="CNAEs" className="sm:col-span-2">
+              <div className="flex flex-col gap-4">
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                  <Campo label="Situação Cadastral">
+                    <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
+                  </Campo>
+                  <Campo label="Natureza Jurídica">{dadosReceita.naturezaJuridica || "—"}</Campo>
+                  <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
+                  <Campo label="Capital Social">
+                    {formatarMoedaBrl(dadosReceita.capitalSocial)}
+                  </Campo>
+                  <Campo label="Data de Abertura">
+                    {dadosReceita.dataAbertura ? formatarDataCurta(dadosReceita.dataAbertura) : "—"}
+                  </Campo>
+                  <Campo label="Optante pelo Simples">
+                    {dadosReceita.optanteSimples
+                      ? `Sim${dadosReceita.dataOpcaoSimples ? ` (desde ${formatarDataCurta(dadosReceita.dataOpcaoSimples)})` : ""}`
+                      : "Não"}
+                  </Campo>
+                </dl>
+
+                <div className="flex flex-col gap-2">
+                  <SubsecaoLabel>Contato</SubsecaoLabel>
+                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <Campo label="Telefone (Receita)">{dadosReceita.telefone || "—"}</Campo>
+                    <Campo label="E-mail (Receita)">{dadosReceita.email || "—"}</Campo>
+                  </dl>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <SubsecaoLabel>Endereço</SubsecaoLabel>
+                  <p className="text-foreground text-sm font-medium">
+                    {formatarEnderecoReceita(dadosReceita.endereco)}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <SubsecaoLabel>Atividades (CNAE)</SubsecaoLabel>
                   <CnaesDetalhe cnaes={dadosReceita.cnaes} />
-                </Campo>
-                <Campo label="Consultado em" className="sm:col-span-2">
-                  {formatarData(dadosReceita.consultadoEm)}
-                </Campo>
-              </dl>
+                </div>
+
+                <p className="border-border text-muted-foreground border-t pt-3 text-xs">
+                  Consultado em {formatarData(dadosReceita.consultadoEm)}
+                </p>
+              </div>
             )}
           </SecaoColapsavel>
 
