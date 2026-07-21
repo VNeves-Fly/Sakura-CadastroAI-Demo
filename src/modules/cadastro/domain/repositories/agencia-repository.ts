@@ -2,6 +2,7 @@ import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity"
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { OrigemGeracaoContrato } from "@/modules/cadastro/domain/enums";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/analise-ia-service";
 
 export type { OrigemGeracaoContrato };
 
@@ -111,6 +112,11 @@ export interface CreateAgenciaData {
   // Resultado do documentAnalysisService.analisar() sobre o contrato
   // social — mesma lógica de SocioData.analiseIa.
   analiseIaContratoSocial: DocumentAnalysisResultado | null;
+  // Veredito final do analiseIaService.avaliar() (parecer/motivo/flags de
+  // risco + detalhamento do cruzamento) — grava como AnaliseIaAgencia na
+  // mesma transação, pra dar contexto ao analista quando o parecer não é
+  // APROVADO. Null só no mock que não popula parecer estruturado.
+  analiseIaFinal: AnaliseIaResultado | null;
   enderecoBanco: EnderecoBancoData;
   contrato: {
     provedorId: string;

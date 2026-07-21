@@ -32,7 +32,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       ...originalEnv,
       AGENCY_ANALYSIS_API_KEY: "secret-teste",
       AGENCY_ANALYSIS_BASE_URL: "https://agente.teste",
-      GCS_BUCKET_NAME: "bucket-teste",
     };
     global.fetch = jest.fn();
   });
@@ -55,10 +54,11 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       motivo: null,
       parecer: "APROVADO",
       flagsRisco: [],
+      detalhamento: null,
     });
 
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(url).toBe("https://agente.teste/api/v1/agency-analysis/json");
+    expect(url).toBe("https://agente.teste/api/v1/agency-analysis/sync");
     expect(opts.headers["X-Internal-Secret"]).toBe("secret-teste");
     expect(JSON.parse(opts.body)).toEqual({
       cnpj: "19131243000197",
@@ -79,7 +79,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
             data_nascimento: "1990-04-12",
             documentos: [
               {
-                internal_document_url: "gs://bucket-teste/cadastro-ai/agencias/x/socio-0-rg.pdf",
                 document_type: "doc_identificacao",
                 campos_extraidos: { nome: "Fulano de Tal", cpf: "390.533.447-05" },
                 confidence_score: 0.97,
@@ -110,6 +109,100 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       motivo: "CNAE incompatível com agência de viagem",
       parecer: "REPROVADO",
       flagsRisco: ["cnae_incompativel"],
+      detalhamento: null,
+    });
+  });
+
+  it("mapeia o stage3 (cruzamento documento x oficial x fornecido) para o detalhamento", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parecer: "PENDENTE",
+        justificativa: "Data de nascimento divergente",
+        flags_risco: ["data_nascimento_divergente"],
+        stage3: {
+          documentos_empresa: [
+            {
+              tipo: "cadastur",
+              campos: [
+                {
+                  campo: "cnpj",
+                  extraido: "19131243000197",
+                  oficial: "19131243000197",
+                  fornecido: "19131243000197",
+                  confere: true,
+                },
+              ],
+              alertas_extracao: [],
+              valido: true,
+            },
+          ],
+          socios: [
+            {
+              nome: "Fulano de Tal",
+              documentos: [
+                {
+                  tipo: "rg",
+                  campos: [
+                    {
+                      campo: "data_nascimento",
+                      extraido: "12/04/1990",
+                      oficial: null,
+                      fornecido: "1990-04-13",
+                      confere: false,
+                    },
+                  ],
+                  alertas_extracao: [],
+                  valido: false,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+
+    const resultado = await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    expect(resultado.detalhamento).toEqual({
+      documentosEmpresa: [
+        {
+          tipo: "cadastur",
+          campos: [
+            {
+              campo: "cnpj",
+              extraido: "19131243000197",
+              oficial: "19131243000197",
+              fornecido: "19131243000197",
+              confere: true,
+            },
+          ],
+          alertasExtracao: [],
+          valido: true,
+        },
+      ],
+      socios: [
+        {
+          nome: "Fulano de Tal",
+          documentos: [
+            {
+              tipo: "rg",
+              campos: [
+                {
+                  campo: "data_nascimento",
+                  extraido: "12/04/1990",
+                  oficial: null,
+                  fornecido: "1990-04-13",
+                  confere: false,
+                },
+              ],
+              alertasExtracao: [],
+              valido: false,
+            },
+          ],
+        },
+      ],
     });
   });
 
@@ -130,15 +223,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
 
     await expect(new FlysakuraAnaliseIaAdapter().avaliar(input)).rejects.toThrow(
       "AGENCY_ANALYSIS_API_KEY não configurada",
-    );
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("lança erro claro se GCS_BUCKET_NAME não está configurada (necessária pra montar internal_document_url)", async () => {
-    delete process.env.GCS_BUCKET_NAME;
-
-    await expect(new FlysakuraAnaliseIaAdapter().avaliar(input)).rejects.toThrow(
-      "GCS_BUCKET_NAME não configurada",
     );
     expect(global.fetch).not.toHaveBeenCalled();
   });
