@@ -2,6 +2,13 @@
 
 import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 type Passo2EmpresaProps = ReturnType<typeof useCadastroWizardViewModel>;
 
@@ -39,18 +46,22 @@ export function Passo2Empresa({
           {semTelefoneComercial ? null : <span className="text-destructive"> *</span>}
         </label>
         <div className="flex gap-2">
-          <select
+          <Select
             value={telefoneComercialPais}
             disabled={semTelefoneComercial}
-            onChange={(event) => setTelefoneComercialPais(event.target.value)}
-            className="border-input bg-background text-foreground focus:border-primary focus:ring-ring/30 w-[6.5rem] shrink-0 rounded-full border px-2 text-sm outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+            onValueChange={(valor) => setTelefoneComercialPais(valor ?? "")}
           >
-            {PAISES_TELEFONE.map((pais) => (
-              <option key={pais.codigo} value={pais.codigo}>
-                {pais.bandeira} {pais.ddi || "Outro"}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAISES_TELEFONE.map((pais) => (
+                <SelectItem key={pais.codigo} value={pais.codigo}>
+                  {pais.bandeira} {pais.ddi || "Outro"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <input
             type="tel"
             inputMode="numeric"

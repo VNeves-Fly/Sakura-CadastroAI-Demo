@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { UserCog, Copy, Check, ClipboardCopy } from "lucide-react";
 import type { RepresentanteLegalDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
+import { DatePicker } from "@/components/ui/date-picker";
 import { SecaoColapsavel } from "./secao-colapsavel";
 
 const INPUT_CLASSNAME =
@@ -90,14 +91,25 @@ function Campo({
         ) : null}
       </div>
       <div className="relative">
-        <input
-          id={`usuario-master-${name}`}
-          type={type}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => onChange(name, event.target.value)}
-          className={`${INPUT_CLASSNAME} pr-9`}
-        />
+        {type === "date" ? (
+          <DatePicker
+            id={`usuario-master-${name}`}
+            value={value}
+            onChange={(valor) => onChange(name, valor)}
+            disabled={disabled}
+            disabledDays={{ after: new Date() }}
+            className="pr-9"
+          />
+        ) : (
+          <input
+            id={`usuario-master-${name}`}
+            type={type}
+            value={value}
+            disabled={disabled}
+            onChange={(event) => onChange(name, event.target.value)}
+            className={`${INPUT_CLASSNAME} pr-9`}
+          />
+        )}
         <button
           type="button"
           onClick={onCopy}

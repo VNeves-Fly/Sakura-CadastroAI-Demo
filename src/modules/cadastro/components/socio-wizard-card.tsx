@@ -1,9 +1,16 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
 import { PAISES_TELEFONE, paisTelefonePorCodigo } from "@/modules/shared/utils/telefone.util";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import type {
   SocioWizardFormValues,
   SocioWizardValidacao,
@@ -122,11 +129,10 @@ export function SocioWizardCard({
         <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Data de nascimento<span className="text-destructive"> *</span>
         </label>
-        <input
-          type="date"
+        <DatePicker
           value={socio.dataNascimento}
-          onChange={(event) => onUpdate({ dataNascimento: event.target.value })}
-          className={INPUT_CLASSNAME}
+          onChange={(valor) => onUpdate({ dataNascimento: valor })}
+          disabledDays={{ after: new Date() }}
         />
         {dataNascimentoStatus.mensagem ? (
           <span className="text-destructive text-xs font-medium">
@@ -140,17 +146,21 @@ export function SocioWizardCard({
           Telefone<span className="text-destructive"> *</span>
         </label>
         <div className="flex gap-2">
-          <select
+          <Select
             value={socio.telefonePais}
-            onChange={(event) => onUpdate({ telefonePais: event.target.value })}
-            className="border-input bg-background text-foreground focus:border-primary focus:ring-ring/30 w-[6.5rem] shrink-0 rounded-full border px-2 text-sm outline-none focus:ring-2"
+            onValueChange={(valor) => onUpdate({ telefonePais: valor ?? "" })}
           >
-            {PAISES_TELEFONE.map((pais) => (
-              <option key={pais.codigo} value={pais.codigo}>
-                {pais.bandeira} {pais.ddi || "Outro"}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAISES_TELEFONE.map((pais) => (
+                <SelectItem key={pais.codigo} value={pais.codigo}>
+                  {pais.bandeira} {pais.ddi || "Outro"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <input
             type="tel"
             inputMode="numeric"
@@ -171,23 +181,21 @@ export function SocioWizardCard({
         <label className="text-foreground text-xs font-bold tracking-wide uppercase">
           Estado Civil<span className="text-destructive"> *</span>
         </label>
-        <div className="relative">
-          <select
-            value={socio.estadoCivil}
-            onChange={(event) => onUpdate({ estadoCivil: event.target.value })}
-            className={`w-full appearance-none pr-10 ${INPUT_CLASSNAME}`}
-          >
-            <option value="" disabled>
-              Selecione
-            </option>
+        <Select
+          value={socio.estadoCivil}
+          onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
             {ESTADO_CIVIL_OPCOES.map((opcao) => (
-              <option key={opcao.valor} value={opcao.valor}>
+              <SelectItem key={opcao.valor} value={opcao.valor}>
                 {opcao.label}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-          <ChevronDown className="text-muted-foreground pointer-events-none absolute inset-y-0 right-4 my-auto size-4" />
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-col gap-1">
