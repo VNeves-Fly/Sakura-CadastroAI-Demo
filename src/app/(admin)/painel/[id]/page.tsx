@@ -12,6 +12,7 @@ import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
+import { VisualizarDocumento } from "./visualizar-documento";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
   labelOrigemContrato,
@@ -79,12 +80,17 @@ function formatarData(data: Date): string {
 
 // Referência de arquivo (contrato social, RG, procuração) em destaque —
 // mesmo tratamento de "código"/citação usado no mapa-redesign-sakura.html
-// (fundo tintado + cor de marca + monoespaçada).
-function Arquivo({ path }: { path: string }) {
+// (fundo tintado + cor de marca + monoespaçada). Clicável: abre a
+// pré-visualização em modal (ver VisualizarDocumento) em vez de só
+// mostrar o nome do arquivo sem nenhuma ação.
+function Arquivo({ documento }: { documento: Documento }) {
+  const nomeArquivo = documento.gcsPath.split("/").pop() ?? documento.gcsPath;
   return (
-    <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
-      {path.split("/").pop()}
-    </span>
+    <VisualizarDocumento documentoId={documento.id} gcsPath={documento.gcsPath} label={nomeArquivo}>
+      <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
+        {nomeArquivo}
+      </span>
+    </VisualizarDocumento>
   );
 }
 
@@ -105,7 +111,7 @@ function CampoDocumento({ documento }: { documento: Documento | null }) {
     );
   }
 
-  return <Arquivo path={documento.gcsPath} />;
+  return <Arquivo documento={documento} />;
 }
 
 // Mostra a análise de IA gravada sobre o documento (RG/CNH, contrato
