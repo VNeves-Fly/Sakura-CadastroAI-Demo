@@ -6,6 +6,13 @@ import {
   TIPO_CONTA_OPCOES,
 } from "@/modules/cadastro/types/endereco-banco.types";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 type Passo6EnderecoBancoProps = ReturnType<typeof useCadastroWizardViewModel>;
 
@@ -58,22 +65,23 @@ export function Passo6EnderecoBanco({
         </div>
 
         {enderecoBanco.enderecoMesmoSocio && socios.length > 1 ? (
-          <select
-            value={enderecoBanco.socioEnderecoVinculado ?? ""}
-            onChange={(event) =>
-              updateEnderecoBanco({ socioEnderecoVinculado: Number(event.target.value) })
+          <Select
+            value={enderecoBanco.socioEnderecoVinculado?.toString() ?? ""}
+            onValueChange={(valor) =>
+              updateEnderecoBanco({ socioEnderecoVinculado: valor ? Number(valor) : null })
             }
-            className={INPUT_CLASSNAME}
           >
-            <option value="" disabled>
-              Selecione o sócio
-            </option>
-            {socios.map((socio, index) => (
-              <option key={index} value={index}>
-                {socio.nome || `Sócio ${index + 1}`}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o sócio" />
+            </SelectTrigger>
+            <SelectContent>
+              {socios.map((socio, index) => (
+                <SelectItem key={index} value={index.toString()}>
+                  {socio.nome || `Sócio ${index + 1}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : null}
 
         {enderecoBanco.enderecoMesmoSocio && socioVinculado ? (
@@ -220,20 +228,21 @@ export function Passo6EnderecoBanco({
               placeholder="Nome do banco"
             />
           ) : (
-            <select
+            <Select
               value={enderecoBanco.bancoNome}
-              onChange={(event) => updateEnderecoBanco({ bancoNome: event.target.value })}
-              className={INPUT_CLASSNAME}
+              onValueChange={(valor) => updateEnderecoBanco({ bancoNome: valor ?? "" })}
             >
-              <option value="" disabled>
-                Selecione o banco
-              </option>
-              {BANCOS_BRASILEIROS.map((banco) => (
-                <option key={banco} value={banco}>
-                  {banco}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o banco" />
+              </SelectTrigger>
+              <SelectContent>
+                {BANCOS_BRASILEIROS.map((banco) => (
+                  <SelectItem key={banco} value={banco}>
+                    {banco}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
 
@@ -266,20 +275,21 @@ export function Passo6EnderecoBanco({
             <label className="text-foreground text-sm font-medium">
               Tipo de Conta<span className="text-destructive"> *</span>
             </label>
-            <select
+            <Select
               value={enderecoBanco.tipoConta}
-              onChange={(event) => updateEnderecoBanco({ tipoConta: event.target.value })}
-              className={INPUT_CLASSNAME}
+              onValueChange={(valor) => updateEnderecoBanco({ tipoConta: valor ?? "" })}
             >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {TIPO_CONTA_OPCOES.map((opcao) => (
-                <option key={opcao.valor} value={opcao.valor}>
-                  {opcao.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIPO_CONTA_OPCOES.map((opcao) => (
+                  <SelectItem key={opcao.valor} value={opcao.valor}>
+                    {opcao.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

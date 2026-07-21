@@ -1,10 +1,17 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { CARGO_OPTIONS, DEFAULT_CARGO } from "@/modules/users/utils/cargo-options";
 import type { Cargo } from "@/modules/users/domain/enums";
 import type { CreateUserFormValues } from "@/modules/users/types/user.types";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 interface CreateUserFormProps {
   isSubmitting: boolean;
@@ -128,22 +135,21 @@ export function CreateUserForm({ isSubmitting, error, onSubmit }: CreateUserForm
         <label htmlFor="cargo" className="text-foreground text-sm font-medium">
           Cargo
         </label>
-        <div className="relative">
-          <select
-            id="cargo"
-            required
-            value={cargo}
-            onChange={(event) => setCargo(event.target.value as Cargo)}
-            className={`w-full appearance-none pr-10 ${inputClassName}`}
-          >
+        <Select
+          value={cargo}
+          onValueChange={(valor) => setCargo((valor ?? DEFAULT_CARGO) as Cargo)}
+        >
+          <SelectTrigger id="cargo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
             {CARGO_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
+              <SelectItem key={option.value} value={option.value}>
                 {option.label}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-          <ChevronDown className="text-muted-foreground pointer-events-none absolute inset-y-0 right-4 my-auto size-4" />
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-col gap-1">

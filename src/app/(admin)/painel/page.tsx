@@ -1,4 +1,11 @@
 import Link from "next/link";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
@@ -171,24 +178,30 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           />
         </form>
         <div className="flex gap-2">
-          <select
-            disabled
-            className="border-input bg-muted text-muted-foreground cursor-not-allowed rounded-full border px-3 py-2 text-sm"
-          >
-            <option>Executivo</option>
-          </select>
-          <select
-            disabled
-            className="border-input bg-muted text-muted-foreground cursor-not-allowed rounded-full border px-3 py-2 text-sm"
-          >
-            <option>Associação</option>
-          </select>
-          <select
-            disabled
-            className="border-input bg-muted text-muted-foreground cursor-not-allowed rounded-full border px-3 py-2 text-sm"
-          >
-            <option>Evento</option>
-          </select>
+          <Select disabled defaultValue="executivo">
+            <SelectTrigger className="bg-muted w-auto py-2">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="executivo">Executivo</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select disabled defaultValue="associacao">
+            <SelectTrigger className="bg-muted w-auto py-2">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="associacao">Associação</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select disabled defaultValue="evento">
+            <SelectTrigger className="bg-muted w-auto py-2">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="evento">Evento</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
