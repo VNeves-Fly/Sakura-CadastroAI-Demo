@@ -1,12 +1,14 @@
 # deps — install dependencies (husky's prepare script needs HUSKY=0, sem .git no build)
-FROM oven/bun:1.3.14-slim AS deps
+# nota: a variante "-slim" corrompe a extração de tarball do bun install sob
+# emulação QEMU (--platform linux/amd64 em host arm64); a imagem completa não tem esse bug
+FROM oven/bun:1.3.14 AS deps
 WORKDIR /app
 ENV HUSKY=0
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 # builder — gera o Prisma Client e compila o Next.js (output: "standalone")
-FROM oven/bun:1.3.14-slim AS builder
+FROM oven/bun:1.3.14 AS builder
 WORKDIR /app
 ENV HUSKY=0
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -15,7 +17,7 @@ COPY . .
 RUN bun run db:generate && bun run build
 
 # runner — imagem mínima de produção
-FROM oven/bun:1.3.14-slim AS runner
+FROM oven/bun:1.3.14 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
