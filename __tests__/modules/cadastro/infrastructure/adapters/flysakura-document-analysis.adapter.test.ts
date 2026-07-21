@@ -67,6 +67,7 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
       document_type: "contrato_social",
       session_id: "19131243000197",
       channel: "api",
+      include_verdict: true,
     });
   });
 
