@@ -1,6 +1,8 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
+import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
 type Passo1DocumentosProps = ReturnType<typeof useCadastroWizardViewModel>;
@@ -19,6 +21,8 @@ export function Passo1Documentos({
   setContratoSocial,
   setCnpj,
 }: Passo1DocumentosProps) {
+  const alertas = contratoSocialAnalise ? alertasVisiveis(contratoSocialAnalise.alertas) : [];
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
@@ -61,7 +65,10 @@ export function Passo1Documentos({
       />
 
       {analisandoContratoSocial ? (
-        <span className="text-muted-foreground text-xs">Analisando o contrato social...</span>
+        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <Loader2 className="size-3.5 animate-spin" />
+          Analisando o contrato social...
+        </span>
       ) : null}
 
       {!analisandoContratoSocial && contratoSocialAnalise?.cnpjConfere === false ? (
@@ -71,10 +78,15 @@ export function Passo1Documentos({
         </span>
       ) : null}
 
-      {!analisandoContratoSocial && contratoSocialAnalise?.alertas.length ? (
-        <ul className="text-warning flex flex-col gap-0.5 text-xs font-medium">
-          {contratoSocialAnalise.alertas.map((alerta) => (
-            <li key={alerta}>{alerta}</li>
+      {!analisandoContratoSocial && alertas.length > 0 ? (
+        <ul className="flex flex-col gap-0.5 text-xs font-medium">
+          {alertas.map((alerta, index) => (
+            <li
+              key={index}
+              className={alerta.tipo === "erro" ? "text-destructive" : "text-warning"}
+            >
+              {alerta.mensagem}
+            </li>
           ))}
         </ul>
       ) : null}

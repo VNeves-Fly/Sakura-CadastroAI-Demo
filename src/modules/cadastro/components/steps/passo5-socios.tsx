@@ -21,9 +21,12 @@ const VALIDACAO_VAZIA: SocioWizardValidacao = {
 // Componente apenas de renderização: recebe estado e callbacks do
 // ViewModel do wizard via props. Sócios vêm pré-preenchidos do QSA
 // (Seção Empresa); o representante é só um sócio com a flag marcada.
+const ANALISE_IDENTIFICACAO_VAZIA = { analisando: false, analise: null };
+
 export function Passo5Socios({
   socios,
   sociosValidacao,
+  sociosAnaliseIdentificacao,
   socioCepBuscando,
   addSocio,
   removeSocio,
@@ -54,6 +57,7 @@ export function Passo5Socios({
           index={index}
           socio={socio}
           validacao={sociosValidacao[index] ?? VALIDACAO_VAZIA}
+          analiseIdentificacao={sociosAnaliseIdentificacao[index] ?? ANALISE_IDENTIFICACAO_VAZIA}
           podeRemover={socios.length > 1}
           cepBuscando={socioCepBuscando === index}
           onUpdate={(patch) => updateSocio(index, patch)}

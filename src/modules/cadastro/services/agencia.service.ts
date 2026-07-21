@@ -26,6 +26,14 @@ export interface RawAnaliseContratoSocialResponse {
   confianca: number;
 }
 
+export interface RawAnaliseDocumentoIdentificacaoResponse {
+  nome: string | null;
+  cpf: string | null;
+  dataNascimento: string | null;
+  alertas: string[];
+  confianca: number;
+}
+
 // Única camada autorizada a se comunicar com a API externa (rotas /api/cadastro).
 export const agenciaService = {
   async consultarQsa(cnpj: string): Promise<RawQsaResponse | null> {
@@ -54,6 +62,21 @@ export const agenciaService = {
 
     if (!response.ok) {
       throw new Error("Não foi possível analisar o contrato social.");
+    }
+
+    return response.json();
+  },
+
+  async analisarDocumentoIdentificacao(
+    formData: FormData,
+  ): Promise<RawAnaliseDocumentoIdentificacaoResponse> {
+    const response = await fetch("/api/cadastro/documentos/identificacao", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Não foi possível analisar o RG ou CNH.");
     }
 
     return response.json();
