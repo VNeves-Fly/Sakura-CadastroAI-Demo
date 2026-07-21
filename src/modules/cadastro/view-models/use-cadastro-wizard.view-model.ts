@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useCadastroWizardStore,
   TOTAL_ETAPAS,
@@ -685,6 +685,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
     setSubmitting(true);
     setSubmitError(null);
+    setFaseSubmit("analisando");
+    inicioAnaliseRef.current = Date.now();
 
     const formData = agenciaAdapter.toFinalizarCadastroFormData({
       cnpjMascarado: cnpj,
@@ -704,22 +706,32 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       const raw = await agenciaService.criarAgencia(formData);
       const resultado = agenciaAdapter.toSubmitResultView(raw);
 
+      // Espera o mínimo ANTES de decidir qualquer desfecho — mesmo um erro
+      // de validação que volta em milissegundos precisa manter a tela de
+      // análise no ar pelo tempo mínimo configurado.
+      await aguardarDuracaoMinimaAnalise();
+
       if (resultado.success) {
         setSubmitPrecisaRevisaoManual(Boolean(resultado.precisaRevisaoManual));
         setSubmitSuccess(true);
         // Cadastro já persistido de verdade no banco — o rascunho salvo
         // localmente (autosave) não tem mais função, limpa.
         void useCadastroWizardStore.persist.clearStorage();
+        setFaseSubmit(resultado.precisaRevisaoManual ? "revisao" : "aprovado");
         return;
       }
 
       if (resultado.duplicado) {
+        setFaseSubmit("idle");
         setSubmitDuplicado(true);
         return;
       }
 
+      setFaseSubmit("idle");
       setSubmitError(resultado.error ?? "Não foi possível enviar o cadastro.");
     } catch {
+      await aguardarDuracaoMinimaAnalise();
+      setFaseSubmit("idle");
       setSubmitError("Falha de conexão. Verifique sua internet e tente novamente.");
     } finally {
       setSubmitting(false);
@@ -788,5 +800,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     submitPrecisaRevisaoManual,
     submitDuplicado,
     submit,
+    faseSubmit,
   };
 }
