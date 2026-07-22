@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
-import { VisualizarDocumento } from "./visualizar-documento";
+import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 
 interface RevisaoDocumentosComplementarProps {
   agenciaId: string;
