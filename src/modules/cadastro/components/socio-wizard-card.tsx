@@ -164,6 +164,8 @@ export function SocioWizardCard({
         erro={rgErro}
         onChange={(file) => onUpdate({ rgArquivo: file })}
         helperText="Anexe primeiro — a IA analisa e ajuda a preencher o resto do cadastro"
+        disabled={analiseIdentificacao.analisando}
+        disabledHelperText="Aguarde a análise do documento terminar..."
         required
       />
 
