@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
+import { HistoricoDocumento } from "@/modules/admin/components/dossie-campos";
 
 interface RevisaoDocumentosComplementarProps {
   agenciaId: string;
@@ -93,6 +94,12 @@ export function RevisaoDocumentosComplementar({
                     Aprovado
                   </span>
                 ) : null}
+                {doc.status === "PENDENTE" &&
+                doc.historico.some((item) => item.status === "REPROVADO") ? (
+                  <span className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
+                    Reenviado — aguardando revisão
+                  </span>
+                ) : null}
               </div>
               {!somenteLeitura ? (
                 <div className="flex shrink-0 items-center gap-2">
@@ -151,6 +158,8 @@ export function RevisaoDocumentosComplementar({
                 </div>
               </form>
             ) : null}
+
+            <HistoricoDocumento historico={doc.historico} />
           </div>
         ))}
       </div>
@@ -164,14 +173,17 @@ export function RevisaoDocumentosComplementar({
           {somenteLeitura ? (
             <div className="flex flex-col gap-2">
               {documentosPendentes.map((doc) => (
-                <span key={doc.id} className="text-foreground">
-                  {doc.label}
-                  {doc.motivoReprovacao ? (
-                    <span className="text-muted-foreground mt-0.5 block text-xs">
-                      {doc.motivoReprovacao}
-                    </span>
-                  ) : null}
-                </span>
+                <div key={doc.id} className="flex flex-col gap-1.5">
+                  <span className="text-foreground">
+                    {doc.label}
+                    {doc.motivoReprovacao ? (
+                      <span className="text-muted-foreground mt-0.5 block text-xs">
+                        {doc.motivoReprovacao}
+                      </span>
+                    ) : null}
+                  </span>
+                  <HistoricoDocumento historico={doc.historico} />
+                </div>
               ))}
             </div>
           ) : (
@@ -181,17 +193,25 @@ export function RevisaoDocumentosComplementar({
             >
               <div className="flex flex-col gap-2">
                 {documentosPendentes.map((doc) => (
-                  <label key={doc.id} className="text-foreground flex items-start gap-2">
-                    <input type="checkbox" name="documentoIds" value={doc.id} className="mt-0.5" />
-                    <span>
-                      {doc.label}
-                      {doc.motivoReprovacao ? (
-                        <span className="text-muted-foreground mt-0.5 block text-xs">
-                          {doc.motivoReprovacao}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
+                  <div key={doc.id} className="flex flex-col gap-1.5">
+                    <label className="text-foreground flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        name="documentoIds"
+                        value={doc.id}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        {doc.label}
+                        {doc.motivoReprovacao ? (
+                          <span className="text-muted-foreground mt-0.5 block text-xs">
+                            {doc.motivoReprovacao}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                    <HistoricoDocumento historico={doc.historico} />
+                  </div>
                 ))}
               </div>
               <button

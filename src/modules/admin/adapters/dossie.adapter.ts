@@ -1,4 +1,5 @@
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import type { UsuarioMaster } from "@/modules/cadastro/domain/entities/usuario-master.entity";
@@ -21,6 +22,7 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type {
   DocumentoRevisao,
+  DocumentoHistoricoItem,
   SignatarioFila,
   AnaliseIaResumo,
 } from "@/modules/admin/types/dossie.types";
@@ -59,10 +61,13 @@ export function formatarEndereco(endereco: {
 }
 
 // Documento real do banco (ou null, se a agência é anterior a essa
-// tabela existir) -> item pronto pra tela de revisão.
+// tabela existir) -> item pronto pra tela de revisão. `historico` são as
+// versões anteriores do MESMO slot (tipo + representanteLegalId), já
+// resolvidas por historicoDoSlot — nunca inclui o próprio `documento`.
 export function paraDocumentoRevisao(
   documento: Documento | null,
   label: string,
+  historico: DocumentoHistoricoItem[] = [],
 ): DocumentoRevisao[] {
   if (!documento) return [];
   return [
@@ -72,8 +77,56 @@ export function paraDocumentoRevisao(
       gcsPath: documento.gcsPath,
       status: documento.status,
       motivoReprovacao: documento.motivoReprovacao,
+      historico,
     },
   ];
+}
+
+// Versões anteriores de um slot (tipo + representanteLegalId), mais
+// recente primeiro — nunca inclui `idAtual` (o documento vigente do
+// slot, já resolvido em obterDetalhe). `todosDocumentos` vem de
+// listarDocumentos(agenciaId) (todas as linhas da agência, sem filtro de
+// "atual"), reaproveitado só pra montar esse histórico — nenhuma query
+// nova, o dado já existe no banco.
+export function historicoDoSlot(
+  todosDocumentos: Documento[],
+  tipo: TipoDocumento,
+  representanteLegalId: string | null,
+  idAtual: string,
+): DocumentoHistoricoItem[] {
+  return todosDocumentos
+    .filter(
+      (documento) =>
+        documento.tipo === tipo &&
+        documento.representanteLegalId === representanteLegalId &&
+        documento.id !== idAtual,
+    )
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((documento) => ({
+      id: documento.id,
+      status: documento.status,
+      motivoReprovacao: documento.motivoReprovacao,
+      reprovadoPor: documento.reprovadoPor,
+      reprovadoEm: documento.reprovadoEm,
+      createdAt: documento.createdAt,
+      gcsPath: documento.gcsPath,
+    }));
+}
+
+// "Notificação" de reenvio pendente de revisão — sem tabela de
+// notificação nova (a `Notificacao` do schema não é usada em lugar
+// nenhum hoje): um documento avisa o analista quando está vigente
+// (PENDENTE, ainda sem decisão) E tem pelo menos uma versão REPROVADA no
+// histórico — ou seja, é uma resposta a uma reprovação anterior, não o
+// envio original do cadastro.
+export function documentosAguardandoRevisaoPosReenvio(
+  documentosAtivos: DocumentoRevisao[],
+): DocumentoRevisao[] {
+  return documentosAtivos.filter(
+    (documento) =>
+      documento.status === "PENDENTE" &&
+      documento.historico.some((item) => item.status === "REPROVADO"),
+  );
 }
 
 // Quais documentos entram no rol "ativo" da ficha vs na lista de

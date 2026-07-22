@@ -4,7 +4,7 @@ import type {
   DadosReceitaEndereco,
   DadosReceitaCnae,
 } from "@/modules/cadastro/domain/entities/dados-receita.entity";
-import type { AnaliseIaResumo } from "@/modules/admin/types/dossie.types";
+import type { AnaliseIaResumo, DocumentoRevisao } from "@/modules/admin/types/dossie.types";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 
@@ -227,5 +227,51 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
         <span className="text-muted-foreground">Nenhum campo estruturado extraído.</span>
       )}
     </div>
+  );
+}
+
+// Versões antigas do mesmo slot (histórico de reprovações/reenvios) —
+// nunca sobrescreve nem apaga, só empilha (ver historicoDoSlot em
+// dossie.adapter.ts). Fica escondido atrás de um <details> pra não
+// poluir a ficha quando não há nada a revisar. Reaproveitado tanto pela
+// revisão de documentos do funil (com Aprovar/Reprovar) quanto pela
+// lista somente-leitura do Arquivo.
+export function HistoricoDocumento({ historico }: { historico: DocumentoRevisao["historico"] }) {
+  if (historico.length === 0) return null;
+
+  return (
+    <details className="border-border bg-muted/20 rounded-lg border px-3 py-2 text-xs">
+      <summary className="text-muted-foreground cursor-pointer font-semibold">
+        Ver histórico ({historico.length})
+      </summary>
+      <div className="mt-2 flex flex-col gap-2">
+        {historico.map((item) => (
+          <div
+            key={item.id}
+            className="border-border flex flex-col gap-1 border-t pt-2 first:border-0 first:pt-0"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <VisualizarDocumento
+                documentoId={item.id}
+                gcsPath={item.gcsPath}
+                label="Versão anterior"
+              >
+                <span className="text-primary font-semibold">Ver anexo</span>
+              </VisualizarDocumento>
+              <span className="bg-destructive-bg text-destructive-text rounded-full px-2 py-0.5 font-bold uppercase">
+                {item.status}
+              </span>
+              <span className="text-muted-foreground">{formatarData(item.createdAt)}</span>
+            </div>
+            {item.motivoReprovacao ? (
+              <p className="text-muted-foreground">
+                Motivo: {item.motivoReprovacao}
+                {item.reprovadoPor ? ` — reprovado por ${item.reprovadoPor}` : ""}
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }

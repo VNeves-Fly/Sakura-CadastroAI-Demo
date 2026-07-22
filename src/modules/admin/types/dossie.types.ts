@@ -1,5 +1,18 @@
 import type { StatusDocumento } from "@/modules/cadastro/domain/enums";
 
+// Versão antiga (já substituída) de um documento — reprovada ou não,
+// preservada só pra auditoria/histórico. Nunca é "a atual" do slot (ver
+// historicoDoSlot em dossie.adapter.ts).
+export interface DocumentoHistoricoItem {
+  id: string;
+  status: StatusDocumento;
+  motivoReprovacao: string | null;
+  reprovadoPor: string | null;
+  reprovadoEm: Date | null;
+  createdAt: Date;
+  gcsPath: string;
+}
+
 // Documento pronto pra tela de revisão — construído pelo adapter a
 // partir do Documento real do banco (ver dossie.adapter.ts), consumido
 // tanto pela page (que separa em ativos/pendentes) quanto pela View
@@ -10,6 +23,7 @@ export interface DocumentoRevisao {
   gcsPath: string;
   status: StatusDocumento;
   motivoReprovacao: string | null;
+  historico: DocumentoHistoricoItem[];
 }
 
 // Recorte plano da análise de IA sobre um documento (RG/CNH, contrato
