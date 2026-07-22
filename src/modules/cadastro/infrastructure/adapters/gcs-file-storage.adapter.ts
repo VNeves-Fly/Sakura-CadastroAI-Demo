@@ -19,7 +19,7 @@ export class GcsFileStorage implements FileStorage {
   async save(file: StoredFileInput, pathHint: string): Promise<SavedFile> {
     const extension = extname(file.originalName);
     const prefix = this.folderPrefix ? `${this.folderPrefix}/` : "";
-    const objectPath = `${prefix}${pathHint}-${Date.now()}${extension}`;
+    const objectPath = `${prefix}${pathHint}${extension}`;
 
     await storage
       .bucket(this.bucketName)
