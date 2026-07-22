@@ -21,5 +21,5 @@ export async function seedAdminUser(prisma: PrismaClient): Promise<void> {
     },
   });
 
-  console.log(`Seed: usuário admin (${ADMIN_EMAIL})`);
+  console.warn(`Seed: usuário admin (${ADMIN_EMAIL})`);
 }
