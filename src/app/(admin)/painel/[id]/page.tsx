@@ -62,8 +62,9 @@ import {
   salvarUsuarioMasterAction,
 } from "./actions";
 
-// Par rótulo/valor reaproveitado em todas as seções — rótulo tintado na cor
-// de marca (em vez do cinza neutro anterior) e valor em destaque.
+// Par rótulo/valor reaproveitado em todas as seções — rótulo neutro (a cor
+// de marca fica reservada pra ação primária e identidade, não pra rótulo
+// estrutural) e valor em destaque.
 function Campo({
   label,
   children,
@@ -75,7 +76,7 @@ function Campo({
 }) {
   return (
     <div className={className}>
-      <dt className="text-primary/70 text-[11px] font-bold tracking-wide uppercase">{label}</dt>
+      <dt className="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">{label}</dt>
       <dd className="text-foreground mt-0.5 text-sm font-medium break-words">{children}</dd>
     </div>
   );
@@ -208,7 +209,7 @@ function CampoDocumento({ documento }: { documento: Documento | null }) {
   if (documento.status === "REPROVADO") {
     return (
       <span
-        className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
+        className="bg-warning-bg text-warning-text rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
         title={documento.motivoReprovacao ?? undefined}
       >
         Aguardando reenvio
@@ -427,31 +428,13 @@ export default async function DossieAgenciaPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="border-sakura-200 from-sakura-50 flex flex-col gap-3 rounded-2xl border bg-gradient-to-br via-white to-white p-5">
+      <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="from-sakura-600 to-sakura-400 bg-gradient-to-r bg-clip-text text-2xl font-bold tracking-wide text-transparent uppercase">
-            {agencia.razaoSocial}
-          </h1>
-          <div className="flex items-center gap-2">
-            <span
-              className="border-primary/30 bg-primary/10 text-primary rounded-full border border-dashed px-3 py-1 text-xs font-semibold"
-              title="Executivo — sem fonte de dado real ainda, aguardando modelagem no backend"
-            >
-              Executivo: —
-            </span>
-            <span
-              className="border-primary/30 bg-primary/10 text-primary rounded-full border border-dashed px-3 py-1 text-xs font-semibold"
-              title="Gestor — sem fonte de dado real ainda, aguardando modelagem no backend"
-            >
-              Gestor: —
-            </span>
-            <span
-              className="border-primary/30 bg-primary/10 text-primary rounded-full border border-dashed px-3 py-1 text-xs font-semibold"
-              title="Base — sem fonte de dado real ainda, aguardando modelagem no backend"
-            >
-              Base: —
-            </span>
-          </div>
+          <h1 className="text-xl font-bold tracking-wide text-[#72243e]">{agencia.razaoSocial}</h1>
+          {/* Executivo/Gestor/Base escondidos até existir fonte de dado real
+              (aguardando modelagem no backend) — mostrar "—" com tooltip
+              parecia funcionalidade quebrada, não um espaço reservado pro
+              futuro. */}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -846,7 +829,13 @@ export default async function DossieAgenciaPage({
           ) : null}
 
           {etapaExibida === indiceAtivo ? (
-            <p className="text-success text-sm font-medium">Cliente ativo.</p>
+            <div className="bg-success-bg flex flex-col items-center gap-1.5 rounded-2xl px-6 py-8 text-center">
+              <CheckCircle2 className="text-success size-10" />
+              <p className="text-success-text text-lg font-bold">Cliente ativo</p>
+              <p className="text-success-text text-sm">
+                Onboarding concluído — a agência está pronta pra operar.
+              </p>
+            </div>
           ) : null}
 
           {agencia.status === STATUS_RECUSADO ? (
