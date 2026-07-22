@@ -54,14 +54,24 @@ export const agenciaAdapter = {
   toContratoSocialAnaliseView(raw: RawAnaliseContratoSocialResponse): ContratoSocialAnaliseView {
     return {
       cnpjConfere: raw.cnpjConfere,
-      socios: raw.socios.map((socio) => ({
-        nome: socio.nome,
-        endereco: socio.endereco
-          ? { ...socio.endereco, uf: socio.endereco.uf?.toUpperCase() ?? null }
-          : null,
-      })),
+      socios: raw.socios.map((socio) => ({ nome: socio.nome })),
       alertas: raw.alertas,
       confianca: raw.confianca,
+      razaoSocial: raw.razaoSocialExtraida,
+      capitalSocial: raw.capitalSocial,
+      endereco: raw.enderecoEmpresa
+        ? {
+            cep: raw.enderecoEmpresa.cep,
+            logradouro: raw.enderecoEmpresa.logradouro,
+            numero: raw.enderecoEmpresa.numero,
+            complemento: raw.enderecoEmpresa.complemento,
+            bairro: raw.enderecoEmpresa.bairro,
+            cidade: raw.enderecoEmpresa.municipio,
+            uf: raw.enderecoEmpresa.uf?.toUpperCase() ?? null,
+          }
+        : null,
+      objetoSocial: raw.objetoSocial,
+      dataConstituicao: raw.dataConstituicao,
     };
   },
 
@@ -99,6 +109,7 @@ export const agenciaAdapter = {
 
   toFinalizarCadastroFormData(params: {
     cnpjMascarado: string;
+    razaoSocial: string;
     contratoSocial: File;
     origem: string | null;
     telefoneComercial: string;
@@ -113,6 +124,7 @@ export const agenciaAdapter = {
     const formData = new FormData();
 
     formData.set("cnpj", unmaskCnpj(params.cnpjMascarado));
+    formData.set("razaoSocial", params.razaoSocial);
     if (params.origem) {
       formData.set("origem", params.origem);
     }

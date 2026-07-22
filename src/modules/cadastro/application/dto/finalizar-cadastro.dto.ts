@@ -44,6 +44,10 @@ export interface EnderecoBancoSubmitInput {
 
 export interface FinalizarCadastroInput {
   cnpj: string;
+  // Extraída do contrato social durante o preenchimento (Passo 1) — o que
+  // o usuário viu na revisão é o que é persistido; sem isso, cai no CNPJ
+  // (ver FinalizarCadastroUseCase).
+  razaoSocial: string;
   contratoSocial: UploadedFileInput;
   origem: string | null;
   telefoneComercial: string;

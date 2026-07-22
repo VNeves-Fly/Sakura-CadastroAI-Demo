@@ -82,6 +82,9 @@ export const finalizarCadastroMetaSchema = z
     cnpj: z
       .string()
       .regex(/^[A-Z0-9]{12}\d{2}$/, "CNPJ inválido. Verifique os caracteres digitados."),
+    // Extraída do contrato social no wizard — pode vir vazia se a análise
+    // falhou; o use-case cai pro CNPJ nesse caso (não trava o cadastro).
+    razaoSocial: z.string(),
     origem: z.string().trim().min(1).optional(),
     telefoneComercial: z.string(),
     semTelefoneComercial: z.boolean(),

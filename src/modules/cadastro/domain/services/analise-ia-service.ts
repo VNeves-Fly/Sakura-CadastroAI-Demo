@@ -51,6 +51,36 @@ export interface AnaliseIaSocioDetalhe {
   documentos: AnaliseIaDocumentoDetalhe[];
 }
 
+// Stage 1 (verificação cadastral) do /agency-analysis/sync — dados
+// "oficiais" que o AgentsService busca na Receita/BrasilAPI, já como
+// comparação contra o que foi fornecido. Substitui a consulta direta a
+// ReceitaWS que o CadastroAI fazia antes (ver FinalizarCadastroUseCase).
+export interface AnaliseIaCampoComparado {
+  fornecido: string | null;
+  oficial: string | null;
+  confere: boolean | null;
+}
+
+export interface AnaliseIaCnaePrincipal {
+  codigo: string | null;
+  descricao: string | null;
+  compativelTurismo: boolean | null;
+}
+
+export interface AnaliseIaSociosComparados {
+  fornecidos: Array<Record<string, unknown>>;
+  oficiais: Array<Record<string, unknown>>;
+  divergencias: string[];
+}
+
+export interface AnaliseIaStage1 {
+  situacaoCadastral: string | null;
+  cnaePrincipal: AnaliseIaCnaePrincipal | null;
+  razaoSocial: AnaliseIaCampoComparado | null;
+  nomeFantasia: AnaliseIaCampoComparado | null;
+  socios: AnaliseIaSociosComparados | null;
+}
+
 // Detalhamento do stage3 (cruzamento documental) devolvido pelo
 // /agency-analysis/sync — usado pra dar contexto ao analista quando o
 // parecer não é APROVADO, em vez de só "algo divergiu".
@@ -69,6 +99,10 @@ export interface AnaliseIaResultado {
   // Idem — detalhamento do cruzamento (stage3), null quando a resposta não
   // trouxer (ex.: mock, ou API antiga sem esse campo).
   detalhamento?: AnaliseIaDetalhamento | null;
+  // Idem — verificação cadastral oficial (stage1), null quando a resposta
+  // não trouxer (ex.: mock, focus sem "cadastral"/"completo", ou API antiga
+  // sem esse campo).
+  stage1?: AnaliseIaStage1 | null;
 }
 
 export interface AnaliseIaService {

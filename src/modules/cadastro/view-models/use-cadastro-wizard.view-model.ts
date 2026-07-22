@@ -73,6 +73,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     (state) => state.analisandoContratoSocial,
   );
   const contratoSocialAnalise = useCadastroWizardStore((state) => state.contratoSocialAnalise);
+  const razaoSocial = useCadastroWizardStore((state) => state.razaoSocial);
 
   const setCnpjRaw = useCadastroWizardStore((state) => state.setCnpj);
   const setCnpjStatus = useCadastroWizardStore((state) => state.setCnpjStatus);
@@ -86,6 +87,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setContratoSocialAnalise = useCadastroWizardStore(
     (state) => state.setContratoSocialAnalise,
   );
+  const setRazaoSocial = useCadastroWizardStore((state) => state.setRazaoSocial);
 
   // Erros de validação de arquivo (regra em arquivo-upload.util.ts,
   // compartilhada com a validação real do backend) — vivem aqui, não nos
@@ -176,11 +178,9 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origem]);
 
-  // Quando a consulta QSA resolve, a Receita já trouxe todos os sócios da
-  // empresa — pré-preenchemos um card pra cada nome (o usuário só
-  // complementa CPF/e-mail/telefone/endereço/RG), em vez de exigir
-  // "Adicionar sócio" manualmente pra cada um. Nunca sobrescreve nome já
-  // preenchido nem remove sócio adicionado a mais pelo usuário.
+  // LEGADO — qsaResult nunca é populado hoje (consultarQsaSeCompleto não é
+  // mais chamado por setCnpj), então este efeito fica inerte. Mantido junto
+  // com o resto do código de QSA/ReceitaWS por decisão do usuário.
   useEffect(() => {
     if (!qsaResult) return;
 
@@ -197,12 +197,14 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qsaResult]);
 
-  // Quando a análise do contrato social resolve, tenta preencher um card
-  // de sócio pra cada nome extraído (e o endereço, se o contrato social
-  // trouxer — MEI às vezes não tem) — mesma regra não-destrutiva da QSA
-  // (nunca sobrescreve nome/endereço já preenchidos nem remove sócio
-  // adicionado a mais pelo usuário). Também guarda o valor bruto extraído
-  // em sociosValoresExtraidosIa, pra sinalizar divergência depois.
+  // Quando a análise do contrato social resolve, tenta preencher um card de
+  // sócio pra cada nome extraído — mesma regra não-destrutiva da QSA (nunca
+  // sobrescreve nome já preenchido nem remove sócio adicionado a mais pelo
+  // usuário). O contrato social só devolve nomes (socios_nomes_completos) —
+  // não há endereço por sócio nesse documento; CPF/RG/data de
+  // nascimento/endereço completam depois via doc_identificacao. Também
+  // guarda o valor bruto extraído em sociosValoresExtraidosIa, pra sinalizar
+  // divergência depois.
   useEffect(() => {
     if (!contratoSocialAnalise) return;
 
@@ -214,22 +216,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       if (!atualizados[index].nome) {
         atualizados[index] = { ...atualizados[index], nome: socioExtraido.nome };
       }
-      const endereco = socioExtraido.endereco;
-      if (endereco) {
-        const semEnderecoAinda =
-          !atualizados[index].logradouro && !atualizados[index].cep && !atualizados[index].cidade;
-        if (semEnderecoAinda) {
-          atualizados[index] = {
-            ...atualizados[index],
-            cep: endereco.cep ? maskCep(endereco.cep) : atualizados[index].cep,
-            logradouro: endereco.logradouro ?? atualizados[index].logradouro,
-            numero: endereco.numero ?? atualizados[index].numero,
-            bairro: endereco.bairro ?? atualizados[index].bairro,
-            cidade: endereco.cidade ?? atualizados[index].cidade,
-            uf: endereco.uf ?? atualizados[index].uf,
-          };
-        }
-      }
     });
     setSocios(atualizados);
 
@@ -239,11 +225,37 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
         proximo[index] = {
           ...(proximo[index] ?? VALORES_EXTRAIDOS_IA_VAZIO),
           nome: socioExtraido.nome,
-          endereco: socioExtraido.endereco,
         };
       });
       return proximo;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contratoSocialAnalise]);
+
+  // Dados da empresa extraídos do contrato social — substituem o que antes
+  // vinha do QSA/ReceitaWS (razão social) e nunca tinha um lugar pra ir
+  // (endereço da empresa). Preenchimento campo a campo, nunca sobrescreve o
+  // que já está preenchido — mesma regra do resto do wizard.
+  useEffect(() => {
+    if (!contratoSocialAnalise) return;
+
+    if (!razaoSocial && contratoSocialAnalise.razaoSocial) {
+      setRazaoSocial(contratoSocialAnalise.razaoSocial);
+    }
+
+    const endereco = contratoSocialAnalise.endereco;
+    if (endereco) {
+      setEnderecoBanco((atual) => ({
+        ...atual,
+        cep: atual.cep || (endereco.cep ? maskCep(endereco.cep) : atual.cep),
+        logradouro: atual.logradouro || endereco.logradouro || atual.logradouro,
+        numero: atual.numero || endereco.numero || atual.numero,
+        complemento: atual.complemento || endereco.complemento || atual.complemento,
+        bairro: atual.bairro || endereco.bairro || atual.bairro,
+        cidade: atual.cidade || endereco.cidade || atual.cidade,
+        uf: atual.uf || endereco.uf || atual.uf,
+      }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contratoSocialAnalise]);
 
@@ -350,6 +362,11 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  // LEGADO — não é mais chamado automaticamente (ver setCnpj). Razão social
+  // e sócios agora vêm do contrato social; endereço e sócios "oficiais" vêm
+  // da Stage 1 do /agency-analysis/sync no submit final. Mantido sem uso
+  // ativo, por decisão do usuário, pra eventual necessidade futura.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function consultarQsaSeCompleto(cnpjMascarado: string) {
     const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
 
@@ -402,7 +419,9 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     const mascarado = maskCnpj(valorDigitado);
     setCnpjRaw(mascarado);
     setCnpjStatus(validarCnpjComMensagem(mascarado));
-    void consultarQsaSeCompleto(mascarado);
+    // ReceitaWS/QSA não é mais consultada aqui — razão social e sócios vêm
+    // do contrato social (ver analisarContratoSocialSeCompleto abaixo e o
+    // useEffect de dados da empresa).
     void analisarContratoSocialSeCompleto(mascarado, contratoSocial);
     socios.forEach((socio, index) => {
       if (socio.rgArquivo) {
@@ -616,7 +635,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       }
 
       if ("favorecidoEhEmpresa" in patch && patch.favorecidoEhEmpresa) {
-        atualizado.favorecidoNome = qsaResult?.razaoSocial ?? "";
+        atualizado.favorecidoNome = razaoSocial || "";
         atualizado.favorecidoDoc = maskCnpj(unmaskCnpj(cnpj));
       }
 
@@ -713,6 +732,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
     const formData = agenciaAdapter.toFinalizarCadastroFormData({
       cnpjMascarado: cnpj,
+      razaoSocial,
       contratoSocial,
       origem,
       telefoneComercial,
@@ -776,6 +796,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     contratoSocialErro,
     analisandoContratoSocial,
     contratoSocialAnalise,
+    razaoSocial,
     setCnpj,
     setContratoSocial,
     cnpjCompleto,

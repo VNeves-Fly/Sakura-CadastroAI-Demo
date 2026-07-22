@@ -5,7 +5,7 @@ import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type {
   AnalisarContratoSocialInput,
   AnalisarContratoSocialOutput,
-  EnderecoSocioContratoSocial,
+  EnderecoEmpresaContratoSocial,
   SocioContratoSocialExtraido,
 } from "@/modules/cadastro/application/dto/analisar-contrato-social.dto";
 
@@ -19,49 +19,42 @@ function extrairListaStrings(valor: unknown): string[] {
     : [];
 }
 
-function extrairEnderecoSocio(valor: unknown): EnderecoSocioContratoSocial | null {
+// Mesma normalização usada em receitaws-qsa-consulta.adapter.ts pro capital
+// social vindo da Receita — aceita tanto número quanto string em formato BR
+// ("100.000,00").
+function extrairCapitalSocial(valor: unknown): number | null {
+  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
+  if (typeof valor !== "string") return null;
+
+  const normalizado = valor.replace(/\./g, "").replace(",", ".");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+// `endereco` é um objeto confirmado no schema do agente (document_type.py,
+// AgentsService) — cep/logradouro/numero/complemento/bairro/municipio/uf.
+function extrairEnderecoEmpresa(valor: unknown): EnderecoEmpresaContratoSocial | null {
   if (typeof valor !== "object" || valor === null) return null;
   const registro = valor as Record<string, unknown>;
 
-  const endereco: EnderecoSocioContratoSocial = {
+  const endereco: EnderecoEmpresaContratoSocial = {
+    cep: extrairString(registro.cep),
     logradouro: extrairString(registro.logradouro),
     numero: extrairString(registro.numero),
+    complemento: extrairString(registro.complemento),
     bairro: extrairString(registro.bairro),
-    cidade: extrairString(registro.cidade),
+    municipio: extrairString(registro.municipio),
     uf: extrairString(registro.uf),
-    cep: extrairString(registro.cep),
   };
 
   const temAlgumCampo = Object.values(endereco).some((campo) => campo !== null);
   return temAlgumCampo ? endereco : null;
 }
 
-// Especulativo — tenta o shape rico (`socios: [{nome, endereco}]`), que
-// nunca foi confirmado em documentação/teste/dado real de produção. Se a
-// IA não devolver isso (ou vier em outro formato), degrada com segurança
-// pro shape hoje confirmado (`socios_nomes_completos: string[]`, só
-// nomes, sem endereço) — nunca lança erro.
+// Contrato social só devolve `socios_nomes_completos` (lista de nomes) —
+// não há endereço por sócio no schema do agente.
 function extrairSocios(camposExtraidos: Record<string, unknown>): SocioContratoSocialExtraido[] {
-  const socioLista = camposExtraidos.socios;
-
-  if (Array.isArray(socioLista) && socioLista.length > 0) {
-    const socios = socioLista
-      .map((item): SocioContratoSocialExtraido | null => {
-        if (typeof item !== "object" || item === null) return null;
-        const registro = item as Record<string, unknown>;
-        const nome = extrairString(registro.nome);
-        if (!nome) return null;
-        return { nome, endereco: extrairEnderecoSocio(registro.endereco) };
-      })
-      .filter((item): item is SocioContratoSocialExtraido => item !== null);
-
-    if (socios.length > 0) return socios;
-  }
-
-  return extrairListaStrings(camposExtraidos.socios_nomes_completos).map((nome) => ({
-    nome,
-    endereco: null,
-  }));
+  return extrairListaStrings(camposExtraidos.socios_nomes_completos).map((nome) => ({ nome }));
 }
 
 // Análise "preview" no Passo 1 do wizard, antes do cadastro existir de
@@ -101,8 +94,8 @@ export class AnalisarContratoSocialUseCase implements UseCase<
       camposObrigatoriosPresentes: resultado.checagens?.camposObrigatoriosPresentes ?? null,
       camposExtras: resultado.camposExtras,
       razaoSocialExtraida: extrairString(resultado.camposExtraidos.razao_social),
-      capitalSocial: extrairString(resultado.camposExtraidos.capital_social),
-      enderecoEmpresa: extrairString(resultado.camposExtraidos.endereco_completo),
+      capitalSocial: extrairCapitalSocial(resultado.camposExtraidos.capital_social),
+      enderecoEmpresa: extrairEnderecoEmpresa(resultado.camposExtraidos.endereco),
       objetoSocial: extrairString(resultado.camposExtraidos.objeto_social),
       dataConstituicao: extrairString(resultado.camposExtraidos.data_constituicao),
     };

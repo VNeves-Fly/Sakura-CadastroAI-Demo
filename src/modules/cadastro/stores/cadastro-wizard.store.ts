@@ -35,6 +35,9 @@ interface CadastroWizardState {
   contratoSocial: File | null;
   analisandoContratoSocial: boolean;
   contratoSocialAnalise: ContratoSocialAnaliseView | null;
+  // Razão social da empresa — preenchida a partir da análise do contrato
+  // social (substitui o que antes vinha do QSA/ReceitaWS).
+  razaoSocial: string;
 
   telefoneComercial: string;
   telefoneComercialPais: string;
@@ -68,6 +71,7 @@ interface CadastroWizardState {
   setContratoSocial: (file: File | null) => void;
   setAnalisandoContratoSocial: (analisando: boolean) => void;
   setContratoSocialAnalise: (analise: ContratoSocialAnaliseView | null) => void;
+  setRazaoSocial: (razaoSocial: string) => void;
 
   setTelefoneComercial: (telefone: string) => void;
   setTelefoneComercialPais: (pais: string) => void;
@@ -117,6 +121,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       contratoSocial: null,
       analisandoContratoSocial: false,
       contratoSocialAnalise: null,
+      razaoSocial: "",
 
       telefoneComercial: "",
       telefoneComercialPais: "BR",
@@ -150,6 +155,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       setContratoSocial: (contratoSocial) => set({ contratoSocial }),
       setAnalisandoContratoSocial: (analisandoContratoSocial) => set({ analisandoContratoSocial }),
       setContratoSocialAnalise: (contratoSocialAnalise) => set({ contratoSocialAnalise }),
+      setRazaoSocial: (razaoSocial) => set({ razaoSocial }),
 
       setTelefoneComercial: (telefoneComercial) => set({ telefoneComercial }),
       setTelefoneComercialPais: (telefoneComercialPais) => set({ telefoneComercialPais }),
@@ -188,6 +194,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
           contratoSocial: null,
           analisandoContratoSocial: false,
           contratoSocialAnalise: null,
+          razaoSocial: "",
           telefoneComercial: "",
           telefoneComercialPais: "BR",
           semTelefoneComercial: false,
@@ -214,6 +221,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
         cnpjStatus: state.cnpjStatus,
         qsaResult: state.qsaResult,
         avisoAlfanumerico: state.avisoAlfanumerico,
+        razaoSocial: state.razaoSocial,
         telefoneComercial: state.telefoneComercial,
         telefoneComercialPais: state.telefoneComercialPais,
         semTelefoneComercial: state.semTelefoneComercial,

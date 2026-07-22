@@ -60,6 +60,7 @@ export async function createAgenciaRoute(request: Request) {
 
     const parsedMeta = finalizarCadastroMetaSchema.safeParse({
       cnpj: formData.get("cnpj"),
+      razaoSocial: formData.get("razaoSocial") ?? "",
       origem: typeof origemRaw === "string" && origemRaw.length > 0 ? origemRaw : undefined,
       telefoneComercial: formData.get("telefoneComercial") ?? "",
       semTelefoneComercial: formData.get("semTelefoneComercial") === "true",
@@ -132,6 +133,7 @@ export async function createAgenciaRoute(request: Request) {
 
     const agencia = await cadastroPublicoController.finalizarCadastro({
       cnpj: parsedMeta.data.cnpj,
+      razaoSocial: parsedMeta.data.razaoSocial,
       origem: parsedMeta.data.origem ?? null,
       contratoSocial: await toUploadedFile(contratoSocialFile),
       telefoneComercial: parsedMeta.data.telefoneComercial,
