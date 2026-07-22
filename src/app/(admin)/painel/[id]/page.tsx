@@ -23,6 +23,11 @@ import {
   AnaliseIaDetalhe,
 } from "@/modules/admin/components/dossie-campos";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
+import {
+  ConsultaAmatCard,
+  ConsultaSofiaCard,
+} from "@/modules/admin/components/consulta-amat-sofia";
+import { consultarAmat, consultarSofia } from "@/modules/admin/utils/mock-amat-sofia.util";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
@@ -189,6 +194,16 @@ export default async function DossieAgenciaPage({
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
 
+  const sociosParaConsulta = representantesLegais.map((socio) => ({
+    id: socio.id,
+    nome: socio.nome,
+    cpf: socio.cpf,
+  }));
+  const [amat, sofia] = await Promise.all([
+    consultarAmat(sociosParaConsulta),
+    consultarSofia(agencia.cnpj, sociosParaConsulta),
+  ]);
+
   // Etapas concluídas ficam navegáveis em modo leitura (?etapa=N na URL) —
   // etapas futuras (index > indiceTrilha) são ignoradas e caem no fallback
   // pra etapa atual, mesma coisa se o cadastro foi recusado (a trilha não
@@ -352,6 +367,9 @@ export default async function DossieAgenciaPage({
               </div>
             )}
           </SecaoColapsavel>
+
+          <ConsultaAmatCard amat={amat} />
+          <ConsultaSofiaCard sofia={sofia} />
 
           <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
             <div className="flex flex-col gap-3">
