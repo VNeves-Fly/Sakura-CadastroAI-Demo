@@ -1,5 +1,6 @@
 import type { UseCase } from "@/modules/shared/application/use-case";
 import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
+import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
@@ -19,9 +20,13 @@ export interface ReenviarDocumentoInput {
 // `agenciaId` (vem da própria URL pública, que usa o id como token — ver
 // decisão do usuário) é conferido contra o documento reprovado pra
 // impedir reenviar um documento de outra agência com esse endpoint.
+// O arquivo é salvo em `agencias/{cnpj}/...` (não `agencias/{agenciaId}/...`)
+// pra ficar na mesma pasta dos demais documentos dessa agência — por isso
+// busca a Agencia aqui só pra resolver o CNPJ.
 export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput, Documento> {
   constructor(
     private readonly documentoRepository: DocumentoRepository,
+    private readonly agenciaRepository: AgenciaRepository,
     private readonly fileStorage: FileStorage,
   ) {}
 
@@ -36,9 +41,15 @@ export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput,
       throw new ConflictError("Este documento não está aguardando reenvio.");
     }
 
+    const agencia = await this.agenciaRepository.findById(documentoReprovado.agenciaId);
+
+    if (!agencia) {
+      throw new NotFoundError("Agência");
+    }
+
     const arquivoSalvo = await this.fileStorage.save(
       input.arquivo,
-      `agencias/${input.agenciaId}/reenvio-${documentoReprovado.tipo.toLowerCase()}`,
+      `agencias/${agencia.cnpj}/reenvio-${documentoReprovado.tipo.toLowerCase()}`,
     );
 
     return this.documentoRepository.create({
