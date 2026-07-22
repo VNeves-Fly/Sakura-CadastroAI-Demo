@@ -85,12 +85,12 @@ export function SecaoColapsavel({
         aria-expanded={aberta}
         className="hover:bg-muted/40 flex w-full items-center justify-between gap-2 p-5 text-left transition-colors"
       >
-        <span className="text-primary flex items-center gap-2">
+        <span className="flex items-center gap-2 text-neutral-900">
           {icon}
           <span className="text-xs font-bold tracking-wide uppercase">{titulo}</span>
         </span>
         <ChevronDown
-          className={`text-primary size-4 shrink-0 transition-transform duration-300 ${
+          className={`size-4 shrink-0 text-neutral-500 transition-transform duration-300 ${
             aberta ? "rotate-180" : "rotate-0"
           }`}
         />

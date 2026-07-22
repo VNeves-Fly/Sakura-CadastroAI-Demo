@@ -10,6 +10,21 @@ import { SocioWizardCard } from "@/modules/cadastro/components/socio-wizard-card
 import { Passo2Empresa } from "@/modules/cadastro/components/steps/passo2-empresa";
 import { Passo6EnderecoBanco } from "@/modules/cadastro/components/steps/passo6-endereco-banco";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import type { SocioWizardValoresExtraidosIa } from "@/modules/cadastro/types/socio-wizard.types";
+
+// sócio já preenchido no wizard: não há análise de identificação em
+// andamento nem valor extraído pela IA pra mostrar/divergir aqui.
+const ANALISE_IDENTIFICACAO_VAZIA = { analisando: false, analise: null };
+
+const VALORES_EXTRAIDOS_IA_VAZIO: SocioWizardValoresExtraidosIa = {
+  nome: null,
+  cpf: null,
+  dataNascimento: null,
+  rg: null,
+  rgOrgaoEmissor: null,
+  rgUf: null,
+  endereco: null,
+};
 
 type RevisaoContratoModalProps = ReturnType<typeof useCadastroWizardViewModel> & {
   aberto: boolean;
@@ -76,6 +91,8 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
     emailFinanceiro,
     socios,
     sociosValidacao,
+    sociosAnaliseIdentificacao,
+    sociosValoresExtraidosIa,
     socioCepBuscando,
     updateSocio,
     toggleRepresentante,
@@ -287,6 +304,12 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
                     index={index}
                     socio={socio}
                     validacao={sociosValidacao[index]!}
+                    analiseIdentificacao={
+                      sociosAnaliseIdentificacao[index] ?? ANALISE_IDENTIFICACAO_VAZIA
+                    }
+                    valoresExtraidosIa={
+                      sociosValoresExtraidosIa[index] ?? VALORES_EXTRAIDOS_IA_VAZIO
+                    }
                     podeRemover={false}
                     cepBuscando={socioCepBuscando === index}
                     onUpdate={(patch) => updateSocio(index, patch)}

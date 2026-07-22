@@ -80,6 +80,8 @@ const config: Config = {
         "warning-bg": "hsl(var(--warning-bg))",
         "warning-text": "hsl(var(--warning-text))",
         info: "hsl(var(--info))",
+        "info-bg": "hsl(var(--info-bg))",
+        "info-text": "hsl(var(--info-text))",
         "pink-glow": "hsl(var(--pink-glow))",
         "violet-glow": "hsl(var(--violet-glow))",
         // Alias semântico de `primary` — cor de marca preservada, nome
