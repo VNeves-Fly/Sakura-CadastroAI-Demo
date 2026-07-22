@@ -199,10 +199,14 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
   // Quando a análise do contrato social resolve, tenta preencher um card
   // de sócio pra cada nome extraído (e o endereço, se o contrato social
-  // trouxer — MEI às vezes não tem) — mesma regra não-destrutiva da QSA
-  // (nunca sobrescreve nome/endereço já preenchidos nem remove sócio
-  // adicionado a mais pelo usuário). Também guarda o valor bruto extraído
-  // em sociosValoresExtraidosIa, pra sinalizar divergência depois.
+  // trouxer — MEI às vezes não tem). Diferente da regra da QSA: aqui
+  // SEMPRE aplica o valor mais recente extraído (mesmo que o campo já
+  // estivesse preenchido) — decisão do usuário, pra garantir que trocar o
+  // contrato social por um arquivo diferente sempre reflita na tela, sem
+  // precisar apagar o campo manualmente antes. Só não mexe em campo que a
+  // IA não retornou dessa vez (undefined/null mantém o valor atual).
+  // Também guarda o valor bruto extraído em sociosValoresExtraidosIa, pra
+  // sinalizar divergência depois.
   useEffect(() => {
     if (!contratoSocialAnalise) return;
 
@@ -211,24 +215,20 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       if (!atualizados[index]) {
         atualizados[index] = criarSocioWizardVazio();
       }
-      if (!atualizados[index].nome) {
+      if (socioExtraido.nome) {
         atualizados[index] = { ...atualizados[index], nome: socioExtraido.nome };
       }
       const endereco = socioExtraido.endereco;
       if (endereco) {
-        const semEnderecoAinda =
-          !atualizados[index].logradouro && !atualizados[index].cep && !atualizados[index].cidade;
-        if (semEnderecoAinda) {
-          atualizados[index] = {
-            ...atualizados[index],
-            cep: endereco.cep ? maskCep(endereco.cep) : atualizados[index].cep,
-            logradouro: endereco.logradouro ?? atualizados[index].logradouro,
-            numero: endereco.numero ?? atualizados[index].numero,
-            bairro: endereco.bairro ?? atualizados[index].bairro,
-            cidade: endereco.cidade ?? atualizados[index].cidade,
-            uf: endereco.uf ?? atualizados[index].uf,
-          };
-        }
+        atualizados[index] = {
+          ...atualizados[index],
+          cep: endereco.cep ? maskCep(endereco.cep) : atualizados[index].cep,
+          logradouro: endereco.logradouro ?? atualizados[index].logradouro,
+          numero: endereco.numero ?? atualizados[index].numero,
+          bairro: endereco.bairro ?? atualizados[index].bairro,
+          cidade: endereco.cidade ?? atualizados[index].cidade,
+          uf: endereco.uf ?? atualizados[index].uf,
+        };
       }
     });
     setSocios(atualizados);
@@ -310,22 +310,22 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
         [indice]: { analisando: false, analise },
       }));
 
-      // Nunca sobrescreve o que o usuário já digitou — mesma regra
-      // não-destrutiva do preenchimento de nome via QSA/contrato social.
+      // Sempre aplica o valor mais recente extraído do RG/CNH anexado —
+      // decisão do usuário: trocar o documento (ex.: subiu o errado, corrige
+      // depois) precisa refletir nos campos sozinho, sem exigir que o
+      // usuário apague manualmente o que a análise anterior preencheu. Só
+      // não mexe em campo que a IA não retornou dessa vez (undefined/null
+      // mantém o valor atual).
       setSocios((current) =>
         current.map((socio, i) => {
           if (i !== indice) return socio;
           const atualizado = { ...socio };
-          if (analise.nome && !atualizado.nome) atualizado.nome = analise.nome;
-          if (analise.cpf && !atualizado.cpf) atualizado.cpf = maskCpf(analise.cpf);
-          if (analise.dataNascimento && !atualizado.dataNascimento) {
-            atualizado.dataNascimento = analise.dataNascimento;
-          }
-          if (analise.rg && !atualizado.rg) atualizado.rg = analise.rg;
-          if (analise.rgOrgaoEmissor && !atualizado.rgOrgaoEmissor) {
-            atualizado.rgOrgaoEmissor = analise.rgOrgaoEmissor;
-          }
-          if (analise.rgUf && !atualizado.rgUf) atualizado.rgUf = analise.rgUf;
+          if (analise.nome) atualizado.nome = analise.nome;
+          if (analise.cpf) atualizado.cpf = maskCpf(analise.cpf);
+          if (analise.dataNascimento) atualizado.dataNascimento = analise.dataNascimento;
+          if (analise.rg) atualizado.rg = analise.rg;
+          if (analise.rgOrgaoEmissor) atualizado.rgOrgaoEmissor = analise.rgOrgaoEmissor;
+          if (analise.rgUf) atualizado.rgUf = analise.rgUf;
           return atualizado;
         }),
       );
