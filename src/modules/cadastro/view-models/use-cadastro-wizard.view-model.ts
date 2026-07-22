@@ -148,6 +148,29 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   );
   const setSubmitDuplicado = useCadastroWizardStore((state) => state.setDuplicado);
 
+  // "analisando" cobre toda a espera pós-clique em Enviar (reconsulta QSA,
+  // análise de documentos pela IA, geração do contrato); "aprovado"/"revisao"
+  // é o desfecho final — fica exibido (sem trocar pra nenhuma outra tela por
+  // trás, que seria uma segunda mensagem redundante). A duração mínima de
+  // "analisando" vale pra QUALQUER desfecho (sucesso, duplicado ou erro) —
+  // sem isso, uma resposta rápida do servidor (ex: erro de validação em <1s)
+  // fazia a animação sumir quase instantaneamente.
+  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "aprovado" | "revisao">(
+    "idle",
+  );
+  const inicioAnaliseRef = useRef<number | null>(null);
+
+  const DURACAO_MINIMA_ANALISE_MS = 10000;
+
+  async function aguardarDuracaoMinimaAnalise() {
+    const decorrido = Date.now() - (inicioAnaliseRef.current ?? Date.now());
+    const restante = Math.max(0, DURACAO_MINIMA_ANALISE_MS - decorrido);
+
+    if (restante > 0) {
+      await new Promise((resolve) => setTimeout(resolve, restante));
+    }
+  }
+
   useEffect(() => {
     setOrigem(origem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
