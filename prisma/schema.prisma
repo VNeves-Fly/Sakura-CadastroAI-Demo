@@ -141,6 +141,7 @@ model Agencia {
   representantesLegais RepresentanteLegal[]
   documentos           Documento[]
   contratos            Contrato[]
+  analiseIa            AnaliseIaAgencia?
   dadosReceita         DadosReceita?
   gateValidacoes       GateValidacao[]
   alertas              Alerta[]
@@ -454,6 +455,26 @@ model AnaliseIaDocumento {
   processadoEm DateTime @default(now())
 
   @@map("analises_ia_documentos")
+}
+
+// Veredito final do /agency-analysis/sync (parecer/justificativa/flags_risco
+// + stage3, o cruzamento documento×fonte oficial×fornecido) — uma linha por
+// agência, gravada na mesma transação de FinalizarCadastroUseCase. Existe
+// pra dar contexto real ao analista quando o parecer não é APROVADO, em vez
+// de só o status "em_complementar" sem explicação.
+model AnaliseIaAgencia {
+  id        String  @id @default(cuid())
+  agenciaId String  @unique
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  parecer      String?
+  motivo       String?
+  flagsRisco   String[]
+  detalhamento Json?
+
+  avaliadoEm DateTime @default(now())
+
+  @@map("analises_ia_agencias")
 }
 
 model Contrato {

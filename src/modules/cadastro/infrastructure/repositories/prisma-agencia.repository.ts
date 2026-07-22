@@ -1,5 +1,6 @@
 import type { PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/analise-ia-service";
 import {
   Prisma,
   StatusAgencia as PrismaStatusAgencia,
@@ -87,6 +88,19 @@ function analiseIaParaPrisma(
     referenciaCruzadaOk: resultado.checagens?.referenciaCruzadaOk ?? null,
     detalhesChecagem: resultado.checagens
       ? (resultado.checagens.detalhes as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
+  };
+}
+
+function analiseIaFinalParaPrisma(
+  resultado: AnaliseIaResultado,
+): Prisma.AnaliseIaAgenciaCreateWithoutAgenciaInput {
+  return {
+    parecer: resultado.parecer ?? null,
+    motivo: resultado.motivo,
+    flagsRisco: resultado.flagsRisco ?? [],
+    detalhamento: resultado.detalhamento
+      ? (resultado.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
   };
 }
@@ -376,6 +390,15 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           favorecidoDoc: data.enderecoBanco.favorecidoDoc,
         },
       });
+
+      if (data.analiseIaFinal) {
+        await tx.analiseIaAgencia.create({
+          data: {
+            agenciaId: agencia.id,
+            ...analiseIaFinalParaPrisma(data.analiseIaFinal),
+          },
+        });
+      }
 
       if (data.contrato) {
         await tx.contrato.create({

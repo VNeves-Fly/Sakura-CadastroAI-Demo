@@ -48,6 +48,7 @@ export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService
           document_type: input.documentType,
           session_id: input.cnpj,
           channel: "api",
+          include_verdict: true,
         }),
       });
 

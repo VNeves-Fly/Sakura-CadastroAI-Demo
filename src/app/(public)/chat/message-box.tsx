@@ -50,13 +50,13 @@ export function MessageBox({ pending, onEnviar }: MessageBoxProps) {
             : "Escolha uma opção acima..."
         }
         rows={1}
-        className="min-w-0 flex-1 resize-none bg-transparent text-[11px] text-white outline-none placeholder:text-white/30 disabled:cursor-not-allowed"
+        className="min-w-0 flex-1 resize-none bg-transparent text-base text-white outline-none placeholder:text-white/30 disabled:cursor-not-allowed"
       />
       <button
         type="button"
         disabled={!habilitado || valor.trim().length === 0}
         onClick={enviar}
-        className="bg-primary hover:bg-secondary shrink-0 rounded-full px-3.5 py-1.5 text-[10px] font-bold tracking-wide text-white uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="bg-primary hover:bg-secondary shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold tracking-wide text-white uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
       >
         Enviar
       </button>
