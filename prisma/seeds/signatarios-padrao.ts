@@ -56,5 +56,5 @@ export async function seedSignatariosPadrao(prisma: PrismaClient): Promise<void>
     });
   }
 
-  console.log(`Seed: ${SIGNATARIOS_PADRAO.length} signatários padrão da Sakura`);
+  console.warn(`Seed: ${SIGNATARIOS_PADRAO.length} signatários padrão da Sakura`);
 }

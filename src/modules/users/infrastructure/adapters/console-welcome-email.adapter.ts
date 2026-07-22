@@ -8,7 +8,7 @@ import type {
 // projeto, ex. mock-d4sign.adapter.ts).
 export class ConsoleWelcomeEmailAdapter implements WelcomeEmailSender {
   async send(input: WelcomeEmailInput): Promise<void> {
-    console.log(
+    console.warn(
       `[email:boas-vindas:mock] Para: ${input.to} | Olá, ${input.firstName}!` +
         (input.temporaryPassword ? ` | Senha: ${input.temporaryPassword}` : ""),
     );
