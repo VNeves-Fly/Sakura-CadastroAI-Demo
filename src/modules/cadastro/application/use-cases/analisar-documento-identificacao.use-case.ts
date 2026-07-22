@@ -46,6 +46,10 @@ function extrairDataNascimentoIso(valor: unknown): string | null {
 // FinalizarCadastroUseCase usa na análise final (o arquivo é re-enviado
 // nesse momento; duplicação aceitável pelo ganho de UX de já preencher
 // CPF/data de nascimento durante o preenchimento).
+//
+// O slot tem nome fixo (`socio-{indice}-identificacao-preview`, sem
+// timestamp — decisão do usuário de não acumular versões antigas no
+// bucket): cada novo envio simplesmente sobrescreve o anterior.
 export class AnalisarDocumentoIdentificacaoUseCase implements UseCase<
   AnalisarDocumentoIdentificacaoInput,
   AnalisarDocumentoIdentificacaoOutput
