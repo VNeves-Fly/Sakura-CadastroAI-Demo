@@ -172,9 +172,8 @@ export default async function ArquivoDossiePage({
         ) : null}
       </div>
 
-      {/* Abas — Dossiê (leitura) e Documentação (analista pode aprovar/
-          reprovar/solicitar reenvio, sempre editável independente do
-          status ser Ativo ou Reprovado). */}
+      {/* Abas — Dossiê (leitura) e Documentação (lista de consulta com
+          "Ver documento" por item, ver ListaDocumentos acima). */}
       <div className="flex gap-2">
         {ABAS.map((aba) => {
           const ativa = aba.chave === abaAtual.chave;
