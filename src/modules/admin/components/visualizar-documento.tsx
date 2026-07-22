@@ -14,6 +14,10 @@ interface VisualizarDocumentoProps {
   gcsPath: string;
   label: string;
   children: ReactNode;
+  // Rodapé opcional do modal (ex: botões Aprovar/Reprovar) — força o
+  // analista a abrir o documento antes de decidir, em vez de decidir
+  // direto na linha da lista sem ver o arquivo.
+  acoes?: ReactNode;
 }
 
 // Botão + modal de pré-visualização — antes "Ver anexo" abria
@@ -27,6 +31,7 @@ export function VisualizarDocumento({
   gcsPath,
   label,
   children,
+  acoes,
 }: VisualizarDocumentoProps) {
   const [aberto, setAberto] = useState(false);
   const url = `/api/painel/documentos/${documentoId}/arquivo`;
@@ -80,6 +85,8 @@ export function VisualizarDocumento({
                 <iframe src={url} title={label} className="h-full w-full border-0" />
               )}
             </div>
+
+            {acoes ? <div className="border-border bg-card border-t px-5 py-4">{acoes}</div> : null}
           </div>
         </div>
       ) : null}
