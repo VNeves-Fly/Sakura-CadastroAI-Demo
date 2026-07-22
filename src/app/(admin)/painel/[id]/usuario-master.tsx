@@ -5,7 +5,7 @@ import { UserCog, Copy, Check, CheckCircle2, Clock, ClipboardCopy } from "lucide
 import type { RepresentanteLegalDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { UsuarioMasterView } from "@/modules/admin/adapters/dossie.adapter";
 import { DatePicker } from "@/components/ui/date-picker";
-import { SecaoColapsavel } from "./secao-colapsavel";
+import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 
 const INPUT_CLASSNAME =
   "w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";

@@ -49,7 +49,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
       { label: "Atribuições", href: null, icon: Users },
       { label: "Atendimento", href: null, icon: MessageCircle },
       { label: "Eventos", href: null, icon: CalendarDays },
-      { label: "Arquivo", href: null, icon: Archive },
+      { label: "Arquivo", href: "/arquivo", icon: Archive },
     ],
   },
   {
