@@ -7,23 +7,21 @@ export interface AnalisarContratoSocialInput {
   };
 }
 
-export interface EnderecoSocioContratoSocial {
-  logradouro: string | null;
-  numero: string | null;
-  bairro: string | null;
-  cidade: string | null;
-  uf: string | null;
-  cep: string | null;
-}
-
 export interface SocioContratoSocialExtraido {
   nome: string;
-  // Especulativo — MEI às vezes não traz endereço dos sócios no contrato
-  // social, e não há confirmação de que o agente devolva esse shape rico
-  // (`socios: [{nome, endereco}]`); quando ausente, fica null sem travar
-  // nada (ver extrairSocios() no use-case, que degrada pro shape hoje
-  // confirmado, só nomes).
-  endereco: EnderecoSocioContratoSocial | null;
+}
+
+// Shape confirmado do agente (document_type.py, AgentsService): `endereco`
+// é um objeto — cep/logradouro/numero/complemento/bairro/municipio/uf —
+// não texto corrido.
+export interface EnderecoEmpresaContratoSocial {
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  municipio: string | null;
+  uf: string | null;
 }
 
 export interface AnalisarContratoSocialOutput {
@@ -36,11 +34,11 @@ export interface AnalisarContratoSocialOutput {
   camposExtras: Record<string, unknown>;
   // Campos principais que a IA já extrai do contrato social mas que antes
   // eram descartados (só o cnpj e socios_nomes_completos viravam saída) —
-  // string ou null, nunca lançam erro quando a IA não encontra o campo ou
-  // devolve algo no formato errado.
+  // nunca lançam erro quando a IA não encontra o campo ou devolve algo no
+  // formato errado.
   razaoSocialExtraida: string | null;
-  capitalSocial: string | null;
-  enderecoEmpresa: string | null;
+  capitalSocial: number | null;
+  enderecoEmpresa: EnderecoEmpresaContratoSocial | null;
   objetoSocial: string | null;
   dataConstituicao: string | null;
 }

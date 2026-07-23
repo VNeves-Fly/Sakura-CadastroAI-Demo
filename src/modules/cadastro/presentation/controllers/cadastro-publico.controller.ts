@@ -42,6 +42,9 @@ const documentoRepository = new PrismaDocumentoRepository(prisma);
 const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
+// LEGADO — não é mais usado por FinalizarCadastroUseCase (razão social vem
+// do contrato social, dados oficiais vêm da Stage 1 do /agency-analysis/sync).
+// Mantido só pela rota /api/cadastro/qsa, hoje sem chamador no client.
 const qsaConsultaService = createQsaConsultaService();
 const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
   ? new D4SignAdapter(signatarioPadraoRepository)
@@ -58,7 +61,6 @@ export const cadastroPublicoController = {
     const useCase = new FinalizarCadastroUseCase(
       agenciaRepository,
       fileStorage,
-      qsaConsultaService,
       contratoAssinaturaService,
       analiseIaService,
       documentAnalysisService,

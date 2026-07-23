@@ -10,6 +10,47 @@ function extrairString(valor: unknown): string | null {
   return typeof valor === "string" && valor.length > 0 ? valor : null;
 }
 
+// Shape confirmado do agente (document_type.py, AgentsService): `rg` é um
+// objeto `{value, expedidor, expedidor_uf}` — não 3 chaves soltas no nível
+// raiz. Só existe quando o documento é uma CNH que referencia o RG do
+// titular (ou outro doc_identificacao classificado como CNH); quando o
+// próprio documento classifica como RG, essa info está em
+// numero_documento/orgao_emissor (ver extrairDadosRg).
+interface RgExtraido {
+  value: string | null;
+  expedidor: string | null;
+  expedidorUf: string | null;
+}
+
+function extrairRgObjeto(valor: unknown): RgExtraido | null {
+  if (typeof valor !== "object" || valor === null) return null;
+  const registro = valor as Record<string, unknown>;
+
+  const rg: RgExtraido = {
+    value: extrairString(registro.value),
+    expedidor: extrairString(registro.expedidor),
+    expedidorUf: extrairString(registro.expedidor_uf),
+  };
+
+  return rg.value || rg.expedidor || rg.expedidorUf ? rg : null;
+}
+
+// Quando o documento classifica como RG (não CNH), o próprio documento É o
+// RG — a IA preenche os campos de topo numero_documento/orgao_emissor (não
+// o objeto `rg`, que é só pra CNH referenciando um RG externo). Cai pra
+// esse fallback só nesse caso.
+function extrairDadosRg(camposExtraidos: Record<string, unknown>): RgExtraido | null {
+  const doObjeto = extrairRgObjeto(camposExtraidos.rg);
+  if (doObjeto) return doObjeto;
+
+  const tipo = extrairString(camposExtraidos.tipo_documento_identificado);
+  if (tipo !== "RG") return null;
+
+  const value = extrairString(camposExtraidos.numero_documento);
+  const expedidor = extrairString(camposExtraidos.orgao_emissor);
+  return value || expedidor ? { value, expedidor, expedidorUf: null } : null;
+}
+
 // A IA devolve a data em `DD/MM/YYYY` (às vezes já em ISO) — o wizard exige
 // `YYYY-MM-DD` (mesmo formato de <input type="date">). Só devolve a data se
 // ela for uma data de calendário real (rejeita "31/02/1990" em vez de deixar
@@ -73,17 +114,16 @@ export class AnalisarDocumentoIdentificacaoUseCase implements UseCase<
       documentType: "doc_identificacao",
     });
 
+    const rg = extrairDadosRg(resultado.camposExtraidos);
+
     return {
       // A IA devolve o nome completo em `nome_completo`, não `nome`.
       nome: extrairString(resultado.camposExtraidos.nome_completo),
       cpf: extrairString(resultado.camposExtraidos.cpf),
       dataNascimento: extrairDataNascimentoIso(resultado.camposExtraidos.data_nascimento),
-      // Especulativo — chaves `rg`/`rg_orgao_emissor`/`rg_uf` não confirmadas
-      // em nenhuma documentação/teste/dado real de produção; degrada pra
-      // null sem lançar erro se a IA não devolver ou vier em outro formato.
-      rg: extrairString(resultado.camposExtraidos.rg),
-      rgOrgaoEmissor: extrairString(resultado.camposExtraidos.rg_orgao_emissor),
-      rgUf: extrairString(resultado.camposExtraidos.rg_uf),
+      rg: rg?.value ?? null,
+      rgOrgaoEmissor: rg?.expedidor ?? null,
+      rgUf: rg?.expedidorUf ?? null,
       alertas: resultado.alertas,
       confianca: resultado.confiancaExtracao,
     };

@@ -7,18 +7,18 @@ export interface QsaResultView {
   emailReceita: string;
 }
 
-export interface EnderecoSocioContratoSocialView {
+export interface SocioContratoSocialView {
+  nome: string;
+}
+
+export interface EnderecoEmpresaContratoSocialView {
+  cep: string | null;
   logradouro: string | null;
   numero: string | null;
+  complemento: string | null;
   bairro: string | null;
   cidade: string | null;
   uf: string | null;
-  cep: string | null;
-}
-
-export interface SocioContratoSocialView {
-  nome: string;
-  endereco: EnderecoSocioContratoSocialView | null;
 }
 
 export interface ContratoSocialAnaliseView {
@@ -26,6 +26,11 @@ export interface ContratoSocialAnaliseView {
   socios: SocioContratoSocialView[];
   alertas: string[];
   confianca: number;
+  razaoSocial: string | null;
+  capitalSocial: number | null;
+  endereco: EnderecoEmpresaContratoSocialView | null;
+  objetoSocial: string | null;
+  dataConstituicao: string | null;
 }
 
 export interface DocumentoIdentificacaoAnaliseView {
