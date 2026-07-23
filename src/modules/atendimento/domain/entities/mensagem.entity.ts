@@ -15,6 +15,9 @@ export interface MensagemEntity {
   conteudo: string;
   duracaoSegundos?: number;
   tamanhoArquivo?: string;
+  // Presente só quando tipo !== "texto" — usado pelo front pra montar a
+  // URL /api/atendimento/midia/{midiaId} (play de áudio, abrir imagem/pdf).
+  midiaId?: string;
   lido: boolean;
   createdAt: string;
 }

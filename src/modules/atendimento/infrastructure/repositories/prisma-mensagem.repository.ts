@@ -70,6 +70,7 @@ export function mensagemToDomain(record: MensagemComRelacoes): MensagemEntity {
     conteudo: record.conteudo,
     duracaoSegundos: record.duracaoSegundos ?? undefined,
     tamanhoArquivo: formatarTamanhoArquivo(record.midia?.gcsSize ?? record.tamanhoArquivoBytes),
+    midiaId: record.midia?.id,
     lido: record.lido,
     createdAt: record.createdAt.toISOString(),
   };

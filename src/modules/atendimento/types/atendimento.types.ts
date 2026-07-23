@@ -21,10 +21,13 @@ export interface Mensagem {
   analistaNome?: string;
   tipo: TipoMensagem;
   conteudo: string;
-  // Só usado quando tipo === "audio" (duração em segundos) — mock.
+  // Só usado quando tipo === "audio" (duração em segundos).
   duracaoSegundos?: number;
-  // Só usado quando tipo === "pdf" (tamanho exibido) — mock.
+  // Só usado quando tipo !== "texto" (tamanho do arquivo formatado).
   tamanhoArquivo?: string;
+  // Presente só quando tipo !== "texto" — monta a URL de mídia:
+  // /api/atendimento/midia/{midiaId} (play de áudio, abrir imagem/pdf).
+  midiaId?: string;
   lido: boolean;
   createdAt: string; // ISO string no front
 }
