@@ -49,7 +49,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
       { label: "Cadastros", href: "/painel", icon: ClipboardList },
       { label: "Atribuições", href: null, icon: Users },
       { label: "Atendimento", href: "/atendimento", icon: MessageCircle },
-      { label: "Eventos", href: null, icon: CalendarDays },
+      { label: "Eventos", href: "/painel/eventos", icon: CalendarDays },
       { label: "Arquivo", href: "/arquivo", icon: Archive },
     ],
   },
@@ -98,7 +98,15 @@ export function AdminSidebar() {
                   item.href ? (
                     <SidebarMenuItem key={item.label}>
                       <SidebarMenuButton
-                        isActive={pathname.startsWith(item.href)}
+                        isActive={
+                          // "/painel" é prefixo de toda subrota (usuários,
+                          // eventos, messenger) — só marca "Cadastros" ativo
+                          // na rota exata, senão os dois ficam destacados
+                          // juntos em qualquer página dentro de /painel.
+                          item.href === "/painel"
+                            ? pathname === "/painel"
+                            : pathname.startsWith(item.href)
+                        }
                         tooltip={item.label}
                         render={<Link href={item.href} />}
                       >

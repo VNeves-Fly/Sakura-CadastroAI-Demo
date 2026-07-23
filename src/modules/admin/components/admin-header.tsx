@@ -15,6 +15,7 @@ interface AdminHeaderProps {
 const ROTULOS_PAGINA: Record<string, string> = {
   "/painel/usuarios": "Usuários",
   "/painel/messenger": "Messenger",
+  "/painel/eventos": "Eventos",
   "/painel": "Cadastros",
   "/arquivo": "Arquivo",
   "/atendimento": "Atendimento",
