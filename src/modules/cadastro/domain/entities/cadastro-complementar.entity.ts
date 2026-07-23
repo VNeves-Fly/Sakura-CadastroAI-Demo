@@ -20,6 +20,7 @@ export interface CadastroComplementarProps {
 
   bancoPais: string | null;
   bancoNome: string | null;
+  bancoCodigo: string | null;
   bancoAgencia: string | null;
   bancoConta: string | null;
   bancoSwift: string | null;
@@ -112,6 +113,10 @@ export class CadastroComplementar {
 
   get bancoNome(): string | null {
     return this.props.bancoNome;
+  }
+
+  get bancoCodigo(): string | null {
+    return this.props.bancoCodigo;
   }
 
   get bancoAgencia(): string | null {

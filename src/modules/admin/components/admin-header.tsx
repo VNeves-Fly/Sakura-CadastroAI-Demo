@@ -14,7 +14,12 @@ interface AdminHeaderProps {
 // página nova entra aqui conforme for sendo construída.
 const ROTULOS_PAGINA: Record<string, string> = {
   "/painel/usuarios": "Usuários",
+  "/painel/messenger": "Messenger",
+  "/painel/eventos": "Eventos",
   "/painel": "Cadastros",
+  "/arquivo": "Arquivo",
+  "/atendimento": "Atendimento",
+  "/atribuicoes": "Atribuições",
 };
 
 function rotuloDaPagina(pathname: string): string {

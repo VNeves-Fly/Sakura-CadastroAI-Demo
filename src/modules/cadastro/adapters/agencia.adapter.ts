@@ -225,6 +225,7 @@ export const agenciaAdapter = {
         endereco,
         bancoPais: params.enderecoBanco.bancoPais,
         bancoNome: params.enderecoBanco.bancoNome,
+        bancoCodigo: params.enderecoBanco.bancoCodigo,
         bancoAgencia: params.enderecoBanco.bancoAgencia,
         bancoConta: params.enderecoBanco.bancoConta,
         bancoSwift: params.enderecoBanco.bancoSwift,

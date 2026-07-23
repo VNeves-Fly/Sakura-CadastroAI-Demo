@@ -49,6 +49,7 @@ import {
 } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
+import { resolverOrigemEvento } from "@/modules/eventos/utils/resolver-origem.util";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -230,16 +231,28 @@ export default async function DossieAgenciaPage({
     (etapa) => etapa.status === STATUS_AGUARDANDO_ATIVACAO,
   );
   const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
+  const origemEvento = resolverOrigemEvento(agencia.origem);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-xl font-bold tracking-wide text-[#72243e]">{agencia.razaoSocial}</h1>
-          {/* Executivo/Gestor/Base escondidos até existir fonte de dado real
-              (aguardando modelagem no backend) — mostrar "—" com tooltip
-              parecia funcionalidade quebrada, não um espaço reservado pro
-              futuro. */}
+          {/* Gestor/Base escondidos até existir fonte de dado real (aguardando
+              modelagem no backend) — mostrar "—" com tooltip parecia
+              funcionalidade quebrada, não um espaço reservado pro futuro.
+              Evento/Executivo já dá pra resolver via o mock de /eventos
+              (ver resolver-origem.util.ts) a partir de Agencia.origem. */}
+          {origemEvento ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="bg-accent text-accent-foreground rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap">
+                {origemEvento.eventoNome}
+              </span>
+              <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
+                {origemEvento.executivoNome}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -421,6 +434,7 @@ export default async function DossieAgenciaPage({
                 {formatarEndereco(complementar.enderecoAgencia)}
               </Campo>
               <Campo label="Banco">
+                {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
                 {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})
               </Campo>
               <Campo label="Tipo de Conta">{labelTipoConta(complementar.tipoConta ?? "")}</Campo>

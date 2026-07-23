@@ -232,6 +232,25 @@ export function SocioWizardCard({
 
             <div className="flex flex-col gap-1">
               <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Data de nascimento<span className="text-destructive"> *</span>
+              </label>
+              <DatePicker
+                value={socio.dataNascimento}
+                onChange={(valor) => onUpdate({ dataNascimento: valor })}
+                disabledDays={{ after: new Date() }}
+              />
+              {dataNascimentoStatus.mensagem ? (
+                <span className="text-destructive text-xs font-medium">
+                  {dataNascimentoStatus.mensagem}
+                </span>
+              ) : null}
+              <AvisoDivergencia mensagem={divergenciaDataNascimento.mensagem} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
                 E-mail<span className="text-destructive"> *</span>
               </label>
               <input
@@ -245,23 +264,43 @@ export function SocioWizardCard({
                 <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
               ) : null}
             </div>
-          </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-              Data de nascimento<span className="text-destructive"> *</span>
-            </label>
-            <DatePicker
-              value={socio.dataNascimento}
-              onChange={(valor) => onUpdate({ dataNascimento: valor })}
-              disabledDays={{ after: new Date() }}
-            />
-            {dataNascimentoStatus.mensagem ? (
-              <span className="text-destructive text-xs font-medium">
-                {dataNascimentoStatus.mensagem}
-              </span>
-            ) : null}
-            <AvisoDivergencia mensagem={divergenciaDataNascimento.mensagem} />
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Telefone<span className="text-destructive"> *</span>
+              </label>
+              <div className="flex gap-2">
+                <Select
+                  items={PAISES_TELEFONE_ITEMS}
+                  value={socio.telefonePais}
+                  onValueChange={(valor) => onUpdate({ telefonePais: valor ?? "" })}
+                >
+                  <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAISES_TELEFONE.map((pais) => (
+                      <SelectItem key={pais.codigo} value={pais.codigo}>
+                        {pais.bandeira} {pais.ddi || "Outro"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={socio.telefone}
+                  onChange={(event) => onUpdate({ telefone: event.target.value })}
+                  className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+                  placeholder={paisTelefone.placeholder}
+                />
+              </div>
+              {telefoneInvalido ? (
+                <span className="text-destructive text-xs font-medium">
+                  Telefone incompleto para {paisTelefone.nome}.
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -303,43 +342,6 @@ export function SocioWizardCard({
               />
               <AvisoDivergencia mensagem={divergenciaRgUf.mensagem} />
             </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-              Telefone<span className="text-destructive"> *</span>
-            </label>
-            <div className="flex gap-2">
-              <Select
-                items={PAISES_TELEFONE_ITEMS}
-                value={socio.telefonePais}
-                onValueChange={(valor) => onUpdate({ telefonePais: valor ?? "" })}
-              >
-                <SelectTrigger className="w-[6.5rem] shrink-0 px-2.5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAISES_TELEFONE.map((pais) => (
-                    <SelectItem key={pais.codigo} value={pais.codigo}>
-                      {pais.bandeira} {pais.ddi || "Outro"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={socio.telefone}
-                onChange={(event) => onUpdate({ telefone: event.target.value })}
-                className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
-                placeholder={paisTelefone.placeholder}
-              />
-            </div>
-            {telefoneInvalido ? (
-              <span className="text-destructive text-xs font-medium">
-                Telefone incompleto para {paisTelefone.nome}.
-              </span>
-            ) : null}
           </div>
 
           <div className="flex flex-col gap-1">
