@@ -2,16 +2,21 @@ import type {
   Conversa,
   Mensagem,
   TextoPronto,
+  TemplateAprovado,
+  ConfiguracaoWhatsappBusiness,
   EnviarMensagemInput,
   AssumirAtendimentoInput,
   CriarTextoProntoInput,
   SolicitarTransferenciaInput,
   ResponderTransferenciaInput,
+  CriarTemplateInput,
+  SalvarConfiguracaoWhatsappInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import {
   gerarConversasMock,
   gerarTextosProntosMock,
   gerarTemplatesAprovadosMock,
+  gerarConfiguracaoWhatsappMock,
 } from "@/modules/atendimento/mock/atendimento-mock.data";
 
 // Troque pelas chamadas reais (fetch pra uma rota /api/atendimento/*)
@@ -30,7 +35,8 @@ export const TIMEOUT_TRANSFERENCIA_MS = 60_000;
 // já que não é persistido de verdade).
 let conversas = gerarConversasMock();
 let textosProntos = gerarTextosProntosMock();
-const templatesAprovados = gerarTemplatesAprovadosMock();
+let templates = gerarTemplatesAprovadosMock();
+let configuracaoWhatsapp = gerarConfiguracaoWhatsappMock();
 
 function atraso(ms = 150): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -113,9 +119,64 @@ export const atendimentoApi = {
     return clonar(conversas);
   },
 
-  async listarTemplatesAprovados() {
+  // Só os aprovados — é o que pode ser usado de verdade pra iniciar
+  // conversa fora da janela de 24h (ver TemplatesAprovadosPicker/
+  // TemplatesDropdownButton no /atendimento).
+  async listarTemplatesAprovados(): Promise<TemplateAprovado[]> {
     await atraso();
-    return clonar(templatesAprovados);
+    return clonar(templates.filter((template) => template.status === "aprovado"));
+  },
+
+  // Todos, independente do status — usado na tela de configuração
+  // (Messenger), pra o analista acompanhar o que está pendente/rejeitado
+  // pela Meta.
+  async listarTemplates(): Promise<TemplateAprovado[]> {
+    await atraso();
+    return clonar(templates);
+  },
+
+  // "Enviar pra aprovação da Meta" — no mock, só cria com status
+  // pendente; a aprovação de verdade (webhook de status do template) só
+  // existe quando a integração real com a API do WhatsApp Business
+  // acontecer. Nunca simula um "aprovado" instantâneo — seria inventar
+  // uma decisão que só a Meta pode tomar.
+  async criarTemplate(input: CriarTemplateInput): Promise<TemplateAprovado> {
+    await atraso();
+    const novo: TemplateAprovado = {
+      id: crypto.randomUUID(),
+      ...input,
+      status: "pendente_aprovacao",
+      motivoRejeicao: null,
+      criadoEm: new Date().toISOString(),
+    };
+    templates = [...templates, novo];
+    return clonar(novo);
+  },
+
+  async obterConfiguracaoWhatsapp(): Promise<ConfiguracaoWhatsappBusiness> {
+    await atraso();
+    return clonar(configuracaoWhatsapp);
+  },
+
+  async salvarConfiguracaoWhatsapp(
+    input: SalvarConfiguracaoWhatsappInput,
+  ): Promise<ConfiguracaoWhatsappBusiness> {
+    await atraso();
+    configuracaoWhatsapp = {
+      appId: input.appId,
+      whatsappBusinessAccountId: input.whatsappBusinessAccountId,
+      phoneNumberId: input.phoneNumberId,
+      numeroTelefoneExibicao: input.numeroTelefoneExibicao,
+      webhookVerifyToken: input.webhookVerifyToken,
+      appSecretConfigurado: input.appSecret.trim().length > 0,
+      accessTokenConfigurado: input.accessToken.trim().length > 0,
+      // Nunca "true" no mock — só quando a integração real confirmar a
+      // conexão (ex: uma chamada de teste bem-sucedida na Graph API).
+      conectado: false,
+      salvoPor: input.salvoPor,
+      salvoEm: new Date().toISOString(),
+    };
+    return clonar(configuracaoWhatsapp);
   },
 
   async listarTextosProntos(): Promise<TextoPronto[]> {

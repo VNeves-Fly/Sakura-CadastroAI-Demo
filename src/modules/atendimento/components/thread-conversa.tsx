@@ -186,6 +186,64 @@ function TextosProntosPicker({
   );
 }
 
+// Botão "+" do input — antes simulava anexar um arquivo, mas o analista
+// não consegue mandar mídia nenhuma pro cliente de verdade (sem
+// integração real com WhatsApp Business ainda) — vira o atalho pra
+// mandar um template aprovado a qualquer momento (não só quando a janela
+// de 24h está fechada, ver TemplatesAprovadosPicker abaixo pra esse caso
+// obrigatório).
+function TemplatesDropdownButton({
+  templatesAprovados,
+  onEnviar,
+}: {
+  templatesAprovados: TemplateAprovado[];
+  onEnviar: (conteudo: string) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((atual) => !atual)}
+        title="Enviar template aprovado"
+        className="border-input text-foreground hover:bg-accent flex size-9 shrink-0 items-center justify-center rounded-full border transition"
+      >
+        <Plus className="size-4" />
+      </button>
+
+      {aberto ? (
+        <div className="border-border bg-card absolute bottom-full left-0 z-10 mb-2 flex w-72 flex-col gap-1 rounded-xl border p-3 shadow-xl">
+          <span className="text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold tracking-wide uppercase">
+            <Sparkles className="size-3.5" />
+            Templates aprovados pela Meta
+          </span>
+          {templatesAprovados.length === 0 ? (
+            <p className="text-muted-foreground text-xs">Nenhum template disponível.</p>
+          ) : (
+            templatesAprovados.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => {
+                  onEnviar(template.conteudo);
+                  setAberto(false);
+                }}
+                className="hover:bg-accent rounded-lg px-2 py-1.5 text-left"
+              >
+                <span className="text-foreground block text-xs font-semibold">{template.nome}</span>
+                <span className="text-muted-foreground line-clamp-1 block text-xs">
+                  {template.conteudo}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TemplatesAprovadosPicker({
   templatesAprovados,
   onEnviar,
@@ -279,18 +337,6 @@ export function ThreadConversa({
     await onEnviarMensagem(conversa.id, { tipo: "texto", conteudo });
   }
 
-  // Anexar hoje só simula o envio (sem upload real — não existe
-  // FileStorage ligado a este mock) — troque por um input de arquivo de
-  // verdade quando o back-end desta área existir.
-  async function anexarMock() {
-    if (!conversa) return;
-    await onEnviarMensagem(conversa.id, {
-      tipo: "pdf",
-      conteudo: "documento-anexado.pdf",
-      tamanhoArquivo: "1.2 MB",
-    });
-  }
-
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -354,14 +400,10 @@ export function ThreadConversa({
             onEscolher={(conteudo) => setTexto(conteudo)}
             onCriar={onCriarTextoPronto}
           />
-          <button
-            type="button"
-            onClick={() => void anexarMock()}
-            title="Anexar arquivo"
-            className="border-input text-foreground hover:bg-accent flex size-9 shrink-0 items-center justify-center rounded-full border transition"
-          >
-            <Plus className="size-4" />
-          </button>
+          <TemplatesDropdownButton
+            templatesAprovados={templatesAprovados}
+            onEnviar={(conteudo) => void enviarTemplate(conteudo)}
+          />
           <input
             type="text"
             value={texto}

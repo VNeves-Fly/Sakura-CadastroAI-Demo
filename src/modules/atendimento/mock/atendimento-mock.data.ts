@@ -3,6 +3,7 @@ import type {
   Mensagem,
   TextoPronto,
   TemplateAprovado,
+  ConfiguracaoWhatsappBusiness,
 } from "@/modules/atendimento/types/atendimento.types";
 
 // Dado 100% mockado, gerado uma vez por carregamento da página — nada
@@ -335,11 +336,40 @@ export function gerarTemplatesAprovadosMock(): TemplateAprovado[] {
       nome: "boas_vindas_retorno",
       conteudo:
         "Olá! Notamos que faz um tempo desde nossa última conversa. Podemos ajudar em algo?",
+      categoria: "UTILITY",
+      idioma: "pt_BR",
+      status: "aprovado",
+      motivoRejeicao: null,
+      criadoEm: horasAtras(200),
     },
     {
       id: "template-2",
       nome: "status_cadastro",
       conteudo: "Olá! Passando pra te atualizar sobre o status do seu cadastro na Sakura.",
+      categoria: "UTILITY",
+      idioma: "pt_BR",
+      status: "aprovado",
+      motivoRejeicao: null,
+      criadoEm: horasAtras(150),
     },
   ];
+}
+
+// Nunca "conectado" no mock — não existe integração real com a Meta
+// ainda (ver atendimento-api.ts). Segredos (App Secret, Access Token)
+// nem entram aqui — só o booleano "configurado" (ver
+// ConfiguracaoWhatsappBusiness).
+export function gerarConfiguracaoWhatsappMock(): ConfiguracaoWhatsappBusiness {
+  return {
+    appId: "",
+    whatsappBusinessAccountId: "",
+    phoneNumberId: "",
+    numeroTelefoneExibicao: "",
+    webhookVerifyToken: "",
+    appSecretConfigurado: false,
+    accessTokenConfigurado: false,
+    conectado: false,
+    salvoPor: null,
+    salvoEm: null,
+  };
 }

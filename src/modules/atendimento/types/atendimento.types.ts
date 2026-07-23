@@ -94,10 +94,53 @@ export interface TextoPronto {
   conteudo: string;
 }
 
+// Categorias oficiais que a Meta exige na submissão de um template
+// (WhatsApp Business Message Templates).
+export type CategoriaTemplate = "MARKETING" | "UTILITY" | "AUTHENTICATION";
+
+export type StatusTemplate = "aprovado" | "pendente_aprovacao" | "rejeitado";
+
 export interface TemplateAprovado {
   id: string;
   nome: string;
   conteudo: string;
+  categoria: CategoriaTemplate;
+  idioma: string;
+  status: StatusTemplate;
+  // Motivo devolvido pela Meta quando status === "rejeitado" — só existe
+  // de verdade depois da revisão deles, nunca inventado aqui.
+  motivoRejeicao: string | null;
+  criadoEm: string; // ISO string no front
+}
+
+// Credenciais do Meta for Developers / WhatsApp Business API — campos
+// pensados pra bater 1:1 com o painel da Meta (developers.facebook.com),
+// pra facilitar quando o back-end for preencher de verdade. Segredos
+// (App Secret, Access Token) nunca voltam em texto puro depois de
+// salvos — só um booleano "configurado", igual qualquer painel de API
+// key de verdade faz; ver SalvarConfiguracaoWhatsappInput pra entrada.
+export interface ConfiguracaoWhatsappBusiness {
+  appId: string;
+  whatsappBusinessAccountId: string;
+  phoneNumberId: string;
+  numeroTelefoneExibicao: string;
+  webhookVerifyToken: string;
+  appSecretConfigurado: boolean;
+  accessTokenConfigurado: boolean;
+  conectado: boolean;
+  salvoPor: string | null;
+  salvoEm: string | null;
+}
+
+export interface SalvarConfiguracaoWhatsappInput {
+  appId: string;
+  appSecret: string;
+  whatsappBusinessAccountId: string;
+  phoneNumberId: string;
+  numeroTelefoneExibicao: string;
+  accessToken: string;
+  webhookVerifyToken: string;
+  salvoPor: string;
 }
 
 // ---- Inputs (equivalentes aos DTOs do back-end) ----
@@ -125,4 +168,11 @@ export interface SolicitarTransferenciaInput {
 
 export interface ResponderTransferenciaInput {
   aceita: boolean;
+}
+
+export interface CriarTemplateInput {
+  nome: string;
+  conteudo: string;
+  categoria: CategoriaTemplate;
+  idioma: string;
 }

@@ -1,12 +1,33 @@
 "use client";
 
-import { Image as ImageIcon, FileText, Users, History, ClipboardList } from "lucide-react";
+import Link from "next/link";
+import {
+  Image as ImageIcon,
+  FileText,
+  Users,
+  History,
+  ClipboardList,
+  ExternalLink,
+} from "lucide-react";
 import type { Conversa } from "@/modules/atendimento/types/atendimento.types";
 import {
   iniciaisNome,
   labelPapelMembro,
   formatarTempoDecorrido,
 } from "@/modules/atendimento/utils/atendimento-formato.util";
+
+// Ativo/Reprovado é dossiê do Arquivo (/arquivo/[id]); qualquer outro
+// status ainda está em andamento no funil (/painel/[id]) — mesmo
+// critério já usado nessas duas páginas reais. Como o /atendimento hoje
+// é 100% mock (ver atendimento.types.ts), o agenciaId aqui não bate com
+// nenhuma Agencia real do banco ainda — o link já sai certo, só passa a
+// resolver de verdade quando este módulo for ligado ao back-end.
+function linkFichaCliente(conversa: Conversa): string {
+  const { statusAgencia } = conversa.resumoFicha;
+  return statusAgencia === "ativo" || statusAgencia === "recusado"
+    ? `/arquivo/${conversa.agenciaId}`
+    : `/painel/${conversa.agenciaId}`;
+}
 
 const LABEL_STATUS_AGENCIA: Record<Conversa["resumoFicha"]["statusAgencia"], string> = {
   ativo: "Ativo",
@@ -49,6 +70,13 @@ export function PainelInformacoes({
           {iniciaisNome(conversaSelecionada.agenciaNome)}
         </div>
         <p className="text-foreground text-sm font-semibold">{conversaSelecionada.agenciaNome}</p>
+        <Link
+          href={linkFichaCliente(conversaSelecionada)}
+          className="bg-primary text-primary-foreground hover:bg-sakura-600 mt-1 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+        >
+          <ExternalLink className="size-3.5" />
+          Ver ficha completa
+        </Link>
       </div>
 
       <div className="border-border flex flex-col gap-2 border-b p-4">
