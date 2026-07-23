@@ -183,6 +183,26 @@ export interface AtualizarTextoProntoInput {
   conteudo: string;
 }
 
+// Espelha DocumentoPendenteView/DocumentosPendentesOutput do módulo
+// cadastro (listar-documentos-pendentes.use-case.ts) — reaproveitado
+// aqui pro picker de "vincular mídia do chat como documento".
+export interface DocumentoPendenteView {
+  id: string;
+  tipo: string;
+  nomeSocio: string | null;
+  motivoReprovacao: string | null;
+}
+
+export interface DocumentosPendentesOutput {
+  razaoSocial: string;
+  documentosPendentes: DocumentoPendenteView[];
+}
+
+export interface VincularMidiaComoDocumentoInput {
+  agenciaId: string;
+  documentoId: string;
+}
+
 export interface ResultadoTesteConexao {
   sucesso: boolean;
   mensagem: string;

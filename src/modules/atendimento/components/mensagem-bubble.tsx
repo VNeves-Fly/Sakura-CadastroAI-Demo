@@ -1,9 +1,30 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Play, Pause, FileText, Check, CheckCheck, ImageIcon, Download, X } from "lucide-react";
+import {
+  Play,
+  Pause,
+  FileText,
+  Check,
+  CheckCheck,
+  ImageIcon,
+  Download,
+  X,
+  Link2,
+} from "lucide-react";
 import type { Mensagem } from "@/modules/atendimento/types/atendimento.types";
 import { formatarHorarioMensagem } from "@/modules/atendimento/utils/atendimento-formato.util";
+import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
+
+const LABEL_TIPO_DOCUMENTO: Record<string, string> = {
+  CONTRATO_SOCIAL: "Contrato Social",
+  RG_CNPJ: "RG/CNH do sócio",
+  PROCURACAO: "Procuração",
+  CADASTUR: "Cadastur",
+  COMPROVANTE_ENDERECO: "Comprovante de Endereço",
+  COMPROVANTE_ENDERECO_AGENCIA: "Comprovante de Endereço da Agência",
+  CERTIDAO_CASAMENTO: "Certidão de Casamento",
+};
 
 function urlMidia(midiaId: string): string {
   return `/api/atendimento/midia/${midiaId}`;
@@ -95,7 +116,205 @@ function PlayerAudio({ mensagem }: { mensagem: Mensagem }) {
   );
 }
 
-function ImagemMensagem({ mensagem }: { mensagem: Mensagem }) {
+// Painel de "vincular ao cadastro" embutido no modal — só aparece se a
+// conversa tem uma agência real por trás (agenciaId), já que "contato
+// não identificado" não tem ficha nenhuma pra vincular (ver
+// Conversa.agenciaId em atendimento.types.ts). Vincular = o analista já
+// decidiu, olhando o arquivo, que ele é o documento certo — por isso cria
+// o Documento já como aprovado, sem passar de novo pela fila de revisão
+// (decisão do usuário, 2026-07-23).
+function VincularDocumentoPainel({ agenciaId, midiaId }: { agenciaId: string; midiaId: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const [pendentes, setPendentes] = useState<
+    | Awaited<ReturnType<typeof atendimentoApi.listarDocumentosPendentes>>["documentosPendentes"]
+    | null
+  >(null);
+  const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  async function abrir() {
+    setAberto(true);
+    if (pendentes) return;
+    setCarregando(true);
+    setErro(null);
+    try {
+      const resultado = await atendimentoApi.listarDocumentosPendentes(agenciaId);
+      setPendentes(resultado.documentosPendentes);
+    } catch (caughtError) {
+      setErro(caughtError instanceof Error ? caughtError.message : "Erro inesperado.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function confirmar() {
+    if (!selecionadoId) return;
+    setEnviando(true);
+    setErro(null);
+    try {
+      await atendimentoApi.vincularMidiaComoDocumento(midiaId, {
+        agenciaId,
+        documentoId: selecionadoId,
+      });
+      setSucesso("Vinculado com sucesso — já sai da lista de pendências da ficha.");
+      setPendentes((atual) => atual?.filter((item) => item.id !== selecionadoId) ?? null);
+      setSelecionadoId(null);
+    } catch (caughtError) {
+      setErro(caughtError instanceof Error ? caughtError.message : "Erro inesperado.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  if (!aberto) {
+    return (
+      <button
+        type="button"
+        onClick={() => void abrir()}
+        className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white transition hover:bg-white/20"
+      >
+        <Link2 className="size-4" />
+        Vincular ao cadastro
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex w-72 flex-col gap-2 rounded-2xl bg-white p-4 text-left text-sm shadow-xl">
+      <p className="text-foreground font-semibold">Vincular a um documento pendente</p>
+
+      {carregando ? (
+        <p className="text-muted-foreground text-xs">Carregando pendências...</p>
+      ) : null}
+
+      {pendentes && pendentes.length === 0 ? (
+        <p className="text-muted-foreground text-xs">
+          Nenhum documento pendente nesta agência no momento.
+        </p>
+      ) : null}
+
+      {pendentes && pendentes.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          {pendentes.map((documento) => (
+            <label
+              key={documento.id}
+              className="border-input has-checked:border-primary has-checked:bg-primary/5 flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs"
+            >
+              <input
+                type="radio"
+                name="documento-pendente"
+                checked={selecionadoId === documento.id}
+                onChange={() => setSelecionadoId(documento.id)}
+                className="accent-primary"
+              />
+              <span className="text-foreground font-medium">
+                {LABEL_TIPO_DOCUMENTO[documento.tipo] ?? documento.tipo}
+              </span>
+              {documento.nomeSocio ? (
+                <span className="text-muted-foreground">— {documento.nomeSocio}</span>
+              ) : null}
+            </label>
+          ))}
+        </div>
+      ) : null}
+
+      {erro ? <p className="text-destructive text-xs">{erro}</p> : null}
+      {sucesso ? <p className="text-success text-xs">{sucesso}</p> : null}
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => setAberto(false)}
+          className="text-muted-foreground hover:text-foreground text-xs font-medium"
+        >
+          Fechar
+        </button>
+        {pendentes && pendentes.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => void confirmar()}
+            disabled={!selecionadoId || enviando}
+            className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {enviando ? "Vinculando..." : "Confirmar vínculo"}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+interface ModalMidiaProps {
+  tipo: "imagem" | "pdf";
+  url: string;
+  legenda: string;
+  agenciaId: string | null;
+  midiaId: string;
+  onFechar: () => void;
+}
+
+// Modal único pra imagem e PDF — dentro do próprio chat (decisão do
+// usuário, 2026-07-23: nada de abrir em nova aba). PDF usa <iframe> (todo
+// navegador atual sabe renderizar PDF nativamente ali dentro).
+function ModalMidia({ tipo, url, legenda, agenciaId, midiaId, onFechar }: ModalMidiaProps) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={legenda}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+      onClick={onFechar}
+    >
+      <div
+        className={`flex max-h-full flex-col ${tipo === "pdf" ? "h-full w-full max-w-3xl" : ""}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {tipo === "imagem" ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={url}
+            alt={legenda}
+            className="max-h-full max-w-full rounded-lg object-contain"
+          />
+        ) : (
+          <iframe src={url} title={legenda} className="h-full w-full rounded-lg bg-white" />
+        )}
+      </div>
+
+      <div
+        className="absolute top-4 right-4 left-4 flex items-center justify-between gap-3"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div>
+          {agenciaId ? <VincularDocumentoPainel agenciaId={agenciaId} midiaId={midiaId} /> : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href={url}
+            download
+            className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white transition hover:bg-white/20"
+          >
+            <Download className="size-4" />
+            Baixar
+          </a>
+          <button
+            type="button"
+            onClick={onFechar}
+            aria-label="Fechar"
+            className="flex size-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImagemMensagem({ mensagem, agenciaId }: { mensagem: Mensagem; agenciaId: string | null }) {
   const [aberta, setAberta] = useState(false);
 
   if (!mensagem.midiaId) {
@@ -122,44 +341,22 @@ function ImagemMensagem({ mensagem }: { mensagem: Mensagem }) {
       </button>
 
       {aberta ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={legenda}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-          onClick={() => setAberta(false)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={legenda}
-            className="max-h-full max-w-full rounded-lg object-contain"
-            onClick={(event) => event.stopPropagation()}
-          />
-          <a
-            href={url}
-            download
-            onClick={(event) => event.stopPropagation()}
-            className="absolute top-4 right-16 flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white transition hover:bg-white/20"
-          >
-            <Download className="size-4" />
-            Baixar
-          </a>
-          <button
-            type="button"
-            onClick={() => setAberta(false)}
-            aria-label="Fechar"
-            className="absolute top-4 right-4 flex size-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
+        <ModalMidia
+          tipo="imagem"
+          url={url}
+          legenda={legenda}
+          agenciaId={agenciaId}
+          midiaId={mensagem.midiaId}
+          onFechar={() => setAberta(false)}
+        />
       ) : null}
     </>
   );
 }
 
-function PdfMensagem({ mensagem }: { mensagem: Mensagem }) {
+function PdfMensagem({ mensagem, agenciaId }: { mensagem: Mensagem; agenciaId: string | null }) {
+  const [aberto, setAberto] = useState(false);
+
   const conteudo = (
     <>
       <FileText className="size-6 shrink-0 opacity-80" />
@@ -177,34 +374,58 @@ function PdfMensagem({ mensagem }: { mensagem: Mensagem }) {
   }
 
   const url = urlMidia(mensagem.midiaId);
+  const legenda = mensagem.conteudo || "Documento enviado";
 
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-2 underline-offset-2 hover:underline"
-    >
-      {conteudo}
-      <Download className="ml-1 size-3.5 shrink-0 opacity-60" />
-    </a>
+    <>
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="flex items-center gap-2 text-left underline-offset-2 hover:underline"
+      >
+        {conteudo}
+      </button>
+
+      {aberto ? (
+        <ModalMidia
+          tipo="pdf"
+          url={url}
+          legenda={legenda}
+          agenciaId={agenciaId}
+          midiaId={mensagem.midiaId}
+          onFechar={() => setAberto(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
-function ConteudoMensagem({ mensagem }: { mensagem: Mensagem }) {
+function ConteudoMensagem({
+  mensagem,
+  agenciaId,
+}: {
+  mensagem: Mensagem;
+  agenciaId: string | null;
+}) {
   switch (mensagem.tipo) {
     case "audio":
       return <PlayerAudio mensagem={mensagem} />;
     case "imagem":
-      return <ImagemMensagem mensagem={mensagem} />;
+      return <ImagemMensagem mensagem={mensagem} agenciaId={agenciaId} />;
     case "pdf":
-      return <PdfMensagem mensagem={mensagem} />;
+      return <PdfMensagem mensagem={mensagem} agenciaId={agenciaId} />;
     default:
       return <p className="text-sm whitespace-pre-wrap">{mensagem.conteudo}</p>;
   }
 }
 
-export function MensagemBubble({ mensagem }: { mensagem: Mensagem }) {
+export function MensagemBubble({
+  mensagem,
+  agenciaId,
+}: {
+  mensagem: Mensagem;
+  agenciaId: string | null;
+}) {
   const doAnalista = mensagem.autor === "analista";
 
   return (
@@ -221,7 +442,7 @@ export function MensagemBubble({ mensagem }: { mensagem: Mensagem }) {
             {mensagem.analistaNome}
           </span>
         ) : null}
-        <ConteudoMensagem mensagem={mensagem} />
+        <ConteudoMensagem mensagem={mensagem} agenciaId={agenciaId} />
         <div className="flex items-center justify-end gap-1">
           <span className="text-[10px] opacity-70">
             {formatarHorarioMensagem(mensagem.createdAt)}

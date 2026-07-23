@@ -518,7 +518,7 @@ export function ThreadConversa({
           </div>
         ) : null}
         {mensagensExibidas.map((mensagem) => (
-          <MensagemBubble key={mensagem.id} mensagem={mensagem} />
+          <MensagemBubble key={mensagem.id} mensagem={mensagem} agenciaId={conversa.agenciaId} />
         ))}
         <div ref={fimDaListaRef} />
       </div>

@@ -13,6 +13,8 @@ import type {
   CriarTemplateInput,
   SalvarConfiguracaoWhatsappInput,
   ResultadoTesteConexao,
+  DocumentosPendentesOutput,
+  VincularMidiaComoDocumentoInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import {
   HORAS_LIMITE_ASSUMIR,
@@ -239,6 +241,24 @@ export const atendimentoApi = {
   async limparSolicitacaoResolvida(conversaId: string): Promise<Conversa> {
     return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/transferencia/limpar`, {
       method: "POST",
+    });
+  },
+
+  // Slots de documento reprovados (contrato social + RG/procuração por
+  // sócio) — alimenta o picker de "vincular mídia recebida no chat".
+  async listarDocumentosPendentes(agenciaId: string): Promise<DocumentosPendentesOutput> {
+    return fetchJson<DocumentosPendentesOutput>(
+      `/api/atendimento/agencias/${agenciaId}/documentos-pendentes`,
+    );
+  },
+
+  // Vincular = o analista já viu o arquivo no chat e decidiu que é o
+  // documento certo — cria o Documento já como aprovado (ver
+  // vincular-midia-como-documento.use-case.ts, módulo cadastro).
+  async vincularMidiaComoDocumento(midiaId: string, input: VincularMidiaComoDocumentoInput) {
+    return fetchJson(`/api/atendimento/midia/${midiaId}/vincular`, {
+      method: "POST",
+      body: JSON.stringify(input),
     });
   },
 };
