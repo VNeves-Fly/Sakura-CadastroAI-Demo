@@ -18,11 +18,16 @@ function fakeMessageId(): string {
 // verdade; deixa o fluxo do módulo testável em dev sem credenciais da
 // Meta.
 export class MockWhatsAppMessagingAdapter implements WhatsAppMessagingService {
-  async enviarTexto(): Promise<EnvioResultado> {
+  async enviarTexto(_paraNumero: string, _texto: string): Promise<EnvioResultado> {
     return { waMessageId: fakeMessageId() };
   }
 
-  async enviarTemplate(): Promise<EnvioResultado> {
+  async enviarTemplate(
+    _paraNumero: string,
+    _templateNome: string,
+    _idioma: string,
+    _parametros?: string[],
+  ): Promise<EnvioResultado> {
     return { waMessageId: fakeMessageId() };
   }
 
