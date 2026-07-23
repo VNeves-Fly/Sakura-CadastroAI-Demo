@@ -19,6 +19,7 @@ const ROTULOS_PAGINA: Record<string, string> = {
   "/painel": "Cadastros",
   "/arquivo": "Arquivo",
   "/atendimento": "Atendimento",
+  "/atribuicoes": "Atribuições",
 };
 
 function rotuloDaPagina(pathname: string): string {
