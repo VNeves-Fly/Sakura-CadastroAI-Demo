@@ -61,23 +61,49 @@ function PainelMidia({ conversa, onFechar }: { conversa: Conversa; onFechar: () 
         <p className="text-muted-foreground text-xs">Nenhuma mídia enviada ainda.</p>
       ) : (
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {midias.map((midia) => (
-            <div
-              key={midia.id}
-              className="bg-card border-border flex w-24 shrink-0 flex-col items-center gap-1 rounded-lg border p-2"
-            >
-              {midia.tipo === "imagem" ? (
-                <ImageIcon className="text-muted-foreground size-6" />
-              ) : midia.tipo === "pdf" ? (
-                <FileText className="text-muted-foreground size-6" />
-              ) : (
-                <Music className="text-muted-foreground size-6" />
-              )}
-              <span className="text-foreground w-full truncate text-center text-[10px]">
-                {midia.conteudo}
-              </span>
-            </div>
-          ))}
+          {midias.map((midia) => {
+            const url = midia.midiaId ? `/api/atendimento/midia/${midia.midiaId}` : null;
+            const conteudoCartao = (
+              <>
+                {midia.tipo === "imagem" && url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={url}
+                    alt={midia.conteudo || "Imagem enviada"}
+                    className="size-12 rounded-md object-cover"
+                  />
+                ) : midia.tipo === "imagem" ? (
+                  <ImageIcon className="text-muted-foreground size-6" />
+                ) : midia.tipo === "pdf" ? (
+                  <FileText className="text-muted-foreground size-6" />
+                ) : (
+                  <Music className="text-muted-foreground size-6" />
+                )}
+                <span className="text-foreground w-full truncate text-center text-[10px]">
+                  {midia.conteudo || (midia.tipo === "audio" ? "Áudio" : midia.tipo)}
+                </span>
+              </>
+            );
+
+            return url ? (
+              <a
+                key={midia.id}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-card border-border hover:border-primary/40 flex w-24 shrink-0 flex-col items-center gap-1 rounded-lg border p-2 transition"
+              >
+                {conteudoCartao}
+              </a>
+            ) : (
+              <div
+                key={midia.id}
+                className="bg-card border-border flex w-24 shrink-0 flex-col items-center gap-1 rounded-lg border p-2"
+              >
+                {conteudoCartao}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

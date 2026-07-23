@@ -149,15 +149,33 @@ export function PainelInformacoes({
           <p className="text-muted-foreground text-xs">Nenhuma imagem enviada ainda.</p>
         ) : (
           <div className="grid grid-cols-4 gap-1.5">
-            {imagens.map((imagem) => (
-              <div
-                key={imagem.id}
-                className="bg-muted/40 flex aspect-square items-center justify-center rounded-md"
-                title={imagem.conteudo}
-              >
-                <ImageIcon className="text-muted-foreground size-4" />
-              </div>
-            ))}
+            {imagens.map((imagem) =>
+              imagem.midiaId ? (
+                <a
+                  key={imagem.id}
+                  href={`/api/atendimento/midia/${imagem.midiaId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={imagem.conteudo || "Ver imagem"}
+                  className="bg-muted/40 block aspect-square overflow-hidden rounded-md"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/atendimento/midia/${imagem.midiaId}`}
+                    alt={imagem.conteudo || "Imagem enviada"}
+                    className="size-full object-cover"
+                  />
+                </a>
+              ) : (
+                <div
+                  key={imagem.id}
+                  className="bg-muted/40 flex aspect-square items-center justify-center rounded-md"
+                  title={imagem.conteudo}
+                >
+                  <ImageIcon className="text-muted-foreground size-4" />
+                </div>
+              ),
+            )}
           </div>
         )}
       </div>
@@ -171,15 +189,33 @@ export function PainelInformacoes({
           <p className="text-muted-foreground text-xs">Nenhum arquivo enviado ainda.</p>
         ) : (
           <div className="flex flex-col gap-1.5">
-            {arquivos.map((arquivo) => (
-              <div key={arquivo.id} className="flex items-center gap-2 text-xs">
-                <FileText className="text-muted-foreground size-4 shrink-0" />
-                <span className="text-foreground truncate">{arquivo.conteudo}</span>
-                {arquivo.tamanhoArquivo ? (
-                  <span className="text-muted-foreground shrink-0">{arquivo.tamanhoArquivo}</span>
-                ) : null}
-              </div>
-            ))}
+            {arquivos.map((arquivo) => {
+              const conteudoLinha = (
+                <>
+                  <FileText className="text-muted-foreground size-4 shrink-0" />
+                  <span className="text-foreground truncate">{arquivo.conteudo}</span>
+                  {arquivo.tamanhoArquivo ? (
+                    <span className="text-muted-foreground shrink-0">{arquivo.tamanhoArquivo}</span>
+                  ) : null}
+                </>
+              );
+
+              return arquivo.midiaId ? (
+                <a
+                  key={arquivo.id}
+                  href={`/api/atendimento/midia/${arquivo.midiaId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-primary flex items-center gap-2 text-xs"
+                >
+                  {conteudoLinha}
+                </a>
+              ) : (
+                <div key={arquivo.id} className="flex items-center gap-2 text-xs">
+                  {conteudoLinha}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
