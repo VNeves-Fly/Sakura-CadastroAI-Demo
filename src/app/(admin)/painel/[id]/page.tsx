@@ -434,6 +434,7 @@ export default async function DossieAgenciaPage({
                 {formatarEndereco(complementar.enderecoAgencia)}
               </Campo>
               <Campo label="Banco">
+                {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
                 {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})
               </Campo>
               <Campo label="Tipo de Conta">{labelTipoConta(complementar.tipoConta ?? "")}</Campo>

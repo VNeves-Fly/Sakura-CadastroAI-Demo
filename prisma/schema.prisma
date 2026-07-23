@@ -311,6 +311,7 @@ model CadastroComplementar {
 
   bancoPais           String?
   bancoNome           String?
+  bancoCodigo         String?
   bancoAgencia        String?
   bancoConta          String?
   bancoSwift          String?

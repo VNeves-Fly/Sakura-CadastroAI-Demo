@@ -83,6 +83,7 @@ export interface EnderecoBancoData {
   endereco: EnderecoData;
   bancoPais: string;
   bancoNome: string;
+  bancoCodigo: string;
   bancoAgencia: string;
   bancoConta: string;
   bancoSwift: string;
@@ -195,6 +196,7 @@ export interface CadastroComplementarDetalhe {
   socioVinculadoEnderecoId: string | null;
   bancoPais: string | null;
   bancoNome: string | null;
+  bancoCodigo: string | null;
   bancoAgencia: string | null;
   bancoConta: string | null;
   bancoSwift: string | null;

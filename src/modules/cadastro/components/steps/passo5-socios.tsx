@@ -53,6 +53,7 @@ export function Passo5Socios({
   sociosValoresExtraidosIa,
   sociosGating,
   socioCepBuscando,
+  analisandoContratoSocial,
   addSocio,
   removeSocio,
   updateSocio,
@@ -97,6 +98,24 @@ export function Passo5Socios({
   }
 
   const socioAtivo = socios[socioAtivoIndex];
+
+  // Os campos de sócio são preenchidos automaticamente pela análise do
+  // contrato social (Passo 1) — mostrar o formulário vazio antes da
+  // análise terminar deixaria o usuário preenchendo à mão algo que a IA
+  // está prestes a completar sozinha, só pra ver tudo mudar debaixo dela.
+  if (analisandoContratoSocial) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-muted-foreground text-sm">
+          Anexe o RG ou CNH de cada sócio — a IA analisa e ajuda a preencher o resto do cadastro.
+        </p>
+        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <Loader2 className="size-3.5 animate-spin" />
+          Extraindo os dados do contrato social...
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">

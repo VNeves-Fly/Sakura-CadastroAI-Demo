@@ -51,6 +51,9 @@ export const enderecoBancoMetaSchema = z
     endereco: enderecoMetaSchema.nullable(),
     bancoPais: z.string(),
     bancoNome: z.string().min(1, "Banco é obrigatório."),
+    // Só bancos nacionais (BrasilAPI) têm código — internacional fica
+    // vazio, por isso não é `.min(1)` como bancoNome.
+    bancoCodigo: z.string(),
     bancoAgencia: z.string().min(1, "Agência é obrigatória."),
     bancoConta: z.string().min(1, "Conta é obrigatória."),
     bancoSwift: z.string(),

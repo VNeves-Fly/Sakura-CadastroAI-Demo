@@ -392,7 +392,11 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
                 <div>
                   <dt className="text-muted-foreground">Banco</dt>
                   <dd className="text-foreground font-medium break-words">
-                    {enderecoBanco.bancoNome || "—"}
+                    {enderecoBanco.bancoNome
+                      ? enderecoBanco.bancoCodigo
+                        ? `${enderecoBanco.bancoCodigo} - ${enderecoBanco.bancoNome}`
+                        : enderecoBanco.bancoNome
+                      : "—"}
                   </dd>
                 </div>
                 <div>

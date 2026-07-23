@@ -26,7 +26,7 @@ import type {
   SocioWizardFormValues,
   SocioWizardValoresExtraidosIa,
 } from "@/modules/cadastro/types/socio-wizard.types";
-import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
+import type { Banco, EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
 import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
 
 interface SocioAnaliseIdentificacaoState {
@@ -163,6 +163,35 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const inicioAnaliseRef = useRef<number | null>(null);
 
   const DURACAO_MINIMA_ANALISE_MS = 10000;
+
+  // Lista de bancos (BrasilAPI, via proxy do backend) pro combobox buscável
+  // do Passo 6 — carregada uma vez só, no mount, independente da seção
+  // estar visível ainda (evita esperar o usuário chegar no Passo 6 pra só
+  // então disparar a busca).
+  const [bancos, setBancos] = useState<Banco[]>([]);
+  const [bancosCarregando, setBancosCarregando] = useState(true);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregarBancos() {
+      try {
+        const raw = await agenciaService.listarBancos();
+        if (!cancelado) setBancos(raw);
+      } catch {
+        // Best-effort — sem lista, o campo de banco cai pro estado vazio
+        // (usuário não fica travado, só perde a busca).
+        if (!cancelado) setBancos([]);
+      } finally {
+        if (!cancelado) setBancosCarregando(false);
+      }
+    }
+
+    void carregarBancos();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   async function aguardarDuracaoMinimaAnalise() {
     const decorrido = Date.now() - (inicioAnaliseRef.current ?? Date.now());
@@ -664,6 +693,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
       if ("bancoPais" in patch && patch.bancoPais !== undefined) {
         atualizado.bancoNome = "";
+        atualizado.bancoCodigo = "";
         atualizado.bancoAgencia = formatarContaBancaria(atualizado.bancoAgencia, patch.bancoPais);
         atualizado.bancoConta = formatarContaBancaria(atualizado.bancoConta, patch.bancoPais);
       }
@@ -878,6 +908,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     enderecoBancoCepBuscando,
     updateEnderecoBanco,
     buscarCepEnderecoBanco,
+    bancos,
+    bancosCarregando,
 
     documentosPendentes,
     isSubmitting,

@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  BANCOS_BRASILEIROS,
   BANCO_PAIS_OPCOES,
   TIPO_CONTA_OPCOES,
 } from "@/modules/cadastro/types/endereco-banco.types";
+import type { Banco } from "@/modules/cadastro/types/endereco-banco.types";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import {
   Select,
@@ -13,6 +13,13 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  Combobox,
+  ComboboxInputGroup,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxItem,
+} from "@/components/ui/combobox";
 
 type Passo6EnderecoBancoProps = ReturnType<typeof useCadastroWizardViewModel>;
 
@@ -31,6 +38,8 @@ export function Passo6EnderecoBanco({
   socios,
   enderecoBanco,
   enderecoBancoCepBuscando,
+  bancos,
+  bancosCarregando,
   updateEnderecoBanco,
   buscarCepEnderecoBanco,
 }: Passo6EnderecoBancoProps) {
@@ -40,6 +49,8 @@ export function Passo6EnderecoBanco({
       ? (socios[enderecoBanco.socioEnderecoVinculado] ?? null)
       : null;
   const bancoInternacional = enderecoBanco.bancoPais === "internacional";
+  const bancoSelecionado =
+    bancos.find((banco) => banco.codigo === enderecoBanco.bancoCodigo) ?? null;
   // items do Select — sem isso, `<Select.Value>` mostra o índice bruto
   // ("0") em vez do nome do sócio.
   const sociosItems: Record<string, string> = Object.fromEntries(
@@ -237,21 +248,33 @@ export function Passo6EnderecoBanco({
               placeholder="Nome do banco"
             />
           ) : (
-            <Select
-              value={enderecoBanco.bancoNome}
-              onValueChange={(valor) => updateEnderecoBanco({ bancoNome: valor ?? "" })}
+            <Combobox<Banco>
+              items={bancos}
+              value={bancoSelecionado}
+              onValueChange={(banco) =>
+                updateEnderecoBanco({
+                  bancoCodigo: banco?.codigo ?? "",
+                  bancoNome: banco?.nome ?? "",
+                })
+              }
+              itemToStringLabel={(banco) => `${banco.codigo} - ${banco.nome}`}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o banco" />
-              </SelectTrigger>
-              <SelectContent>
-                {BANCOS_BRASILEIROS.map((banco) => (
-                  <SelectItem key={banco} value={banco}>
-                    {banco}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <ComboboxInputGroup>
+                <ComboboxInput
+                  placeholder={
+                    bancosCarregando ? "Carregando bancos..." : "Busque por nome ou código"
+                  }
+                  disabled={bancosCarregando}
+                />
+              </ComboboxInputGroup>
+              <ComboboxContent>
+                {(banco: Banco) => (
+                  <ComboboxItem key={banco.codigo} value={banco}>
+                    {banco.codigo} - {banco.nome}
+                  </ComboboxItem>
+                )}
+              </ComboboxContent>
+            </Combobox>
           )}
         </div>
 
