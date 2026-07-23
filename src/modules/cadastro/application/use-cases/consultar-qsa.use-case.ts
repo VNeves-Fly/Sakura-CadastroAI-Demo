@@ -1,3 +1,8 @@
+// LEGADO — sem chamador ativo no wizard: razão social e sócios agora vêm
+// do contrato social, e dados "oficiais" vêm da Stage 1 do
+// /agency-analysis/sync (ver FinalizarCadastroUseCase). Mantido por decisão
+// do usuário para eventual uso futuro; só a rota /api/cadastro/qsa ainda
+// instancia esta classe.
 import type { UseCase } from "@/modules/shared/application/use-case";
 import { NotFoundError } from "@/modules/shared/domain/errors";
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";

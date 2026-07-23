@@ -1,6 +1,6 @@
 import { ListOrdered } from "lucide-react";
 import type { SignatarioFila } from "@/modules/admin/types/dossie.types";
-import { SecaoColapsavel } from "./secao-colapsavel";
+import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 
 // D4Sign avisou (webhook type_post=2) que o convite pra assinar nunca
 // chegou nesse e-mail — sem isso, o signatário fica esperando pra sempre

@@ -1,3 +1,5 @@
+// LEGADO — sem chamador ativo (ver ConsultarQsaUseCase). Mantido por
+// decisão do usuário para eventual uso futuro.
 import type {
   QsaConsultaService,
   QsaResult,

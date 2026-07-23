@@ -4,6 +4,7 @@ import type {
   AnaliseIaInput,
   AnaliseIaResultado,
   AnaliseIaService,
+  AnaliseIaStage1,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 
 // Integração real com o agente de análise da Sakura
@@ -90,6 +91,7 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       parecer: "APROVADO" | "PENDENTE" | "REPROVADO" | null;
       justificativa: string;
       flags_risco: string[];
+      stage1?: RawStage1 | null;
       stage3?: {
         documentos_empresa?: RawDocumentoDetalhe[];
         socios?: RawSocioDetalhe[];
@@ -102,8 +104,54 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       parecer: resultado.parecer ?? undefined,
       flagsRisco: resultado.flags_risco,
       detalhamento: resultado.stage3 ? mapDetalhamento(resultado.stage3) : null,
+      stage1: resultado.stage1 ? mapStage1(resultado.stage1) : null,
     };
   }
+}
+
+interface RawCampoComparado {
+  fornecido: string | null;
+  oficial: string | null;
+  confere: boolean | null;
+}
+
+interface RawStage1 {
+  executed?: boolean;
+  situacao_cadastral: string | null;
+  cnae_principal: {
+    codigo: string | null;
+    description: string | null;
+    compativel_turismo: boolean | null;
+  } | null;
+  razao_social: RawCampoComparado | null;
+  nome_fantasia: RawCampoComparado | null;
+  socios: {
+    fornecidos: Array<Record<string, unknown>>;
+    oficiais: Array<Record<string, unknown>>;
+    divergencias: string[];
+  } | null;
+}
+
+function mapStage1(raw: RawStage1): AnaliseIaStage1 {
+  return {
+    situacaoCadastral: raw.situacao_cadastral,
+    cnaePrincipal: raw.cnae_principal
+      ? {
+          codigo: raw.cnae_principal.codigo,
+          descricao: raw.cnae_principal.description,
+          compativelTurismo: raw.cnae_principal.compativel_turismo,
+        }
+      : null,
+    razaoSocial: raw.razao_social,
+    nomeFantasia: raw.nome_fantasia,
+    socios: raw.socios
+      ? {
+          fornecidos: raw.socios.fornecidos,
+          oficiais: raw.socios.oficiais,
+          divergencias: raw.socios.divergencias,
+        }
+      : null,
+  };
 }
 
 interface RawComparacaoCampo {

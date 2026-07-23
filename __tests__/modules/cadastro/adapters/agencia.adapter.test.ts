@@ -41,32 +41,106 @@ describe("agenciaAdapter.toQsaResultView", () => {
   });
 });
 
+function socioContratoSocialFake(
+  overrides: Partial<RawAnaliseContratoSocialResponse["socios"][number]> = {},
+): RawAnaliseContratoSocialResponse["socios"][number] {
+  return {
+    nome: "Fulano de Tal",
+    cpf: null,
+    dataNascimento: null,
+    estadoCivil: null,
+    nacionalidade: null,
+    regimeBens: null,
+    participacao: null,
+    rg: null,
+    rgExpedidor: null,
+    rgExpedidoUf: null,
+    endereco: null,
+    administrativo: null,
+    ativo: null,
+    ...overrides,
+  };
+}
+
 describe("agenciaAdapter.toContratoSocialAnaliseView", () => {
-  it("repassa os sócios com endereço, deixando a UF em maiúsculas", () => {
+  it("repassa o qsa completo por sócio (nome, cpf, RG, endereço, participação, administrativo/ativo)", () => {
     const raw: RawAnaliseContratoSocialResponse = {
       cnpjConfere: true,
       socios: [
-        {
+        socioContratoSocialFake({
           nome: "Fulano de Tal",
+          cpf: "111.444.777-35",
+          dataNascimento: "1980-05-10",
+          estadoCivil: "casado",
+          nacionalidade: "brasileiro",
+          regimeBens: "comunhão parcial de bens",
+          participacao: 50,
+          rg: "12.345.678-9",
+          rgExpedidor: "SSP",
+          rgExpedidoUf: "sp",
           endereco: {
-            logradouro: "Rua Teste",
-            numero: "100",
-            bairro: "Centro",
-            cidade: "São Paulo",
-            uf: "sp",
             cep: "01310-100",
+            logradouro: "Avenida Paulista",
+            numero: "1000",
+            complemento: null,
+            bairro: "Bela Vista",
+            municipio: "São Paulo",
+            uf: "sp",
           },
-        },
-        { nome: "Beltrana", endereco: null },
+          administrativo: true,
+          ativo: true,
+        }),
+        socioContratoSocialFake({ nome: "Beltrana", participacao: 50 }),
       ],
       alertas: [],
       confianca: 0.9,
+      razaoSocialExtraida: "Empresa Teste Ltda",
+      capitalSocial: 100000,
+      enderecoEmpresa: {
+        cep: "01310-100",
+        logradouro: "Avenida Paulista",
+        numero: "1000",
+        complemento: null,
+        bairro: "Bela Vista",
+        municipio: "São Paulo",
+        uf: "sp",
+      },
+      objetoSocial: "Agenciamento de viagens",
+      dataConstituicao: "2010-01-01",
     };
 
     const view = agenciaAdapter.toContratoSocialAnaliseView(raw);
 
+    expect(view.socios.map((socio) => socio.nome)).toEqual(["Fulano de Tal", "Beltrana"]);
+    expect(view.socios[0]?.cpf).toBe("11144477735");
+    expect(view.socios[0]?.rgExpedidoUf).toBe("SP");
+    expect(view.socios[0]?.endereco?.cidade).toBe("São Paulo");
     expect(view.socios[0]?.endereco?.uf).toBe("SP");
-    expect(view.socios[1]?.endereco).toBeNull();
+    expect(view.socios[0]?.participacao).toBe(50);
+    expect(view.socios[0]?.administrativo).toBe(true);
+    expect(view.socios[0]?.ativo).toBe(true);
+    expect(view.razaoSocial).toBe("Empresa Teste Ltda");
+    expect(view.capitalSocial).toBe(100000);
+    expect(view.endereco?.cidade).toBe("São Paulo");
+    expect(view.endereco?.uf).toBe("SP");
+  });
+
+  it("devolve endereco null quando o contrato social não trouxer nenhum campo", () => {
+    const raw: RawAnaliseContratoSocialResponse = {
+      cnpjConfere: null,
+      socios: [],
+      alertas: [],
+      confianca: 0,
+      razaoSocialExtraida: null,
+      capitalSocial: null,
+      enderecoEmpresa: null,
+      objetoSocial: null,
+      dataConstituicao: null,
+    };
+
+    const view = agenciaAdapter.toContratoSocialAnaliseView(raw);
+
+    expect(view.endereco).toBeNull();
   });
 });
 
@@ -149,6 +223,7 @@ describe("agenciaAdapter.toFinalizarCadastroFormData", () => {
   function paramsBase() {
     return {
       cnpjMascarado: "11.222.333/0001-81",
+      razaoSocial: "Empresa Teste Ltda",
       contratoSocial: arquivoFake("contrato.pdf"),
       origem: "evento-teste",
       telefoneComercial: "(11) 99999-9999",

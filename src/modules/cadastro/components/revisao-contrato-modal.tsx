@@ -81,7 +81,7 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
     aberto,
     onFechar,
     cnpj,
-    qsaResult,
+    razaoSocial,
     contratoSocial,
     telefoneComercial,
     telefoneComercialPais,
@@ -238,9 +238,7 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
               </div>
               <div>
                 <dt className="text-muted-foreground">Razão Social</dt>
-                <dd className="text-foreground font-medium break-words">
-                  {qsaResult?.razaoSocial ?? "—"}
-                </dd>
+                <dd className="text-foreground font-medium break-words">{razaoSocial || "—"}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Contrato Social</dt>

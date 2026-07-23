@@ -12,10 +12,10 @@ export interface AnalisarDocumentoIdentificacaoOutput {
   nome: string | null;
   cpf: string | null;
   dataNascimento: string | null;
-  // Especulativos: não há confirmação de que o agente de IA devolva essas
-  // chaves pro RG/CNH (sem documentação, teste ou dado real de produção
-  // até o momento) — ficam null enquanto isso não for confirmado, sem
-  // travar nada.
+  // Extraídos de `camposExtraidos.rg` (objeto {value, expedidor,
+  // expedidor_uf} quando o doc é CNH referenciando um RG) ou, quando o
+  // próprio documento classifica como RG, de numero_documento/orgao_emissor
+  // (ver extrairDadosRg no use-case).
   rg: string | null;
   rgOrgaoEmissor: string | null;
   rgUf: string | null;

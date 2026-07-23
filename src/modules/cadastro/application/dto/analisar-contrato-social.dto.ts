@@ -7,23 +7,38 @@ export interface AnalisarContratoSocialInput {
   };
 }
 
-export interface EnderecoSocioContratoSocial {
+// Shape confirmado do agente (document_type.py, AgentsService) — usado
+// tanto pro endereço da empresa quanto pro endereço de cada sócio dentro
+// de `qsa` (mesma forma nos dois: cep/logradouro/numero/complemento/
+// bairro/municipio/uf, não texto corrido).
+export interface EnderecoContratoSocial {
+  cep: string | null;
   logradouro: string | null;
   numero: string | null;
+  complemento: string | null;
   bairro: string | null;
-  cidade: string | null;
+  municipio: string | null;
   uf: string | null;
-  cep: string | null;
 }
 
+// Um item de `qsa` (lista de objetos — substituiu o antigo
+// `socios_nomes_completos`, que só tinha nomes soltos). `administrativo` e
+// `ativo` são campos derivados pela IA (inferidos do contexto, não
+// impressos no documento) — ver document_type.py no AgentsService.
 export interface SocioContratoSocialExtraido {
   nome: string;
-  // Especulativo — MEI às vezes não traz endereço dos sócios no contrato
-  // social, e não há confirmação de que o agente devolva esse shape rico
-  // (`socios: [{nome, endereco}]`); quando ausente, fica null sem travar
-  // nada (ver extrairSocios() no use-case, que degrada pro shape hoje
-  // confirmado, só nomes).
-  endereco: EnderecoSocioContratoSocial | null;
+  cpf: string | null;
+  dataNascimento: string | null;
+  estadoCivil: string | null;
+  nacionalidade: string | null;
+  regimeBens: string | null;
+  participacao: number | null;
+  rg: string | null;
+  rgExpedidor: string | null;
+  rgExpedidoUf: string | null;
+  endereco: EnderecoContratoSocial | null;
+  administrativo: boolean | null;
+  ativo: boolean | null;
 }
 
 export interface AnalisarContratoSocialOutput {
@@ -35,12 +50,11 @@ export interface AnalisarContratoSocialOutput {
   camposObrigatoriosPresentes: boolean | null;
   camposExtras: Record<string, unknown>;
   // Campos principais que a IA já extrai do contrato social mas que antes
-  // eram descartados (só o cnpj e socios_nomes_completos viravam saída) —
-  // string ou null, nunca lançam erro quando a IA não encontra o campo ou
-  // devolve algo no formato errado.
+  // eram descartados (só o cnpj e qsa viravam saída) — nunca lançam erro
+  // quando a IA não encontra o campo ou devolve algo no formato errado.
   razaoSocialExtraida: string | null;
-  capitalSocial: string | null;
-  enderecoEmpresa: string | null;
+  capitalSocial: number | null;
+  enderecoEmpresa: EnderecoContratoSocial | null;
   objetoSocial: string | null;
   dataConstituicao: string | null;
 }

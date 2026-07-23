@@ -62,8 +62,12 @@ export function Passo1Documentos({
         erro={contratoSocialErro}
         onChange={setContratoSocial}
         helperText="Clique para anexar o PDF do contrato social atualizado"
-        disabled={!cnpjCompleto}
-        disabledHelperText="Preencha o CNPJ completo pra liberar o envio do contrato social"
+        disabled={!cnpjCompleto || analisandoContratoSocial}
+        disabledHelperText={
+          analisandoContratoSocial
+            ? "Aguarde a análise do documento terminar..."
+            : "Preencha o CNPJ completo pra liberar o envio do contrato social"
+        }
         required
       />
 

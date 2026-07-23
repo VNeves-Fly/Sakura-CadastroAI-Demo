@@ -55,6 +55,7 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       parecer: "APROVADO",
       flagsRisco: [],
       detalhamento: null,
+      stage1: null,
     });
 
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
@@ -110,6 +111,57 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       parecer: "REPROVADO",
       flagsRisco: ["cnae_incompativel"],
       detalhamento: null,
+      stage1: null,
+    });
+  });
+
+  it("mapeia a stage1 (dados oficiais da Receita/BrasilAPI, via AgentsService)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parecer: "APROVADO",
+        justificativa: "",
+        flags_risco: [],
+        stage1: {
+          executed: true,
+          situacao_cadastral: "ATIVA",
+          cnae_principal: {
+            codigo: "79.11-2-00",
+            description: "Agências de viagens",
+            compativel_turismo: true,
+          },
+          razao_social: {
+            fornecido: "Agência Teste",
+            oficial: "AGENCIA TESTE LTDA",
+            confere: true,
+          },
+          nome_fantasia: { fornecido: null, oficial: "Agência Teste", confere: null },
+          socios: {
+            fornecidos: [{ nome: "Fulano de Tal" }],
+            oficiais: [{ nome: "Fulano de Tal", cpf: "39053344705" }],
+            divergencias: [],
+          },
+        },
+      }),
+    });
+
+    const resultado = await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    expect(resultado.stage1).toEqual({
+      situacaoCadastral: "ATIVA",
+      cnaePrincipal: {
+        codigo: "79.11-2-00",
+        descricao: "Agências de viagens",
+        compativelTurismo: true,
+      },
+      razaoSocial: { fornecido: "Agência Teste", oficial: "AGENCIA TESTE LTDA", confere: true },
+      nomeFantasia: { fornecido: null, oficial: "Agência Teste", confere: null },
+      socios: {
+        fornecidos: [{ nome: "Fulano de Tal" }],
+        oficiais: [{ nome: "Fulano de Tal", cpf: "39053344705" }],
+        divergencias: [],
+      },
     });
   });
 

@@ -1,5 +1,7 @@
+import { randomUUID } from "crypto";
 import type { UseCase } from "@/modules/shared/application/use-case";
 import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
+import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
@@ -12,16 +14,28 @@ export interface ReenviarDocumentoInput {
 }
 
 // Reenvio público de um documento reprovado — cria uma linha NOVA
-// (status PENDENTE), nunca sobrescreve ou apaga a reprovada (fica de
-// histórico). Essa linha nova passa a ser "a atual" do slot
-// automaticamente, porque o dossiê sempre lê a mais recente por tipo +
-// representanteLegalId (ver documentoAtual em prisma-agencia.repository).
-// `agenciaId` (vem da própria URL pública, que usa o id como token — ver
-// decisão do usuário) é conferido contra o documento reprovado pra
-// impedir reenviar um documento de outra agência com esse endpoint.
+// (status PENDENTE) no banco. Diferente dos outros slots de documento
+// (que usam nome fixo e sobrescrevem a cada envio — decisão do usuário),
+// o arquivo de reenvio NUNCA é sobrescrito: leva um sufixo aleatório
+// único por chamada, então cada reenvio (mesmo de um documento que já
+// foi reenviado e reprovado de novo antes) fica com seu próprio arquivo,
+// preservado no bucket. A linha antiga no banco também continua
+// existindo (histórico do registro), e a nova passa a ser "a atual" do
+// slot automaticamente, porque o dossiê sempre lê a mais recente por
+// tipo + representanteLegalId (ver documentoAtual em
+// prisma-agencia.repository). `agenciaId` (vem da própria URL pública,
+// que usa o id como token — ver decisão do usuário) é conferido contra o
+// documento reprovado pra impedir reenviar um documento de outra agência
+// com esse endpoint. O arquivo é salvo em `agencias/{cnpj}/...` (não
+// `agencias/{agenciaId}/...`) pra ficar na mesma pasta dos demais
+// documentos dessa agência — por isso busca a Agencia aqui só pra
+// resolver o CNPJ. O path inclui representanteLegalId quando presente
+// porque `tipo` sozinho não distingue sócios diferentes reenviando o
+// mesmo tipo de documento (ex.: RG_CNPJ de dois sócios distintos).
 export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput, Documento> {
   constructor(
     private readonly documentoRepository: DocumentoRepository,
+    private readonly agenciaRepository: AgenciaRepository,
     private readonly fileStorage: FileStorage,
   ) {}
 
@@ -36,9 +50,18 @@ export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput,
       throw new ConflictError("Este documento não está aguardando reenvio.");
     }
 
+    const agencia = await this.agenciaRepository.findById(documentoReprovado.agenciaId);
+
+    if (!agencia) {
+      throw new NotFoundError("Agência");
+    }
+
+    const sufixoSocio = documentoReprovado.representanteLegalId
+      ? `-${documentoReprovado.representanteLegalId}`
+      : "";
     const arquivoSalvo = await this.fileStorage.save(
       input.arquivo,
-      `agencias/${input.agenciaId}/reenvio-${documentoReprovado.tipo.toLowerCase()}`,
+      `agencias/${agencia.cnpj}/reenvio-${documentoReprovado.tipo.toLowerCase()}${sufixoSocio}-${randomUUID()}`,
     );
 
     return this.documentoRepository.create({

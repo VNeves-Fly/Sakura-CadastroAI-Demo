@@ -6,8 +6,8 @@ import {
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
+import type { DadosReceitaEndereco } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
-import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { AnaliseIaService } from "@/modules/cadastro/domain/services/analise-ia-service";
 import type {
@@ -30,17 +30,40 @@ const ENDERECO_VAZIO: EnderecoInput = {
   uf: "",
 };
 
-// ReceitaWS devolve datas em DD/MM/YYYY — degrada pra null em vez de
-// lançar se vier em outro formato (mesmo espírito defensivo do resto da
-// extração de Dados da Receita).
-function parseDataBr(valor: string | null): Date | null {
-  if (!valor) return null;
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor);
-  if (!match) return null;
+// Mesma normalização usada em analisar-contrato-social.use-case.ts —
+// capital social pode vir como número ou string em formato BR ("100.000,00").
+function extrairCapitalSocial(valor: unknown): number | null {
+  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
+  if (typeof valor !== "string") return null;
 
-  const [, dia, mes, ano] = match;
-  const data = new Date(`${ano}-${mes}-${dia}T00:00:00`);
-  return Number.isNaN(data.getTime()) ? null : data;
+  const normalizado = valor.replace(/\./g, "").replace(",", ".");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function extrairString(valor: unknown): string | null {
+  return typeof valor === "string" && valor.length > 0 ? valor : null;
+}
+
+// `endereco` do contrato social é um objeto confirmado no schema do agente
+// (cep/logradouro/numero/complemento/bairro/municipio/uf) — mapeia pro
+// shape de DadosReceitaEndereco (campo "cidade", não "municipio").
+function extrairEnderecoContratoSocial(valor: unknown): DadosReceitaEndereco | null {
+  if (typeof valor !== "object" || valor === null) return null;
+  const registro = valor as Record<string, unknown>;
+
+  const endereco: DadosReceitaEndereco = {
+    cep: extrairString(registro.cep),
+    logradouro: extrairString(registro.logradouro),
+    numero: extrairString(registro.numero),
+    complemento: extrairString(registro.complemento),
+    bairro: extrairString(registro.bairro),
+    cidade: extrairString(registro.municipio),
+    uf: extrairString(registro.uf),
+  };
+
+  const temAlgumCampo = Object.values(endereco).some((campo) => campo !== null);
+  return temAlgumCampo ? endereco : null;
 }
 
 export class FinalizarCadastroUseCase implements UseCase<
@@ -50,7 +73,6 @@ export class FinalizarCadastroUseCase implements UseCase<
   constructor(
     private readonly agenciaRepository: AgenciaRepository,
     private readonly fileStorage: FileStorage,
-    private readonly qsaConsultaService: QsaConsultaService,
     private readonly contratoAssinaturaService: ContratoAssinaturaService,
     private readonly analiseIaService: AnaliseIaService,
     private readonly documentAnalysisService: DocumentAnalysisService,
@@ -64,10 +86,10 @@ export class FinalizarCadastroUseCase implements UseCase<
       throw new ConflictError("Esta agência já está cadastrada.");
     }
 
-    // Reconsulta o QSA no servidor pra ter a razão social a partir de
-    // uma fonte autoritativa, em vez de confiar no que o cliente enviou.
-    const qsaResult = await this.qsaConsultaService.consultar(input.cnpj);
-    const razaoSocial = qsaResult?.razaoSocial ?? input.cnpj;
+    // Razão social extraída do contrato social durante o preenchimento (o
+    // mesmo valor que o usuário viu na revisão) — não reconsulta nada aqui,
+    // evita divergência entre o que foi revisado e o que é persistido.
+    const razaoSocial = input.razaoSocial || input.cnpj;
 
     const contratoSocialSalvo = await this.fileStorage.save(
       input.contratoSocial,
@@ -234,26 +256,40 @@ export class FinalizarCadastroUseCase implements UseCase<
         : null,
     });
 
-    // Cache normalizado da consulta à Receita (Dados da Receita, exibido
-    // no dossiê do painel admin) — best-effort: a agência já foi criada
-    // com sucesso acima, então uma falha aqui (Receita fora do ar, campo
-    // em formato inesperado etc.) nunca deve derrubar o cadastro, só fica
-    // sem esse dado suplementar.
-    if (qsaResult) {
+    // Cache normalizado pro dossiê do painel admin ("Dados da Receita") —
+    // best-effort: a agência já foi criada com sucesso acima, então uma
+    // falha aqui nunca deve derrubar o cadastro, só fica sem esse dado
+    // suplementar. Fonte trocou de ReceitaWS direto pra duas origens que já
+    // rodam no fluxo normal: situação cadastral vem da Stage 1 do
+    // /agency-analysis/sync (dado oficial que o AgentsService já busca);
+    // capital social e endereço vêm do próprio contrato social (não têm
+    // contrapartida "oficial" na Stage 1 hoje). naturezaJuridica/porte/
+    // telefone/email/optanteSimples/dataOpcaoSimples/cnaes ficam sem fonte
+    // — gap aceito, ver docs/agency-analysis se algum dia isso entrar na
+    // Stage 1.
+    const capitalSocial = extrairCapitalSocial(
+      analiseIaContratoSocial.camposExtraidos.capital_social,
+    );
+    const endereco = extrairEnderecoContratoSocial(
+      analiseIaContratoSocial.camposExtraidos.endereco,
+    );
+    const situacaoCadastral = analiseIa.stage1?.situacaoCadastral ?? null;
+
+    if (situacaoCadastral || capitalSocial !== null || endereco) {
       try {
         await this.dadosReceitaRepository.create({
           agenciaId: agencia.id,
-          situacaoCadastral: qsaResult.situacaoCadastral,
-          dataAbertura: parseDataBr(qsaResult.dataAbertura),
-          naturezaJuridica: qsaResult.naturezaJuridica,
-          porte: qsaResult.porte,
-          capitalSocial: qsaResult.capitalSocial,
-          telefone: qsaResult.telefoneReceita || null,
-          email: qsaResult.emailReceita || null,
-          optanteSimples: qsaResult.optanteSimples,
-          dataOpcaoSimples: parseDataBr(qsaResult.dataOpcaoSimples),
-          endereco: qsaResult.endereco,
-          cnaes: qsaResult.cnaes,
+          situacaoCadastral,
+          dataAbertura: null,
+          naturezaJuridica: null,
+          porte: null,
+          capitalSocial,
+          telefone: null,
+          email: null,
+          optanteSimples: false,
+          dataOpcaoSimples: null,
+          endereco,
+          cnaes: [],
         });
       } catch (error) {
         console.warn(`Falha ao persistir Dados da Receita (cnpj=${input.cnpj}): ${String(error)}`);

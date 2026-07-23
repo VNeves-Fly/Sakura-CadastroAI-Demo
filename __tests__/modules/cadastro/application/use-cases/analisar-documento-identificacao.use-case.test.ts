@@ -7,12 +7,11 @@ import type {
 
 const ARQUIVO = { buffer: Buffer.from("pdf"), originalName: "rg.pdf", mimeType: "application/pdf" };
 
-function criarUseCase(camposExtraidos: Record<string, unknown>, alertas: string[] = []) {
-  const fileStorage: FileStorage = {
-    save: jest
-      .fn()
-      .mockResolvedValue({ path: "agencias/x/socio-0-identificacao-preview-1.pdf", bucket: "b" }),
-  };
+function criarMocks(camposExtraidos: Record<string, unknown>, alertas: string[] = []) {
+  const save = jest.fn((_arquivo: unknown, pathHint: string) =>
+    Promise.resolve({ path: `${pathHint}.pdf`, bucket: "b" }),
+  );
+  const fileStorage: FileStorage = { save };
 
   const resultado: DocumentAnalysisResultado = {
     camposExtraidos,
@@ -28,6 +27,11 @@ function criarUseCase(camposExtraidos: Record<string, unknown>, alertas: string[
     analisar: jest.fn().mockResolvedValue(resultado),
   };
 
+  return { fileStorage, documentAnalysisService };
+}
+
+function criarUseCase(camposExtraidos: Record<string, unknown>, alertas: string[] = []) {
+  const { fileStorage, documentAnalysisService } = criarMocks(camposExtraidos, alertas);
   return new AnalisarDocumentoIdentificacaoUseCase(fileStorage, documentAnalysisService);
 }
 
@@ -92,12 +96,11 @@ describe("AnalisarDocumentoIdentificacaoUseCase", () => {
     expect(resultado.rgUf).toBeNull();
   });
 
-  it("extrai rg/rgOrgaoEmissor/rgUf quando a IA devolve essas chaves (especulativo — sem confirmação do agente real)", async () => {
+  it("extrai rg/rgOrgaoEmissor/rgUf do objeto `rg` (CNH referenciando um RG)", async () => {
     const useCase = criarUseCase({
+      tipo_documento_identificado: "CNH",
       nome_completo: "BRUNO HENRIQUE NASCIMENTO BAZOTI",
-      rg: "12.345.678-9",
-      rg_orgao_emissor: "SSP",
-      rg_uf: "SP",
+      rg: { value: "12.345.678-9", expedidor: "SSP", expedidor_uf: "SP" },
     });
 
     const resultado = await useCase.execute({
@@ -111,6 +114,42 @@ describe("AnalisarDocumentoIdentificacaoUseCase", () => {
     expect(resultado.rgUf).toBe("SP");
   });
 
+  it("quando o documento classifica como RG, usa numero_documento/orgao_emissor (não o objeto rg)", async () => {
+    const useCase = criarUseCase({
+      tipo_documento_identificado: "RG",
+      nome_completo: "BRUNO HENRIQUE NASCIMENTO BAZOTI",
+      numero_documento: "12.345.678-9",
+      orgao_emissor: "SSP-SP",
+    });
+
+    const resultado = await useCase.execute({
+      cnpj: "62572350000180",
+      indice: 0,
+      documento: ARQUIVO,
+    });
+
+    expect(resultado.rg).toBe("12.345.678-9");
+    expect(resultado.rgOrgaoEmissor).toBe("SSP-SP");
+    expect(resultado.rgUf).toBeNull();
+  });
+
+  it("não usa numero_documento/orgao_emissor quando classifica como CNH (só o objeto rg vale)", async () => {
+    const useCase = criarUseCase({
+      tipo_documento_identificado: "CNH",
+      numero_documento: "03453719039", // número da própria CNH, não do RG
+      orgao_emissor: "DETRAN SP",
+    });
+
+    const resultado = await useCase.execute({
+      cnpj: "62572350000180",
+      indice: 0,
+      documento: ARQUIVO,
+    });
+
+    expect(resultado.rg).toBeNull();
+    expect(resultado.rgOrgaoEmissor).toBeNull();
+  });
+
   it("não usa mais a chave antiga 'nome' (regressão do bug original)", async () => {
     const useCase = criarUseCase({ nome: "NOME ERRADO", nome_completo: "NOME CERTO" });
 
@@ -121,5 +160,18 @@ describe("AnalisarDocumentoIdentificacaoUseCase", () => {
     });
 
     expect(resultado.nome).toBe("NOME CERTO");
+  });
+
+  it("salva e analisa direto no path fixo do slot (sobrescreve envios anteriores do mesmo sócio)", async () => {
+    const { fileStorage, documentAnalysisService } = criarMocks({ nome_completo: "X" });
+    const useCase = new AnalisarDocumentoIdentificacaoUseCase(fileStorage, documentAnalysisService);
+
+    await useCase.execute({ cnpj: "62572350000180", indice: 0, documento: ARQUIVO });
+
+    const pathFixo = "agencias/62572350000180/socio-0-identificacao-preview";
+    expect(fileStorage.save).toHaveBeenCalledWith(ARQUIVO, pathFixo);
+
+    const [analisarInput] = (documentAnalysisService.analisar as jest.Mock).mock.calls[0];
+    expect(analisarInput.documentPath).toBe(`${pathFixo}.pdf`);
   });
 });

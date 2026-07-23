@@ -1,3 +1,6 @@
+// LEGADO — sem chamador ativo em FinalizarCadastroUseCase. Mantido só pela
+// rota /api/cadastro/qsa (sem chamador no client) por decisão do usuário,
+// para eventual uso futuro.
 import type { QsaConsultaService } from "@/modules/cadastro/domain/services/qsa-consulta-service";
 import { ReceitaWsQsaConsultaAdapter } from "@/modules/cadastro/infrastructure/adapters/receitaws-qsa-consulta.adapter";
 import { MockQsaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-qsa-consulta.adapter";

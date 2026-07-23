@@ -219,6 +219,11 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return record ? this.toDomain(record) : null;
   }
 
+  async findById(id: string): Promise<Agencia | null> {
+    const record = await this.prisma.agencia.findUnique({ where: { id } });
+    return record ? this.toDomain(record) : null;
+  }
+
   async findByContratoProvedorId(provedorId: string): Promise<ContratoPorProvedorId | null> {
     const contrato = await this.prisma.contrato.findFirst({
       where: { provedorId },

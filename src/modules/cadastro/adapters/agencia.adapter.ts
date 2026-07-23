@@ -7,12 +7,14 @@ import type {
   CriarAgenciaResult,
   RawAnaliseContratoSocialResponse,
   RawAnaliseDocumentoIdentificacaoResponse,
+  RawEnderecoContratoSocial,
 } from "@/modules/cadastro/services/agencia.service";
 import type {
   QsaResultView,
   SubmitResultView,
   ContratoSocialAnaliseView,
   DocumentoIdentificacaoAnaliseView,
+  EnderecoContratoSocialView,
 } from "@/modules/cadastro/types/agencia.types";
 import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
 import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
@@ -20,6 +22,24 @@ import type { EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-
 function telefoneComDdi(telefone: string, pais: string): string {
   const ddi = paisTelefonePorCodigo(pais).ddi;
   return ddi ? `${ddi} ${telefone}` : telefone;
+}
+
+// Compartilhado entre o endereço da empresa e o de cada sócio dentro de
+// `qsa` — mesmo shape nos dois (ver document_type.py no AgentsService).
+function toEnderecoContratoSocialView(
+  raw: RawEnderecoContratoSocial | null,
+): EnderecoContratoSocialView | null {
+  if (!raw) return null;
+
+  return {
+    cep: raw.cep,
+    logradouro: raw.logradouro,
+    numero: raw.numero,
+    complemento: raw.complemento,
+    bairro: raw.bairro,
+    cidade: raw.municipio,
+    uf: raw.uf?.toUpperCase() ?? null,
+  };
 }
 
 // Traduz dados entre a forma que a View/ViewModel usam e a forma que o
@@ -56,12 +76,26 @@ export const agenciaAdapter = {
       cnpjConfere: raw.cnpjConfere,
       socios: raw.socios.map((socio) => ({
         nome: socio.nome,
-        endereco: socio.endereco
-          ? { ...socio.endereco, uf: socio.endereco.uf?.toUpperCase() ?? null }
-          : null,
+        cpf: socio.cpf ? unmaskCpf(socio.cpf) : null,
+        dataNascimento: socio.dataNascimento,
+        estadoCivil: socio.estadoCivil,
+        nacionalidade: socio.nacionalidade,
+        regimeBens: socio.regimeBens,
+        participacao: socio.participacao,
+        rg: socio.rg,
+        rgExpedidor: socio.rgExpedidor,
+        rgExpedidoUf: socio.rgExpedidoUf ? socio.rgExpedidoUf.toUpperCase() : null,
+        endereco: toEnderecoContratoSocialView(socio.endereco),
+        administrativo: socio.administrativo,
+        ativo: socio.ativo,
       })),
       alertas: raw.alertas,
       confianca: raw.confianca,
+      razaoSocial: raw.razaoSocialExtraida,
+      capitalSocial: raw.capitalSocial,
+      endereco: toEnderecoContratoSocialView(raw.enderecoEmpresa),
+      objetoSocial: raw.objetoSocial,
+      dataConstituicao: raw.dataConstituicao,
     };
   },
 
@@ -99,6 +133,7 @@ export const agenciaAdapter = {
 
   toFinalizarCadastroFormData(params: {
     cnpjMascarado: string;
+    razaoSocial: string;
     contratoSocial: File;
     origem: string | null;
     telefoneComercial: string;
@@ -113,6 +148,7 @@ export const agenciaAdapter = {
     const formData = new FormData();
 
     formData.set("cnpj", unmaskCnpj(params.cnpjMascarado));
+    formData.set("razaoSocial", params.razaoSocial);
     if (params.origem) {
       formData.set("origem", params.origem);
     }

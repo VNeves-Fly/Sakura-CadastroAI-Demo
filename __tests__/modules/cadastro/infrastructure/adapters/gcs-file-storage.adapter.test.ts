@@ -32,16 +32,14 @@ describe("GcsFileStorage", () => {
     process.env = originalEnv;
   });
 
-  it("sobe o arquivo no bucket informado, com pathHint + timestamp + extensão", async () => {
+  it("sobe o arquivo no bucket informado, com pathHint + extensão (nome fixo, sem timestamp — reenvios sobrescrevem)", async () => {
     const storage = new GcsFileStorage("meu-bucket", "");
     const saved = await storage.save(arquivo, "agencias/123/contrato-social");
 
     expect(mockBucket).toHaveBeenCalledWith("meu-bucket");
-    expect(mockFile).toHaveBeenCalledWith(
-      expect.stringMatching(/^agencias\/123\/contrato-social-\d+\.pdf$/),
-    );
+    expect(mockFile).toHaveBeenCalledWith("agencias/123/contrato-social.pdf");
     expect(mockSave).toHaveBeenCalledWith(arquivo.buffer, { contentType: "application/pdf" });
-    expect(saved.path).toMatch(/^agencias\/123\/contrato-social-\d+\.pdf$/);
+    expect(saved.path).toBe("agencias/123/contrato-social.pdf");
     expect(saved.bucket).toBe("meu-bucket");
   });
 
@@ -49,7 +47,7 @@ describe("GcsFileStorage", () => {
     const storage = new GcsFileStorage("meu-bucket", "cadastro-ai");
     const saved = await storage.save(arquivo, "agencias/123/rg");
 
-    expect(saved.path).toMatch(/^cadastro-ai\/agencias\/123\/rg-\d+\.pdf$/);
+    expect(saved.path).toBe("cadastro-ai/agencias/123/rg.pdf");
   });
 
   it("usa GCS_BUCKET_NAME e GCS_FOLDER_PREFIX do ambiente quando não passados no construtor", async () => {
@@ -63,7 +61,7 @@ describe("GcsFileStorage", () => {
     const saved = await storage.save(arquivo, "x");
 
     expect(mockBucket).toHaveBeenCalledWith("bucket-do-env");
-    expect(saved.path).toMatch(/^prefixo-env\/x-\d+\.pdf$/);
+    expect(saved.path).toBe("prefixo-env/x.pdf");
     expect(saved.bucket).toBe("bucket-do-env");
   });
 
