@@ -10,6 +10,11 @@ import {
 import { verificarRateLimit } from "@/modules/shared/infrastructure/rate-limiter";
 import { ForaDaJanela24hError } from "@/modules/atendimento/domain/errors";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
+// Cross-módulo de propósito: "vincular mídia do chat como documento do
+// cadastro" é uma operação do domínio de cadastro (cria Documento), só
+// que iniciada a partir do chat — expor sob /api/atendimento/* é só
+// questão de descoberta pro front, a lógica mora inteira em cadastro.
+import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { enviarMensagemSchema } from "@/modules/atendimento/application/dto/enviar-mensagem.schema";
 import { criarTextoProntoSchema } from "@/modules/atendimento/application/dto/criar-texto-pronto.schema";
 import { atualizarTextoProntoSchema } from "@/modules/atendimento/application/dto/atualizar-texto-pronto.schema";
@@ -368,6 +373,45 @@ export async function testarConexaoWhatsappRoute(_request: Request) {
   try {
     const resultado = await atendimentoController.testarConexaoWhatsapp();
     return httpOk(resultado);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+// Lista os slots de documento reprovados (contrato social + RG/procuração
+// por sócio) — mesmo formato já usado na página pública de reenvio,
+// reaproveitado aqui pro picker de "vincular mídia do chat".
+export async function listarDocumentosPendentesAgenciaRoute(_request: Request, agenciaId: string) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const pendentes = await cadastroAdminController.listarDocumentosPendentes(agenciaId);
+    return httpOk(pendentes);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function vincularMidiaComoDocumentoRoute(request: Request, midiaId: string) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const body = await request.json();
+    const agenciaId = typeof body?.agenciaId === "string" ? body.agenciaId : null;
+    const documentoId = typeof body?.documentoId === "string" ? body.documentoId : null;
+
+    if (!agenciaId || !documentoId) {
+      return httpError("Informe agenciaId e documentoId.", 422);
+    }
+
+    const documento = await cadastroAdminController.vincularMidiaComoDocumento({
+      agenciaId,
+      documentoId,
+      midiaId,
+    });
+    return httpOk(documento);
   } catch (error) {
     return mapErrorToResponse(error);
   }

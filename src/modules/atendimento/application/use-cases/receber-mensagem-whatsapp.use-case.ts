@@ -53,7 +53,12 @@ export class ReceberMensagemWhatsAppUseCase {
           originalName: `${input.mediaId}.${extensao}`,
           mimeType: midia.mimeType,
         },
-        `atendimento/${conversa.id}`,
+        // Precisa de algo único por mensagem (input.mediaId, sempre
+        // distinto por vir da própria Meta) — só `conversa.id` faria a
+        // segunda mídia da mesma conversa sobrescrever a primeira no
+        // disco local (LocalFileStorage usa o pathHint como nome do
+        // arquivo, sem sufixo automático).
+        `atendimento/${conversa.id}/${input.mediaId}`,
       );
       const registroMidia = await this.mensagemRepository.criarMidia({
         fileName: `${input.mediaId}.${extensao}`,

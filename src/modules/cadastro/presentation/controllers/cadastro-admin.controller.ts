@@ -13,6 +13,16 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
+import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
+import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
+// Cross-módulo só aqui na composition root (nunca no domain/application):
+// PrismaMensagemRepository (atendimento) satisfaz MidiaOrigemRepository
+// (cadastro) estruturalmente, sem nenhuma das duas camadas de domínio
+// conhecerem a outra — ver midia-origem-repository.ts.
+import { PrismaMensagemRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-mensagem.repository";
+import { ListarDocumentosPendentesUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos-pendentes.use-case";
+import { VincularMidiaComoDocumentoUseCase } from "@/modules/cadastro/application/use-cases/vincular-midia-como-documento.use-case";
+import type { VincularMidiaComoDocumentoInput } from "@/modules/cadastro/application/use-cases/vincular-midia-como-documento.use-case";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { ObterDadosReceitaUseCase } from "@/modules/cadastro/application/use-cases/obter-dados-receita.use-case";
@@ -101,6 +111,8 @@ const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaR
 const documentoArquivoService = process.env.GCS_BUCKET_NAME
   ? new GcsDocumentoArquivoAdapter()
   : new LocalDocumentoArquivoAdapter();
+const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
+const midiaOrigemRepository = new PrismaMensagemRepository(prisma);
 // Mesmo critério dos outros adapters externos: Resend real quando
 // RESEND_API_KEY está configurada, senão só loga (ver ConsoleEmailAdapter).
 const emailSender = process.env.RESEND_API_KEY
@@ -232,6 +244,22 @@ export const cadastroAdminController = {
   obterArquivoDocumento(id: string) {
     const useCase = new ObterArquivoDocumentoUseCase(documentoRepository, documentoArquivoService);
     return useCase.execute(id);
+  },
+
+  listarDocumentosPendentes(agenciaId: string) {
+    const useCase = new ListarDocumentosPendentesUseCase(agenciaRepository);
+    return useCase.execute(agenciaId);
+  },
+
+  vincularMidiaComoDocumento(input: VincularMidiaComoDocumentoInput) {
+    const useCase = new VincularMidiaComoDocumentoUseCase(
+      documentoRepository,
+      agenciaRepository,
+      fileStorage,
+      documentoArquivoService,
+      midiaOrigemRepository,
+    );
+    return useCase.execute(input);
   },
 
   solicitarReenvioDocumentos(input: SolicitarReenvioDocumentosInput) {
