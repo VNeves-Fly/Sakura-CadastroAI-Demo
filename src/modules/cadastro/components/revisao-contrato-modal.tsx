@@ -370,7 +370,7 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
 
           <section className="flex flex-col gap-3">
             <CabecalhoSecao
-              titulo="Endereço & Banco"
+              titulo="Endereço"
               editando={editandoBanco}
               onToggle={() => setEditandoBanco((atual) => !atual)}
             />
