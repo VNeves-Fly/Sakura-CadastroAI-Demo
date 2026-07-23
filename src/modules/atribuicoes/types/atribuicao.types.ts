@@ -54,6 +54,14 @@ export interface ResumoGestor {
   totalAgenciasMock: number;
 }
 
+export interface SubstituicaoHistorico {
+  tipo: "executivo" | "gestor";
+  nomeAntigo: string;
+  nomeNovo: string;
+  totalCidadesAfetadas: number;
+  data: string;
+}
+
 export interface FiltrosAtribuicoes {
   busca?: string;
   executivo?: string;

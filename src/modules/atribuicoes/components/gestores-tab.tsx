@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ResumoGestor } from "@/modules/atribuicoes/types/atribuicao.types";
 
 interface GestoresTabProps {
@@ -24,6 +25,7 @@ export function GestoresTab({ gestores }: GestoresTabProps) {
               Agências
               <span className="text-muted-foreground/70 ml-1 font-normal italic">(exemplo)</span>
             </th>
+            <th className="text-muted-foreground px-4 py-2.5 font-medium"></th>
           </tr>
         </thead>
         <tbody>
@@ -37,6 +39,14 @@ export function GestoresTab({ gestores }: GestoresTabProps) {
                 <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-semibold">
                   {gestor.totalAgenciasMock}
                 </span>
+              </td>
+              <td className="px-4 py-3 text-right">
+                <Link
+                  href={`/atribuicoes/substituir?tipo=gestor&nome=${encodeURIComponent(gestor.gestor)}`}
+                  className="text-primary text-xs font-semibold whitespace-nowrap hover:underline"
+                >
+                  Substituir
+                </Link>
               </td>
             </tr>
           ))}

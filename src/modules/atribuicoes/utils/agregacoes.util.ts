@@ -1,4 +1,4 @@
-import cidadesRaw from "@/modules/atribuicoes/data/cidades-mapa-comercial.json";
+import { obterCidades } from "@/modules/atribuicoes/services/atribuicoes-store";
 import type {
   Cidade,
   FiltrosAtribuicoes,
@@ -10,8 +10,10 @@ import type {
 
 const NAO_ATRIBUIDO = "Não atribuído";
 
+// Delega pro store em memória (ver atribuicoes-store.ts) — mantido aqui
+// só pra não quebrar quem já importava `carregarCidades` daqui.
 export function carregarCidades(): Cidade[] {
-  return cidadesRaw as Cidade[];
+  return obterCidades();
 }
 
 function normalizar(valor: string): string {
