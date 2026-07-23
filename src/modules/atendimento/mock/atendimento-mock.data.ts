@@ -22,8 +22,73 @@ function mensagem(parcial: Omit<Mensagem, "id">): Mensagem {
   return { id: crypto.randomUUID(), ...parcial };
 }
 
+// Lote de mensagens antigas só pra dar volume o suficiente pra
+// demonstrar a paginação ("Carregar mensagens anteriores") de verdade —
+// sem isso, nenhuma conversa do mock passa das 20 mensagens (tamanho da
+// página). Conteúdo genérico de propósito, não é parte da narrativa.
+function gerarLoteAntigo(conversaId: string, quantidade: number, horasBase: number): Mensagem[] {
+  return Array.from({ length: quantidade }, (_, indice) => {
+    const horasAtrasDesteItem = horasBase + (quantidade - indice) * 2;
+    return mensagem({
+      conversaId,
+      autor: indice % 2 === 0 ? "cliente" : "analista",
+      analistaNome: indice % 2 === 0 ? undefined : "Fernanda Lima",
+      tipo: "texto",
+      conteudo:
+        indice % 2 === 0
+          ? `Mensagem antiga do cliente #${indice + 1} (histórico de teste de paginação).`
+          : `Resposta antiga do analista #${indice + 1} (histórico de teste de paginação).`,
+      createdAt: horasAtras(horasAtrasDesteItem),
+      lido: true,
+    });
+  });
+}
+
 export function gerarConversasMock(): Conversa[] {
+  // Histórico mais antigo da conversa-1 — só existe pra ter volume o
+  // suficiente pra demonstrar a paginação ("Carregar mensagens
+  // anteriores") de verdade; as demais conversas do mock não precisam
+  // disso (têm poucas mensagens de propósito).
+  const conversa1HistoricoAntigo: Mensagem[] = [
+    ...gerarLoteAntigo("conversa-1", 18, 72),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "cliente",
+      tipo: "texto",
+      conteudo: "Boa tarde! Estou terminando o cadastro da agência, posso tirar uma dúvida?",
+      createdAt: horasAtras(72),
+      lido: true,
+    }),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "analista",
+      analistaNome: "Fernanda Lima",
+      tipo: "texto",
+      conteudo: "Claro, Camila! Pode perguntar.",
+      createdAt: horasAtras(72),
+      lido: true,
+    }),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "cliente",
+      tipo: "texto",
+      conteudo: "O contrato social precisa estar autenticado em cartório?",
+      createdAt: horasAtras(71),
+      lido: true,
+    }),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "analista",
+      analistaNome: "Fernanda Lima",
+      tipo: "texto",
+      conteudo: "Não precisa, pode ser a versão simples registrada na Junta Comercial.",
+      createdAt: horasAtras(71),
+      lido: true,
+    }),
+  ];
+
   const conversa1Mensagens: Mensagem[] = [
+    ...conversa1HistoricoAntigo,
     mensagem({
       conversaId: "conversa-1",
       autor: "cliente",
@@ -351,6 +416,17 @@ export function gerarTemplatesAprovadosMock(): TemplateAprovado[] {
       status: "aprovado",
       motivoRejeicao: null,
       criadoEm: horasAtras(150),
+    },
+    {
+      id: "template-3",
+      nome: "promocao_geral",
+      conteudo: "Aproveite nossas condições especiais esse mês, fale com seu analista!",
+      categoria: "MARKETING",
+      idioma: "pt_BR",
+      status: "rejeitado",
+      motivoRejeicao:
+        "Texto genérico demais — a Meta exige contexto claro de opt-in do destinatário.",
+      criadoEm: horasAtras(100),
     },
   ];
 }

@@ -7,10 +7,12 @@ import type {
   EnviarMensagemInput,
   AssumirAtendimentoInput,
   CriarTextoProntoInput,
+  AtualizarTextoProntoInput,
   SolicitarTransferenciaInput,
   ResponderTransferenciaInput,
   CriarTemplateInput,
   SalvarConfiguracaoWhatsappInput,
+  ResultadoTesteConexao,
 } from "@/modules/atendimento/types/atendimento.types";
 import {
   gerarConversasMock,
@@ -153,9 +155,65 @@ export const atendimentoApi = {
     return clonar(novo);
   },
 
+  // Reenviar um template rejeitado — Meta não deixa "reenviar" o exato
+  // mesmo texto que já foi recusado, então isso sempre exige editar o
+  // conteúdo antes de submeter de novo (nome/categoria/idioma continuam
+  // os mesmos). Some o motivo antigo e volta pra "pendente_aprovacao".
+  async reenviarTemplate(id: string, novoConteudo: string): Promise<TemplateAprovado> {
+    await atraso();
+    const template = templates.find((item) => item.id === id);
+    if (!template) throw new Error("Template não encontrado.");
+    if (template.status !== "rejeitado") {
+      throw new Error("Só é possível reenviar um template rejeitado.");
+    }
+
+    templates = templates.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            conteudo: novoConteudo,
+            status: "pendente_aprovacao",
+            motivoRejeicao: null,
+            criadoEm: new Date().toISOString(),
+          }
+        : item,
+    );
+
+    const atualizado = templates.find((item) => item.id === id);
+    if (!atualizado) throw new Error("Template não encontrado.");
+    return clonar(atualizado);
+  },
+
   async obterConfiguracaoWhatsapp(): Promise<ConfiguracaoWhatsappBusiness> {
     await atraso();
     return clonar(configuracaoWhatsapp);
+  },
+
+  // "Testar conexão" — no mock, só confirma que os campos obrigatórios
+  // foram preenchidos (não bate na Graph API de verdade, que é o que
+  // faria isso de fato). Nunca marca `conectado: true` sozinho — esse
+  // campo só vira true quando existir uma chamada real bem-sucedida.
+  async testarConexaoWhatsapp(): Promise<ResultadoTesteConexao> {
+    await atraso(400);
+    const faltando: string[] = [];
+    if (!configuracaoWhatsapp.appId) faltando.push("App ID");
+    if (!configuracaoWhatsapp.whatsappBusinessAccountId)
+      faltando.push("WhatsApp Business Account ID");
+    if (!configuracaoWhatsapp.phoneNumberId) faltando.push("Phone Number ID");
+    if (!configuracaoWhatsapp.accessTokenConfigurado) faltando.push("Access Token");
+
+    if (faltando.length > 0) {
+      return {
+        sucesso: false,
+        mensagem: `Faltam campos obrigatórios: ${faltando.join(", ")}.`,
+      };
+    }
+
+    return {
+      sucesso: false,
+      mensagem:
+        "Campos obrigatórios preenchidos, mas ainda não há chamada real à Graph API da Meta — teste simulado, sem validar credencial de verdade.",
+    };
   },
 
   async salvarConfiguracaoWhatsapp(
@@ -189,6 +247,21 @@ export const atendimentoApi = {
     const novo: TextoPronto = { id: crypto.randomUUID(), ...input };
     textosProntos = [...textosProntos, novo];
     return clonar(novo);
+  },
+
+  async atualizarTextoPronto(id: string, input: AtualizarTextoProntoInput): Promise<TextoPronto> {
+    await atraso();
+    textosProntos = textosProntos.map((texto) =>
+      texto.id === id ? { ...texto, ...input } : texto,
+    );
+    const atualizado = textosProntos.find((texto) => texto.id === id);
+    if (!atualizado) throw new Error("Texto pronto não encontrado.");
+    return clonar(atualizado);
+  },
+
+  async removerTextoPronto(id: string): Promise<void> {
+    await atraso();
+    textosProntos = textosProntos.filter((texto) => texto.id !== id);
   },
 
   // Marca as mensagens do cliente como vistas — zera o badge de não

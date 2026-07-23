@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Webhook, Plus, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Webhook, Plus, ShieldCheck, ShieldAlert, PlugZap, RotateCcw } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import { useMessengerConfig } from "@/modules/atendimento/view-models/use-messenger-config.view-model";
 import type {
@@ -63,8 +63,12 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
     isLoading,
     isSalvando,
     isCriandoTemplate,
+    isTestandoConexao,
+    resultadoTeste,
     salvarConfiguracao,
     criarTemplate,
+    reenviarTemplate,
+    testarConexao,
   } = useMessengerConfig(analistaAtual);
 
   const [form, setForm] = useState<FormConexao>(FORM_VAZIO);
@@ -76,6 +80,10 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
     idioma: "pt_BR",
     conteudo: "",
   });
+  // Template rejeitado sendo reeditado pra reenvio — guarda só o id +
+  // rascunho do novo conteúdo (nome/categoria/idioma não mudam).
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null);
+  const [conteudoReenvio, setConteudoReenvio] = useState("");
 
   // Segredos nunca voltam em texto puro do "back" (ver
   // ConfiguracaoWhatsappBusiness) — só os campos não sensíveis são
@@ -250,7 +258,7 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
               />
             </label>
 
-            <div className="sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
               <button
                 type="submit"
                 disabled={isSalvando}
@@ -258,7 +266,24 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
               >
                 {isSalvando ? "Salvando..." : "Salvar"}
               </button>
+              <button
+                type="button"
+                onClick={() => void testarConexao()}
+                disabled={isTestandoConexao}
+                className="border-input hover:bg-accent flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <PlugZap className="size-4" />
+                {isTestandoConexao ? "Testando..." : "Testar conexão"}
+              </button>
             </div>
+
+            {resultadoTeste ? (
+              <p
+                className={`text-xs sm:col-span-2 ${resultadoTeste.sucesso ? "text-success" : "text-warning"}`}
+              >
+                {resultadoTeste.mensagem}
+              </p>
+            ) : null}
           </form>
         </div>
       </SecaoColapsavel>
@@ -303,6 +328,55 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
                   <p className="text-muted-foreground">{template.conteudo}</p>
                   {template.status === "rejeitado" && template.motivoRejeicao ? (
                     <p className="text-destructive text-xs">Motivo: {template.motivoRejeicao}</p>
+                  ) : null}
+
+                  {template.status === "rejeitado" ? (
+                    reenviandoId === template.id ? (
+                      <form
+                        className="flex flex-col gap-2 border-t border-dashed pt-2"
+                        onSubmit={async (event) => {
+                          event.preventDefault();
+                          if (!conteudoReenvio.trim()) return;
+                          await reenviarTemplate(template.id, conteudoReenvio.trim());
+                          setReenviandoId(null);
+                        }}
+                      >
+                        <textarea
+                          value={conteudoReenvio}
+                          onChange={(event) => setConteudoReenvio(event.target.value)}
+                          rows={2}
+                          required
+                          className="border-input bg-background text-foreground w-full rounded-xl border px-3 py-2 text-sm outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-semibold"
+                          >
+                            Reenviar pra aprovação
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReenviandoId(null)}
+                            className="border-input rounded-full border px-3 py-1 text-xs"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReenviandoId(template.id);
+                          setConteudoReenvio(template.conteudo);
+                        }}
+                        className="text-primary flex w-fit items-center gap-1 text-xs font-semibold hover:underline"
+                      >
+                        <RotateCcw className="size-3.5" />
+                        Editar e reenviar pra aprovação
+                      </button>
+                    )
                   ) : null}
                 </div>
               ))

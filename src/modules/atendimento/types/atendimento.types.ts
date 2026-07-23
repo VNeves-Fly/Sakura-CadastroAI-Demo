@@ -176,3 +176,13 @@ export interface CriarTemplateInput {
   categoria: CategoriaTemplate;
   idioma: string;
 }
+
+export interface AtualizarTextoProntoInput {
+  titulo: string;
+  conteudo: string;
+}
+
+export interface ResultadoTesteConexao {
+  sucesso: boolean;
+  mensagem: string;
+}

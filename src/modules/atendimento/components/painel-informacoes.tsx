@@ -8,6 +8,7 @@ import {
   History,
   ClipboardList,
   ExternalLink,
+  ChevronLeft,
 } from "lucide-react";
 import type { Conversa } from "@/modules/atendimento/types/atendimento.types";
 import {
@@ -45,12 +46,16 @@ interface PainelInformacoesProps {
   conversaSelecionada: Conversa;
   todasConversas: Conversa[];
   onSelecionarConversa: (id: string) => void;
+  // Só usado em telas pequenas (ver AtendimentoView) — em desktop as 3
+  // colunas ficam sempre visíveis e esse botão não aparece (lg:hidden).
+  onVoltarParaConversa?: () => void;
 }
 
 export function PainelInformacoes({
   conversaSelecionada,
   todasConversas,
   onSelecionarConversa,
+  onVoltarParaConversa,
 }: PainelInformacoesProps) {
   const membrosDaAgencia = todasConversas.filter(
     (conversa) => conversa.agenciaId === conversaSelecionada.agenciaId,
@@ -61,8 +66,18 @@ export function PainelInformacoes({
   const { resumoFicha } = conversaSelecionada;
 
   return (
-    <div className="border-border bg-card flex h-full w-full flex-col overflow-y-auto border-l">
-      <div className="border-border flex flex-col items-center gap-2 border-b p-5 text-center">
+    <div className="border-border bg-card flex h-full w-full min-w-0 flex-col overflow-y-auto border-l">
+      <div className="border-border relative flex flex-col items-center gap-2 border-b p-5 text-center">
+        {onVoltarParaConversa ? (
+          <button
+            type="button"
+            onClick={onVoltarParaConversa}
+            aria-label="Voltar pra conversa"
+            className="text-muted-foreground hover:text-foreground absolute top-5 left-4 lg:hidden"
+          >
+            <ChevronLeft className="size-5" />
+          </button>
+        ) : null}
         <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
           Informações da Agência
         </span>

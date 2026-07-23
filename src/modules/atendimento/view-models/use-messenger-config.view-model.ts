@@ -3,6 +3,7 @@ import type {
   ConfiguracaoWhatsappBusiness,
   TemplateAprovado,
   CriarTemplateInput,
+  ResultadoTesteConexao,
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
 
@@ -12,6 +13,8 @@ export function useMessengerConfig(analistaAtual: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSalvando, setIsSalvando] = useState(false);
   const [isCriandoTemplate, setIsCriandoTemplate] = useState(false);
+  const [isTestandoConexao, setIsTestandoConexao] = useState(false);
+  const [resultadoTeste, setResultadoTeste] = useState<ResultadoTesteConexao | null>(null);
 
   const carregarTudo = useCallback(async () => {
     setIsLoading(true);
@@ -65,13 +68,33 @@ export function useMessengerConfig(analistaAtual: string) {
     }
   }, []);
 
+  const reenviarTemplate = useCallback(async (id: string, novoConteudo: string) => {
+    const atualizado = await atendimentoApi.reenviarTemplate(id, novoConteudo);
+    setTemplates((atual) => atual.map((template) => (template.id === id ? atualizado : template)));
+  }, []);
+
+  const testarConexao = useCallback(async () => {
+    setIsTestandoConexao(true);
+    setResultadoTeste(null);
+    try {
+      const resultado = await atendimentoApi.testarConexaoWhatsapp();
+      setResultadoTeste(resultado);
+    } finally {
+      setIsTestandoConexao(false);
+    }
+  }, []);
+
   return {
     configuracao,
     templates,
     isLoading,
     isSalvando,
     isCriandoTemplate,
+    isTestandoConexao,
+    resultadoTeste,
     salvarConfiguracao,
     criarTemplate,
+    reenviarTemplate,
+    testarConexao,
   };
 }

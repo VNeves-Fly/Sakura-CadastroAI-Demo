@@ -62,14 +62,25 @@ export function useAtendimento(analistaAtual: string) {
     return () => clearInterval(intervalo);
   }, []);
 
-  const selecionarConversa = useCallback((id: string) => {
-    setConversaSelecionadaId(id);
-    void atendimentoApi.marcarComoLida(id).then((conversaAtualizada) => {
-      setConversas((atual) =>
-        atual.map((conversa) => (conversa.id === id ? conversaAtualizada : conversa)),
-      );
-    });
-  }, []);
+  // Só marca como lida se o analista atual já é o dono do atendimento —
+  // decisão explícita do usuário (2026-07-23): abrir uma conversa que
+  // ninguém assumiu (ou que é de outro analista) NÃO pode fazer o badge
+  // de não lidas sumir sozinho, senão dá pra "espiar" sem realmente
+  // assumir a responsabilidade de atender. Quem já é dono e reabre a
+  // conversa continua vendo o badge sumir normalmente (marcarComoLida
+  // também roda de novo em assumirAtendimento, ver abaixo).
+  const selecionarConversa = useCallback(
+    (id: string) => {
+      setConversaSelecionadaId(id);
+      const conversa = conversas.find((item) => item.id === id);
+      if (conversa?.atendimentoAtual?.analistaNome !== analistaAtual) return;
+
+      void atendimentoApi.marcarComoLida(id).then((conversaAtualizada) => {
+        setConversas((atual) => atual.map((item) => (item.id === id ? conversaAtualizada : item)));
+      });
+    },
+    [conversas, analistaAtual],
+  );
 
   const enviarMensagem = useCallback(
     async (conversaId: string, input: EnviarMensagemInput) => {
@@ -98,11 +109,12 @@ export function useAtendimento(analistaAtual: string) {
 
   const assumirAtendimento = useCallback(
     async (conversaId: string) => {
-      const conversaAtualizada = await atendimentoApi.assumirAtendimento(conversaId, {
-        analistaNome: analistaAtual,
-      });
+      await atendimentoApi.assumirAtendimento(conversaId, { analistaNome: analistaAtual });
+      // Assumir já conta como "vi tudo que tinha" — some o badge de não
+      // lidas na mesma ação, sem precisar reabrir a conversa de novo.
+      const conversaLida = await atendimentoApi.marcarComoLida(conversaId);
       setConversas((atual) =>
-        atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
+        atual.map((conversa) => (conversa.id === conversaId ? conversaLida : conversa)),
       );
     },
     [analistaAtual],
@@ -147,6 +159,16 @@ export function useAtendimento(analistaAtual: string) {
     setTextosProntos((atual) => [...atual, novoTexto]);
   }, []);
 
+  const atualizarTextoPronto = useCallback(async (id: string, titulo: string, conteudo: string) => {
+    const atualizado = await atendimentoApi.atualizarTextoPronto(id, { titulo, conteudo });
+    setTextosProntos((atual) => atual.map((texto) => (texto.id === id ? atualizado : texto)));
+  }, []);
+
+  const removerTextoPronto = useCallback(async (id: string) => {
+    await atendimentoApi.removerTextoPronto(id);
+    setTextosProntos((atual) => atual.filter((texto) => texto.id !== id));
+  }, []);
+
   return {
     conversas,
     conversaSelecionadaId,
@@ -163,5 +185,7 @@ export function useAtendimento(analistaAtual: string) {
     responderTransferencia,
     limparSolicitacaoResolvida,
     criarTextoPronto,
+    atualizarTextoPronto,
+    removerTextoPronto,
   };
 }

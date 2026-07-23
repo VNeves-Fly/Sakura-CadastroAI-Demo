@@ -69,7 +69,7 @@ export function ListaConversas({
   }, [conversas, busca]);
 
   return (
-    <div className="border-border bg-card flex h-full min-h-0 flex-col border-r">
+    <div className="border-border bg-card flex h-full w-full min-w-0 flex-col border-r">
       <div className="border-border border-b p-3">
         <div className="border-input bg-background flex items-center gap-2 rounded-full border px-3 py-2">
           <Search className="text-muted-foreground size-4 shrink-0" />

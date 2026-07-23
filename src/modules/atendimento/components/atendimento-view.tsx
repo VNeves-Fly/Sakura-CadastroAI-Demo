@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAtendimento } from "@/modules/atendimento/view-models/use-atendimento.view-model";
 import { ListaConversas } from "@/modules/atendimento/components/lista-conversas";
 import { ThreadConversa } from "@/modules/atendimento/components/thread-conversa";
@@ -8,6 +9,11 @@ import { PainelInformacoes } from "@/modules/atendimento/components/painel-infor
 interface AtendimentoViewProps {
   analistaAtual: string;
 }
+
+// Abaixo de lg, só 1 coluna por vez (lista | thread | info) — acima de
+// lg, as 3 ficam sempre visíveis lado a lado (ver classes lg:flex em
+// cada wrapper abaixo). `mobileView` só importa nas telas pequenas.
+type MobileView = "lista" | "thread" | "info";
 
 export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
   const {
@@ -26,10 +32,19 @@ export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
     responderTransferencia,
     limparSolicitacaoResolvida,
     criarTextoPronto,
+    atualizarTextoPronto,
+    removerTextoPronto,
   } = useAtendimento(analistaAtual);
+
+  const [mobileView, setMobileView] = useState<MobileView>("lista");
 
   const conversaSelecionada =
     conversas.find((conversa) => conversa.id === conversaSelecionadaId) ?? null;
+
+  function selecionarESeguir(id: string) {
+    selecionarConversa(id);
+    setMobileView("thread");
+  }
 
   if (isLoading) {
     return (
@@ -48,37 +63,54 @@ export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
   }
 
   return (
-    <div className="border-border bg-card grid min-h-0 flex-1 grid-cols-[280px_1fr_280px] overflow-hidden rounded-2xl border">
-      <ListaConversas
-        conversas={conversas}
-        conversaSelecionadaId={conversaSelecionadaId}
-        onSelecionar={selecionarConversa}
-      />
-
-      <ThreadConversa
-        conversa={conversaSelecionada}
-        analistaAtual={analistaAtual}
-        textosProntos={textosProntos}
-        templatesAprovados={templatesAprovados}
-        isSending={isSending}
-        onAssumirAtendimento={assumirAtendimento}
-        onEncerrarAtendimento={encerrarAtendimento}
-        onSolicitarTransferencia={solicitarTransferencia}
-        onResponderTransferencia={responderTransferencia}
-        onLimparSolicitacaoResolvida={limparSolicitacaoResolvida}
-        onEnviarMensagem={enviarMensagem}
-        onCriarTextoPronto={criarTextoPronto}
-      />
-
-      {conversaSelecionada ? (
-        <PainelInformacoes
-          conversaSelecionada={conversaSelecionada}
-          todasConversas={conversas}
-          onSelecionarConversa={selecionarConversa}
+    <div className="border-border bg-card flex min-h-0 flex-1 overflow-hidden rounded-2xl border lg:grid lg:grid-cols-[280px_1fr_280px]">
+      <div
+        className={`min-h-0 min-w-0 flex-1 ${mobileView === "lista" ? "flex" : "hidden"} lg:flex`}
+      >
+        <ListaConversas
+          conversas={conversas}
+          conversaSelecionadaId={conversaSelecionadaId}
+          onSelecionar={selecionarESeguir}
         />
-      ) : (
-        <div className="border-border border-l" />
-      )}
+      </div>
+
+      <div
+        className={`min-h-0 min-w-0 flex-1 ${mobileView === "thread" ? "flex" : "hidden"} lg:flex`}
+      >
+        <ThreadConversa
+          conversa={conversaSelecionada}
+          analistaAtual={analistaAtual}
+          textosProntos={textosProntos}
+          templatesAprovados={templatesAprovados}
+          isSending={isSending}
+          onAssumirAtendimento={assumirAtendimento}
+          onEncerrarAtendimento={encerrarAtendimento}
+          onSolicitarTransferencia={solicitarTransferencia}
+          onResponderTransferencia={responderTransferencia}
+          onLimparSolicitacaoResolvida={limparSolicitacaoResolvida}
+          onEnviarMensagem={enviarMensagem}
+          onCriarTextoPronto={criarTextoPronto}
+          onAtualizarTextoPronto={atualizarTextoPronto}
+          onRemoverTextoPronto={removerTextoPronto}
+          onVoltarParaLista={() => setMobileView("lista")}
+          onAbrirInformacoes={() => setMobileView("info")}
+        />
+      </div>
+
+      <div
+        className={`min-h-0 min-w-0 flex-1 ${mobileView === "info" ? "flex" : "hidden"} lg:flex`}
+      >
+        {conversaSelecionada ? (
+          <PainelInformacoes
+            conversaSelecionada={conversaSelecionada}
+            todasConversas={conversas}
+            onSelecionarConversa={selecionarESeguir}
+            onVoltarParaConversa={() => setMobileView("thread")}
+          />
+        ) : (
+          <div className="border-border w-full border-l" />
+        )}
+      </div>
     </div>
   );
 }
