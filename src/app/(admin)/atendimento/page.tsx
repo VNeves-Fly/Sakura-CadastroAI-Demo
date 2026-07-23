@@ -7,10 +7,16 @@ export default async function AtendimentoPage() {
   const analistaAtual = session?.user?.name ?? session?.user?.email ?? "Analista";
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-2xl bg-[#fdf1f7] p-6 shadow-sm">
-        <h1 className="text-xl font-bold text-[#72243e]">Atendimento</h1>
-        <p className="mt-1 text-sm text-[#72243e]/75">
+    // Altura travada no viewport (menos o header do Admin, 59px, e o
+    // padding vertical do <main> do layout, 24px+24px) — diferente das
+    // outras páginas do Admin, um chat precisa caber inteiro na tela sem
+    // rolar a página (só as colunas internas rolam), senão o campo de
+    // digitação fica escondido embaixo, exigindo scroll pra achar — bug
+    // relatado pelo usuário em 2026-07-23.
+    <div className="flex h-[calc(100dvh-107px)] flex-col gap-3">
+      <div className="shrink-0">
+        <h1 className="text-foreground text-lg font-bold">Atendimento</h1>
+        <p className="text-muted-foreground text-sm">
           Converse com os sócios e contatos das agências pelo WhatsApp.
         </p>
       </div>

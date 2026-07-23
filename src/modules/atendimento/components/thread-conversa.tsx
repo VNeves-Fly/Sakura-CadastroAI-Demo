@@ -18,7 +18,7 @@ import type {
   EnviarMensagemInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import { MensagemBubble } from "@/modules/atendimento/components/mensagem-bubble";
-import { AssumirAtendimentoBanner } from "@/modules/atendimento/components/assumir-atendimento-banner";
+import { AtendimentoAcoesBanner } from "@/modules/atendimento/components/atendimento-acoes-banner";
 import {
   iniciaisNome,
   labelPapelMembro,
@@ -223,6 +223,10 @@ interface ThreadConversaProps {
   templatesAprovados: TemplateAprovado[];
   isSending: boolean;
   onAssumirAtendimento: (conversaId: string) => Promise<void>;
+  onEncerrarAtendimento: (conversaId: string) => Promise<void>;
+  onSolicitarTransferencia: (conversaId: string, paraAnalista: string) => Promise<void>;
+  onResponderTransferencia: (conversaId: string, aceita: boolean) => Promise<void>;
+  onLimparSolicitacaoResolvida: (conversaId: string) => Promise<void>;
   onEnviarMensagem: (conversaId: string, input: EnviarMensagemInput) => Promise<void>;
   onCriarTextoPronto: (titulo: string, conteudo: string) => Promise<void>;
 }
@@ -234,6 +238,10 @@ export function ThreadConversa({
   templatesAprovados,
   isSending,
   onAssumirAtendimento,
+  onEncerrarAtendimento,
+  onSolicitarTransferencia,
+  onResponderTransferencia,
+  onLimparSolicitacaoResolvida,
   onEnviarMensagem,
   onCriarTextoPronto,
 }: ThreadConversaProps) {
@@ -284,7 +292,7 @@ export function ThreadConversa({
   }
 
   return (
-    <div className="flex h-full flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="bg-primary/15 text-primary flex size-9 items-center justify-center rounded-full text-sm font-bold">
@@ -315,13 +323,19 @@ export function ThreadConversa({
         <PainelMidia conversa={conversa} onFechar={() => setMostrarMidia(false)} />
       ) : null}
 
-      <AssumirAtendimentoBanner
-        atendimentoAtual={conversa.atendimentoAtual}
+      <AtendimentoAcoesBanner
+        conversa={conversa}
         analistaAtual={analistaAtual}
         onAssumir={() => void onAssumirAtendimento(conversa.id)}
+        onEncerrar={() => void onEncerrarAtendimento(conversa.id)}
+        onSolicitarTransferencia={(paraAnalista) =>
+          void onSolicitarTransferencia(conversa.id, paraAnalista)
+        }
+        onResponderTransferencia={(aceita) => void onResponderTransferencia(conversa.id, aceita)}
+        onLimparSolicitacaoResolvida={() => void onLimparSolicitacaoResolvida(conversa.id)}
       />
 
-      <div className="bg-muted/10 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="bg-muted/10 min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {conversa.mensagens.map((mensagem) => (
           <MensagemBubble key={mensagem.id} mensagem={mensagem} />
         ))}

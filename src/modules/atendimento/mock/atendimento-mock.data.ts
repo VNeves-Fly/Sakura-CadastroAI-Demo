@@ -164,6 +164,7 @@ export function gerarConversasMock(): Conversa[] {
       historicoAtendimento: [
         { analistaNome: "Fernanda Lima", assumidoEm: horasAtras(30), liberadoEm: horasAtras(29) },
       ],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "em_andamento",
         documentosAprovados: 2,
@@ -190,6 +191,7 @@ export function gerarConversasMock(): Conversa[] {
       },
       atendimentoAtual: null,
       historicoAtendimento: [],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "em_andamento",
         documentosAprovados: 2,
@@ -223,6 +225,7 @@ export function gerarConversasMock(): Conversa[] {
         { analistaNome: "Pedro Santos", assumidoEm: horasAtras(26), liberadoEm: horasAtras(25) },
         { analistaNome: "Fernanda Lima", assumidoEm: minutosAtras(30), liberadoEm: null },
       ],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "ativo",
         documentosAprovados: 3,
@@ -255,6 +258,7 @@ export function gerarConversasMock(): Conversa[] {
       historicoAtendimento: [
         { analistaNome: "Pedro Santos", assumidoEm: horasAtras(3), liberadoEm: null },
       ],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "recusado",
         documentosAprovados: 1,
@@ -281,6 +285,7 @@ export function gerarConversasMock(): Conversa[] {
       },
       atendimentoAtual: null,
       historicoAtendimento: [],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "recusado",
         documentosAprovados: 1,
@@ -318,6 +323,10 @@ export function gerarTextosProntosMock(): TextoPronto[] {
     },
   ];
 }
+
+// Pool fixo pra popular o seletor de "Transferir atendimento" — em uma
+// versão real isso viria da lista de analistas cadastrados (Usuários).
+export const ANALISTAS_MOCK = ["Fernanda Lima", "Pedro Santos", "Juliana Costa", "Marcos Vidal"];
 
 export function gerarTemplatesAprovadosMock(): TemplateAprovado[] {
   return [

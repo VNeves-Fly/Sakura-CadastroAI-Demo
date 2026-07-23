@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   Conversa,
   TextoPronto,
@@ -6,6 +6,8 @@ import type {
   EnviarMensagemInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
+
+const INTERVALO_POLLING_MS = 4_000;
 
 // Hook central do módulo — mesmo formato de useChatSession.ts (trazido
 // pelo usuário como referência): carrega estado via um "api" service,
@@ -20,6 +22,10 @@ export function useAtendimento(analistaAtual: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [hasError, setHasError] = useState(false);
+  // Evita que o polling em segundo plano sobrescreva uma ação que o
+  // próprio analista acabou de disparar (ex: mandar mensagem) antes da
+  // resposta chegar — só reflete o servidor quando nada está em voo.
+  const acaoEmAndamentoRef = useRef(false);
 
   const carregarTudo = useCallback(async () => {
     setIsLoading(true);
@@ -44,6 +50,18 @@ export function useAtendimento(analistaAtual: string) {
     void carregarTudo();
   }, [carregarTudo]);
 
+  // Polling leve — só assim uma expiração de transferência (resolvida
+  // sozinha dentro do service depois de 60s) ou uma resposta de outro
+  // analista aparecem na tela sem precisar recarregar a página. Troque
+  // por push real (websocket/SSE) quando o back-end existir.
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      if (acaoEmAndamentoRef.current) return;
+      void atendimentoApi.listarConversas().then(setConversas);
+    }, INTERVALO_POLLING_MS);
+    return () => clearInterval(intervalo);
+  }, []);
+
   const selecionarConversa = useCallback((id: string) => {
     setConversaSelecionadaId(id);
     void atendimentoApi.marcarComoLida(id).then((conversaAtualizada) => {
@@ -56,6 +74,7 @@ export function useAtendimento(analistaAtual: string) {
   const enviarMensagem = useCallback(
     async (conversaId: string, input: EnviarMensagemInput) => {
       setIsSending(true);
+      acaoEmAndamentoRef.current = true;
       try {
         const mensagem = await atendimentoApi.enviarMensagem(conversaId, analistaAtual, input);
         setConversas((atual) =>
@@ -71,6 +90,7 @@ export function useAtendimento(analistaAtual: string) {
         );
       } finally {
         setIsSending(false);
+        acaoEmAndamentoRef.current = false;
       }
     },
     [analistaAtual],
@@ -88,6 +108,40 @@ export function useAtendimento(analistaAtual: string) {
     [analistaAtual],
   );
 
+  const encerrarAtendimento = useCallback(async (conversaId: string) => {
+    const conversaAtualizada = await atendimentoApi.encerrarAtendimento(conversaId);
+    setConversas((atual) =>
+      atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
+    );
+  }, []);
+
+  const solicitarTransferencia = useCallback(
+    async (conversaId: string, paraAnalista: string) => {
+      const conversaAtualizada = await atendimentoApi.solicitarTransferencia(conversaId, {
+        deAnalista: analistaAtual,
+        paraAnalista,
+      });
+      setConversas((atual) =>
+        atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
+      );
+    },
+    [analistaAtual],
+  );
+
+  const responderTransferencia = useCallback(async (conversaId: string, aceita: boolean) => {
+    const conversaAtualizada = await atendimentoApi.responderTransferencia(conversaId, { aceita });
+    setConversas((atual) =>
+      atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
+    );
+  }, []);
+
+  const limparSolicitacaoResolvida = useCallback(async (conversaId: string) => {
+    const conversaAtualizada = await atendimentoApi.limparSolicitacaoResolvida(conversaId);
+    setConversas((atual) =>
+      atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
+    );
+  }, []);
+
   const criarTextoPronto = useCallback(async (titulo: string, conteudo: string) => {
     const novoTexto = await atendimentoApi.criarTextoPronto({ titulo, conteudo });
     setTextosProntos((atual) => [...atual, novoTexto]);
@@ -104,6 +158,10 @@ export function useAtendimento(analistaAtual: string) {
     selecionarConversa,
     enviarMensagem,
     assumirAtendimento,
+    encerrarAtendimento,
+    solicitarTransferencia,
+    responderTransferencia,
+    limparSolicitacaoResolvida,
     criarTextoPronto,
   };
 }

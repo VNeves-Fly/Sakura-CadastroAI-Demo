@@ -42,6 +42,21 @@ export interface AssumirAtendimentoRegistro {
   liberadoEm: string | null;
 }
 
+export type StatusSolicitacaoTransferencia = "pendente" | "aceita" | "recusada" | "expirada";
+
+// Transferência de atendimento entre analistas — pedido explícito (não
+// depende da regra de 2h de inatividade, que é só pra "puxar" de quem
+// sumiu). Expira sozinha em 60s sem resposta (ver
+// TIMEOUT_TRANSFERENCIA_MS em atendimento-api.ts), contada como recusa.
+export interface SolicitacaoTransferencia {
+  id: string;
+  conversaId: string;
+  deAnalista: string;
+  paraAnalista: string;
+  status: StatusSolicitacaoTransferencia;
+  criadaEm: string; // ISO string no front
+}
+
 // Resumo da ficha do cliente mostrado na coluna de informações — reflete
 // o mesmo tipo de dado já mostrado no dossiê real (/painel, /arquivo),
 // só que aqui é gerado junto com o resto do mock do atendimento.
@@ -63,6 +78,10 @@ export interface Conversa {
   mensagens: Mensagem[];
   atendimentoAtual: AssumirAtendimentoRegistro | null;
   historicoAtendimento: AssumirAtendimentoRegistro[];
+  // Só existe uma pendente por vez por conversa — pedir uma nova
+  // enquanto existe outra pendente não é permitido (ver
+  // solicitarTransferencia em atendimento-api.ts).
+  solicitacaoTransferenciaPendente: SolicitacaoTransferencia | null;
   resumoFicha: ResumoFichaCliente;
   createdAt: string;
   updatedAt: string;
@@ -97,4 +116,13 @@ export interface AssumirAtendimentoInput {
 export interface CriarTextoProntoInput {
   titulo: string;
   conteudo: string;
+}
+
+export interface SolicitarTransferenciaInput {
+  deAnalista: string;
+  paraAnalista: string;
+}
+
+export interface ResponderTransferenciaInput {
+  aceita: boolean;
 }

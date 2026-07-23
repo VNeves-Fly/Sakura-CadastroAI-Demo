@@ -69,7 +69,7 @@ export function ListaConversas({
   }, [conversas, busca]);
 
   return (
-    <div className="border-border bg-card flex h-full flex-col border-r">
+    <div className="border-border bg-card flex h-full min-h-0 flex-col border-r">
       <div className="border-border border-b p-3">
         <div className="border-input bg-background flex items-center gap-2 rounded-full border px-3 py-2">
           <Search className="text-muted-foreground size-4 shrink-0" />
@@ -83,7 +83,7 @@ export function ListaConversas({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {conversasFiltradas.length === 0 ? (
           <p className="text-muted-foreground p-4 text-center text-sm">
             Nenhuma conversa encontrada.

@@ -21,6 +21,10 @@ export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
     selecionarConversa,
     enviarMensagem,
     assumirAtendimento,
+    encerrarAtendimento,
+    solicitarTransferencia,
+    responderTransferencia,
+    limparSolicitacaoResolvida,
     criarTextoPronto,
   } = useAtendimento(analistaAtual);
 
@@ -29,7 +33,7 @@ export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
 
   if (isLoading) {
     return (
-      <div className="text-muted-foreground flex h-[calc(100vh-8rem)] items-center justify-center text-sm">
+      <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
         Carregando conversas...
       </div>
     );
@@ -37,14 +41,14 @@ export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
 
   if (hasError) {
     return (
-      <div className="text-destructive flex h-[calc(100vh-8rem)] items-center justify-center text-sm">
+      <div className="text-destructive flex flex-1 items-center justify-center text-sm">
         Não foi possível carregar as conversas.
       </div>
     );
   }
 
   return (
-    <div className="border-border bg-card grid h-[calc(100vh-8rem)] grid-cols-[280px_1fr_280px] overflow-hidden rounded-2xl border">
+    <div className="border-border bg-card grid min-h-0 flex-1 grid-cols-[280px_1fr_280px] overflow-hidden rounded-2xl border">
       <ListaConversas
         conversas={conversas}
         conversaSelecionadaId={conversaSelecionadaId}
@@ -58,6 +62,10 @@ export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
         templatesAprovados={templatesAprovados}
         isSending={isSending}
         onAssumirAtendimento={assumirAtendimento}
+        onEncerrarAtendimento={encerrarAtendimento}
+        onSolicitarTransferencia={solicitarTransferencia}
+        onResponderTransferencia={responderTransferencia}
+        onLimparSolicitacaoResolvida={limparSolicitacaoResolvida}
         onEnviarMensagem={enviarMensagem}
         onCriarTextoPronto={criarTextoPronto}
       />
