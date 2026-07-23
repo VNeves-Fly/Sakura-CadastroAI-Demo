@@ -7,11 +7,7 @@ export interface QsaResultView {
   emailReceita: string;
 }
 
-export interface SocioContratoSocialView {
-  nome: string;
-}
-
-export interface EnderecoEmpresaContratoSocialView {
+export interface EnderecoContratoSocialView {
   cep: string | null;
   logradouro: string | null;
   numero: string | null;
@@ -21,6 +17,24 @@ export interface EnderecoEmpresaContratoSocialView {
   uf: string | null;
 }
 
+// Um sócio extraído do `qsa` do contrato social — administrativo/ativo são
+// derivados pela IA (inferidos do contexto do documento, não impressos).
+export interface SocioContratoSocialView {
+  nome: string;
+  cpf: string | null;
+  dataNascimento: string | null;
+  estadoCivil: string | null;
+  nacionalidade: string | null;
+  regimeBens: string | null;
+  participacao: number | null;
+  rg: string | null;
+  rgExpedidor: string | null;
+  rgExpedidoUf: string | null;
+  endereco: EnderecoContratoSocialView | null;
+  administrativo: boolean | null;
+  ativo: boolean | null;
+}
+
 export interface ContratoSocialAnaliseView {
   cnpjConfere: boolean | null;
   socios: SocioContratoSocialView[];
@@ -28,7 +42,7 @@ export interface ContratoSocialAnaliseView {
   confianca: number;
   razaoSocial: string | null;
   capitalSocial: number | null;
-  endereco: EnderecoEmpresaContratoSocialView | null;
+  endereco: EnderecoContratoSocialView | null;
   objetoSocial: string | null;
   dataConstituicao: string | null;
 }

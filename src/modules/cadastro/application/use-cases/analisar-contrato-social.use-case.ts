@@ -5,18 +5,12 @@ import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type {
   AnalisarContratoSocialInput,
   AnalisarContratoSocialOutput,
-  EnderecoEmpresaContratoSocial,
+  EnderecoContratoSocial,
   SocioContratoSocialExtraido,
 } from "@/modules/cadastro/application/dto/analisar-contrato-social.dto";
 
 function extrairString(valor: unknown): string | null {
   return typeof valor === "string" && valor.length > 0 ? valor : null;
-}
-
-function extrairListaStrings(valor: unknown): string[] {
-  return Array.isArray(valor)
-    ? valor.filter((item): item is string => typeof item === "string")
-    : [];
 }
 
 // Mesma normalização usada em receitaws-qsa-consulta.adapter.ts pro capital
@@ -31,13 +25,65 @@ function extrairCapitalSocial(valor: unknown): number | null {
   return Number.isFinite(numero) ? numero : null;
 }
 
+// `participacao` (% ou quantidade de quotas) pode vir como número ou como
+// string ("50", "50%", "50,5") — mesmo espírito defensivo do capital social.
+function extrairParticipacao(valor: unknown): number | null {
+  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
+  if (typeof valor !== "string") return null;
+
+  const normalizado = valor.replace("%", "").trim().replace(",", ".");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+// `administrativo`/`ativo` são campos derivados (a IA infere do contexto,
+// não são extraídos verbatim) — podem vir como booleano real ou como texto
+// "true"/"false" (o schema de origem do Document AI não tem tipo booleano).
+function extrairBooleano(valor: unknown): boolean | null {
+  if (typeof valor === "boolean") return valor;
+  if (typeof valor === "string") {
+    if (valor.toLowerCase() === "true") return true;
+    if (valor.toLowerCase() === "false") return false;
+  }
+  return null;
+}
+
+// A IA devolve a data em `DD/MM/YYYY` (às vezes já em ISO) — o wizard exige
+// `YYYY-MM-DD`. Mesmo helper usado em analisar-documento-identificacao.use-case.ts.
+function extrairDataNascimentoIso(valor: unknown): string | null {
+  if (typeof valor !== "string") return null;
+
+  const isoMatch = valor.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const brMatch = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  const match = isoMatch ?? brMatch;
+  if (!match) return null;
+
+  const [ano, mes, dia] = isoMatch
+    ? [match[1], match[2], match[3]]
+    : [match[3], match[2], match[1]];
+  if (!ano || !mes || !dia) return null;
+
+  const iso = `${ano}-${mes}-${dia}`;
+  const data = new Date(`${iso}T00:00:00`);
+  const dataValida =
+    !Number.isNaN(data.getTime()) &&
+    data.getFullYear() === Number(ano) &&
+    data.getMonth() + 1 === Number(mes) &&
+    data.getDate() === Number(dia);
+
+  return dataValida ? iso : null;
+}
+
 // `endereco` é um objeto confirmado no schema do agente (document_type.py,
 // AgentsService) — cep/logradouro/numero/complemento/bairro/municipio/uf.
-function extrairEnderecoEmpresa(valor: unknown): EnderecoEmpresaContratoSocial | null {
+// Mesma forma usada pro endereço da empresa e pro endereço de cada sócio
+// dentro de `qsa`.
+function extrairEndereco(valor: unknown): EnderecoContratoSocial | null {
   if (typeof valor !== "object" || valor === null) return null;
   const registro = valor as Record<string, unknown>;
 
-  const endereco: EnderecoEmpresaContratoSocial = {
+  const endereco: EnderecoContratoSocial = {
     cep: extrairString(registro.cep),
     logradouro: extrairString(registro.logradouro),
     numero: extrairString(registro.numero),
@@ -51,10 +97,38 @@ function extrairEnderecoEmpresa(valor: unknown): EnderecoEmpresaContratoSocial |
   return temAlgumCampo ? endereco : null;
 }
 
-// Contrato social só devolve `socios_nomes_completos` (lista de nomes) —
-// não há endereço por sócio no schema do agente.
+// `qsa` é uma lista de objetos (substituiu o antigo `socios_nomes_completos`,
+// que só tinha nomes soltos) — cada item traz nome, cpf, data de nascimento,
+// RG, endereço e mais, conforme o schema do agente (document_type.py).
+// Sócios sem nome legível são descartados (não há como identificá-los).
 function extrairSocios(camposExtraidos: Record<string, unknown>): SocioContratoSocialExtraido[] {
-  return extrairListaStrings(camposExtraidos.socios_nomes_completos).map((nome) => ({ nome }));
+  const lista = camposExtraidos.qsa;
+  if (!Array.isArray(lista)) return [];
+
+  return lista
+    .map((item): SocioContratoSocialExtraido | null => {
+      if (typeof item !== "object" || item === null) return null;
+      const registro = item as Record<string, unknown>;
+      const nome = extrairString(registro.nome);
+      if (!nome) return null;
+
+      return {
+        nome,
+        cpf: extrairString(registro.cpf),
+        dataNascimento: extrairDataNascimentoIso(registro.data_nascimento),
+        estadoCivil: extrairString(registro.estado_civil),
+        nacionalidade: extrairString(registro.nacionalidade),
+        regimeBens: extrairString(registro.regime_bens),
+        participacao: extrairParticipacao(registro.participacao),
+        rg: extrairString(registro.rg),
+        rgExpedidor: extrairString(registro.rg_expedidor),
+        rgExpedidoUf: extrairString(registro.rg_expedido_uf),
+        endereco: extrairEndereco(registro.endereco),
+        administrativo: extrairBooleano(registro.administrativo),
+        ativo: extrairBooleano(registro.ativo),
+      };
+    })
+    .filter((item): item is SocioContratoSocialExtraido => item !== null);
 }
 
 // Análise "preview" no Passo 1 do wizard, antes do cadastro existir de
@@ -95,7 +169,7 @@ export class AnalisarContratoSocialUseCase implements UseCase<
       camposExtras: resultado.camposExtras,
       razaoSocialExtraida: extrairString(resultado.camposExtraidos.razao_social),
       capitalSocial: extrairCapitalSocial(resultado.camposExtraidos.capital_social),
-      enderecoEmpresa: extrairEnderecoEmpresa(resultado.camposExtraidos.endereco),
+      enderecoEmpresa: extrairEndereco(resultado.camposExtraidos.endereco),
       objetoSocial: extrairString(resultado.camposExtraidos.objeto_social),
       dataConstituicao: extrairString(resultado.camposExtraidos.data_constituicao),
     };

@@ -41,11 +41,57 @@ describe("agenciaAdapter.toQsaResultView", () => {
   });
 });
 
+function socioContratoSocialFake(
+  overrides: Partial<RawAnaliseContratoSocialResponse["socios"][number]> = {},
+): RawAnaliseContratoSocialResponse["socios"][number] {
+  return {
+    nome: "Fulano de Tal",
+    cpf: null,
+    dataNascimento: null,
+    estadoCivil: null,
+    nacionalidade: null,
+    regimeBens: null,
+    participacao: null,
+    rg: null,
+    rgExpedidor: null,
+    rgExpedidoUf: null,
+    endereco: null,
+    administrativo: null,
+    ativo: null,
+    ...overrides,
+  };
+}
+
 describe("agenciaAdapter.toContratoSocialAnaliseView", () => {
-  it("repassa os nomes dos sócios (contrato social só devolve nome, sem endereço por sócio)", () => {
+  it("repassa o qsa completo por sócio (nome, cpf, RG, endereço, participação, administrativo/ativo)", () => {
     const raw: RawAnaliseContratoSocialResponse = {
       cnpjConfere: true,
-      socios: [{ nome: "Fulano de Tal" }, { nome: "Beltrana" }],
+      socios: [
+        socioContratoSocialFake({
+          nome: "Fulano de Tal",
+          cpf: "111.444.777-35",
+          dataNascimento: "1980-05-10",
+          estadoCivil: "casado",
+          nacionalidade: "brasileiro",
+          regimeBens: "comunhão parcial de bens",
+          participacao: 50,
+          rg: "12.345.678-9",
+          rgExpedidor: "SSP",
+          rgExpedidoUf: "sp",
+          endereco: {
+            cep: "01310-100",
+            logradouro: "Avenida Paulista",
+            numero: "1000",
+            complemento: null,
+            bairro: "Bela Vista",
+            municipio: "São Paulo",
+            uf: "sp",
+          },
+          administrativo: true,
+          ativo: true,
+        }),
+        socioContratoSocialFake({ nome: "Beltrana", participacao: 50 }),
+      ],
       alertas: [],
       confianca: 0.9,
       razaoSocialExtraida: "Empresa Teste Ltda",
@@ -66,6 +112,13 @@ describe("agenciaAdapter.toContratoSocialAnaliseView", () => {
     const view = agenciaAdapter.toContratoSocialAnaliseView(raw);
 
     expect(view.socios.map((socio) => socio.nome)).toEqual(["Fulano de Tal", "Beltrana"]);
+    expect(view.socios[0]?.cpf).toBe("11144477735");
+    expect(view.socios[0]?.rgExpedidoUf).toBe("SP");
+    expect(view.socios[0]?.endereco?.cidade).toBe("São Paulo");
+    expect(view.socios[0]?.endereco?.uf).toBe("SP");
+    expect(view.socios[0]?.participacao).toBe(50);
+    expect(view.socios[0]?.administrativo).toBe(true);
+    expect(view.socios[0]?.ativo).toBe(true);
     expect(view.razaoSocial).toBe("Empresa Teste Ltda");
     expect(view.capitalSocial).toBe(100000);
     expect(view.endereco?.cidade).toBe("São Paulo");
