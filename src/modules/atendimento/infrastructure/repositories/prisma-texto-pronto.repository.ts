@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
+  AtualizarTextoProntoData,
   CriarTextoProntoData,
   TextoProntoRepository,
 } from "@/modules/atendimento/domain/repositories/texto-pronto-repository";
@@ -17,6 +18,11 @@ export class PrismaTextoProntoRepository implements TextoProntoRepository {
     }));
   }
 
+  async findById(id: string): Promise<TextoProntoEntity | null> {
+    const record = await this.prisma.textoPronto.findUnique({ where: { id } });
+    return record ? { id: record.id, titulo: record.titulo, conteudo: record.conteudo } : null;
+  }
+
   async create(data: CriarTextoProntoData): Promise<TextoProntoEntity> {
     const record = await this.prisma.textoPronto.create({
       data: {
@@ -26,5 +32,17 @@ export class PrismaTextoProntoRepository implements TextoProntoRepository {
       },
     });
     return { id: record.id, titulo: record.titulo, conteudo: record.conteudo };
+  }
+
+  async update(id: string, data: AtualizarTextoProntoData): Promise<TextoProntoEntity> {
+    const record = await this.prisma.textoPronto.update({
+      where: { id },
+      data: { titulo: data.titulo, conteudo: data.conteudo },
+    });
+    return { id: record.id, titulo: record.titulo, conteudo: record.conteudo };
+  }
+
+  async remover(id: string): Promise<void> {
+    await this.prisma.textoPronto.delete({ where: { id } });
   }
 }

@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Webhook, Plus, ShieldCheck, ShieldAlert, PlugZap, RotateCcw } from "lucide-react";
+import {
+  Webhook,
+  Plus,
+  ShieldCheck,
+  ShieldAlert,
+  PlugZap,
+  RotateCcw,
+  RefreshCw,
+} from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import { useMessengerConfig } from "@/modules/atendimento/view-models/use-messenger-config.view-model";
 import type {
@@ -65,10 +73,12 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
     isCriandoTemplate,
     isTestandoConexao,
     resultadoTeste,
+    isSincronizando,
     salvarConfiguracao,
     criarTemplate,
     reenviarTemplate,
     testarConexao,
+    sincronizarTemplates,
   } = useMessengerConfig(analistaAtual);
 
   const [form, setForm] = useState<FormConexao>(FORM_VAZIO);
@@ -144,10 +154,11 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
           </div>
 
           <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-            <strong className="text-foreground">Sem integração real ainda:</strong> estes campos
-            existem pra o back-end preencher quando a integração de verdade com a API do WhatsApp
-            Business (Meta) for feita — nada aqui é enviado pra Meta ainda, e segredos (App Secret,
-            Access Token) nunca voltam em texto puro depois de salvos.
+            <strong className="text-foreground">O .env do servidor é a fonte da verdade:</strong> os
+            campos acima refletem o que já está configurado lá (segredos como App Secret e Access
+            Token nunca voltam em texto puro, só &ldquo;já configurado&rdquo;). &ldquo;Testar
+            conexão&rdquo; faz uma chamada real à Graph API da Meta. O botão &ldquo;Salvar&rdquo;
+            ainda não persiste — pra trocar credenciais, edite o .env do servidor diretamente.
           </div>
 
           <form
@@ -295,10 +306,20 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
       >
         <div className="flex flex-col gap-3">
           <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-            Templates são revisados e aprovados pela própria Meta (leva de minutos a alguns dias) —
-            aqui só é possível criar e enviar pra aprovação; o status real (aprovado/rejeitado) só
-            atualiza quando a integração de verdade existir.
+            Criar/reenviar aqui já submete de verdade pra revisão da Meta (leva de minutos a alguns
+            dias). O status (aprovado/rejeitado) não atualiza sozinho — use
+            &ldquo;Sincronizar&rdquo; pra puxar o que já foi decidido lá.
           </div>
+
+          <button
+            type="button"
+            onClick={() => void sincronizarTemplates()}
+            disabled={isSincronizando}
+            className="border-input text-foreground hover:bg-accent flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw className={`size-3.5 ${isSincronizando ? "animate-spin" : ""}`} />
+            {isSincronizando ? "Sincronizando..." : "Sincronizar com a Meta"}
+          </button>
 
           <div className="flex flex-col gap-2">
             {templates.length === 0 ? (

@@ -1,13 +1,12 @@
 import { CriarTextoProntoUseCase } from "@/modules/atendimento/application/use-cases/criar-texto-pronto.use-case";
-import type { TextoProntoRepository } from "@/modules/atendimento/domain/repositories/texto-pronto-repository";
+import { fakeTextoProntoRepository } from "../../fixtures";
 
 describe("CriarTextoProntoUseCase", () => {
   it("repassa o input pro repositório e devolve o texto criado", async () => {
     const criado = { id: "txt-novo", titulo: "Título", conteudo: "Conteúdo" };
-    const textoProntoRepository: TextoProntoRepository = {
-      findAll: jest.fn(),
+    const textoProntoRepository = fakeTextoProntoRepository({
       create: jest.fn().mockResolvedValue(criado),
-    };
+    });
 
     const resultado = await new CriarTextoProntoUseCase(textoProntoRepository).execute({
       titulo: "Título",

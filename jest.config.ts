@@ -22,7 +22,14 @@ const config: Config = {
     "^@/modules/(.*)$": "<rootDir>/src/modules/$1",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
+  // fixtures.ts é helper compartilhado (fakes de repositório/serviço),
+  // não teste — sem isso o Jest tenta rodá-lo como suíte (testMatch do
+  // preset do next/jest casa qualquer .ts dentro de __tests__/).
+  testPathIgnorePatterns: [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/__tests__/modules/atendimento/fixtures.ts",
+  ],
   collectCoverageFrom: [
     "src/modules/**/*.{ts,tsx}",
     "!src/modules/**/*.d.ts",

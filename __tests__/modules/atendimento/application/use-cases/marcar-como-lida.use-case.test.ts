@@ -1,67 +1,24 @@
 import { MarcarComoLidaUseCase } from "@/modules/atendimento/application/use-cases/marcar-como-lida.use-case";
 import { NotFoundError } from "@/modules/shared/domain/errors";
-import type { ConversaEntity } from "@/modules/atendimento/domain/entities/conversa.entity";
-import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
-import type { MensagemRepository } from "@/modules/atendimento/domain/repositories/mensagem-repository";
-import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
-
-function fakeConversa(overrides: Partial<ConversaEntity> = {}): ConversaEntity {
-  return {
-    id: "conv-1",
-    tipoContato: "agencia",
-    agenciaId: "ag-1",
-    agenciaNome: "Agência X",
-    agenciaCnpj: "11222333000181",
-    membro: { id: "conv-1", nome: "Fulano", papel: "socio", telefone: "5511999999999" },
-    mensagens: [],
-    atendimentoAtual: null,
-    historicoAtendimento: [],
-    resumoFicha: {
-      statusAgencia: "em_andamento",
-      documentosAprovados: 0,
-      documentosPendentes: 0,
-      situacaoCadastralReceita: null,
-      contratoStatus: null,
-      amatSofiaConsultado: false,
-    },
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-    lastMessageAt: null,
-    ...overrides,
-  };
-}
+import {
+  fakeConversa,
+  fakeConversaRepository,
+  fakeMensagemRepository,
+  fakeResumoFichaClienteRepository,
+  fakeSolicitacaoTransferenciaRepository,
+} from "../../fixtures";
 
 function criarUseCase() {
-  const conversaRepository: ConversaRepository = {
-    findAll: jest.fn(),
-    findById: jest.fn().mockResolvedValue(fakeConversa()),
-    findByTelefoneWhatsapp: jest.fn(),
-    create: jest.fn(),
-    touchLastMessage: jest.fn(),
-  };
-  const mensagemRepository: MensagemRepository = {
-    create: jest.fn(),
-    criarMidia: jest.fn(),
-    findMidiaById: jest.fn(),
-    marcarClienteComoLidas: jest.fn(),
-    findByWaMessageId: jest.fn(),
-    atualizarStatusPorWaMessageId: jest.fn(),
-  };
-  const resumoFichaClienteRepository: ResumoFichaClienteRepository = {
-    obterResumo: jest.fn().mockResolvedValue({
-      statusAgencia: "ativo",
-      documentosAprovados: 1,
-      documentosPendentes: 0,
-      situacaoCadastralReceita: null,
-      contratoStatus: null,
-      amatSofiaConsultado: false,
-    }),
-  };
+  const conversaRepository = fakeConversaRepository();
+  const mensagemRepository = fakeMensagemRepository();
+  const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
+  const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
 
   const useCase = new MarcarComoLidaUseCase(
     conversaRepository,
     mensagemRepository,
     resumoFichaClienteRepository,
+    solicitacaoTransferenciaRepository,
   );
   return { useCase, conversaRepository, mensagemRepository, resumoFichaClienteRepository };
 }

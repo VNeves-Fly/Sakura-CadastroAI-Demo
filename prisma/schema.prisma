@@ -35,9 +35,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  mensagensEnviadas     Mensagem[]
-  atendimentosAssumidos AssumirAtendimentoRegistro[]
-  textosProntosCriados  TextoPronto[]
+  mensagensEnviadas       Mensagem[]
+  atendimentosAssumidos   AssumirAtendimentoRegistro[]
+  textosProntosCriados    TextoPronto[]
+  transferenciasFeitas    SolicitacaoTransferencia[]   @relation("TransferenciaFeitaPor")
+  transferenciasRecebidas SolicitacaoTransferencia[]   @relation("TransferenciaParaAnalista")
 
   @@map("users")
 }
@@ -776,8 +778,9 @@ model Conversa {
   representanteLegalId String?
   representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
 
-  mensagens    Mensagem[]
-  atendimentos AssumirAtendimentoRegistro[]
+  mensagens                 Mensagem[]
+  atendimentos              AssumirAtendimentoRegistro[]
+  solicitacoesTransferencia SolicitacaoTransferencia[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -786,6 +789,42 @@ model Conversa {
   @@index([agenciaId])
   @@index([tipoContato])
   @@map("conversas")
+}
+
+enum StatusSolicitacaoTransferencia {
+  PENDENTE
+  ACEITA
+  RECUSADA
+  EXPIRADA
+}
+
+// Transferência de atendimento entre analistas — pedido explícito (não
+// depende da regra de 2h de HORAS_LIMITE_ASSUMIR, que é só pra "puxar" de
+// quem sumiu). Expira sozinha depois de TIMEOUT_TRANSFERENCIA_MS sem
+// resposta (contada como recusa) — a transição pra EXPIRADA é feita de
+// forma preguiçosa na leitura (ver PrismaConversaRepository), não por job
+// em background. `limpaEm` marca que o solicitante já viu o resultado
+// (recusada/expirada) e dispensou o aviso — depois disso a conversa
+// aparece sem solicitacaoTransferenciaPendente, liberando um novo pedido.
+model SolicitacaoTransferencia {
+  id         String   @id @default(cuid())
+  conversaId String
+  conversa   Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  deAnalistaId String
+  deAnalista   User   @relation("TransferenciaFeitaPor", fields: [deAnalistaId], references: [id])
+
+  paraAnalistaId String
+  paraAnalista   User   @relation("TransferenciaParaAnalista", fields: [paraAnalistaId], references: [id])
+
+  status   StatusSolicitacaoTransferencia @default(PENDENTE)
+  criadaEm DateTime                       @default(now())
+
+  resolvidaEm DateTime?
+  limpaEm     DateTime?
+
+  @@index([conversaId])
+  @@map("solicitacoes_transferencia")
 }
 
 model Mensagem {
@@ -888,6 +927,9 @@ model TemplateWhatsApp {
   categoria      String?
   status         StatusTemplateWhatsApp @default(APPROVED)
   conteudo       String                 @db.Text // texto do componente BODY, com placeholders {{1}}
+  // Preenchido pela Meta só quando status = REJECTED (rejected_reason da
+  // Business Management API) — nunca inventado localmente.
+  motivoRejeicao String?
 
   sincronizadoEm DateTime @default(now())
 

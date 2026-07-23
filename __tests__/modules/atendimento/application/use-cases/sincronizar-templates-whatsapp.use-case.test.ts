@@ -1,37 +1,27 @@
 import { SincronizarTemplatesWhatsAppUseCase } from "@/modules/atendimento/application/use-cases/sincronizar-templates-whatsapp.use-case";
-import type { TemplateWhatsAppRepository } from "@/modules/atendimento/domain/repositories/template-whatsapp-repository";
-import type { WhatsAppMessagingService } from "@/modules/atendimento/domain/services/whatsapp-messaging-service";
-
-function fakeWhatsAppMessagingService(
-  overrides: Partial<WhatsAppMessagingService> = {},
-): WhatsAppMessagingService {
-  return {
-    enviarTexto: jest.fn(),
-    enviarTemplate: jest.fn(),
-    enviarMidia: jest.fn(),
-    listarTemplatesAprovados: jest.fn().mockResolvedValue([]),
-    baixarMidia: jest.fn(),
-    ...overrides,
-  };
-}
-
-function fakeTemplateWhatsAppRepository(): TemplateWhatsAppRepository {
-  return {
-    findAllAprovados: jest.fn(),
-    upsertPorMetaTemplateId: jest.fn(),
-  };
-}
+import { fakeTemplateWhatsAppRepository, fakeWhatsAppMessagingService } from "../../fixtures";
 
 describe("SincronizarTemplatesWhatsAppUseCase", () => {
-  it("faz upsert de cada template retornado pela Meta e devolve a contagem", async () => {
+  it("faz upsert de cada template retornado pela Meta (qualquer status) e devolve a contagem", async () => {
     const whatsAppMessagingService = fakeWhatsAppMessagingService({
-      listarTemplatesAprovados: jest.fn().mockResolvedValue([
-        { metaTemplateId: "tpl-1", nome: "boas_vindas", conteudo: "Olá!", idioma: "pt_BR" },
+      listarTodosTemplates: jest.fn().mockResolvedValue([
+        {
+          metaTemplateId: "tpl-1",
+          nome: "boas_vindas",
+          conteudo: "Olá!",
+          idioma: "pt_BR",
+          categoria: "UTILITY",
+          status: "APPROVED",
+          motivoRejeicao: null,
+        },
         {
           metaTemplateId: "tpl-2",
-          nome: "cadastro_aprovado",
-          conteudo: "Seu cadastro foi aprovado.",
+          nome: "promocao",
+          conteudo: "Aproveite!",
           idioma: "pt_BR",
+          categoria: "MARKETING",
+          status: "REJECTED",
+          motivoRejeicao: "Texto genérico demais.",
         },
       ]),
     });
@@ -50,12 +40,18 @@ describe("SincronizarTemplatesWhatsAppUseCase", () => {
       nome: "boas_vindas",
       idioma: "pt_BR",
       conteudo: "Olá!",
+      categoria: "UTILITY",
+      status: "APPROVED",
+      motivoRejeicao: null,
     });
     expect(templateWhatsAppRepository.upsertPorMetaTemplateId).toHaveBeenNthCalledWith(2, {
       metaTemplateId: "tpl-2",
-      nome: "cadastro_aprovado",
+      nome: "promocao",
       idioma: "pt_BR",
-      conteudo: "Seu cadastro foi aprovado.",
+      conteudo: "Aproveite!",
+      categoria: "MARKETING",
+      status: "REJECTED",
+      motivoRejeicao: "Texto genérico demais.",
     });
   });
 

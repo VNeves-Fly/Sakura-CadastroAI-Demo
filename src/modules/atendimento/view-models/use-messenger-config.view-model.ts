@@ -15,6 +15,7 @@ export function useMessengerConfig(analistaAtual: string) {
   const [isCriandoTemplate, setIsCriandoTemplate] = useState(false);
   const [isTestandoConexao, setIsTestandoConexao] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<ResultadoTesteConexao | null>(null);
+  const [isSincronizando, setIsSincronizando] = useState(false);
 
   const carregarTudo = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +85,16 @@ export function useMessengerConfig(analistaAtual: string) {
     }
   }, []);
 
+  const sincronizarTemplates = useCallback(async () => {
+    setIsSincronizando(true);
+    try {
+      await atendimentoApi.sincronizarTemplates();
+      setTemplates(await atendimentoApi.listarTemplates());
+    } finally {
+      setIsSincronizando(false);
+    }
+  }, []);
+
   return {
     configuracao,
     templates,
@@ -92,9 +103,11 @@ export function useMessengerConfig(analistaAtual: string) {
     isCriandoTemplate,
     isTestandoConexao,
     resultadoTeste,
+    isSincronizando,
     salvarConfiguracao,
     criarTemplate,
     reenviarTemplate,
     testarConexao,
+    sincronizarTemplates,
   };
 }

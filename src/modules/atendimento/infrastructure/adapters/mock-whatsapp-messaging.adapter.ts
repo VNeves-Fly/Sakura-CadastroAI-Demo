@@ -1,7 +1,9 @@
 import type {
+  CriarTemplateMetaInput,
   EnviarMidiaInput,
   EnvioResultado,
   TemplateAprovadoMeta,
+  TemplateMetaCompleto,
   TipoMidiaWhatsApp,
   WhatsAppMessagingService,
 } from "@/modules/atendimento/domain/services/whatsapp-messaging-service";
@@ -48,6 +50,35 @@ export class MockWhatsAppMessagingAdapter implements WhatsAppMessagingService {
         idioma: "pt_BR",
       },
     ];
+  }
+
+  async listarTodosTemplates(): Promise<TemplateMetaCompleto[]> {
+    return [
+      {
+        metaTemplateId: "mock-boas-vindas",
+        nome: "boas_vindas",
+        conteudo: "Olá! Recebemos seu cadastro e em breve um analista vai te atender.",
+        idioma: "pt_BR",
+        categoria: "UTILITY",
+        status: "APPROVED",
+        motivoRejeicao: null,
+      },
+    ];
+  }
+
+  async criarTemplate(input: CriarTemplateMetaInput): Promise<{ metaTemplateId: string }> {
+    void input;
+    return { metaTemplateId: `mock-template-${fakeMessageId()}` };
+  }
+
+  async editarTemplate(_metaTemplateId: string, _conteudo: string): Promise<void> {
+    // no-op — sem API real pra chamar.
+  }
+
+  async verificarCredenciais(): Promise<{ displayPhoneNumber: string; verifiedName: string }> {
+    throw new Error(
+      "Credenciais da Meta não configuradas — defina WHATSAPP_ACCESS_TOKEN no .env pra testar a conexão de verdade.",
+    );
   }
 
   async baixarMidia(mediaId: string): Promise<{ buffer: Buffer; mimeType: string }> {

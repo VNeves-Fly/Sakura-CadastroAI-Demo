@@ -8,3 +8,8 @@ export const HORAS_LIMITE_ASSUMIR = 2;
 // preciso um template aprovado). Espelha a mesma constante hoje só no
 // client em thread-conversa.tsx.
 export const HORAS_JANELA_ATENDIMENTO_META = 24;
+
+// Solicitação de transferência entre analistas expira sozinha depois
+// desse tempo sem resposta (contada como recusa). Movido de
+// atendimento-api.ts (era só client-side) — agora reimportado por lá.
+export const TIMEOUT_TRANSFERENCIA_MS = 60_000;

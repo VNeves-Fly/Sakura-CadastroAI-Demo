@@ -78,6 +78,10 @@ function toDomain(record: ConversaComRelacoes): ConversaEntity {
       assumidoEm: item.assumidoEm.toISOString(),
       liberadoEm: item.liberadoEm?.toISOString() ?? null,
     })),
+    // Placeholder — sobrescrito pela use-case via completarConversa()
+    // (SolicitacaoTransferenciaRepository), que também trata a
+    // auto-expiração depois de TIMEOUT_TRANSFERENCIA_MS.
+    solicitacaoTransferenciaPendente: null,
     // Placeholder — sobrescrito pela use-case via ResumoFichaClienteRepository
     // (esta camada não tem acesso a esses dados sem um agenciaId concreto).
     resumoFicha: {

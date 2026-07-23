@@ -1,9 +1,11 @@
 import { RateLimitError } from "@/modules/shared/domain/errors";
 import { ForaDaJanela24hError } from "@/modules/atendimento/domain/errors";
 import type {
+  CriarTemplateMetaInput,
   EnviarMidiaInput,
   EnvioResultado,
   TemplateAprovadoMeta,
+  TemplateMetaCompleto,
   TipoMidiaWhatsApp,
   WhatsAppMessagingService,
 } from "@/modules/atendimento/domain/services/whatsapp-messaging-service";
@@ -51,12 +53,18 @@ interface MetaTemplateItem {
   name: string;
   language: string;
   status: string;
+  category?: string;
+  rejected_reason?: string | null;
   components: MetaTemplateComponente[];
 }
 
 interface MetaTemplatesResposta {
   data: MetaTemplateItem[];
   paging?: { next?: string };
+}
+
+interface MetaCriarTemplateResposta {
+  id: string;
 }
 
 function flattenBody(components: MetaTemplateComponente[]): string {
@@ -153,6 +161,66 @@ export class MetaWhatsAppAdapter implements WhatsAppMessagingService {
     }
 
     return templates;
+  }
+
+  async listarTodosTemplates(): Promise<TemplateMetaCompleto[]> {
+    const wabaId = requireEnv("WHATSAPP_BUSINESS_ACCOUNT_ID");
+    const templates: TemplateMetaCompleto[] = [];
+    let url: string | null = `${baseUrl()}/${wabaId}/message_templates`;
+
+    while (url) {
+      const resposta = (await this.requestAbsolute("GET", url)) as MetaTemplatesResposta;
+
+      for (const item of resposta.data) {
+        templates.push({
+          metaTemplateId: item.id,
+          nome: item.name,
+          idioma: item.language,
+          categoria: item.category ?? "UTILITY",
+          status: item.status,
+          motivoRejeicao: item.rejected_reason ?? null,
+          conteudo: flattenBody(item.components),
+        });
+      }
+
+      url = resposta.paging?.next ?? null;
+    }
+
+    return templates;
+  }
+
+  async criarTemplate(input: CriarTemplateMetaInput): Promise<{ metaTemplateId: string }> {
+    const wabaId = requireEnv("WHATSAPP_BUSINESS_ACCOUNT_ID");
+    const resposta = (await this.requestAbsolute(
+      "POST",
+      `${baseUrl()}/${wabaId}/message_templates`,
+      {
+        name: input.nome,
+        category: input.categoria,
+        language: input.idioma,
+        components: [{ type: "BODY", text: input.conteudo }],
+      },
+    )) as MetaCriarTemplateResposta;
+
+    return { metaTemplateId: resposta.id };
+  }
+
+  async editarTemplate(metaTemplateId: string, conteudo: string): Promise<void> {
+    await this.requestAbsolute("POST", `${baseUrl()}/${metaTemplateId}`, {
+      components: [{ type: "BODY", text: conteudo }],
+    });
+  }
+
+  async verificarCredenciais(): Promise<{ displayPhoneNumber: string; verifiedName: string }> {
+    const resposta = (await this.requestPhoneNumber(
+      "GET",
+      "?fields=display_phone_number,verified_name",
+    )) as { display_phone_number?: string; verified_name?: string };
+
+    return {
+      displayPhoneNumber: resposta.display_phone_number ?? "",
+      verifiedName: resposta.verified_name ?? "",
+    };
   }
 
   async baixarMidia(mediaId: string): Promise<{ buffer: Buffer; mimeType: string }> {
