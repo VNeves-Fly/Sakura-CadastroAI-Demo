@@ -35,6 +35,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  mensagensEnviadas     Mensagem[]
+  atendimentosAssumidos AssumirAtendimentoRegistro[]
+  textosProntosCriados  TextoPronto[]
+
   @@map("users")
 }
 
@@ -133,7 +137,7 @@ model Agencia {
   sicaCodigo         String?
   sicaSalvoPor       String?
   sicaSalvoEm        DateTime?
-  travelLinkCriado   Boolean       @default(false)
+  travelLinkCriado   Boolean   @default(false)
   travelLinkSalvoPor String?
   travelLinkSalvoEm  DateTime?
 
@@ -150,6 +154,7 @@ model Agencia {
   kanbanHistorico      KanbanHistorico[]
   decisoesHumanas      DecisaoHumana[]
   notificacoes         Notificacao[]
+  conversas            Conversa[]
 
   @@map("agencias")
 }
@@ -228,22 +233,22 @@ model Alerta {
 // referência de exibição (qual sócio, se houver, os dados vieram) — sem
 // FK formal, não trava se o sócio for removido depois.
 model UsuarioMaster {
-  id        String   @id @default(cuid())
-  agenciaId String   @unique
-  agencia   Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
-  nome      String?
-  email     String?
-  cpf       String?
-  telefone  String?
-  rg             String?
-  rgOrgaoEmissor String?
-  rgUf           String?
-  dataNascimento DateTime?
+  id                         String    @id @default(cuid())
+  agenciaId                  String    @unique
+  agencia                    Agencia   @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  nome                       String?
+  email                      String?
+  cpf                        String?
+  telefone                   String?
+  rg                         String?
+  rgOrgaoEmissor             String?
+  rgUf                       String?
+  dataNascimento             DateTime?
   origemRepresentanteLegalId String?
-  ativo     Boolean   @default(false)
-  salvoPor  String?
-  salvoEm   DateTime?
-  criadoEm  DateTime  @default(now())
+  ativo                      Boolean   @default(false)
+  salvoPor                   String?
+  salvoEm                    DateTime?
+  criadoEm                   DateTime  @default(now())
 
   @@map("usuarios_master")
 }
@@ -378,6 +383,7 @@ model RepresentanteLegal {
   documentos                Documento[]
   contratoSignatarios       ContratoSignatario[]
   enderecosAgenciaVinculada CadastroComplementar[] @relation("SocioVinculadoEndereco")
+  conversas                 Conversa[]
 
   @@unique([agenciaId, cpf])
   @@map("representantes_legais")
@@ -696,4 +702,194 @@ enum PapelSignatarioPadrao {
   ASSINAR_COMO_PARTE_E_FIADOR // act=11
   ASSINAR_COMO_RESPONSAVEL_SOLIDARIO // act=12
   ASSINAR_COMO_PARTE_E_RESPONSAVEL_SOLIDARIO // act=13
+}
+
+// ---------------------------------------------------------------------------
+// Domínio de Atendimento (WhatsApp / Meta Cloud API) — conversas entre
+// analistas e contatos das agências (sócios/representantes/comercial), com
+// histórico de mensagens (texto/áudio/imagem/pdf) e de "assumir
+// atendimento". Espelha o contrato de tipos consumido pelo front em
+// src/modules/atendimento/types/atendimento.types.ts.
+// ---------------------------------------------------------------------------
+
+enum TipoContatoConversa {
+  AGENCIA
+  NAO_IDENTIFICADO
+}
+
+enum PapelMembroConversa {
+  SOCIO
+  REPRESENTANTE_LEGAL
+  COMERCIAL
+  OUTRO
+}
+
+enum TipoMensagemWhatsApp {
+  TEXTO
+  AUDIO
+  IMAGEM
+  PDF
+}
+
+enum AutorMensagem {
+  CLIENTE
+  ANALISTA
+}
+
+enum StatusEntregaMensagem {
+  ENVIADO
+  ENTREGUE
+  LIDO
+  FALHOU
+}
+
+enum StatusTemplateWhatsApp {
+  APPROVED
+  PENDING
+  REJECTED
+  PAUSED
+}
+
+// Uma linha por número de telefone WhatsApp (wa_id) com histórico de troca
+// de mensagens. agenciaId nullable + tipoContato cobrem o caso "não
+// identificado" (decisão de produto 2026-07-23): quando o número inbound
+// não bate com RepresentanteLegal.telefone / Agencia.telefoneContato /
+// CadastroComplementar.telefoneComercial, a conversa é criada mesmo assim
+// (nunca descartada), com agenciaId = null e tipoContato =
+// NAO_IDENTIFICADO, pra aparecer na aba "não identificado" do front.
+model Conversa {
+  id          String              @id @default(cuid())
+  tipoContato TipoContatoConversa @default(AGENCIA)
+
+  agenciaId String?
+  agencia   Agencia? @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  telefoneWhatsapp String @unique // wa_id — E.164 dígitos, sem "+"
+
+  // Snapshot de exibição (nome/papel) do momento do match de contato — não
+  // é FK formal pro membro porque contatos "não identificados" não têm
+  // representante nenhum vinculado.
+  membroNome     String?
+  membroPapel    PapelMembroConversa @default(OUTRO)
+  membroTelefone String
+
+  representanteLegalId String?
+  representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
+
+  mensagens    Mensagem[]
+  atendimentos AssumirAtendimentoRegistro[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastMessageAt DateTime?
+
+  @@index([agenciaId])
+  @@index([tipoContato])
+  @@map("conversas")
+}
+
+model Mensagem {
+  id         String   @id @default(cuid())
+  conversaId String
+  conversa   Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  autor      AutorMensagem
+  analistaId String?
+  // Analista que enviou — FK real pro User (nunca string livre vinda do
+  // cliente); nullable porque mensagens do cliente (autor = CLIENTE) não
+  // têm analista.
+  analista   User?         @relation(fields: [analistaId], references: [id])
+
+  tipo                TipoMensagemWhatsApp
+  conteudo            String               @db.Text // texto puro, ou caption/nome de arquivo p/ mídia
+  duracaoSegundos     Int? // só tipo = AUDIO
+  tamanhoArquivoBytes Int? // só tipo != TEXTO — front formata pra exibição
+
+  midiaId String?        @unique
+  midia   MensagemMidia? @relation(fields: [midiaId], references: [id])
+
+  lido   Boolean               @default(false)
+  status StatusEntregaMensagem @default(ENVIADO)
+
+  // Id da mensagem no WhatsApp Cloud API — outbound (msg que nós mandamos)
+  // ou inbound (msg do cliente) — chave de idempotência do webhook (Meta
+  // redelivera eventos em retry).
+  waMessageId String? @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([conversaId])
+  @@index([conversaId, createdAt])
+  @@map("mensagens")
+}
+
+// Metadados do arquivo de mídia baixado do WhatsApp e salvo via
+// FileStorage (mesmo padrão de Documento: gcsPath/gcsBucket/gcsSize/
+// gcsMd5). Tabela própria (não colunas soltas em Mensagem) pra manter
+// Mensagem enxuta.
+model MensagemMidia {
+  id       String    @id @default(cuid())
+  mensagem Mensagem?
+
+  fileName String?
+  mimeType String?
+
+  gcsPath   String
+  gcsBucket String?
+  gcsSize   Int?
+  gcsMd5    String?
+
+  createdAt DateTime @default(now())
+
+  @@map("mensagens_midia")
+}
+
+// Histórico de "assumir atendimento" — cada linha é um período em que um
+// analista específico esteve responsável pela conversa. liberadoEm null =
+// é o registro atual (no máximo um por conversa, garantido pela use-case).
+model AssumirAtendimentoRegistro {
+  id         String   @id @default(cuid())
+  conversaId String
+  conversa   Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  analistaId String
+  analista   User   @relation(fields: [analistaId], references: [id])
+
+  assumidoEm DateTime  @default(now())
+  liberadoEm DateTime?
+
+  @@index([conversaId])
+  @@map("assumir_atendimento_registros")
+}
+
+// Textos prontos (respostas rápidas) — globais, CRUD simples.
+model TextoPronto {
+  id          String   @id @default(cuid())
+  titulo      String
+  conteudo    String   @db.Text
+  criadoPorId String?
+  criadoPor   User?    @relation(fields: [criadoPorId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("textos_prontos")
+}
+
+// Cache local dos templates aprovados na Meta (Business Management API
+// "message_templates"). Preferido a config-only (exigiria deploy pra cada
+// template novo aprovado) ou fetch ao vivo a cada listagem (acopla a
+// listagem à latência/disponibilidade da Graph API) — populado por
+// SincronizarTemplatesWhatsAppUseCase via upsert por metaTemplateId.
+model TemplateWhatsApp {
+  id             String                 @id @default(cuid())
+  metaTemplateId String                 @unique
+  nome           String
+  idioma         String                 @default("pt_BR")
+  categoria      String?
+  status         StatusTemplateWhatsApp @default(APPROVED)
+  conteudo       String                 @db.Text // texto do componente BODY, com placeholders {{1}}
+
+  sincronizadoEm DateTime @default(now())
+
+  @@map("templates_whatsapp")
 }

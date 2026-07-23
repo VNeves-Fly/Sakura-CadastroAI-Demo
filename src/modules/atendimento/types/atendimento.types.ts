@@ -1,13 +1,6 @@
-// Tipos do módulo Atendimento — desenhados pra já bater com o formato
-// que uma API real devolveria (datas como string ISO, funções de input
-// equivalentes a DTOs), seguindo o mesmo padrão de chat-session.types.ts
-// (referência trazida pelo usuário em 2026-07-23). Hoje tudo é servido
-// por um mock (ver services/atendimento-api.ts) — decisão explícita do
-// usuário: a versão real precisa de tabelas novas no banco (conversas/
-// mensagens/textos prontos/histórico de atendimento) e de integração de
-// verdade com a API do WhatsApp Business (Meta), nenhuma das duas existe
-// hoje no projeto. Quando existir, só o service muda — os types e
-// componentes já ficam prontos.
+// Tipos do módulo Atendimento — já batem 1:1 com o que a API real devolve
+// (ver services/atendimento-api.ts, application/dto e domain/entities do
+// backend em src/modules/atendimento/{application,domain}).
 
 export type PapelMembro = "socio" | "representante_legal" | "comercial" | "outro";
 
@@ -69,9 +62,14 @@ export interface ResumoFichaCliente {
   amatSofiaConsultado: boolean;
 }
 
+export type TipoContatoConversa = "agencia" | "nao_identificado";
+
 export interface Conversa {
   id: string;
-  agenciaId: string;
+  // null quando tipoContato === "nao_identificado" (número não bate com
+  // nenhum sócio/representante/telefone de agência cadastrada).
+  agenciaId: string | null;
+  tipoContato: TipoContatoConversa;
   agenciaNome: string;
   agenciaCnpj: string;
   membro: MembroAgencia;

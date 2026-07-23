@@ -57,9 +57,14 @@ export function PainelInformacoes({
   onSelecionarConversa,
   onVoltarParaConversa,
 }: PainelInformacoesProps) {
-  const membrosDaAgencia = todasConversas.filter(
-    (conversa) => conversa.agenciaId === conversaSelecionada.agenciaId,
-  );
+  // Contatos "não identificados" (agenciaId null) não têm agência em
+  // comum — agrupar por igualdade de null juntaria conversas de pessoas
+  // diferentes só porque nenhuma bateu com uma agência. Cada uma vira seu
+  // próprio grupo de 1 membro nesse caso.
+  const membrosDaAgencia =
+    conversaSelecionada.agenciaId === null
+      ? [conversaSelecionada]
+      : todasConversas.filter((conversa) => conversa.agenciaId === conversaSelecionada.agenciaId);
 
   const imagens = conversaSelecionada.mensagens.filter((mensagem) => mensagem.tipo === "imagem");
   const arquivos = conversaSelecionada.mensagens.filter((mensagem) => mensagem.tipo === "pdf");
