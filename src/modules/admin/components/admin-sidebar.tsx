@@ -47,7 +47,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
     itens: [
       { label: "Cadastros", href: "/painel", icon: ClipboardList },
       { label: "Atribuições", href: null, icon: Users },
-      { label: "Atendimento", href: null, icon: MessageCircle },
+      { label: "Atendimento", href: "/atendimento", icon: MessageCircle },
       { label: "Eventos", href: null, icon: CalendarDays },
       { label: "Arquivo", href: "/arquivo", icon: Archive },
     ],
