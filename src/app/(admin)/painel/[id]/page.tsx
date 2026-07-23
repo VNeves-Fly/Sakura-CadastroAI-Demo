@@ -8,6 +8,8 @@ import {
   FileCheck2,
   CheckCircle2,
   ScrollText,
+  FolderCheck,
+  Bell,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -43,6 +45,7 @@ import {
   ETAPAS_PIPELINE,
   paraUsuarioMasterView,
   usuarioMasterEstaCompleto,
+  documentosAguardandoRevisaoPosReenvio,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
@@ -193,6 +196,7 @@ export default async function DossieAgenciaPage({
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
+  const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
 
   const sociosParaConsulta = representantesLegais.map((socio) => ({
     id: socio.id,
@@ -430,6 +434,36 @@ export default async function DossieAgenciaPage({
         </>
       )}
 
+      {/* Documentação sempre visível, em qualquer etapa do funil — antes
+          só existia dentro da etapa "Complementar", então um reenvio
+          chegando depois dela (ex: agência já em Assinatura/Validação)
+          não tinha onde ser revisado. Aprovar/reprovar continua liberando
+          quantas rodadas forem necessárias (reprovar de novo gera outro
+          "aguardando reenvio", o cliente recebe o mesmo link de sempre). */}
+      <SecaoColapsavel titulo="Documentação" icon={<FolderCheck className="size-4" />}>
+        <div className="flex flex-col gap-3">
+          {reenviosAguardandoRevisao.length > 0 ? (
+            <div className="border-warning bg-warning/10 text-warning-text flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold">
+              <Bell className="size-4 shrink-0" />
+              {reenviosAguardandoRevisao.length} documento
+              {reenviosAguardandoRevisao.length > 1 ? "s" : ""} reenviado
+              {reenviosAguardandoRevisao.length > 1 ? "s" : ""} pelo cliente, aguardando sua
+              revisão.
+            </div>
+          ) : null}
+
+          <RevisaoDocumentosComplementar
+            agenciaId={agencia.id}
+            documentosAtivos={documentosAtivos}
+            documentosPendentes={documentosPendentes}
+            aprovarDocumentoAction={aprovarDocumentoAction}
+            reprovarDocumentoAction={reprovarDocumentoAction}
+            solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
+            somenteLeitura={!mostrandoEtapaAtual}
+          />
+        </div>
+      </SecaoColapsavel>
+
       <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />} defaultAberta>
         <div className="flex flex-col gap-3">
           {contratoAtual && etapaExibida >= indiceAssinatura ? (
@@ -508,16 +542,6 @@ export default async function DossieAgenciaPage({
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
                 contrato foi criado ainda.
               </p>
-
-              <RevisaoDocumentosComplementar
-                agenciaId={agencia.id}
-                documentosAtivos={documentosAtivos}
-                documentosPendentes={documentosPendentes}
-                aprovarDocumentoAction={aprovarDocumentoAction}
-                reprovarDocumentoAction={reprovarDocumentoAction}
-                solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
-                somenteLeitura={!mostrandoEtapaAtual}
-              />
 
               <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
                 <strong className="text-foreground">Parecer da IA indisponível:</strong> a

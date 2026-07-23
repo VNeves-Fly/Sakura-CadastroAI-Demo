@@ -13,6 +13,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
+  HistoricoDocumento,
 } from "@/modules/admin/components/dossie-campos";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import {
@@ -67,23 +68,29 @@ function ListaDocumentos({
       {documentosAtivos.map((doc) => (
         <div
           key={doc.id}
-          className="border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm"
+          className="border-border bg-muted/30 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
         >
-          <span className="text-foreground font-medium">{doc.label}</span>
-          <VisualizarDocumento documentoId={doc.id} gcsPath={doc.gcsPath} label={doc.label}>
-            <span className="text-primary text-xs font-semibold">Ver documento</span>
-          </VisualizarDocumento>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-foreground font-medium">{doc.label}</span>
+            <VisualizarDocumento documentoId={doc.id} gcsPath={doc.gcsPath} label={doc.label}>
+              <span className="text-primary text-xs font-semibold">Ver documento</span>
+            </VisualizarDocumento>
+          </div>
+          <HistoricoDocumento historico={doc.historico} />
         </div>
       ))}
       {documentosPendentes.map((doc) => (
         <div
           key={doc.id}
-          className="border-warning/30 bg-warning/5 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm"
+          className="border-warning/30 bg-warning/5 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
         >
-          <span className="text-foreground font-medium">{doc.label}</span>
-          <span className="bg-warning-bg text-warning-text rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
-            Aguardando reenvio
-          </span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-foreground font-medium">{doc.label}</span>
+            <span className="bg-warning-bg text-warning-text rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
+              Aguardando reenvio
+            </span>
+          </div>
+          <HistoricoDocumento historico={doc.historico} />
         </div>
       ))}
     </div>

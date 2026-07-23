@@ -1,6 +1,7 @@
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import {
   paraDocumentoRevisao,
+  historicoDoSlot,
   separarDocumentosPorStatus,
   calcularProgressoTrilha,
   montarFilaAssinatura,
@@ -32,6 +33,7 @@ export async function obterDossieView(id: string) {
     analisesSociosRaw,
     dadosReceita,
     usuarioMaster,
+    todosDocumentos,
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
@@ -52,6 +54,10 @@ export async function obterDossieView(id: string) {
     cadastroAdminController.obterDadosReceita(agencia.id),
     // null = analista ainda não salvou o Usuário Master pra essa agência.
     cadastroAdminController.obterUsuarioMaster(agencia.id),
+    // Todas as linhas de Documento da agência (não só "a atual" de cada
+    // slot) — reaproveitado só pra montar o histórico de versões
+    // antigas/reprovadas (ver historicoDoSlot), nenhuma query nova.
+    cadastroAdminController.listarDocumentos(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
@@ -63,10 +69,26 @@ export async function obterDossieView(id: string) {
   );
 
   const documentosParaRevisao = [
-    ...paraDocumentoRevisao(contratoSocial, "Contrato Social"),
+    ...paraDocumentoRevisao(
+      contratoSocial,
+      "Contrato Social",
+      contratoSocial
+        ? historicoDoSlot(todosDocumentos, "CONTRATO_SOCIAL", null, contratoSocial.id)
+        : [],
+    ),
     ...representantesLegais.flatMap((socio) => [
-      ...paraDocumentoRevisao(socio.rg, `RG/CNH — ${socio.nome}`),
-      ...paraDocumentoRevisao(socio.procuracao, `Procuração — ${socio.nome}`),
+      ...paraDocumentoRevisao(
+        socio.rg,
+        `RG/CNH — ${socio.nome}`,
+        socio.rg ? historicoDoSlot(todosDocumentos, "RG_CNPJ", socio.id, socio.rg.id) : [],
+      ),
+      ...paraDocumentoRevisao(
+        socio.procuracao,
+        `Procuração — ${socio.nome}`,
+        socio.procuracao
+          ? historicoDoSlot(todosDocumentos, "PROCURACAO", socio.id, socio.procuracao.id)
+          : [],
+      ),
     ]),
   ];
   const { ativos: documentosAtivos, pendentes: documentosPendentes } =

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
+import { HistoricoDocumento } from "@/modules/admin/components/dossie-campos";
 
 interface RevisaoDocumentosComplementarProps {
   agenciaId: string;
@@ -77,82 +78,107 @@ export function RevisaoDocumentosComplementar({
       </span>
 
       <div className="flex flex-col gap-2">
-        {documentosAtivos.map((doc) => (
-          <div
-            key={doc.id}
-            className="border-border bg-muted/30 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-foreground font-medium">{doc.label}</span>
-                <VisualizarDocumento documentoId={doc.id} gcsPath={doc.gcsPath} label={doc.label}>
-                  <span className="text-primary text-xs font-semibold">Ver anexo</span>
-                </VisualizarDocumento>
-                {doc.status === "APROVADO" ? (
-                  <span className="bg-success/15 text-success rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
-                    Aprovado
-                  </span>
-                ) : null}
-              </div>
-              {!somenteLeitura ? (
-                <div className="flex shrink-0 items-center gap-2">
-                  <form action={aprovarDocumentoAction.bind(null, agenciaId, doc.id)}>
-                    <button
-                      type="submit"
-                      className={`${BOTAO_DECISAO} ${
-                        doc.status === "APROVADO"
-                          ? "border-success bg-success text-success-foreground"
-                          : "border-input text-foreground hover:bg-accent"
-                      }`}
-                    >
-                      Aprovar
-                    </button>
-                  </form>
-                  <button
-                    type="button"
-                    onClick={() => setReprovandoId(reprovandoId === doc.id ? null : doc.id)}
-                    className={`${BOTAO_DECISAO} border-input text-foreground hover:bg-accent`}
-                  >
-                    Reprovar
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            {!somenteLeitura && reprovandoId === doc.id ? (
-              <form
-                action={async (formData) => {
-                  await reprovarDocumentoAction(agenciaId, doc.id, formData);
-                  setReprovandoId(null);
-                }}
-                className="flex flex-col gap-2 border-t border-dashed pt-2"
-              >
-                <textarea
-                  name="motivo"
-                  required
-                  rows={2}
-                  placeholder="Motivo da reprovação (obrigatório — o cliente vê isso na página de reenvio)"
-                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2"
-                />
-                <div className="flex gap-2">
+        {documentosAtivos.map((doc) => {
+          // Aprovar/Reprovar vivem DENTRO do modal de pré-visualização
+          // (ver acoes) — o analista é obrigado a abrir o documento antes
+          // de decidir, nunca decide só olhando o rótulo da linha. O
+          // status (badge) continua fora, na própria linha.
+          const acoesAprovacao = !somenteLeitura ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                <form action={aprovarDocumentoAction.bind(null, agenciaId, doc.id)}>
                   <button
                     type="submit"
-                    className="border-destructive bg-destructive text-destructive-foreground rounded-full border px-3 py-1 text-xs font-semibold transition"
+                    className={`${BOTAO_DECISAO} ${
+                      doc.status === "APROVADO"
+                        ? "border-success bg-success text-success-foreground"
+                        : "border-input text-foreground hover:bg-accent"
+                    }`}
                   >
-                    Confirmar reprovação
+                    Aprovar
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setReprovandoId(null)}
-                    className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1 text-xs font-medium transition"
-                  >
-                    Cancelar
-                  </button>
+                </form>
+                <button
+                  type="button"
+                  onClick={() => setReprovandoId(reprovandoId === doc.id ? null : doc.id)}
+                  className={`${BOTAO_DECISAO} border-input text-foreground hover:bg-accent`}
+                >
+                  Reprovar
+                </button>
+              </div>
+
+              {reprovandoId === doc.id ? (
+                <form
+                  action={async (formData) => {
+                    await reprovarDocumentoAction(agenciaId, doc.id, formData);
+                    setReprovandoId(null);
+                  }}
+                  className="flex flex-col gap-2 border-t border-dashed pt-2"
+                >
+                  <textarea
+                    name="motivo"
+                    required
+                    rows={2}
+                    placeholder="Motivo da reprovação (obrigatório — o cliente vê isso na página de reenvio)"
+                    className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="border-destructive bg-destructive text-destructive-foreground rounded-full border px-3 py-1 text-xs font-semibold transition"
+                    >
+                      Confirmar reprovação
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReprovandoId(null)}
+                      className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1 text-xs font-medium transition"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
+          ) : null;
+
+          return (
+            <div
+              key={doc.id}
+              className="border-border bg-muted/30 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-foreground font-medium">{doc.label}</span>
+                  {doc.status === "APROVADO" ? (
+                    <span className="bg-success/15 text-success rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
+                      Aprovado
+                    </span>
+                  ) : null}
+                  {doc.status === "PENDENTE" &&
+                  doc.historico.some((item) => item.status === "REPROVADO") ? (
+                    <span className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
+                      Reenviado — aguardando revisão
+                    </span>
+                  ) : null}
                 </div>
-              </form>
-            ) : null}
-          </div>
-        ))}
+
+                <VisualizarDocumento
+                  documentoId={doc.id}
+                  gcsPath={doc.gcsPath}
+                  label={doc.label}
+                  acoes={acoesAprovacao}
+                >
+                  <span className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-semibold">
+                    Ver documento
+                  </span>
+                </VisualizarDocumento>
+              </div>
+
+              <HistoricoDocumento historico={doc.historico} />
+            </div>
+          );
+        })}
       </div>
 
       {documentosPendentes.length > 0 ? (
@@ -164,14 +190,17 @@ export function RevisaoDocumentosComplementar({
           {somenteLeitura ? (
             <div className="flex flex-col gap-2">
               {documentosPendentes.map((doc) => (
-                <span key={doc.id} className="text-foreground">
-                  {doc.label}
-                  {doc.motivoReprovacao ? (
-                    <span className="text-muted-foreground mt-0.5 block text-xs">
-                      {doc.motivoReprovacao}
-                    </span>
-                  ) : null}
-                </span>
+                <div key={doc.id} className="flex flex-col gap-1.5">
+                  <span className="text-foreground">
+                    {doc.label}
+                    {doc.motivoReprovacao ? (
+                      <span className="text-muted-foreground mt-0.5 block text-xs">
+                        {doc.motivoReprovacao}
+                      </span>
+                    ) : null}
+                  </span>
+                  <HistoricoDocumento historico={doc.historico} />
+                </div>
               ))}
             </div>
           ) : (
@@ -181,17 +210,25 @@ export function RevisaoDocumentosComplementar({
             >
               <div className="flex flex-col gap-2">
                 {documentosPendentes.map((doc) => (
-                  <label key={doc.id} className="text-foreground flex items-start gap-2">
-                    <input type="checkbox" name="documentoIds" value={doc.id} className="mt-0.5" />
-                    <span>
-                      {doc.label}
-                      {doc.motivoReprovacao ? (
-                        <span className="text-muted-foreground mt-0.5 block text-xs">
-                          {doc.motivoReprovacao}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
+                  <div key={doc.id} className="flex flex-col gap-1.5">
+                    <label className="text-foreground flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        name="documentoIds"
+                        value={doc.id}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        {doc.label}
+                        {doc.motivoReprovacao ? (
+                          <span className="text-muted-foreground mt-0.5 block text-xs">
+                            {doc.motivoReprovacao}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                    <HistoricoDocumento historico={doc.historico} />
+                  </div>
                 ))}
               </div>
               <button
