@@ -213,7 +213,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       if (!atualizados[index]) {
         atualizados[index] = criarSocioWizardVazio();
       }
-      if (!atualizados[index].nome) {
+      if (socioExtraido.nome) {
         atualizados[index] = { ...atualizados[index], nome: socioExtraido.nome };
       }
     });
@@ -322,22 +322,22 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
         [indice]: { analisando: false, analise },
       }));
 
-      // Nunca sobrescreve o que o usuário já digitou — mesma regra
-      // não-destrutiva do preenchimento de nome via QSA/contrato social.
+      // Sempre aplica o valor mais recente extraído do RG/CNH anexado —
+      // decisão do usuário: trocar o documento (ex.: subiu o errado, corrige
+      // depois) precisa refletir nos campos sozinho, sem exigir que o
+      // usuário apague manualmente o que a análise anterior preencheu. Só
+      // não mexe em campo que a IA não retornou dessa vez (undefined/null
+      // mantém o valor atual).
       setSocios((current) =>
         current.map((socio, i) => {
           if (i !== indice) return socio;
           const atualizado = { ...socio };
-          if (analise.nome && !atualizado.nome) atualizado.nome = analise.nome;
-          if (analise.cpf && !atualizado.cpf) atualizado.cpf = maskCpf(analise.cpf);
-          if (analise.dataNascimento && !atualizado.dataNascimento) {
-            atualizado.dataNascimento = analise.dataNascimento;
-          }
-          if (analise.rg && !atualizado.rg) atualizado.rg = analise.rg;
-          if (analise.rgOrgaoEmissor && !atualizado.rgOrgaoEmissor) {
-            atualizado.rgOrgaoEmissor = analise.rgOrgaoEmissor;
-          }
-          if (analise.rgUf && !atualizado.rgUf) atualizado.rgUf = analise.rgUf;
+          if (analise.nome) atualizado.nome = analise.nome;
+          if (analise.cpf) atualizado.cpf = maskCpf(analise.cpf);
+          if (analise.dataNascimento) atualizado.dataNascimento = analise.dataNascimento;
+          if (analise.rg) atualizado.rg = analise.rg;
+          if (analise.rgOrgaoEmissor) atualizado.rgOrgaoEmissor = analise.rgOrgaoEmissor;
+          if (analise.rgUf) atualizado.rgUf = analise.rgUf;
           return atualizado;
         }),
       );

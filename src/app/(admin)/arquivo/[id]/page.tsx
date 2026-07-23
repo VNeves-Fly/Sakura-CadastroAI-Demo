@@ -15,6 +15,11 @@ import {
   AnaliseIaDetalhe,
 } from "@/modules/admin/components/dossie-campos";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
+import {
+  ConsultaAmatCard,
+  ConsultaSofiaCard,
+} from "@/modules/admin/components/consulta-amat-sofia";
+import { consultarAmat, consultarSofia } from "@/modules/admin/utils/mock-amat-sofia.util";
 import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
@@ -119,6 +124,16 @@ export default async function ArquivoDossiePage({
 
   const abaAtual = ABAS.find((aba) => aba.chave === searchParams.aba) ?? ABAS[0];
   const reprovada = agencia.status === STATUS_RECUSADO;
+
+  const sociosParaConsulta = representantesLegais.map((socio) => ({
+    id: socio.id,
+    nome: socio.nome,
+    cpf: socio.cpf,
+  }));
+  const [amat, sofia] = await Promise.all([
+    consultarAmat(sociosParaConsulta),
+    consultarSofia(agencia.cnpj, sociosParaConsulta),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -274,6 +289,9 @@ export default async function ArquivoDossiePage({
                   </div>
                 )}
               </SecaoColapsavel>
+
+              <ConsultaAmatCard amat={amat} />
+              <ConsultaSofiaCard sofia={sofia} />
 
               <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
                 <div className="flex flex-col gap-3">

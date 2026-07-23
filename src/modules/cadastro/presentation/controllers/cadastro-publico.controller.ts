@@ -90,7 +90,11 @@ export const cadastroPublicoController = {
   },
 
   reenviarDocumento(input: ReenviarDocumentoInput) {
-    const useCase = new ReenviarDocumentoUseCase(documentoRepository, fileStorage);
+    const useCase = new ReenviarDocumentoUseCase(
+      documentoRepository,
+      agenciaRepository,
+      fileStorage,
+    );
     return useCase.execute(input);
   },
 };

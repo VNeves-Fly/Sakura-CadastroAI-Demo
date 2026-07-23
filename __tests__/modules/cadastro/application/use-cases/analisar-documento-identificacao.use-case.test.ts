@@ -7,12 +7,11 @@ import type {
 
 const ARQUIVO = { buffer: Buffer.from("pdf"), originalName: "rg.pdf", mimeType: "application/pdf" };
 
-function criarUseCase(camposExtraidos: Record<string, unknown>, alertas: string[] = []) {
-  const fileStorage: FileStorage = {
-    save: jest
-      .fn()
-      .mockResolvedValue({ path: "agencias/x/socio-0-identificacao-preview-1.pdf", bucket: "b" }),
-  };
+function criarMocks(camposExtraidos: Record<string, unknown>, alertas: string[] = []) {
+  const save = jest.fn((_arquivo: unknown, pathHint: string) =>
+    Promise.resolve({ path: `${pathHint}.pdf`, bucket: "b" }),
+  );
+  const fileStorage: FileStorage = { save };
 
   const resultado: DocumentAnalysisResultado = {
     camposExtraidos,
@@ -28,6 +27,11 @@ function criarUseCase(camposExtraidos: Record<string, unknown>, alertas: string[
     analisar: jest.fn().mockResolvedValue(resultado),
   };
 
+  return { fileStorage, documentAnalysisService };
+}
+
+function criarUseCase(camposExtraidos: Record<string, unknown>, alertas: string[] = []) {
+  const { fileStorage, documentAnalysisService } = criarMocks(camposExtraidos, alertas);
   return new AnalisarDocumentoIdentificacaoUseCase(fileStorage, documentAnalysisService);
 }
 
@@ -156,5 +160,18 @@ describe("AnalisarDocumentoIdentificacaoUseCase", () => {
     });
 
     expect(resultado.nome).toBe("NOME CERTO");
+  });
+
+  it("salva e analisa direto no path fixo do slot (sobrescreve envios anteriores do mesmo sócio)", async () => {
+    const { fileStorage, documentAnalysisService } = criarMocks({ nome_completo: "X" });
+    const useCase = new AnalisarDocumentoIdentificacaoUseCase(fileStorage, documentAnalysisService);
+
+    await useCase.execute({ cnpj: "62572350000180", indice: 0, documento: ARQUIVO });
+
+    const pathFixo = "agencias/62572350000180/socio-0-identificacao-preview";
+    expect(fileStorage.save).toHaveBeenCalledWith(ARQUIVO, pathFixo);
+
+    const [analisarInput] = (documentAnalysisService.analisar as jest.Mock).mock.calls[0];
+    expect(analisarInput.documentPath).toBe(`${pathFixo}.pdf`);
   });
 });

@@ -234,6 +234,7 @@ export interface ContratoPorProvedorId {
 
 export interface AgenciaRepository {
   findByCnpj(cnpj: string): Promise<Agencia | null>;
+  findById(id: string): Promise<Agencia | null>;
   // provedorId = uuid do documento no D4Sign (Contrato.provedorId) — usado
   // pelo webhook pra saber qual agência/contrato o evento se refere, já
   // que o D4Sign só manda o uuid dele, não o nosso id interno.
