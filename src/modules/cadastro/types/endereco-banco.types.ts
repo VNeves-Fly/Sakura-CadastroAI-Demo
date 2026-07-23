@@ -9,6 +9,20 @@ export const BANCO_PAIS_OPCOES = [
   { valor: "internacional", label: "Internacional", bandeira: "🌐" },
 ];
 
+// Bancos nacionais do wizard /cadastro vêm da BrasilAPI (ver
+// agenciaService.listarBancos) — código + nome, pro combobox buscável do
+// Passo 6. `nomeCompleto` fica disponível caso o nome curto não seja
+// suficiente em algum lugar (hoje não é usado).
+export interface Banco {
+  codigo: string;
+  nome: string;
+  nomeCompleto: string;
+}
+
+// Lista estática usada só pelo wizard /chat (use-chat-script.ts), que
+// monta campos de formulário síncronos — não tem como buscar a lista via
+// BrasilAPI sem reestruturar aquele fluxo. O wizard /cadastro usa `Banco`
+// acima, via API.
 export const BANCOS_BRASILEIROS = [
   "Banco do Brasil",
   "Bradesco",
@@ -41,6 +55,7 @@ export interface EnderecoBancoFormValues {
 
   bancoPais: string;
   bancoNome: string;
+  bancoCodigo: string;
   bancoAgencia: string;
   bancoConta: string;
   bancoSwift: string;
@@ -63,6 +78,7 @@ export function criarEnderecoBancoVazio(): EnderecoBancoFormValues {
     uf: "",
     bancoPais: "nacional",
     bancoNome: "",
+    bancoCodigo: "",
     bancoAgencia: "",
     bancoConta: "",
     bancoSwift: "",

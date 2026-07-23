@@ -181,6 +181,7 @@ interface CadastroComplementarRecord {
   socioVinculadoEnderecoId: string | null;
   bancoPais: string | null;
   bancoNome: string | null;
+  bancoCodigo: string | null;
   bancoAgencia: string | null;
   bancoConta: string | null;
   bancoSwift: string | null;
@@ -201,6 +202,7 @@ function complementarToDomain(record: CadastroComplementarRecord): CadastroCompl
     socioVinculadoEnderecoId: record.socioVinculadoEnderecoId,
     bancoPais: record.bancoPais,
     bancoNome: record.bancoNome,
+    bancoCodigo: record.bancoCodigo,
     bancoAgencia: record.bancoAgencia,
     bancoConta: record.bancoConta,
     bancoSwift: record.bancoSwift,
@@ -386,6 +388,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           enderecoAgencia: { create: data.enderecoBanco.endereco },
           bancoPais: data.enderecoBanco.bancoPais,
           bancoNome: data.enderecoBanco.bancoNome,
+          bancoCodigo: data.enderecoBanco.bancoCodigo,
           bancoAgencia: data.enderecoBanco.bancoAgencia,
           bancoConta: data.enderecoBanco.bancoConta,
           bancoSwift: data.enderecoBanco.bancoSwift,

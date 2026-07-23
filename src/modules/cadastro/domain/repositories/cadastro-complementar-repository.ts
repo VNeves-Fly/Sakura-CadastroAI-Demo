@@ -16,6 +16,7 @@ export interface CreateCadastroComplementarData {
   socioVinculadoEnderecoId?: string | null;
   bancoPais?: string | null;
   bancoNome?: string | null;
+  bancoCodigo?: string | null;
   bancoAgencia?: string | null;
   bancoConta?: string | null;
   bancoSwift?: string | null;

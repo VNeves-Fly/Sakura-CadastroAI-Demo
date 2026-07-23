@@ -53,6 +53,7 @@ export class PrismaCadastroComplementarRepository implements CadastroComplementa
       socioVinculadoEnderecoId: record.socioVinculadoEnderecoId,
       bancoPais: record.bancoPais,
       bancoNome: record.bancoNome,
+      bancoCodigo: record.bancoCodigo,
       bancoAgencia: record.bancoAgencia,
       bancoConta: record.bancoConta,
       bancoSwift: record.bancoSwift,

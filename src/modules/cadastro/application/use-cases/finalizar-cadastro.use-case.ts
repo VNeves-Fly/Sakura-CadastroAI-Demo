@@ -238,6 +238,7 @@ export class FinalizarCadastroUseCase implements UseCase<
         endereco: enderecoAgencia,
         bancoPais: input.enderecoBanco.bancoPais,
         bancoNome: input.enderecoBanco.bancoNome,
+        bancoCodigo: input.enderecoBanco.bancoCodigo,
         bancoAgencia: input.enderecoBanco.bancoAgencia,
         bancoConta: input.enderecoBanco.bancoConta,
         bancoSwift: input.enderecoBanco.bancoSwift,

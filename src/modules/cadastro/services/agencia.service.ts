@@ -68,6 +68,12 @@ export interface RawAnaliseDocumentoIdentificacaoResponse {
   confianca: number;
 }
 
+export interface RawBancoResponse {
+  codigo: string;
+  nome: string;
+  nomeCompleto: string;
+}
+
 // Única camada autorizada a se comunicar com a API externa (rotas /api/cadastro).
 export const agenciaService = {
   async consultarQsa(cnpj: string): Promise<RawQsaResponse | null> {
@@ -96,6 +102,16 @@ export const agenciaService = {
 
     if (!response.ok) {
       throw new Error("Não foi possível analisar o contrato social.");
+    }
+
+    return response.json();
+  },
+
+  async listarBancos(): Promise<RawBancoResponse[]> {
+    const response = await fetch("/api/cadastro/bancos");
+
+    if (!response.ok) {
+      throw new Error("Não foi possível carregar a lista de bancos.");
     }
 
     return response.json();

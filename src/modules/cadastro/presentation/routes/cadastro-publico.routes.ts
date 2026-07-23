@@ -21,6 +21,9 @@ const RATE_LIMIT_QSA = { limite: 30, janelaMs: 60 * 1000 };
 // Análise de documento chama o agents-service (Document AI) — mais custosa
 // que a QSA, dispara só quando CNPJ+arquivo estão prontos.
 const RATE_LIMIT_ANALISE_DOCUMENTO = { limite: 10, janelaMs: 5 * 60 * 1000 };
+// Lista de bancos é estática por até 24h (cache do adapter) — limite só
+// pra conter abuso, não pra proteger a BrasilAPI de tráfego normal.
+const RATE_LIMIT_BANCOS = { limite: 60, janelaMs: 60 * 1000 };
 
 function mapErrorToResponse(error: unknown) {
   if (error instanceof RateLimitError) {
@@ -166,6 +169,20 @@ export async function consultarQsaRoute(request: Request) {
 
     const resultado = await cadastroPublicoController.consultarQsa(cnpj);
     return httpOk(resultado);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function listarBancosRoute(request: Request) {
+  try {
+    const chaveRateLimit = `cadastro-bancos:${obterIpCliente(request)}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_BANCOS)) {
+      throw new RateLimitError();
+    }
+
+    const bancos = await cadastroPublicoController.listarBancos();
+    return httpOk(bancos);
   } catch (error) {
     return mapErrorToResponse(error);
   }

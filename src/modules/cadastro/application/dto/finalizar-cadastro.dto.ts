@@ -33,6 +33,7 @@ export interface EnderecoBancoSubmitInput {
   endereco: EnderecoInput | null;
   bancoPais: string;
   bancoNome: string;
+  bancoCodigo: string;
   bancoAgencia: string;
   bancoConta: string;
   bancoSwift: string;

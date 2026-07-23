@@ -6,6 +6,7 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 import { createQsaConsultaService } from "@/modules/cadastro/infrastructure/factories/qsa-consulta-service.factory";
+import { BrasilApiBancoConsultaAdapter } from "@/modules/cadastro/infrastructure/adapters/brasilapi-banco-consulta.adapter";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
@@ -17,6 +18,7 @@ import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/co
 import { AnalisarContratoSocialUseCase } from "@/modules/cadastro/application/use-cases/analisar-contrato-social.use-case";
 import { AnalisarDocumentoIdentificacaoUseCase } from "@/modules/cadastro/application/use-cases/analisar-documento-identificacao.use-case";
 import { ListarDocumentosPendentesUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos-pendentes.use-case";
+import { ListarBancosUseCase } from "@/modules/cadastro/application/use-cases/listar-bancos.use-case";
 import {
   ReenviarDocumentoUseCase,
   type ReenviarDocumentoInput,
@@ -46,6 +48,10 @@ const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new Loc
 // do contrato social, dados oficiais vêm da Stage 1 do /agency-analysis/sync).
 // Mantido só pela rota /api/cadastro/qsa, hoje sem chamador no client.
 const qsaConsultaService = createQsaConsultaService();
+// BrasilAPI é pública e gratuita (sem token) — diferente de
+// ReceitaWS/D4Sign/etc., não há variação de provedor a decidir aqui, só o
+// adapter real.
+const bancoConsultaService = new BrasilApiBancoConsultaAdapter();
 const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
   ? new D4SignAdapter(signatarioPadraoRepository)
   : new MockD4SignService();
@@ -72,6 +78,11 @@ export const cadastroPublicoController = {
   consultarQsa(cnpj: string) {
     const useCase = new ConsultarQsaUseCase(qsaConsultaService);
     return useCase.execute({ cnpj });
+  },
+
+  listarBancos() {
+    const useCase = new ListarBancosUseCase(bancoConsultaService);
+    return useCase.execute();
   },
 
   analisarContratoSocial(input: AnalisarContratoSocialInput) {
