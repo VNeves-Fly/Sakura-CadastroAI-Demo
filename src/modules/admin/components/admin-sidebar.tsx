@@ -9,10 +9,7 @@ import {
   MessageCircle,
   CalendarDays,
   Archive,
-  Search,
   UserCog,
-  UsersRound,
-  Mail,
   Webhook,
 } from "lucide-react";
 import {
@@ -54,15 +51,9 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
     ],
   },
   {
-    label: "Ferramentas",
-    itens: [{ label: "Consulta AMAT", href: null, icon: Search }],
-  },
-  {
     label: "Configurações",
     itens: [
       { label: "Usuários", href: "/painel/usuarios", icon: UserCog },
-      { label: "Equipe", href: null, icon: UsersRound },
-      { label: "Auditoria E-mails", href: null, icon: Mail },
       { label: "Messenger", href: "/painel/messenger", icon: Webhook },
     ],
   },
