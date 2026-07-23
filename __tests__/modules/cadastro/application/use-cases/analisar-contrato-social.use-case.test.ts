@@ -39,7 +39,7 @@ describe("AnalisarContratoSocialUseCase", () => {
   it("expõe razaoSocialExtraida, capitalSocial (número), enderecoEmpresa (objeto), objetoSocial e dataConstituicao", async () => {
     const useCase = criarUseCase({
       cnpj: "62572350000180",
-      socios_nomes_completos: ["BRUNO HENRIQUE NASCIMENTO BAZOTI"],
+      qsa: [{ nome: "BRUNO HENRIQUE NASCIMENTO BAZOTI" }],
       razao_social: "LARIAN GROUP LTDA",
       capital_social: "784.314,00",
       endereco: {
@@ -75,7 +75,7 @@ describe("AnalisarContratoSocialUseCase", () => {
   it("devolve null pros campos novos quando a IA não os extrai, em vez de lançar erro", async () => {
     const useCase = criarUseCase({
       cnpj: "62572350000180",
-      socios_nomes_completos: ["BRUNO HENRIQUE NASCIMENTO BAZOTI"],
+      qsa: [{ nome: "BRUNO HENRIQUE NASCIMENTO BAZOTI" }],
       // razao_social, capital_social, endereco, objeto_social e
       // data_constituicao ausentes de propósito — documento sem essas
       // informações legíveis.
@@ -112,19 +112,87 @@ describe("AnalisarContratoSocialUseCase", () => {
     expect(resultado.capitalSocial).toBe(784314);
   });
 
-  it("sócios vêm só do socios_nomes_completos (contrato social não tem endereço por sócio)", async () => {
+  it("extrai o qsa completo por sócio: cpf, data de nascimento, rg, endereço, participação e campos derivados", async () => {
     const useCase = criarUseCase({
-      socios_nomes_completos: ["Fulano de Tal", "Beltrana"],
+      qsa: [
+        {
+          nome: "Fulano de Tal",
+          cpf: "111.444.777-35",
+          data_nascimento: "10/05/1980",
+          estado_civil: "casado",
+          nacionalidade: "brasileiro",
+          regime_bens: "comunhão parcial de bens",
+          participacao: "50%",
+          rg: "12.345.678-9",
+          rg_expedidor: "SSP",
+          rg_expedido_uf: "SP",
+          endereco: {
+            cep: "01310-100",
+            logradouro: "Avenida Paulista",
+            numero: "1000",
+            bairro: "Bela Vista",
+            municipio: "São Paulo",
+            uf: "SP",
+          },
+          administrativo: true,
+          ativo: true,
+        },
+      ],
     });
 
     const resultado = await useCase.execute({ cnpj: "62572350000180", contratoSocial: ARQUIVO });
 
-    expect(resultado.socios).toEqual([{ nome: "Fulano de Tal" }, { nome: "Beltrana" }]);
+    expect(resultado.socios).toEqual([
+      {
+        nome: "Fulano de Tal",
+        cpf: "111.444.777-35",
+        dataNascimento: "1980-05-10",
+        estadoCivil: "casado",
+        nacionalidade: "brasileiro",
+        regimeBens: "comunhão parcial de bens",
+        participacao: 50,
+        rg: "12.345.678-9",
+        rgExpedidor: "SSP",
+        rgExpedidoUf: "SP",
+        endereco: {
+          cep: "01310-100",
+          logradouro: "Avenida Paulista",
+          numero: "1000",
+          complemento: null,
+          bairro: "Bela Vista",
+          municipio: "São Paulo",
+          uf: "SP",
+        },
+        administrativo: true,
+        ativo: true,
+      },
+    ]);
   });
 
-  it("degrada com segurança quando `socios_nomes_completos` vem em formato inesperado, sem lançar erro", async () => {
+  it("aceita administrativo/ativo como texto 'true'/'false' (schema de origem não tem booleano)", async () => {
     const useCase = criarUseCase({
-      socios_nomes_completos: "não é uma lista",
+      qsa: [{ nome: "Fulano", administrativo: "true", ativo: "false" }],
+    });
+
+    const resultado = await useCase.execute({ cnpj: "62572350000180", contratoSocial: ARQUIVO });
+
+    expect(resultado.socios[0]?.administrativo).toBe(true);
+    expect(resultado.socios[0]?.ativo).toBe(false);
+  });
+
+  it("sócio sem nome legível é descartado", async () => {
+    const useCase = criarUseCase({
+      qsa: [{ cpf: "111.444.777-35" }, { nome: "Beltrana" }],
+    });
+
+    const resultado = await useCase.execute({ cnpj: "62572350000180", contratoSocial: ARQUIVO });
+
+    expect(resultado.socios.map((s) => s.nome)).toEqual(["Beltrana"]);
+  });
+
+  it("degrada com segurança quando `qsa` vem em formato inesperado, sem lançar erro", async () => {
+    const useCase = criarUseCase({
+      qsa: "não é uma lista",
     });
 
     const resultado = await useCase.execute({ cnpj: "62572350000180", contratoSocial: ARQUIVO });

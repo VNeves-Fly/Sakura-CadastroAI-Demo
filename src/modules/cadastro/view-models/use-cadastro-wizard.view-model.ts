@@ -198,13 +198,13 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   }, [qsaResult]);
 
   // Quando a análise do contrato social resolve, tenta preencher um card de
-  // sócio pra cada nome extraído — mesma regra não-destrutiva da QSA (nunca
-  // sobrescreve nome já preenchido nem remove sócio adicionado a mais pelo
-  // usuário). O contrato social só devolve nomes (socios_nomes_completos) —
-  // não há endereço por sócio nesse documento; CPF/RG/data de
-  // nascimento/endereço completam depois via doc_identificacao. Também
-  // guarda o valor bruto extraído em sociosValoresExtraidosIa, pra sinalizar
-  // divergência depois.
+  // sócio pra cada item de `qsa` — nome, cpf, data de nascimento, RG e
+  // endereço já vêm do próprio contrato social agora (antes só o nome).
+  // Também guarda o valor bruto extraído em sociosValoresExtraidosIa, pra
+  // sinalizar divergência depois. doc_identificacao continua completando o
+  // que faltar (mesma regra fill-if-empty de sempre, já que o merge daqui
+  // roda primeiro — contrato social é anexado no Passo 1, antes do RG no
+  // Passo 5).
   useEffect(() => {
     if (!contratoSocialAnalise) return;
 
@@ -216,6 +216,42 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       if (socioExtraido.nome) {
         atualizados[index] = { ...atualizados[index], nome: socioExtraido.nome };
       }
+      if (socioExtraido.cpf) {
+        atualizados[index] = { ...atualizados[index], cpf: maskCpf(socioExtraido.cpf) };
+      }
+      if (socioExtraido.dataNascimento) {
+        atualizados[index] = {
+          ...atualizados[index],
+          dataNascimento: socioExtraido.dataNascimento,
+        };
+      }
+      if (socioExtraido.estadoCivil) {
+        atualizados[index] = { ...atualizados[index], estadoCivil: socioExtraido.estadoCivil };
+      }
+      if (socioExtraido.rg) {
+        atualizados[index] = { ...atualizados[index], rg: socioExtraido.rg };
+      }
+      if (socioExtraido.rgExpedidor) {
+        atualizados[index] = {
+          ...atualizados[index],
+          rgOrgaoEmissor: socioExtraido.rgExpedidor,
+        };
+      }
+      if (socioExtraido.rgExpedidoUf) {
+        atualizados[index] = { ...atualizados[index], rgUf: socioExtraido.rgExpedidoUf };
+      }
+      const endereco = socioExtraido.endereco;
+      if (endereco) {
+        atualizados[index] = {
+          ...atualizados[index],
+          cep: endereco.cep ? maskCep(endereco.cep) : atualizados[index].cep,
+          logradouro: endereco.logradouro || atualizados[index].logradouro,
+          numero: endereco.numero || atualizados[index].numero,
+          bairro: endereco.bairro || atualizados[index].bairro,
+          cidade: endereco.cidade || atualizados[index].cidade,
+          uf: endereco.uf || atualizados[index].uf,
+        };
+      }
     });
     setSocios(atualizados);
 
@@ -225,6 +261,12 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
         proximo[index] = {
           ...(proximo[index] ?? VALORES_EXTRAIDOS_IA_VAZIO),
           nome: socioExtraido.nome,
+          cpf: socioExtraido.cpf,
+          dataNascimento: socioExtraido.dataNascimento,
+          rg: socioExtraido.rg,
+          rgOrgaoEmissor: socioExtraido.rgExpedidor,
+          rgUf: socioExtraido.rgExpedidoUf,
+          endereco: socioExtraido.endereco,
         };
       });
       return proximo;
