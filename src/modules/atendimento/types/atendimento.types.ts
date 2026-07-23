@@ -42,6 +42,21 @@ export interface AssumirAtendimentoRegistro {
   liberadoEm: string | null;
 }
 
+export type StatusSolicitacaoTransferencia = "pendente" | "aceita" | "recusada" | "expirada";
+
+// Transferência de atendimento entre analistas — pedido explícito (não
+// depende da regra de 2h de inatividade, que é só pra "puxar" de quem
+// sumiu). Expira sozinha em 60s sem resposta (ver
+// TIMEOUT_TRANSFERENCIA_MS em atendimento-api.ts), contada como recusa.
+export interface SolicitacaoTransferencia {
+  id: string;
+  conversaId: string;
+  deAnalista: string;
+  paraAnalista: string;
+  status: StatusSolicitacaoTransferencia;
+  criadaEm: string; // ISO string no front
+}
+
 // Resumo da ficha do cliente mostrado na coluna de informações — reflete
 // o mesmo tipo de dado já mostrado no dossiê real (/painel, /arquivo),
 // só que aqui é gerado junto com o resto do mock do atendimento.
@@ -63,6 +78,10 @@ export interface Conversa {
   mensagens: Mensagem[];
   atendimentoAtual: AssumirAtendimentoRegistro | null;
   historicoAtendimento: AssumirAtendimentoRegistro[];
+  // Só existe uma pendente por vez por conversa — pedir uma nova
+  // enquanto existe outra pendente não é permitido (ver
+  // solicitarTransferencia em atendimento-api.ts).
+  solicitacaoTransferenciaPendente: SolicitacaoTransferencia | null;
   resumoFicha: ResumoFichaCliente;
   createdAt: string;
   updatedAt: string;
@@ -75,10 +94,53 @@ export interface TextoPronto {
   conteudo: string;
 }
 
+// Categorias oficiais que a Meta exige na submissão de um template
+// (WhatsApp Business Message Templates).
+export type CategoriaTemplate = "MARKETING" | "UTILITY" | "AUTHENTICATION";
+
+export type StatusTemplate = "aprovado" | "pendente_aprovacao" | "rejeitado";
+
 export interface TemplateAprovado {
   id: string;
   nome: string;
   conteudo: string;
+  categoria: CategoriaTemplate;
+  idioma: string;
+  status: StatusTemplate;
+  // Motivo devolvido pela Meta quando status === "rejeitado" — só existe
+  // de verdade depois da revisão deles, nunca inventado aqui.
+  motivoRejeicao: string | null;
+  criadoEm: string; // ISO string no front
+}
+
+// Credenciais do Meta for Developers / WhatsApp Business API — campos
+// pensados pra bater 1:1 com o painel da Meta (developers.facebook.com),
+// pra facilitar quando o back-end for preencher de verdade. Segredos
+// (App Secret, Access Token) nunca voltam em texto puro depois de
+// salvos — só um booleano "configurado", igual qualquer painel de API
+// key de verdade faz; ver SalvarConfiguracaoWhatsappInput pra entrada.
+export interface ConfiguracaoWhatsappBusiness {
+  appId: string;
+  whatsappBusinessAccountId: string;
+  phoneNumberId: string;
+  numeroTelefoneExibicao: string;
+  webhookVerifyToken: string;
+  appSecretConfigurado: boolean;
+  accessTokenConfigurado: boolean;
+  conectado: boolean;
+  salvoPor: string | null;
+  salvoEm: string | null;
+}
+
+export interface SalvarConfiguracaoWhatsappInput {
+  appId: string;
+  appSecret: string;
+  whatsappBusinessAccountId: string;
+  phoneNumberId: string;
+  numeroTelefoneExibicao: string;
+  accessToken: string;
+  webhookVerifyToken: string;
+  salvoPor: string;
 }
 
 // ---- Inputs (equivalentes aos DTOs do back-end) ----
@@ -97,4 +159,30 @@ export interface AssumirAtendimentoInput {
 export interface CriarTextoProntoInput {
   titulo: string;
   conteudo: string;
+}
+
+export interface SolicitarTransferenciaInput {
+  deAnalista: string;
+  paraAnalista: string;
+}
+
+export interface ResponderTransferenciaInput {
+  aceita: boolean;
+}
+
+export interface CriarTemplateInput {
+  nome: string;
+  conteudo: string;
+  categoria: CategoriaTemplate;
+  idioma: string;
+}
+
+export interface AtualizarTextoProntoInput {
+  titulo: string;
+  conteudo: string;
+}
+
+export interface ResultadoTesteConexao {
+  sucesso: boolean;
+  mensagem: string;
 }

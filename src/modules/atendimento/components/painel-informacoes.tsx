@@ -1,12 +1,34 @@
 "use client";
 
-import { Image as ImageIcon, FileText, Users, History, ClipboardList } from "lucide-react";
+import Link from "next/link";
+import {
+  Image as ImageIcon,
+  FileText,
+  Users,
+  History,
+  ClipboardList,
+  ExternalLink,
+  ChevronLeft,
+} from "lucide-react";
 import type { Conversa } from "@/modules/atendimento/types/atendimento.types";
 import {
   iniciaisNome,
   labelPapelMembro,
   formatarTempoDecorrido,
 } from "@/modules/atendimento/utils/atendimento-formato.util";
+
+// Ativo/Reprovado é dossiê do Arquivo (/arquivo/[id]); qualquer outro
+// status ainda está em andamento no funil (/painel/[id]) — mesmo
+// critério já usado nessas duas páginas reais. Como o /atendimento hoje
+// é 100% mock (ver atendimento.types.ts), o agenciaId aqui não bate com
+// nenhuma Agencia real do banco ainda — o link já sai certo, só passa a
+// resolver de verdade quando este módulo for ligado ao back-end.
+function linkFichaCliente(conversa: Conversa): string {
+  const { statusAgencia } = conversa.resumoFicha;
+  return statusAgencia === "ativo" || statusAgencia === "recusado"
+    ? `/arquivo/${conversa.agenciaId}`
+    : `/painel/${conversa.agenciaId}`;
+}
 
 const LABEL_STATUS_AGENCIA: Record<Conversa["resumoFicha"]["statusAgencia"], string> = {
   ativo: "Ativo",
@@ -24,12 +46,16 @@ interface PainelInformacoesProps {
   conversaSelecionada: Conversa;
   todasConversas: Conversa[];
   onSelecionarConversa: (id: string) => void;
+  // Só usado em telas pequenas (ver AtendimentoView) — em desktop as 3
+  // colunas ficam sempre visíveis e esse botão não aparece (lg:hidden).
+  onVoltarParaConversa?: () => void;
 }
 
 export function PainelInformacoes({
   conversaSelecionada,
   todasConversas,
   onSelecionarConversa,
+  onVoltarParaConversa,
 }: PainelInformacoesProps) {
   const membrosDaAgencia = todasConversas.filter(
     (conversa) => conversa.agenciaId === conversaSelecionada.agenciaId,
@@ -40,8 +66,18 @@ export function PainelInformacoes({
   const { resumoFicha } = conversaSelecionada;
 
   return (
-    <div className="border-border bg-card flex h-full w-full flex-col overflow-y-auto border-l">
-      <div className="border-border flex flex-col items-center gap-2 border-b p-5 text-center">
+    <div className="border-border bg-card flex h-full w-full min-w-0 flex-col overflow-y-auto border-l">
+      <div className="border-border relative flex flex-col items-center gap-2 border-b p-5 text-center">
+        {onVoltarParaConversa ? (
+          <button
+            type="button"
+            onClick={onVoltarParaConversa}
+            aria-label="Voltar pra conversa"
+            className="text-muted-foreground hover:text-foreground absolute top-5 left-4 lg:hidden"
+          >
+            <ChevronLeft className="size-5" />
+          </button>
+        ) : null}
         <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
           Informações da Agência
         </span>
@@ -49,6 +85,13 @@ export function PainelInformacoes({
           {iniciaisNome(conversaSelecionada.agenciaNome)}
         </div>
         <p className="text-foreground text-sm font-semibold">{conversaSelecionada.agenciaNome}</p>
+        <Link
+          href={linkFichaCliente(conversaSelecionada)}
+          className="bg-primary text-primary-foreground hover:bg-sakura-600 mt-1 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+        >
+          <ExternalLink className="size-3.5" />
+          Ver ficha completa
+        </Link>
       </div>
 
       <div className="border-border flex flex-col gap-2 border-b p-4">

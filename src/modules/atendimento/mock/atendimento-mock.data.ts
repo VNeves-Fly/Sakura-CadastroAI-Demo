@@ -3,6 +3,7 @@ import type {
   Mensagem,
   TextoPronto,
   TemplateAprovado,
+  ConfiguracaoWhatsappBusiness,
 } from "@/modules/atendimento/types/atendimento.types";
 
 // Dado 100% mockado, gerado uma vez por carregamento da página — nada
@@ -21,8 +22,73 @@ function mensagem(parcial: Omit<Mensagem, "id">): Mensagem {
   return { id: crypto.randomUUID(), ...parcial };
 }
 
+// Lote de mensagens antigas só pra dar volume o suficiente pra
+// demonstrar a paginação ("Carregar mensagens anteriores") de verdade —
+// sem isso, nenhuma conversa do mock passa das 20 mensagens (tamanho da
+// página). Conteúdo genérico de propósito, não é parte da narrativa.
+function gerarLoteAntigo(conversaId: string, quantidade: number, horasBase: number): Mensagem[] {
+  return Array.from({ length: quantidade }, (_, indice) => {
+    const horasAtrasDesteItem = horasBase + (quantidade - indice) * 2;
+    return mensagem({
+      conversaId,
+      autor: indice % 2 === 0 ? "cliente" : "analista",
+      analistaNome: indice % 2 === 0 ? undefined : "Fernanda Lima",
+      tipo: "texto",
+      conteudo:
+        indice % 2 === 0
+          ? `Mensagem antiga do cliente #${indice + 1} (histórico de teste de paginação).`
+          : `Resposta antiga do analista #${indice + 1} (histórico de teste de paginação).`,
+      createdAt: horasAtras(horasAtrasDesteItem),
+      lido: true,
+    });
+  });
+}
+
 export function gerarConversasMock(): Conversa[] {
+  // Histórico mais antigo da conversa-1 — só existe pra ter volume o
+  // suficiente pra demonstrar a paginação ("Carregar mensagens
+  // anteriores") de verdade; as demais conversas do mock não precisam
+  // disso (têm poucas mensagens de propósito).
+  const conversa1HistoricoAntigo: Mensagem[] = [
+    ...gerarLoteAntigo("conversa-1", 18, 72),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "cliente",
+      tipo: "texto",
+      conteudo: "Boa tarde! Estou terminando o cadastro da agência, posso tirar uma dúvida?",
+      createdAt: horasAtras(72),
+      lido: true,
+    }),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "analista",
+      analistaNome: "Fernanda Lima",
+      tipo: "texto",
+      conteudo: "Claro, Camila! Pode perguntar.",
+      createdAt: horasAtras(72),
+      lido: true,
+    }),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "cliente",
+      tipo: "texto",
+      conteudo: "O contrato social precisa estar autenticado em cartório?",
+      createdAt: horasAtras(71),
+      lido: true,
+    }),
+    mensagem({
+      conversaId: "conversa-1",
+      autor: "analista",
+      analistaNome: "Fernanda Lima",
+      tipo: "texto",
+      conteudo: "Não precisa, pode ser a versão simples registrada na Junta Comercial.",
+      createdAt: horasAtras(71),
+      lido: true,
+    }),
+  ];
+
   const conversa1Mensagens: Mensagem[] = [
+    ...conversa1HistoricoAntigo,
     mensagem({
       conversaId: "conversa-1",
       autor: "cliente",
@@ -164,6 +230,7 @@ export function gerarConversasMock(): Conversa[] {
       historicoAtendimento: [
         { analistaNome: "Fernanda Lima", assumidoEm: horasAtras(30), liberadoEm: horasAtras(29) },
       ],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "em_andamento",
         documentosAprovados: 2,
@@ -190,6 +257,7 @@ export function gerarConversasMock(): Conversa[] {
       },
       atendimentoAtual: null,
       historicoAtendimento: [],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "em_andamento",
         documentosAprovados: 2,
@@ -223,6 +291,7 @@ export function gerarConversasMock(): Conversa[] {
         { analistaNome: "Pedro Santos", assumidoEm: horasAtras(26), liberadoEm: horasAtras(25) },
         { analistaNome: "Fernanda Lima", assumidoEm: minutosAtras(30), liberadoEm: null },
       ],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "ativo",
         documentosAprovados: 3,
@@ -255,6 +324,7 @@ export function gerarConversasMock(): Conversa[] {
       historicoAtendimento: [
         { analistaNome: "Pedro Santos", assumidoEm: horasAtras(3), liberadoEm: null },
       ],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "recusado",
         documentosAprovados: 1,
@@ -281,6 +351,7 @@ export function gerarConversasMock(): Conversa[] {
       },
       atendimentoAtual: null,
       historicoAtendimento: [],
+      solicitacaoTransferenciaPendente: null,
       resumoFicha: {
         statusAgencia: "recusado",
         documentosAprovados: 1,
@@ -319,6 +390,10 @@ export function gerarTextosProntosMock(): TextoPronto[] {
   ];
 }
 
+// Pool fixo pra popular o seletor de "Transferir atendimento" — em uma
+// versão real isso viria da lista de analistas cadastrados (Usuários).
+export const ANALISTAS_MOCK = ["Fernanda Lima", "Pedro Santos", "Juliana Costa", "Marcos Vidal"];
+
 export function gerarTemplatesAprovadosMock(): TemplateAprovado[] {
   return [
     {
@@ -326,11 +401,51 @@ export function gerarTemplatesAprovadosMock(): TemplateAprovado[] {
       nome: "boas_vindas_retorno",
       conteudo:
         "Olá! Notamos que faz um tempo desde nossa última conversa. Podemos ajudar em algo?",
+      categoria: "UTILITY",
+      idioma: "pt_BR",
+      status: "aprovado",
+      motivoRejeicao: null,
+      criadoEm: horasAtras(200),
     },
     {
       id: "template-2",
       nome: "status_cadastro",
       conteudo: "Olá! Passando pra te atualizar sobre o status do seu cadastro na Sakura.",
+      categoria: "UTILITY",
+      idioma: "pt_BR",
+      status: "aprovado",
+      motivoRejeicao: null,
+      criadoEm: horasAtras(150),
+    },
+    {
+      id: "template-3",
+      nome: "promocao_geral",
+      conteudo: "Aproveite nossas condições especiais esse mês, fale com seu analista!",
+      categoria: "MARKETING",
+      idioma: "pt_BR",
+      status: "rejeitado",
+      motivoRejeicao:
+        "Texto genérico demais — a Meta exige contexto claro de opt-in do destinatário.",
+      criadoEm: horasAtras(100),
     },
   ];
+}
+
+// Nunca "conectado" no mock — não existe integração real com a Meta
+// ainda (ver atendimento-api.ts). Segredos (App Secret, Access Token)
+// nem entram aqui — só o booleano "configurado" (ver
+// ConfiguracaoWhatsappBusiness).
+export function gerarConfiguracaoWhatsappMock(): ConfiguracaoWhatsappBusiness {
+  return {
+    appId: "",
+    whatsappBusinessAccountId: "",
+    phoneNumberId: "",
+    numeroTelefoneExibicao: "",
+    webhookVerifyToken: "",
+    appSecretConfigurado: false,
+    accessTokenConfigurado: false,
+    conectado: false,
+    salvoPor: null,
+    salvoEm: null,
+  };
 }
