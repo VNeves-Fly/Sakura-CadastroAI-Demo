@@ -10,6 +10,11 @@ import {
   MessageSquareText,
   Sparkles,
   X,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  Info,
+  ChevronUp,
 } from "lucide-react";
 import type {
   Conversa,
@@ -18,7 +23,7 @@ import type {
   EnviarMensagemInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import { MensagemBubble } from "@/modules/atendimento/components/mensagem-bubble";
-import { AssumirAtendimentoBanner } from "@/modules/atendimento/components/assumir-atendimento-banner";
+import { AtendimentoAcoesBanner } from "@/modules/atendimento/components/atendimento-acoes-banner";
 import {
   iniciaisNome,
   labelPapelMembro,
@@ -83,15 +88,34 @@ function TextosProntosPicker({
   textosProntos,
   onEscolher,
   onCriar,
+  onAtualizar,
+  onRemover,
 }: {
   textosProntos: TextoPronto[];
   onEscolher: (conteudo: string) => void;
   onCriar: (titulo: string, conteudo: string) => Promise<void>;
+  onAtualizar: (id: string, titulo: string, conteudo: string) => Promise<void>;
+  onRemover: (id: string) => Promise<void>;
 }) {
   const [aberto, setAberto] = useState(false);
   const [criando, setCriando] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [tituloNovo, setTituloNovo] = useState("");
   const [conteudoNovo, setConteudoNovo] = useState("");
+
+  function iniciarEdicao(texto: TextoPronto) {
+    setEditandoId(texto.id);
+    setCriando(false);
+    setTituloNovo(texto.titulo);
+    setConteudoNovo(texto.conteudo);
+  }
+
+  function cancelarFormulario() {
+    setCriando(false);
+    setEditandoId(null);
+    setTituloNovo("");
+    setConteudoNovo("");
+  }
 
   return (
     <div className="relative">
@@ -111,28 +135,50 @@ function TextosProntosPicker({
           ) : (
             <div className="flex flex-col gap-1">
               {textosProntos.map((texto) => (
-                <button
+                <div
                   key={texto.id}
-                  type="button"
-                  onClick={() => {
-                    onEscolher(texto.conteudo);
-                    setAberto(false);
-                  }}
-                  className="hover:bg-accent rounded-lg px-2 py-1.5 text-left"
+                  className="hover:bg-accent group flex items-start justify-between gap-1 rounded-lg px-2 py-1.5"
                 >
-                  <span className="text-foreground block text-xs font-semibold">
-                    {texto.titulo}
-                  </span>
-                  <span className="text-muted-foreground line-clamp-1 block text-xs">
-                    {texto.conteudo}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onEscolher(texto.conteudo);
+                      setAberto(false);
+                    }}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="text-foreground block text-xs font-semibold">
+                      {texto.titulo}
+                    </span>
+                    <span className="text-muted-foreground line-clamp-1 block text-xs">
+                      {texto.conteudo}
+                    </span>
+                  </button>
+                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => iniciarEdicao(texto)}
+                      title="Editar"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void onRemover(texto.id)}
+                      title="Apagar"
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
 
           <div className="border-border border-t pt-2">
-            {criando ? (
+            {criando || editandoId ? (
               <div className="flex flex-col gap-1.5">
                 <input
                   value={tituloNovo}
@@ -152,10 +198,12 @@ function TextosProntosPicker({
                     type="button"
                     onClick={async () => {
                       if (!tituloNovo.trim() || !conteudoNovo.trim()) return;
-                      await onCriar(tituloNovo.trim(), conteudoNovo.trim());
-                      setTituloNovo("");
-                      setConteudoNovo("");
-                      setCriando(false);
+                      if (editandoId) {
+                        await onAtualizar(editandoId, tituloNovo.trim(), conteudoNovo.trim());
+                      } else {
+                        await onCriar(tituloNovo.trim(), conteudoNovo.trim());
+                      }
+                      cancelarFormulario();
                     }}
                     className="bg-primary text-primary-foreground rounded-full px-2.5 py-1 text-[11px] font-semibold"
                   >
@@ -163,7 +211,7 @@ function TextosProntosPicker({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCriando(false)}
+                    onClick={cancelarFormulario}
                     className="border-input rounded-full border px-2.5 py-1 text-[11px]"
                   >
                     Cancelar
@@ -180,6 +228,64 @@ function TextosProntosPicker({
               </button>
             )}
           </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Botão "+" do input — antes simulava anexar um arquivo, mas o analista
+// não consegue mandar mídia nenhuma pro cliente de verdade (sem
+// integração real com WhatsApp Business ainda) — vira o atalho pra
+// mandar um template aprovado a qualquer momento (não só quando a janela
+// de 24h está fechada, ver TemplatesAprovadosPicker abaixo pra esse caso
+// obrigatório).
+function TemplatesDropdownButton({
+  templatesAprovados,
+  onEnviar,
+}: {
+  templatesAprovados: TemplateAprovado[];
+  onEnviar: (conteudo: string) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((atual) => !atual)}
+        title="Enviar template aprovado"
+        className="border-input text-foreground hover:bg-accent flex size-9 shrink-0 items-center justify-center rounded-full border transition"
+      >
+        <Plus className="size-4" />
+      </button>
+
+      {aberto ? (
+        <div className="border-border bg-card absolute bottom-full left-0 z-10 mb-2 flex w-72 flex-col gap-1 rounded-xl border p-3 shadow-xl">
+          <span className="text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold tracking-wide uppercase">
+            <Sparkles className="size-3.5" />
+            Templates aprovados pela Meta
+          </span>
+          {templatesAprovados.length === 0 ? (
+            <p className="text-muted-foreground text-xs">Nenhum template disponível.</p>
+          ) : (
+            templatesAprovados.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => {
+                  onEnviar(template.conteudo);
+                  setAberto(false);
+                }}
+                className="hover:bg-accent rounded-lg px-2 py-1.5 text-left"
+              >
+                <span className="text-foreground block text-xs font-semibold">{template.nome}</span>
+                <span className="text-muted-foreground line-clamp-1 block text-xs">
+                  {template.conteudo}
+                </span>
+              </button>
+            ))
+          )}
         </div>
       ) : null}
     </div>
@@ -216,6 +322,11 @@ function TemplatesAprovadosPicker({
   );
 }
 
+// Mensagens mais recentes primeiro; "Carregar mensagens anteriores"
+// revela mais 20 por vez — evita renderizar/carregar o histórico inteiro
+// de uma vez só quando a conversa tiver muitas mensagens.
+const PAGINA_MENSAGENS = 20;
+
 interface ThreadConversaProps {
   conversa: Conversa | null;
   analistaAtual: string;
@@ -223,8 +334,19 @@ interface ThreadConversaProps {
   templatesAprovados: TemplateAprovado[];
   isSending: boolean;
   onAssumirAtendimento: (conversaId: string) => Promise<void>;
+  onEncerrarAtendimento: (conversaId: string) => Promise<void>;
+  onSolicitarTransferencia: (conversaId: string, paraAnalista: string) => Promise<void>;
+  onResponderTransferencia: (conversaId: string, aceita: boolean) => Promise<void>;
+  onLimparSolicitacaoResolvida: (conversaId: string) => Promise<void>;
   onEnviarMensagem: (conversaId: string, input: EnviarMensagemInput) => Promise<void>;
   onCriarTextoPronto: (titulo: string, conteudo: string) => Promise<void>;
+  onAtualizarTextoPronto: (id: string, titulo: string, conteudo: string) => Promise<void>;
+  onRemoverTextoPronto: (id: string) => Promise<void>;
+  // Navegação só usada em telas pequenas (ver AtendimentoView) — em
+  // desktop as 3 colunas ficam sempre visíveis e esses botões não
+  // aparecem (escondidos via lg:hidden).
+  onVoltarParaLista?: () => void;
+  onAbrirInformacoes?: () => void;
 }
 
 export function ThreadConversa({
@@ -234,11 +356,20 @@ export function ThreadConversa({
   templatesAprovados,
   isSending,
   onAssumirAtendimento,
+  onEncerrarAtendimento,
+  onSolicitarTransferencia,
+  onResponderTransferencia,
+  onLimparSolicitacaoResolvida,
   onEnviarMensagem,
   onCriarTextoPronto,
+  onAtualizarTextoPronto,
+  onRemoverTextoPronto,
+  onVoltarParaLista,
+  onAbrirInformacoes,
 }: ThreadConversaProps) {
   const [texto, setTexto] = useState("");
   const [mostrarMidia, setMostrarMidia] = useState(false);
+  const [mensagensVisiveis, setMensagensVisiveis] = useState(PAGINA_MENSAGENS);
   const fimDaListaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -248,17 +379,27 @@ export function ThreadConversa({
   useEffect(() => {
     setMostrarMidia(false);
     setTexto("");
+    setMensagensVisiveis(PAGINA_MENSAGENS);
   }, [conversa?.id]);
 
   if (!conversa) {
     return (
-      <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+      <div className="text-muted-foreground flex h-full w-full min-w-0 flex-1 items-center justify-center text-sm">
         Selecione uma conversa pra começar.
       </div>
     );
   }
 
   const janelaFechada = janela24hFechada(conversa);
+  // Responder só é permitido a quem assumiu o atendimento — decisão
+  // explícita do usuário (2026-07-23): evita o analista "espiar" a
+  // conversa sem realmente assumir a responsabilidade de atender.
+  const podeResponder = conversa.atendimentoAtual?.analistaNome === analistaAtual;
+  const totalMensagens = conversa.mensagens.length;
+  const mensagensExibidas = conversa.mensagens.slice(
+    Math.max(0, totalMensagens - mensagensVisiveis),
+  );
+  const restantes = totalMensagens - mensagensExibidas.length;
 
   async function enviarTexto() {
     if (!conversa || !texto.trim()) return;
@@ -271,64 +412,98 @@ export function ThreadConversa({
     await onEnviarMensagem(conversa.id, { tipo: "texto", conteudo });
   }
 
-  // Anexar hoje só simula o envio (sem upload real — não existe
-  // FileStorage ligado a este mock) — troque por um input de arquivo de
-  // verdade quando o back-end desta área existir.
-  async function anexarMock() {
-    if (!conversa) return;
-    await onEnviarMensagem(conversa.id, {
-      tipo: "pdf",
-      conteudo: "documento-anexado.pdf",
-      tamanhoArquivo: "1.2 MB",
-    });
-  }
-
   return (
-    <div className="flex h-full flex-1 flex-col">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
       <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/15 text-primary flex size-9 items-center justify-center rounded-full text-sm font-bold">
+        <div className="flex min-w-0 items-center gap-3">
+          {onVoltarParaLista ? (
+            <button
+              type="button"
+              onClick={onVoltarParaLista}
+              aria-label="Voltar pra lista de conversas"
+              className="text-muted-foreground hover:text-foreground shrink-0 lg:hidden"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+          ) : null}
+          <div className="bg-primary/15 text-primary flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-bold">
             {iniciaisNome(conversa.membro.nome)}
           </div>
-          <div>
-            <p className="text-foreground text-sm font-semibold">{conversa.membro.nome}</p>
-            <p className="text-muted-foreground text-xs">
+          <div className="min-w-0">
+            <p className="text-foreground truncate text-sm font-semibold">{conversa.membro.nome}</p>
+            <p className="text-muted-foreground truncate text-xs">
               {labelPapelMembro(conversa.membro.papel)} · {conversa.agenciaNome}
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setMostrarMidia((atual) => !atual)}
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-            mostrarMidia
-              ? "bg-primary text-primary-foreground"
-              : "border-input text-foreground hover:bg-accent border"
-          }`}
-        >
-          <ImageIcon className="size-3.5" />
-          Mídia
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMostrarMidia((atual) => !atual)}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              mostrarMidia
+                ? "bg-primary text-primary-foreground"
+                : "border-input text-foreground hover:bg-accent border"
+            }`}
+          >
+            <ImageIcon className="size-3.5" />
+            <span className="hidden sm:inline">Mídia</span>
+          </button>
+          {onAbrirInformacoes ? (
+            <button
+              type="button"
+              onClick={onAbrirInformacoes}
+              title="Informações da agência"
+              className="border-input text-foreground hover:bg-accent flex size-9 items-center justify-center rounded-full border transition lg:hidden"
+            >
+              <Info className="size-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {mostrarMidia ? (
         <PainelMidia conversa={conversa} onFechar={() => setMostrarMidia(false)} />
       ) : null}
 
-      <AssumirAtendimentoBanner
-        atendimentoAtual={conversa.atendimentoAtual}
+      <AtendimentoAcoesBanner
+        conversa={conversa}
         analistaAtual={analistaAtual}
         onAssumir={() => void onAssumirAtendimento(conversa.id)}
+        onEncerrar={() => void onEncerrarAtendimento(conversa.id)}
+        onSolicitarTransferencia={(paraAnalista) =>
+          void onSolicitarTransferencia(conversa.id, paraAnalista)
+        }
+        onResponderTransferencia={(aceita) => void onResponderTransferencia(conversa.id, aceita)}
+        onLimparSolicitacaoResolvida={() => void onLimparSolicitacaoResolvida(conversa.id)}
       />
 
-      <div className="bg-muted/10 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-        {conversa.mensagens.map((mensagem) => (
+      <div className="bg-muted/10 min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {restantes > 0 ? (
+          <div className="flex justify-center pb-1">
+            <button
+              type="button"
+              onClick={() => setMensagensVisiveis((atual) => atual + PAGINA_MENSAGENS)}
+              className="border-input bg-card text-muted-foreground hover:bg-accent flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+            >
+              <ChevronUp className="size-3.5" />
+              Carregar mensagens anteriores ({restantes})
+            </button>
+          </div>
+        ) : null}
+        {mensagensExibidas.map((mensagem) => (
           <MensagemBubble key={mensagem.id} mensagem={mensagem} />
         ))}
         <div ref={fimDaListaRef} />
       </div>
 
-      {janelaFechada ? (
+      {!podeResponder ? (
+        <div className="border-border bg-muted/30 text-muted-foreground border-t px-4 py-3 text-center text-sm">
+          {conversa.atendimentoAtual
+            ? "Só quem assumiu o atendimento pode responder ao cliente."
+            : "Assuma o atendimento pra poder responder ao cliente."}
+        </div>
+      ) : janelaFechada ? (
         <TemplatesAprovadosPicker
           templatesAprovados={templatesAprovados}
           onEnviar={(conteudo) => void enviarTemplate(conteudo)}
@@ -339,15 +514,13 @@ export function ThreadConversa({
             textosProntos={textosProntos}
             onEscolher={(conteudo) => setTexto(conteudo)}
             onCriar={onCriarTextoPronto}
+            onAtualizar={onAtualizarTextoPronto}
+            onRemover={onRemoverTextoPronto}
           />
-          <button
-            type="button"
-            onClick={() => void anexarMock()}
-            title="Anexar arquivo"
-            className="border-input text-foreground hover:bg-accent flex size-9 shrink-0 items-center justify-center rounded-full border transition"
-          >
-            <Plus className="size-4" />
-          </button>
+          <TemplatesDropdownButton
+            templatesAprovados={templatesAprovados}
+            onEnviar={(conteudo) => void enviarTemplate(conteudo)}
+          />
           <input
             type="text"
             value={texto}

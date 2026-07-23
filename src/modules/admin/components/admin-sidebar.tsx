@@ -13,6 +13,7 @@ import {
   UserCog,
   UsersRound,
   Mail,
+  Webhook,
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +63,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
       { label: "Usuários", href: "/painel/usuarios", icon: UserCog },
       { label: "Equipe", href: null, icon: UsersRound },
       { label: "Auditoria E-mails", href: null, icon: Mail },
+      { label: "Messenger", href: "/painel/messenger", icon: Webhook },
     ],
   },
 ];
