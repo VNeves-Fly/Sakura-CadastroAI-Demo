@@ -20,6 +20,10 @@ export function GestoresTab({ gestores }: GestoresTabProps) {
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Bases</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Executivos</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Cidades</th>
+            <th className="text-muted-foreground px-4 py-2.5 font-medium">
+              Agências
+              <span className="text-muted-foreground/70 ml-1 font-normal italic">(exemplo)</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -29,6 +33,11 @@ export function GestoresTab({ gestores }: GestoresTabProps) {
               <td className="text-foreground px-4 py-3">{gestor.totalBases}</td>
               <td className="text-foreground px-4 py-3">{gestor.totalExecutivos}</td>
               <td className="text-foreground px-4 py-3">{gestor.totalCidades}</td>
+              <td className="px-4 py-3">
+                <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-semibold">
+                  {gestor.totalAgenciasMock}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>

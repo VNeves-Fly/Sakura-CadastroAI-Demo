@@ -17,7 +17,8 @@ export function ExecutivosTab({ executivos }: ExecutivosTabProps) {
         <thead className="border-border bg-muted/40 border-b">
           <tr>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Executivo</th>
-            <th className="text-muted-foreground px-4 py-2.5 font-medium">Base</th>
+            <th className="text-muted-foreground px-4 py-2.5 font-medium">Base(s)</th>
+            <th className="text-muted-foreground px-4 py-2.5 font-medium">Qtd. bases</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Gestor</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Cidades</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">
@@ -31,6 +32,7 @@ export function ExecutivosTab({ executivos }: ExecutivosTabProps) {
             <tr key={executivo.executivo} className="border-border border-b last:border-0">
               <td className="text-foreground px-4 py-3 font-medium">{executivo.executivo}</td>
               <td className="text-foreground px-4 py-3">{executivo.base ?? "—"}</td>
+              <td className="text-foreground px-4 py-3">{executivo.totalBases}</td>
               <td className="text-foreground px-4 py-3">{executivo.gestor ?? "—"}</td>
               <td className="text-foreground px-4 py-3">{executivo.totalCidades}</td>
               <td className="px-4 py-3">

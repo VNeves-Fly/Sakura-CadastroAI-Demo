@@ -28,6 +28,7 @@ export function filtrarCidades(cidades: Cidade[], filtros: FiltrosAtribuicoes): 
     if (filtros.executivo && cidade.executivo !== filtros.executivo) return false;
     if (filtros.gestor && cidade.gestor !== filtros.gestor) return false;
     if (filtros.base && cidade.base !== filtros.base) return false;
+    if (filtros.regiao && cidade.regiao !== filtros.regiao) return false;
     if (busca) {
       const alvo = normalizar(
         [cidade.cidade, cidade.estado, cidade.ddd, cidade.base, cidade.executivo, cidade.gestor]
@@ -135,6 +136,7 @@ export function agregarExecutivos(cidades: Cidade[]): ResumoExecutivo[] {
     .map(([executivo, valor]) => ({
       executivo,
       base: valor.bases.size > 0 ? [...valor.bases].join(", ") : null,
+      totalBases: valor.bases.size,
       gestor: valor.gestores.size > 0 ? [...valor.gestores].join(", ") : null,
       totalCidades: valor.totalCidades,
       totalAgenciasMock: mockTotalAgencias(executivo),
@@ -167,6 +169,12 @@ export function agregarGestores(cidades: Cidade[]): ResumoGestor[] {
       totalBases: valor.bases.size,
       totalExecutivos: valor.executivos.size,
       totalCidades: valor.totalCidades,
+      // Soma do mock de cada executivo — mantém coerência entre a aba
+      // Executivos e a aba Gestores (agências do gestor = soma dos dele).
+      totalAgenciasMock: [...valor.executivos].reduce(
+        (total, nomeExecutivo) => total + mockTotalAgencias(nomeExecutivo),
+        0,
+      ),
     }))
     .sort((a, b) => b.totalExecutivos - a.totalExecutivos);
 }

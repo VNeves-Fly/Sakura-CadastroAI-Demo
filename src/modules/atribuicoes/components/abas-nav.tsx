@@ -11,15 +11,19 @@ const ABAS = [
 interface AbasNavProps {
   abaAtiva: string;
   busca: string;
+  regiao: string;
+  base: string;
   executivo: string;
   gestor: string;
 }
 
-export function AbasNav({ abaAtiva, busca, executivo, gestor }: AbasNavProps) {
+export function AbasNav({ abaAtiva, busca, regiao, base, executivo, gestor }: AbasNavProps) {
   function href(aba: string): string {
     const params = new URLSearchParams();
     params.set("aba", aba);
     if (busca) params.set("busca", busca);
+    if (regiao) params.set("regiao", regiao);
+    if (base) params.set("base", base);
     if (executivo) params.set("executivo", executivo);
     if (gestor) params.set("gestor", gestor);
     return `/atribuicoes?${params.toString()}`;

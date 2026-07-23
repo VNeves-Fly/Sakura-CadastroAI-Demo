@@ -21,6 +21,8 @@ interface AtribuicoesPageProps {
   searchParams: {
     aba?: string;
     busca?: string;
+    regiao?: string;
+    base?: string;
     executivo?: string;
     gestor?: string;
     pagina?: string;
@@ -30,11 +32,13 @@ interface AtribuicoesPageProps {
 export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) {
   const aba = searchParams.aba ?? "regioes";
   const busca = searchParams.busca ?? "";
+  const regiao = searchParams.regiao ?? "";
+  const base = searchParams.base ?? "";
   const executivo = searchParams.executivo ?? "";
   const gestor = searchParams.gestor ?? "";
 
   const todasCidades = carregarCidades();
-  const cidadesFiltradas = filtrarCidades(todasCidades, { busca, executivo, gestor });
+  const cidadesFiltradas = filtrarCidades(todasCidades, { busca, regiao, base, executivo, gestor });
 
   const regioes = agregarRegioes(cidadesFiltradas);
   const bases = agregarBases(cidadesFiltradas);
@@ -43,9 +47,13 @@ export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) 
 
   // Listas completas (não filtradas) pros selects — senão a opção
   // escolhida "some" da lista assim que o filtro é aplicado.
+  const todasRegioes = agregarRegioes(todasCidades).map((item) => item.regiao);
+  const todasBases = agregarBases(todasCidades).map((item) => item.base);
   const todosExecutivos = agregarExecutivos(todasCidades).map((item) => item.executivo);
   const todosGestores = agregarGestores(todasCidades).map((item) => item.gestor);
 
+  const regiaoResumo = regiao ? (regioes.find((item) => item.regiao === regiao) ?? null) : null;
+  const baseResumo = base ? (bases.find((item) => item.base === base) ?? null) : null;
   const executivoResumo = executivo
     ? (executivos.find((item) => item.executivo === executivo) ?? null)
     : null;
@@ -72,16 +80,32 @@ export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) 
       <FiltrosAtribuicoes
         aba={aba}
         busca={busca}
+        regiaoSelecionada={regiao}
+        baseSelecionada={base}
         executivoSelecionado={executivo}
         gestorSelecionado={gestor}
+        regioes={todasRegioes}
+        bases={todasBases}
         executivos={todosExecutivos}
         gestores={todosGestores}
       />
 
-      <ResumoSelecao executivo={executivoResumo} gestor={gestorResumo} />
+      <ResumoSelecao
+        regiao={regiaoResumo}
+        base={baseResumo}
+        executivo={executivoResumo}
+        gestor={gestorResumo}
+      />
 
       <div className="border-border bg-card overflow-hidden rounded-2xl border">
-        <AbasNav abaAtiva={aba} busca={busca} executivo={executivo} gestor={gestor} />
+        <AbasNav
+          abaAtiva={aba}
+          busca={busca}
+          regiao={regiao}
+          base={base}
+          executivo={executivo}
+          gestor={gestor}
+        />
         {aba === "bases" ? (
           <BasesTab bases={bases} />
         ) : aba === "executivos" ? (
@@ -95,6 +119,8 @@ export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) 
             paginaAtual={paginaEfetiva}
             totalPaginas={totalPaginas}
             busca={busca}
+            regiao={regiao}
+            base={base}
             executivo={executivo}
             gestor={gestor}
           />

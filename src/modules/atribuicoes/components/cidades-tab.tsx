@@ -7,6 +7,8 @@ interface CidadesTabProps {
   paginaAtual: number;
   totalPaginas: number;
   busca: string;
+  regiao: string;
+  base: string;
   executivo: string;
   gestor: string;
 }
@@ -17,6 +19,8 @@ export function CidadesTab({
   paginaAtual,
   totalPaginas,
   busca,
+  regiao,
+  base,
   executivo,
   gestor,
 }: CidadesTabProps) {
@@ -24,6 +28,8 @@ export function CidadesTab({
     const params = new URLSearchParams();
     params.set("aba", "cidades");
     if (busca) params.set("busca", busca);
+    if (regiao) params.set("regiao", regiao);
+    if (base) params.set("base", base);
     if (executivo) params.set("executivo", executivo);
     if (gestor) params.set("gestor", gestor);
     params.set("pagina", String(pagina));

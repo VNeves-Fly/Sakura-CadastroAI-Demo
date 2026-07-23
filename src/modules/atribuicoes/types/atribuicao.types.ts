@@ -34,6 +34,7 @@ export interface ResumoBase {
 export interface ResumoExecutivo {
   executivo: string;
   base: string | null;
+  totalBases: number;
   gestor: string | null;
   totalCidades: number;
   // Ilustrativo — não existe ainda vínculo real Agencia -> Executivo no
@@ -48,6 +49,9 @@ export interface ResumoGestor {
   totalBases: number;
   totalExecutivos: number;
   totalCidades: number;
+  // Soma do totalAgenciasMock dos executivos desse gestor — mesma
+  // ressalva de dado ilustrativo do ResumoExecutivo.
+  totalAgenciasMock: number;
 }
 
 export interface FiltrosAtribuicoes {
@@ -55,5 +59,6 @@ export interface FiltrosAtribuicoes {
   executivo?: string;
   gestor?: string;
   base?: string;
+  regiao?: string;
   pagina?: number;
 }
