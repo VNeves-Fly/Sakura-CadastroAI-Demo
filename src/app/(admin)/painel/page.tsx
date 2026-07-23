@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import { resolverOrigemEvento } from "@/modules/eventos/utils/resolver-origem.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
@@ -267,30 +268,49 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                 </tr>
               </thead>
               <tbody>
-                {items.map(({ agencia, origemContratoAtual }) => (
-                  <tr key={agencia.id} className="border-border border-b last:border-0">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/painel/${agencia.id}`}
-                        className="text-foreground hover:text-primary font-medium hover:underline"
-                      >
-                        {agencia.razaoSocial}
-                      </Link>
-                      <p className="text-muted-foreground text-xs">{maskCnpj(agencia.cnpj)}</p>
-                    </td>
-                    <td className="text-muted-foreground px-4 py-3">
-                      {formatarData(agencia.createdAt)} · {diasAtras(agencia.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${classesBadgeStatus(agencia.status)}`}
-                        title={labelOrigemContrato(origemContratoAtual) ?? undefined}
-                      >
-                        {labelStatus(agencia.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {items.map(({ agencia, origemContratoAtual }) => {
+                  const origemEvento = resolverOrigemEvento(agencia.origem);
+                  return (
+                    <tr key={agencia.id} className="border-border border-b last:border-0">
+                      <td className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <Link
+                              href={`/painel/${agencia.id}`}
+                              className="text-foreground hover:text-primary font-medium hover:underline"
+                            >
+                              {agencia.razaoSocial}
+                            </Link>
+                            <p className="text-muted-foreground text-xs">
+                              {maskCnpj(agencia.cnpj)}
+                            </p>
+                          </div>
+                          {origemEvento ? (
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span className="bg-accent text-accent-foreground rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
+                                {origemEvento.eventoNome}
+                              </span>
+                              <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
+                                {origemEvento.executivoNome}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="text-muted-foreground px-4 py-3">
+                        {formatarData(agencia.createdAt)} · {diasAtras(agencia.createdAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${classesBadgeStatus(agencia.status)}`}
+                          title={labelOrigemContrato(origemContratoAtual) ?? undefined}
+                        >
+                          {labelStatus(agencia.status)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
