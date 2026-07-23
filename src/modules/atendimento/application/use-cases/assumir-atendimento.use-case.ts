@@ -3,10 +3,9 @@ import { HORAS_LIMITE_ASSUMIR } from "@/modules/atendimento/domain/atendimento.c
 import type { ConversaEntity } from "@/modules/atendimento/domain/entities/conversa.entity";
 import type { AssumirAtendimentoRepository } from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
 import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
-import {
-  RESUMO_FICHA_NAO_IDENTIFICADO,
-  type ResumoFichaClienteRepository,
-} from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
+import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
+import type { SolicitacaoTransferenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-transferencia-repository";
+import { completarConversa } from "@/modules/atendimento/application/shared/completar-conversa";
 import type { AssumirAtendimentoInput } from "@/modules/atendimento/application/dto/assumir-atendimento.dto";
 
 export class AssumirAtendimentoUseCase {
@@ -14,6 +13,7 @@ export class AssumirAtendimentoUseCase {
     private readonly assumirAtendimentoRepository: AssumirAtendimentoRepository,
     private readonly conversaRepository: ConversaRepository,
     private readonly resumoFichaClienteRepository: ResumoFichaClienteRepository,
+    private readonly solicitacaoTransferenciaRepository: SolicitacaoTransferenciaRepository,
   ) {}
 
   async execute(input: AssumirAtendimentoInput): Promise<ConversaEntity> {
@@ -34,11 +34,10 @@ export class AssumirAtendimentoUseCase {
     const conversa = await this.conversaRepository.findById(input.conversaId);
     if (!conversa) throw new NotFoundError("Conversa");
 
-    return {
-      ...conversa,
-      resumoFicha: conversa.agenciaId
-        ? await this.resumoFichaClienteRepository.obterResumo(conversa.agenciaId)
-        : RESUMO_FICHA_NAO_IDENTIFICADO,
-    };
+    return completarConversa(
+      conversa,
+      this.resumoFichaClienteRepository,
+      this.solicitacaoTransferenciaRepository,
+    );
   }
 }

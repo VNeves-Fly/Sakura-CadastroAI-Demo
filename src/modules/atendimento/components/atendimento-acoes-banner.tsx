@@ -9,7 +9,11 @@ import {
   podeAssumirAtendimento,
 } from "@/modules/atendimento/services/atendimento-api";
 import { formatarTempoDecorrido } from "@/modules/atendimento/utils/atendimento-formato.util";
-import { ANALISTAS_MOCK } from "@/modules/atendimento/mock/atendimento-mock.data";
+
+interface AnalistaOpcao {
+  id: string;
+  nome: string;
+}
 
 interface AtendimentoAcoesBannerProps {
   conversa: Conversa;
@@ -46,15 +50,38 @@ function SegundosRestantes({ criadaEm }: { criadaEm: string }) {
   );
 }
 
+// Busca analistas reais (User) em vez da lista mock — carrega só quando
+// o dropdown abre, já que a lista raramente muda e não vale a pena
+// buscar de cara pra toda conversa aberta. `onEscolher` recebe o id do
+// analista (não o nome) — é o que a rota de transferência real espera.
 function SeletorTransferencia({
   analistaAtual,
   onEscolher,
 }: {
   analistaAtual: string;
-  onEscolher: (paraAnalista: string) => void;
+  onEscolher: (paraAnalistaId: string) => void;
 }) {
   const [aberto, setAberto] = useState(false);
-  const opcoes = ANALISTAS_MOCK.filter((nome) => nome !== analistaAtual);
+  const [opcoes, setOpcoes] = useState<AnalistaOpcao[]>([]);
+  const [carregando, setCarregando] = useState(false);
+
+  useEffect(() => {
+    if (!aberto) return;
+    setCarregando(true);
+    fetch("/api/users")
+      .then((response) => response.json())
+      .then((usuarios: { id: string; firstName: string; lastName: string }[]) => {
+        setOpcoes(
+          usuarios
+            .map((usuario) => ({
+              id: usuario.id,
+              nome: `${usuario.firstName} ${usuario.lastName}`.trim(),
+            }))
+            .filter((opcao) => opcao.nome !== analistaAtual),
+        );
+      })
+      .finally(() => setCarregando(false));
+  }, [aberto, analistaAtual]);
 
   return (
     <div className="relative">
@@ -68,19 +95,27 @@ function SeletorTransferencia({
       </button>
       {aberto ? (
         <div className="border-border bg-card absolute top-full right-0 z-10 mt-2 flex w-56 flex-col gap-1 rounded-xl border p-2 shadow-xl">
-          {opcoes.map((nome) => (
-            <button
-              key={nome}
-              type="button"
-              onClick={() => {
-                onEscolher(nome);
-                setAberto(false);
-              }}
-              className="hover:bg-accent rounded-lg px-2 py-1.5 text-left text-xs font-medium"
-            >
-              {nome}
-            </button>
-          ))}
+          {carregando ? (
+            <p className="text-muted-foreground px-2 py-1.5 text-xs">Carregando...</p>
+          ) : opcoes.length === 0 ? (
+            <p className="text-muted-foreground px-2 py-1.5 text-xs">
+              Nenhum outro analista disponível.
+            </p>
+          ) : (
+            opcoes.map((opcao) => (
+              <button
+                key={opcao.id}
+                type="button"
+                onClick={() => {
+                  onEscolher(opcao.id);
+                  setAberto(false);
+                }}
+                className="hover:bg-accent rounded-lg px-2 py-1.5 text-left text-xs font-medium"
+              >
+                {opcao.nome}
+              </button>
+            ))
+          )}
         </div>
       ) : null}
     </div>

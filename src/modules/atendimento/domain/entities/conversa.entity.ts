@@ -1,4 +1,5 @@
 import type { MensagemEntity } from "@/modules/atendimento/domain/entities/mensagem.entity";
+import type { SolicitacaoTransferenciaEntity } from "@/modules/atendimento/domain/entities/solicitacao-transferencia.entity";
 
 export type TipoContatoConversaEntity = "agencia" | "nao_identificado";
 export type PapelMembroEntity = "socio" | "representante_legal" | "comercial" | "outro";
@@ -35,6 +36,7 @@ export interface ConversaEntity {
   mensagens: MensagemEntity[];
   atendimentoAtual: AssumirAtendimentoRegistroEntity | null;
   historicoAtendimento: AssumirAtendimentoRegistroEntity[];
+  solicitacaoTransferenciaPendente: SolicitacaoTransferenciaEntity | null;
   resumoFicha: ResumoFichaClienteEntity;
   createdAt: string;
   updatedAt: string;

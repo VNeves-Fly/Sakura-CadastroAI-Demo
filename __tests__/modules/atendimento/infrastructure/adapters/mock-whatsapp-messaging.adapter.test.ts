@@ -49,4 +49,40 @@ describe("MockWhatsAppMessagingAdapter", () => {
     expect(resultado.buffer.toString()).toContain("media-123");
     expect(resultado.mimeType).toBe("application/octet-stream");
   });
+
+  it("listarTodosTemplates devolve pelo menos um template de exemplo com status", async () => {
+    const adapter = new MockWhatsAppMessagingAdapter();
+
+    const templates = await adapter.listarTodosTemplates();
+
+    expect(templates.length).toBeGreaterThan(0);
+    expect(templates[0]).toEqual(
+      expect.objectContaining({ status: "APPROVED", motivoRejeicao: null }),
+    );
+  });
+
+  it("criarTemplate devolve um metaTemplateId fake sem chamar rede", async () => {
+    const adapter = new MockWhatsAppMessagingAdapter();
+
+    const resultado = await adapter.criarTemplate({
+      nome: "x",
+      categoria: "UTILITY",
+      idioma: "pt_BR",
+      conteudo: "y",
+    });
+
+    expect(resultado.metaTemplateId).toMatch(/^mock-template-/);
+  });
+
+  it("editarTemplate é um no-op que não lança erro", async () => {
+    const adapter = new MockWhatsAppMessagingAdapter();
+
+    await expect(adapter.editarTemplate("meta-tpl-1", "novo texto")).resolves.toBeUndefined();
+  });
+
+  it("verificarCredenciais lança erro explicando que precisa configurar o .env", async () => {
+    const adapter = new MockWhatsAppMessagingAdapter();
+
+    await expect(adapter.verificarCredenciais()).rejects.toThrow("WHATSAPP_ACCESS_TOKEN");
+  });
 });

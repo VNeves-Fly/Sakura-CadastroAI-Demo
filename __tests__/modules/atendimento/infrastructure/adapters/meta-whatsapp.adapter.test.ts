@@ -370,4 +370,124 @@ describe("MetaWhatsAppAdapter", () => {
       expect(url).toBe("https://graph.facebook.com/v21.0/phone-id-teste/messages");
     });
   });
+
+  describe("listarTodosTemplates", () => {
+    it("traz qualquer status (não filtra como listarTemplatesAprovados) e o motivo de rejeição", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson({
+          data: [
+            {
+              id: "tpl-1",
+              name: "boas_vindas",
+              language: "pt_BR",
+              status: "APPROVED",
+              category: "UTILITY",
+              components: [{ type: "BODY", text: "Olá!" }],
+            },
+            {
+              id: "tpl-2",
+              name: "promocao",
+              language: "pt_BR",
+              status: "REJECTED",
+              category: "MARKETING",
+              rejected_reason: "Texto genérico demais.",
+              components: [{ type: "BODY", text: "Aproveite!" }],
+            },
+          ],
+        }),
+      );
+
+      const templates = await new MetaWhatsAppAdapter().listarTodosTemplates();
+
+      expect(templates).toEqual([
+        {
+          metaTemplateId: "tpl-1",
+          nome: "boas_vindas",
+          idioma: "pt_BR",
+          categoria: "UTILITY",
+          status: "APPROVED",
+          motivoRejeicao: null,
+          conteudo: "Olá!",
+        },
+        {
+          metaTemplateId: "tpl-2",
+          nome: "promocao",
+          idioma: "pt_BR",
+          categoria: "MARKETING",
+          status: "REJECTED",
+          motivoRejeicao: "Texto genérico demais.",
+          conteudo: "Aproveite!",
+        },
+      ]);
+
+      const [url] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe("https://api.teste.whatsapp/waba-id-teste/message_templates");
+    });
+  });
+
+  describe("criarTemplate", () => {
+    it("submete o template com o componente BODY e devolve o metaTemplateId", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(okJson({ id: "novo-tpl-id" }));
+
+      const resultado = await new MetaWhatsAppAdapter().criarTemplate({
+        nome: "boas_vindas",
+        categoria: "UTILITY",
+        idioma: "pt_BR",
+        conteudo: "Olá, seja bem-vindo!",
+      });
+
+      expect(resultado).toEqual({ metaTemplateId: "novo-tpl-id" });
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe("https://api.teste.whatsapp/waba-id-teste/message_templates");
+      expect(JSON.parse(opts.body)).toEqual({
+        name: "boas_vindas",
+        category: "UTILITY",
+        language: "pt_BR",
+        components: [{ type: "BODY", text: "Olá, seja bem-vindo!" }],
+      });
+    });
+  });
+
+  describe("editarTemplate", () => {
+    it("chama POST /{metaTemplateId} com o novo componente BODY", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(okJson({ success: true }));
+
+      await new MetaWhatsAppAdapter().editarTemplate("meta-tpl-1", "Texto corrigido");
+
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe("https://api.teste.whatsapp/meta-tpl-1");
+      expect(JSON.parse(opts.body)).toEqual({
+        components: [{ type: "BODY", text: "Texto corrigido" }],
+      });
+    });
+  });
+
+  describe("verificarCredenciais", () => {
+    it("faz GET no próprio phone number e devolve display_phone_number/verified_name", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson({ display_phone_number: "+55 11 99999-9999", verified_name: "Sakura Travel" }),
+      );
+
+      const resultado = await new MetaWhatsAppAdapter().verificarCredenciais();
+
+      expect(resultado).toEqual({
+        displayPhoneNumber: "+55 11 99999-9999",
+        verifiedName: "Sakura Travel",
+      });
+      const [url] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe(
+        "https://api.teste.whatsapp/phone-id-teste?fields=display_phone_number,verified_name",
+      );
+    });
+
+    it("propaga o erro mapeado se a chamada falhar (ex: token inválido)", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        errJson(401, { error: { code: 190, message: "Invalid OAuth access token" } }),
+      );
+
+      await expect(new MetaWhatsAppAdapter().verificarCredenciais()).rejects.toThrow(
+        "WhatsApp Cloud API",
+      );
+    });
+  });
 });

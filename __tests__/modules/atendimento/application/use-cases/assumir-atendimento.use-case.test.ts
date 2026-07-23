@@ -1,73 +1,25 @@
 import { AssumirAtendimentoUseCase } from "@/modules/atendimento/application/use-cases/assumir-atendimento.use-case";
 import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
-import type { ConversaEntity } from "@/modules/atendimento/domain/entities/conversa.entity";
-import type {
-  AssumirAtendimentoRepository,
-  RegistroAtendimentoAtual,
-} from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
-import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
-import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
-
-function fakeConversa(overrides: Partial<ConversaEntity> = {}): ConversaEntity {
-  return {
-    id: "conv-1",
-    tipoContato: "agencia",
-    agenciaId: "ag-1",
-    agenciaNome: "Agência X",
-    agenciaCnpj: "11222333000181",
-    membro: { id: "conv-1", nome: "Fulano", papel: "socio", telefone: "5511999999999" },
-    mensagens: [],
-    atendimentoAtual: null,
-    historicoAtendimento: [],
-    resumoFicha: {
-      statusAgencia: "em_andamento",
-      documentosAprovados: 0,
-      documentosPendentes: 0,
-      situacaoCadastralReceita: null,
-      contratoStatus: null,
-      amatSofiaConsultado: false,
-    },
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-    lastMessageAt: null,
-    ...overrides,
-  };
-}
+import type { RegistroAtendimentoAtual } from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
+import {
+  fakeAssumirAtendimentoRepository,
+  fakeConversa,
+  fakeConversaRepository,
+  fakeResumoFichaClienteRepository,
+  fakeSolicitacaoTransferenciaRepository,
+} from "../../fixtures";
 
 function criarUseCase() {
-  const assumirAtendimentoRepository: AssumirAtendimentoRepository = {
-    findAtual: jest.fn().mockResolvedValue(null),
-    criar: jest.fn().mockResolvedValue({
-      analistaNome: "Ana Analista",
-      assumidoEm: "2026-01-02T00:00:00.000Z",
-      liberadoEm: null,
-    }),
-    liberar: jest.fn(),
-  };
-
-  const conversaRepository: ConversaRepository = {
-    findAll: jest.fn(),
-    findById: jest.fn().mockResolvedValue(fakeConversa()),
-    findByTelefoneWhatsapp: jest.fn(),
-    create: jest.fn(),
-    touchLastMessage: jest.fn(),
-  };
-
-  const resumoFichaClienteRepository: ResumoFichaClienteRepository = {
-    obterResumo: jest.fn().mockResolvedValue({
-      statusAgencia: "ativo",
-      documentosAprovados: 3,
-      documentosPendentes: 0,
-      situacaoCadastralReceita: "ATIVA",
-      contratoStatus: "assinado",
-      amatSofiaConsultado: true,
-    }),
-  };
+  const assumirAtendimentoRepository = fakeAssumirAtendimentoRepository();
+  const conversaRepository = fakeConversaRepository();
+  const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
+  const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
 
   const useCase = new AssumirAtendimentoUseCase(
     assumirAtendimentoRepository,
     conversaRepository,
     resumoFichaClienteRepository,
+    solicitacaoTransferenciaRepository,
   );
 
   return {
@@ -75,6 +27,7 @@ function criarUseCase() {
     assumirAtendimentoRepository,
     conversaRepository,
     resumoFichaClienteRepository,
+    solicitacaoTransferenciaRepository,
   };
 }
 
@@ -162,5 +115,21 @@ describe("AssumirAtendimentoUseCase", () => {
       contratoStatus: null,
       amatSofiaConsultado: false,
     });
+  });
+
+  it("devolve a solicitação de transferência visível junto da conversa", async () => {
+    const { useCase, solicitacaoTransferenciaRepository } = criarUseCase();
+    (solicitacaoTransferenciaRepository.findVisivelPorConversa as jest.Mock).mockResolvedValue({
+      id: "transf-1",
+      conversaId: "conv-1",
+      deAnalista: "Ana Analista",
+      paraAnalista: "Outro Analista",
+      status: "recusada",
+      criadaEm: "2026-01-01T00:00:00.000Z",
+    });
+
+    const conversa = await useCase.execute({ conversaId: "conv-1", analistaId: "analista-1" });
+
+    expect(conversa.solicitacaoTransferenciaPendente?.status).toBe("recusada");
   });
 });
