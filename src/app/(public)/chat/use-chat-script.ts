@@ -135,6 +135,10 @@ export function useChatScript() {
   const [pending, setPending] = useState<PendingInput | null>(null);
   const [fase, setFase] = useState<FaseChat>("chat");
   const [resultadoFinal, setResultadoFinal] = useState<ResultadoFinalChat | null>(null);
+  // Mensagem do card de "analisando" (AnaliseDocumentoLoading) sobreposto
+  // ao chat enquanto uma análise real de documento está em andamento —
+  // null quando nenhuma análise está rolando no momento.
+  const [analisandoDocumento, setAnalisandoDocumento] = useState<string | null>(null);
   // Ref (não state) de propósito — nada na UI renderiza a lista de
   // bancos diretamente, só o roteiro consome; assim a leitura dentro de
   // funções assíncronas do roteiro nunca fica presa a um valor antigo
@@ -359,6 +363,7 @@ export function useChatScript() {
     contextoRef.current.contratoSocialNome = arquivo.name;
 
     await falarBot("Analisando o contrato social...");
+    setAnalisandoDocumento("Analisando o contrato social...");
 
     try {
       const formData = agenciaAdapter.toAnalisarContratoSocialFormData({
@@ -366,6 +371,7 @@ export function useChatScript() {
         contratoSocial: arquivo,
       });
       const raw = await agenciaService.analisarContratoSocial(formData);
+      setAnalisandoDocumento(null);
       const analise = agenciaAdapter.toContratoSocialAnaliseView(raw);
 
       contextoRef.current.contratoSocialAnalise = analise;
@@ -388,6 +394,7 @@ export function useChatScript() {
 
       await perguntarTelefoneComercial();
     } catch {
+      setAnalisandoDocumento(null);
       await validarOuFalhar(
         false,
         "Não conseguimos processar esse arquivo. Pode tentar enviar de novo?",
@@ -790,6 +797,7 @@ export function useChatScript() {
     socio.documentoNome = arquivo.name;
 
     await falarBot("Analisando o documento...");
+    setAnalisandoDocumento("Analisando o documento...");
 
     try {
       const formData = agenciaAdapter.toAnalisarDocumentoIdentificacaoFormData({
@@ -798,6 +806,7 @@ export function useChatScript() {
         documento: arquivo,
       });
       const raw = await agenciaService.analisarDocumentoIdentificacao(formData);
+      setAnalisandoDocumento(null);
       const analise = agenciaAdapter.toDocumentoIdentificacaoAnaliseView(raw);
 
       // Autopreenche o que a IA extraiu — nunca perguntado diretamente,
@@ -810,6 +819,7 @@ export function useChatScript() {
     } catch {
       // Best-effort — falha na análise não deve travar o cadastro; o
       // sócio segue sem esses campos extraídos (mesma regra do /cadastro).
+      setAnalisandoDocumento(null);
     }
 
     contextoRef.current.socioAtualIndex = null;
@@ -1284,6 +1294,7 @@ export function useChatScript() {
     pending,
     fase,
     resultadoFinal,
+    analisandoDocumento,
     onEnviarTexto,
     onQuickReply,
     onEnviarForm,
