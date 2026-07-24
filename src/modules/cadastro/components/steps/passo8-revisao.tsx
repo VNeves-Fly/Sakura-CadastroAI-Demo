@@ -5,13 +5,13 @@ import { BriefcaseIcon } from "@/modules/cadastro/components/icons";
 import { RevisaoContratoModal } from "@/modules/cadastro/components/revisao-contrato-modal";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
-type Passo7RevisaoProps = ReturnType<typeof useCadastroWizardViewModel>;
+type Passo8RevisaoProps = ReturnType<typeof useCadastroWizardViewModel>;
 
 // Componente apenas de renderização: recebe estado e callbacks do
 // ViewModel do wizard via props. O botão final abre o modal de revisão
 // (RevisaoContratoModal) — o submit real só acontece lá, depois do
 // aceite explícito do usuário.
-export function Passo7Revisao(wizard: Passo7RevisaoProps) {
+export function Passo8Revisao(wizard: Passo8RevisaoProps) {
   const { documentosPendentes, isSubmitting } = wizard;
   const [modalAberto, setModalAberto] = useState(false);
 

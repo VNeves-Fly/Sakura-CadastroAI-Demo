@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ESTADO_CIVIL_VALORES } from "@/modules/cadastro/domain/enums";
 
 const enderecoCoreSchema = {
   cep: z.string().min(1, "CEP é obrigatório."),
@@ -39,7 +40,9 @@ export const socioMetaSchema = z.object({
       },
       { message: "Sócio deve ser maior de idade (18 anos)." },
     ),
-  estadoCivil: z.string().min(1, "Estado civil é obrigatório."),
+  estadoCivil: z.enum(ESTADO_CIVIL_VALORES, {
+    errorMap: () => ({ message: "Estado civil é obrigatório." }),
+  }),
   endereco: enderecoMetaSchema,
   isRepresentante: z.boolean(),
 });

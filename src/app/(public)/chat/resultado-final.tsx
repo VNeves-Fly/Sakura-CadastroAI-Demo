@@ -32,6 +32,7 @@ function InstagramIcon({ className }: { className?: string }) {
 const CORES_FUNDO: Record<ResultadoFinalChat["tipo"], string> = {
   aprovado: "bg-gradient-to-br from-success to-[hsl(153,59%,25%)]",
   manual: "from-primary to-secondary bg-gradient-to-br",
+  duplicado: "from-primary to-secondary bg-gradient-to-br",
 };
 
 // Estrutura adaptada de um "profile card" (header com avatar/nome, bio,

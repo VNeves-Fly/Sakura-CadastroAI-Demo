@@ -13,7 +13,7 @@ import {
   type EnderecoBancoFormValues,
 } from "@/modules/cadastro/types/endereco-banco.types";
 
-export const TOTAL_ETAPAS = 4;
+export const TOTAL_ETAPAS = 5;
 
 interface CnpjStatus {
   valido: boolean;

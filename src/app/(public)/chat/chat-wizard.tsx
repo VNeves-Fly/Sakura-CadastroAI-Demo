@@ -21,7 +21,6 @@ export function ChatWizard() {
     onQuickReply,
     onEnviarForm,
     onEnviarArquivo,
-    onAnaliseConcluida,
   } = useChatScript();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -30,7 +29,7 @@ export function ChatWizard() {
   }, [messages, pending]);
 
   if (fase === "analisando") {
-    return <LoadingPage onConcluir={onAnaliseConcluida} />;
+    return <LoadingPage />;
   }
 
   if (fase === "resultado" && resultadoFinal) {

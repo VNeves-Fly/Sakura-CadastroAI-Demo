@@ -1,11 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { animate } from "animejs";
-
-interface LoadingPageProps {
-  onConcluir: () => void;
-}
+import { useEffect, useState } from "react";
 
 function prefereMovimentoReduzido(): boolean {
   return (
@@ -13,50 +8,40 @@ function prefereMovimentoReduzido(): boolean {
   );
 }
 
-// Adaptado do "loading-page" (contador 0-100% + barra de progresso) —
-// mesma ideia do design original, em Tailwind e React em vez de
-// jQuery/setInterval solto no DOM. Ao concluir, dá um fade-out (Anime.js)
-// antes de chamar onConcluir, pra criar uma transição suave até a tela
-// de resultado em vez de um corte seco.
-export function LoadingPage({ onConcluir }: LoadingPageProps) {
+// Tela cheia exibida enquanto o envio real roda no backend (ver
+// executarEnvioReal em use-chat-script.ts). O componente não sabe
+// quando o trabalho termina — fica visível só enquanto `fase ===
+// "analisando"` no hook; o pai troca de tela sozinho assim que o
+// resultado real chega. O contador 0-100% roda em loop (em vez de parar
+// e disparar um callback) pra continuar parecendo "vivo" mesmo se a
+// chamada real demorar mais que uma volta da animação.
+export function LoadingPage() {
   const [porcentagem, setPorcentagem] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
+  const [reduzMovimento, setReduzMovimento] = useState(false);
 
   useEffect(() => {
-    function finalizar() {
-      const el = ref.current;
-      if (!el || prefereMovimentoReduzido()) {
-        onConcluir();
-        return;
-      }
-      animate(el, { opacity: [1, 0], duration: 400, ease: "inCubic", onComplete: onConcluir });
-    }
-
-    if (prefereMovimentoReduzido()) {
-      const id = setTimeout(finalizar, 800);
-      return () => clearTimeout(id);
-    }
+    const reduz = prefereMovimentoReduzido();
+    setReduzMovimento(reduz);
+    if (reduz) return;
 
     let atual = 0;
     const intervalo = setInterval(() => {
-      atual += 1;
+      atual = (atual + 1) % 101;
       setPorcentagem(atual);
-      if (atual >= 100) {
-        clearInterval(intervalo);
-        setTimeout(finalizar, 400);
-      }
     }, 50);
 
     return () => clearInterval(intervalo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div ref={ref} className="fixed inset-0 z-50 flex items-center justify-center bg-[#090d17]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090d17]">
       <div className="w-[200px] text-center">
         <p className="text-primary text-3xl font-thin">analisando</p>
-        <h1 className="-mt-2 text-5xl text-white">{porcentagem}%</h1>
-        <hr className="bg-primary mt-3 h-px border-none" style={{ width: `${porcentagem}%` }} />
+        <h1 className="-mt-2 text-5xl text-white">{reduzMovimento ? "" : `${porcentagem}%`}</h1>
+        <hr
+          className="bg-primary mt-3 h-px border-none"
+          style={{ width: reduzMovimento ? "100%" : `${porcentagem}%` }}
+        />
       </div>
     </div>
   );

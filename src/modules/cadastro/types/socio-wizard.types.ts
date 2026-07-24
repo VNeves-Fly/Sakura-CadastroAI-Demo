@@ -1,12 +1,19 @@
 import type { validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
 import type { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
+import type { EstadoCivil } from "@/modules/cadastro/domain/enums";
 
-export const ESTADO_CIVIL_OPCOES = [
+// Catálogo completo do enum EstadoCivil (ver domain/enums.ts) — precisa
+// cobrir os 7 valores que o agente de análise de documentos pode
+// devolver, senão o Select não consegue exibir/selecionar um sócio
+// separado ou desquitado extraído do contrato social.
+export const ESTADO_CIVIL_OPCOES: Array<{ valor: EstadoCivil; label: string }> = [
   { valor: "solteiro", label: "Solteiro(a)" },
   { valor: "casado", label: "Casado(a)" },
+  { valor: "separado", label: "Separado(a)" },
   { valor: "divorciado", label: "Divorciado(a)" },
   { valor: "viuvo", label: "Viúvo(a)" },
   { valor: "uniao_estavel", label: "União Estável" },
+  { valor: "desquitado", label: "Desquitado(a)" },
 ];
 
 // Mapa valor → rótulo, pro `items` do Select — sem ele, `<Select.Value>`
@@ -38,28 +45,6 @@ export interface SocioWizardFormValues {
   rgArquivo: File | null;
   isRepresentante: boolean;
   procuracaoArquivo: File | null;
-}
-
-// Valores brutos que a IA extraiu do RG/CNH e do contrato social desse
-// sócio — guardados à parte do form pra comparar com o que o usuário
-// digitou (ver divergencia-ia.util.ts) sem virar fonte de verdade do
-// formulário. Nunca sobrescreve o que o usuário já preencheu; só serve
-// pra sinalizar divergência.
-export interface SocioWizardValoresExtraidosIa {
-  nome: string | null;
-  cpf: string | null;
-  dataNascimento: string | null;
-  rg: string | null;
-  rgOrgaoEmissor: string | null;
-  rgUf: string | null;
-  endereco: {
-    logradouro: string | null;
-    numero: string | null;
-    bairro: string | null;
-    cidade: string | null;
-    uf: string | null;
-    cep: string | null;
-  } | null;
 }
 
 // Resultado de validação de um sócio — calculado no ViewModel (única

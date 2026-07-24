@@ -2,7 +2,6 @@
 
 import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
-import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
 type Passo1DocumentosProps = ReturnType<typeof useCadastroWizardViewModel>;
@@ -17,13 +16,10 @@ export function Passo1Documentos({
   contratoSocial,
   contratoSocialErro,
   analisandoContratoSocial,
-  contratoSocialAnalise,
   cnpjCompleto,
   setContratoSocial,
   setCnpj,
 }: Passo1DocumentosProps) {
-  const alertas = contratoSocialAnalise ? alertasVisiveis(contratoSocialAnalise.alertas) : [];
-
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
@@ -76,26 +72,6 @@ export function Passo1Documentos({
           <Loader2 className="size-3.5 animate-spin" />
           Analisando o contrato social...
         </span>
-      ) : null}
-
-      {!analisandoContratoSocial && contratoSocialAnalise?.cnpjConfere === false ? (
-        <span className="text-destructive text-xs font-medium">
-          O CNPJ do contrato social anexado não bate com o CNPJ digitado — confira se é o arquivo
-          certo.
-        </span>
-      ) : null}
-
-      {!analisandoContratoSocial && alertas.length > 0 ? (
-        <ul className="flex flex-col gap-0.5 text-xs font-medium">
-          {alertas.map((alerta, index) => (
-            <li
-              key={index}
-              className={alerta.tipo === "erro" ? "text-destructive" : "text-warning"}
-            >
-              {alerta.mensagem}
-            </li>
-          ))}
-        </ul>
       ) : null}
     </div>
   );
