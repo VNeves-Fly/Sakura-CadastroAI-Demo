@@ -149,6 +149,10 @@ export interface ListarCadastrosItem {
   // contexto na listagem (ex.: tooltip "gerado pela IA" vs "gerado pelo
   // analista" na fila Aguardando Assinatura).
   origemContratoAtual: OrigemGeracaoContrato | null;
+  // Nome da associação (Agencia.associacaoId), já resolvido — null se a
+  // agência não pertence a nenhuma (ainda não existe atribuição
+  // automática, ver Associacao no módulo atribuições).
+  associacaoNome: string | null;
 }
 
 export interface ListarCadastrosResult {

@@ -264,11 +264,12 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                       </th>
                     );
                   })}
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium">Associação</th>
                   <th className="text-muted-foreground px-4 py-2.5 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map(({ agencia, origemContratoAtual }) => {
+                {items.map(({ agencia, origemContratoAtual, associacaoNome }) => {
                   const origemEvento = resolverOrigemEvento(agencia.origem);
                   return (
                     <tr key={agencia.id} className="border-border border-b last:border-0">
@@ -300,6 +301,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                       <td className="text-muted-foreground px-4 py-3">
                         {formatarData(agencia.createdAt)} · {diasAtras(agencia.createdAt)}
                       </td>
+                      <td className="text-muted-foreground px-4 py-3">{associacaoNome ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${classesBadgeStatus(agencia.status)}`}

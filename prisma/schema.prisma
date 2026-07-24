@@ -168,6 +168,12 @@ model Agencia {
   // consequentemente, do gestor/base dele (decisão do usuário,
   // 2026-07-24). Null = cadastro não veio de um link de promotor.
   promotorLinkId     String?
+  // Uma agência pertence a no máximo uma associação (1:N a partir de
+  // Associacao) — decisão explícita do usuário, 2026-07-24. Atribuição
+  // ainda não é feita automaticamente em lugar nenhum (sem fonte de
+  // dado real pra isso ainda); fica null até essa lógica existir.
+  associacaoId       String?
+  associacao         Associacao?   @relation(fields: [associacaoId], references: [id])
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -1007,4 +1013,23 @@ model Promotor {
   updatedAt DateTime @updatedAt
 
   @@map("promotores")
+}
+
+// Grupo que recebe um percentual por indicar agências (decisão do
+// usuário, 2026-07-24) — uma associação tem várias agências, mas cada
+// agência pertence a no máximo uma (1:N, ver Agencia.associacaoId).
+// `id` não é gerado aqui de propósito: preserva o uuid real do export
+// (`associacoes-export-2026-07-24_18-58-37.csv`) em vez de cunhar um
+// novo, pra bater com a fonte original se ela um dia virar integração
+// de verdade.
+model Associacao {
+  id        String   @id
+  nome      String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agencias Agencia[]
+
+  @@map("associacoes")
 }

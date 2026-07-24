@@ -550,7 +550,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       this.prisma.agencia.findMany({
         where,
         orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
-        include: { contratos: { orderBy: { createdAt: "desc" }, take: 1 } },
+        include: {
+          contratos: { orderBy: { createdAt: "desc" }, take: 1 },
+          associacao: { select: { nome: true } },
+        },
       }),
       this.prisma.agencia.count({ where }),
     ]);
@@ -559,6 +562,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       items: records.map((record) => ({
         agencia: this.toDomain(record),
         origemContratoAtual: (record.contratos[0]?.origemGeracao as OrigemGeracaoContrato) ?? null,
+        associacaoNome: record.associacao?.nome ?? null,
       })),
       total,
     };
