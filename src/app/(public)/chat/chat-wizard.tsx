@@ -10,6 +10,7 @@ import { MessageBox } from "./message-box";
 import { FileDropZone } from "./file-drop-zone";
 import { LoadingPage } from "./loading-page";
 import { ResultadoFinal } from "./resultado-final";
+import { AnaliseDocumentoLoading } from "@/modules/cadastro/components/analise-documento-loading";
 
 export function ChatWizard() {
   const {
@@ -17,6 +18,7 @@ export function ChatWizard() {
     pending,
     fase,
     resultadoFinal,
+    analisandoDocumento,
     onEnviarTexto,
     onQuickReply,
     onEnviarForm,
@@ -76,6 +78,8 @@ export function ChatWizard() {
       </div>
 
       <MessageBox pending={pending} onEnviar={onEnviarTexto} />
+
+      {analisandoDocumento ? <AnaliseDocumentoLoading mensagem={analisandoDocumento} /> : null}
     </div>
   );
 }

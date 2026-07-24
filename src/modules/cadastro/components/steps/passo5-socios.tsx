@@ -8,7 +8,9 @@ import { PersonPlusIcon } from "@/modules/cadastro/components/icons";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import type { SocioWizardValidacao } from "@/modules/cadastro/types/socio-wizard.types";
 
-type Passo5SociosProps = ReturnType<typeof useCadastroWizardViewModel>;
+type Passo5SociosProps = ReturnType<typeof useCadastroWizardViewModel> & {
+  podeAvancar: boolean;
+};
 
 // sociosValidacao é sempre calculado a partir do mesmo array de socios
 // (mesmo tamanho); o fallback só existe pra satisfazer o tipo.
@@ -40,11 +42,13 @@ export function Passo5Socios({
   sociosGating,
   socioCepBuscando,
   analisandoContratoSocial,
+  podeAvancar,
   addSocio,
   removeSocio,
   updateSocio,
   toggleRepresentante,
   buscarCepSocio,
+  avancarSecao,
 }: Passo5SociosProps) {
   const [socioAtivoIndex, setSocioAtivoIndex] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -81,6 +85,24 @@ export function Passo5Socios({
   function handleAddSocio() {
     addSocio();
     setSocioAtivoIndex(socios.length);
+  }
+
+  // "Continuar" não avança pro próximo passo do wizard direto — antes
+  // disso, cicla pelos sócios que ainda faltam anexar o RG/CNH (mesma
+  // ordem do array), pra não deixar o cliente pular um sócio sem querer
+  // achando que "Continuar" sempre significa ir pra próxima seção. Só
+  // avança de verdade quando todos os sócios já têm o RG anexado.
+  function handleContinuar() {
+    const indicePendente = socios.findIndex((_, index) => sociosGating[index]?.rgUploadPendente);
+    if (indicePendente !== -1) {
+      setSocioAtivoIndex(indicePendente);
+      cardRef.current?.scrollIntoView({
+        behavior: prefereMovimentoReduzido() ? "auto" : "smooth",
+        block: "start",
+      });
+      return;
+    }
+    avancarSecao();
   }
 
   const socioAtivo = socios[socioAtivoIndex];
@@ -167,6 +189,16 @@ export function Passo5Socios({
             onBuscarCep={() => buscarCepSocio(socioAtivoIndex)}
           />
         </div>
+      ) : null}
+
+      {podeAvancar ? (
+        <button
+          type="button"
+          onClick={handleContinuar}
+          className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit self-end rounded-full px-5 py-2.5 text-sm font-medium transition"
+        >
+          Continuar →
+        </button>
       ) : null}
     </div>
   );

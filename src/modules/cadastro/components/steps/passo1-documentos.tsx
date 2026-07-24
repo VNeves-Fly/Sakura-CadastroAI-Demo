@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
+import { AnaliseDocumentoLoading } from "@/modules/cadastro/components/analise-documento-loading";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
 type Passo1DocumentosProps = ReturnType<typeof useCadastroWizardViewModel>;
@@ -68,10 +68,7 @@ export function Passo1Documentos({
       />
 
       {analisandoContratoSocial ? (
-        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <Loader2 className="size-3.5 animate-spin" />
-          Analisando o contrato social...
-        </span>
+        <AnaliseDocumentoLoading mensagem="Analisando o contrato social..." />
       ) : null}
     </div>
   );

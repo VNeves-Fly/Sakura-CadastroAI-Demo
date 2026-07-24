@@ -124,12 +124,12 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
                       <Passo2Empresa {...wizard} />
                     </div>
                   ) : null}
-                  {numero === 2 ? <Passo5Socios {...wizard} /> : null}
+                  {numero === 2 ? <Passo5Socios {...wizard} podeAvancar={podeAvancar} /> : null}
                   {numero === 3 ? <Passo6Endereco {...wizard} /> : null}
                   {numero === 4 ? <Passo7Banco {...wizard} /> : null}
                   {numero === 5 ? <Passo8Revisao {...wizard} /> : null}
 
-                  {podeAvancar ? (
+                  {podeAvancar && numero !== 2 ? (
                     <button
                       type="button"
                       onClick={wizard.avancarSecao}
