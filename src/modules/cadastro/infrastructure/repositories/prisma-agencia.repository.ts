@@ -1,6 +1,9 @@
 import type { PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
-import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type {
+  AnaliseIaResultado,
+  AnaliseIaDetalhamento,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 import {
   Prisma,
   StatusAgencia as PrismaStatusAgencia,
@@ -21,6 +24,7 @@ import {
   type AgenciaDetalhe,
   type AgenciaRepository,
   type AnaliseContratos,
+  type AnaliseIaAgenciaDetalhe,
   type CadastroComplementarDetalhe,
   type CadastrosKpis,
   type ContratoPorProvedorId,
@@ -102,6 +106,27 @@ function analiseIaFinalParaPrisma(
     detalhamento: resultado.detalhamento
       ? (resultado.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+  };
+}
+
+interface AnaliseIaAgenciaRecord {
+  parecer: string | null;
+  motivo: string | null;
+  flagsRisco: string[];
+  detalhamento: Prisma.JsonValue | null;
+  avaliadoEm: Date;
+}
+
+function analiseIaAgenciaToDomain(
+  record: AnaliseIaAgenciaRecord | null,
+): AnaliseIaAgenciaDetalhe | null {
+  if (!record) return null;
+  return {
+    parecer: record.parecer,
+    motivo: record.motivo,
+    flagsRisco: record.flagsRisco,
+    detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
+    avaliadoEm: record.avaliadoEm,
   };
 }
 
@@ -246,6 +271,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         // de montar cada slot.
         documentos: { orderBy: { createdAt: "desc" } },
         contratos: { orderBy: { createdAt: "desc" } },
+        analiseIa: true,
       },
     });
 
@@ -265,6 +291,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         origemGeracao: contrato.origemGeracao as OrigemGeracaoContrato,
         createdAt: contrato.createdAt,
       })),
+      analiseIa: analiseIaAgenciaToDomain(record.analiseIa),
     };
   }
 

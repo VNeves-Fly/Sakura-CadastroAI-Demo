@@ -23,6 +23,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
+  ParecerIa,
 } from "@/modules/admin/components/dossie-campos";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
 import {
@@ -192,6 +193,7 @@ export default async function DossieAgenciaPage({
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    parecerIa,
     dadosReceita,
     usuarioMaster,
   } = view;
@@ -555,12 +557,11 @@ export default async function DossieAgenciaPage({
                 contrato foi criado ainda.
               </p>
 
-              <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-                <strong className="text-foreground">Parecer da IA indisponível:</strong> a
-                normalização de dados do cadastro complementar não trouxe mais o campo estruturado
-                do parecer (motivo/inconsistências/pontos a avaliar) — sinalizando aqui em vez de
-                mostrar um parecer desatualizado ou inventado. Precisa alinhar com quem mexeu no
-                schema onde esse dado deveria morar agora.
+              <div className="border-border rounded-xl border px-4 py-3">
+                <SubsecaoLabel>Parecer</SubsecaoLabel>
+                <div className="mt-2">
+                  <ParecerIa parecer={parecerIa} />
+                </div>
               </div>
 
               {mostrandoEtapaAtual ? (

@@ -4,7 +4,11 @@ import type {
   DadosReceitaEndereco,
   DadosReceitaCnae,
 } from "@/modules/cadastro/domain/entities/dados-receita.entity";
-import type { AnaliseIaResumo, DocumentoRevisao } from "@/modules/admin/types/dossie.types";
+import type {
+  AnaliseIaResumo,
+  DocumentoRevisao,
+  ParecerIaView,
+} from "@/modules/admin/types/dossie.types";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 
@@ -226,6 +230,83 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
       ) : (
         <span className="text-muted-foreground">Nenhum campo estruturado extraído.</span>
       )}
+    </div>
+  );
+}
+
+// Veredito da IA em badge — mesma linguagem semântica de
+// SituacaoCadastralBadge, mas pro vocabulário próprio do parecer
+// (APROVADO/PENDENTE/REPROVADO, como devolvido pelo agente externo).
+function ParecerBadge({ parecer }: { parecer: string | null }) {
+  if (!parecer) return <span className="text-muted-foreground text-xs">—</span>;
+
+  const normalizado = parecer.toUpperCase();
+  const classes =
+    normalizado === "APROVADO"
+      ? "bg-success-bg text-success-text"
+      : normalizado === "REPROVADO"
+        ? "bg-destructive-bg text-destructive-text"
+        : "bg-warning-bg text-warning-text";
+
+  return (
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${classes}`}>
+      {parecer}
+    </span>
+  );
+}
+
+// Seção única "Parecer": consolida o veredito da IA sobre a agência, o
+// motivo de não ter passado direto pra contrato, os pontos de alerta
+// (flagsRisco) e o checklist do que o analista precisa checar — pedido
+// explícito do usuário em vez de espalhar essa informação em blocos
+// separados pela ficha.
+export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
+  if (!parecer) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        Sem parecer de IA registrado pra este cadastro.
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <ParecerBadge parecer={parecer.parecer} />
+        <span className="text-muted-foreground text-xs">
+          Avaliado em {formatarData(parecer.avaliadoEm)}
+        </span>
+      </div>
+
+      {parecer.motivo ? <p className="text-foreground">{parecer.motivo}</p> : null}
+
+      {parecer.pontosDeAlerta.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <SubsecaoLabel>Pontos de alerta</SubsecaoLabel>
+          <ul className="text-warning list-inside list-disc text-xs">
+            {parecer.pontosDeAlerta.map((ponto, index) => (
+              <li key={index}>{ponto}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {parecer.itensParaChecar.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <SubsecaoLabel>O que o analista precisa checar</SubsecaoLabel>
+          <ul className="flex flex-col gap-1.5">
+            {parecer.itensParaChecar.map((item, index) => (
+              <li
+                key={index}
+                className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs"
+              >
+                <span className="text-foreground font-semibold">{item.origem}: </span>
+                <span className="text-muted-foreground">{item.mensagem}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

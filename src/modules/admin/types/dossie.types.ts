@@ -39,6 +39,30 @@ export interface AnaliseIaResumo {
   camposExtraidos: Record<string, unknown>;
 }
 
+// Um item do "o que o analista precisa checar" — sempre um ponto
+// concreto de divergência ou alerta de extração encontrado no
+// cruzamento documental (stage3), nunca um resumo genérico. `origem` é
+// o rótulo de onde veio (tipo do documento da empresa, como retornado
+// pela IA, ou nome do sócio).
+export interface ParecerIaItemChecklist {
+  origem: string;
+  mensagem: string;
+}
+
+// Consolidação do parecer da IA sobre a agência (ver
+// AnaliseIaAgenciaDetalhe no domínio) pronta pra tela — uma seção só
+// ("Parecer") reunindo veredito, motivo, pontos de alerta (flagsRisco)
+// e o checklist derivado do cruzamento documental (stage3), pedido
+// explicitamente pelo usuário em vez de espalhar essa informação em
+// blocos separados.
+export interface ParecerIaView {
+  parecer: string | null;
+  motivo: string | null;
+  pontosDeAlerta: string[];
+  itensParaChecar: ParecerIaItemChecklist[];
+  avaliadoEm: Date;
+}
+
 // Linha da fila de assinatura do contrato (sócio da agência ou
 // signatário fixo da Sakura) — ver montarFilaAssinatura em
 // dossie.adapter.ts pra como `assinado` é derivado.
