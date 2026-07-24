@@ -16,6 +16,7 @@ import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastruct
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
 import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
 import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/consultar-qsa.use-case";
+import { VerificarCnpjCadastradoUseCase } from "@/modules/cadastro/application/use-cases/verificar-cnpj-cadastrado.use-case";
 import { AnalisarContratoSocialUseCase } from "@/modules/cadastro/application/use-cases/analisar-contrato-social.use-case";
 import { AnalisarDocumentoIdentificacaoUseCase } from "@/modules/cadastro/application/use-cases/analisar-documento-identificacao.use-case";
 import { ListarDocumentosPendentesUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos-pendentes.use-case";
@@ -85,6 +86,13 @@ export const cadastroPublicoController = {
 
   consultarQsa(cnpj: string) {
     const useCase = new ConsultarQsaUseCase(qsaConsultaService);
+    return useCase.execute({ cnpj });
+  },
+
+  // Aviso antecipado no wizard (não substitui a checagem real do submit
+  // final, em FinalizarCadastroUseCase) — só diz se já existe cadastro.
+  verificarCnpjCadastrado(cnpj: string) {
+    const useCase = new VerificarCnpjCadastradoUseCase(agenciaRepository);
     return useCase.execute({ cnpj });
   },
 

@@ -55,6 +55,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const qsaChecking = useCadastroWizardStore((state) => state.qsaChecking);
   const qsaResult = useCadastroWizardStore((state) => state.qsaResult);
   const avisoAlfanumerico = useCadastroWizardStore((state) => state.avisoAlfanumerico);
+  const verificandoCnpjCadastrado = useCadastroWizardStore(
+    (state) => state.verificandoCnpjCadastrado,
+  );
+  const cnpjJaCadastrado = useCadastroWizardStore((state) => state.cnpjJaCadastrado);
   const contratoSocial = useCadastroWizardStore((state) => state.contratoSocial);
   const analisandoContratoSocial = useCadastroWizardStore(
     (state) => state.analisandoContratoSocial,
@@ -67,6 +71,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setQsaChecking = useCadastroWizardStore((state) => state.setQsaChecking);
   const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
+  const setVerificandoCnpjCadastrado = useCadastroWizardStore(
+    (state) => state.setVerificandoCnpjCadastrado,
+  );
+  const setCnpjJaCadastrado = useCadastroWizardStore((state) => state.setCnpjJaCadastrado);
   const setContratoSocialRaw = useCadastroWizardStore((state) => state.setContratoSocial);
   const setAnalisandoContratoSocial = useCadastroWizardStore(
     (state) => state.setAnalisandoContratoSocial,
@@ -429,6 +437,31 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  // Aviso antecipado — não bloqueia o preenchimento nem substitui a
+  // checagem real do submit final (FinalizarCadastroUseCase): é só um
+  // "ei, esse CNPJ já tem cadastro" o mais cedo possível. Best-effort,
+  // igual à consulta de QSA legada: falha (rate limit, instabilidade) não
+  // trava o usuário, só deixa de mostrar o aviso.
+  async function verificarCnpjCadastradoSeCompleto(cnpjMascarado: string) {
+    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+
+    if (cnpjLimpo.length < 14) {
+      setCnpjJaCadastrado(false);
+      return;
+    }
+
+    setVerificandoCnpjCadastrado(true);
+
+    try {
+      const existe = await agenciaService.verificarCnpjCadastrado(cnpjLimpo);
+      setCnpjJaCadastrado(existe);
+    } catch {
+      setCnpjJaCadastrado(false);
+    } finally {
+      setVerificandoCnpjCadastrado(false);
+    }
+  }
+
   function setCnpj(valorDigitado: string) {
     const mascarado = maskCnpj(valorDigitado);
     setCnpjRaw(mascarado);
@@ -437,6 +470,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // do contrato social (ver analisarContratoSocialSeCompleto abaixo e o
     // useEffect de dados da empresa).
     void analisarContratoSocialSeCompleto(mascarado, contratoSocial);
+    void verificarCnpjCadastradoSeCompleto(mascarado);
     socios.forEach((socio, index) => {
       if (socio.rgArquivo) {
         void analisarDocumentoIdentificacaoSeCompleto(mascarado, index, socio.rgArquivo);
@@ -796,6 +830,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     qsaChecking,
     qsaResult,
     avisoAlfanumerico,
+    verificandoCnpjCadastrado,
+    cnpjJaCadastrado,
     contratoSocial,
     contratoSocialErro,
     analisandoContratoSocial,
