@@ -14,7 +14,7 @@ interface MessageBoxProps {
 function aplicarMascara(valor: string, pending: PendingInput | null): string {
   if (!pending || pending.kind !== "texto") return valor;
   if (pending.tag === "cnpj") return maskCnpj(valor);
-  if (pending.tag === "cpf" || pending.tag === "cpf_procurador") return maskCpf(valor);
+  if (pending.tag === "cpf") return maskCpf(valor);
   if (pending.tag === "telefone_celular") return maskTelefoneChat(valor, "celular");
   if (pending.tag === "telefone_fixo") return maskTelefoneChat(valor, "fixo");
   return valor;

@@ -1,32 +1,58 @@
+import type { ContratoSocialAnaliseView } from "@/modules/cadastro/types/agencia.types";
+
 export interface TelefoneChat {
   tipo: "fixo" | "celular";
   numero: string;
   whatsapp: boolean | null;
 }
 
-export interface PessoaChat {
+// Endereço já resolvido (via CEP real ou digitado manualmente quando o
+// CEP não é encontrado) — guarda os campos estruturados (pro FormData
+// final, mesmo shape de SocioWizardFormValues/EnderecoBancoFormValues) e
+// um resumo pronto pra exibir/confirmar na conversa.
+export interface EnderecoResolvidoChat {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  resumo: string;
+}
+
+// Representante legal (procurador) não é mais uma pessoa separada — o
+// backend só entende como um sócio marcado com isRepresentante (mesma
+// regra do /cadastro, ver socio-wizard-card.tsx). Os dados de identidade,
+// endereço e RG já existem no próprio sócio; só falta a procuração.
+export interface SocioChat {
   nome: string;
   cpf: string;
   email: string;
   telefone: TelefoneChat | null;
-  enderecoResumo: string | null;
-}
-
-export interface SocioChat extends PessoaChat {
   estadoCivil: string;
   estadoCivilLabel: string;
+  // Extraídos da análise real do RG/CNH (analisarDocumentoIdentificacao) —
+  // nunca perguntados diretamente, mesmo padrão de autopreenchimento do
+  // /cadastro. Divergência com o que o sócio já digitou não é mostrada.
+  dataNascimento: string | null;
+  rg: string | null;
+  rgOrgaoEmissor: string | null;
+  rgUf: string | null;
+  rgArquivo: File | null;
   documentoNome: string | null;
-}
-
-export interface ProcuradorChat extends PessoaChat {
-  rgArquivoNome: string | null;
+  endereco: EnderecoResolvidoChat | null;
+  isRepresentante: boolean;
+  procuracaoArquivo: File | null;
   procuracaoArquivoNome: string | null;
 }
 
 export interface BancoChat {
   banco: string;
+  codigo: string;
   agencia: string;
   conta: string;
+  tipoConta: string;
   tipoContaLabel: string;
   favorecidoEhEmpresa: boolean;
 }
@@ -34,7 +60,9 @@ export interface BancoChat {
 export interface ContextoChat {
   cnpj: string;
   razaoSocial: string;
+  contratoSocial: File | null;
   contratoSocialNome: string | null;
+  contratoSocialAnalise: ContratoSocialAnaliseView | null;
   telefoneComercial: TelefoneChat | null;
   emailContato: string;
   emailComercialDiferente: boolean;
@@ -44,11 +72,9 @@ export interface ContextoChat {
   socios: SocioChat[];
   socioAtualIndex: number | null;
   temProcurador: boolean | null;
-  procurador: ProcuradorChat | null;
-  enderecoSocioPendente: string | null;
-  enderecoProcuradorPendente: string | null;
-  enderecoAgenciaPendente: string | null;
-  enderecoAgenciaResumo: string | null;
+  enderecoSocioPendente: EnderecoResolvidoChat | null;
+  enderecoAgenciaPendente: EnderecoResolvidoChat | null;
+  enderecoAgencia: EnderecoResolvidoChat | null;
   banco: BancoChat | null;
 }
 
@@ -73,6 +99,7 @@ export type PendingTag =
   | "whatsapp_fallback"
   | "cnpj"
   | "contrato_social_empresa"
+  | "nome_socio_manual"
   | "telefone_comercial_pergunta"
   | "tipo_telefone"
   | "telefone_celular"
@@ -90,12 +117,7 @@ export type PendingTag =
   | "confirmar_endereco_socio"
   | "documento_socio"
   | "tem_procurador"
-  | "procurador_nome"
-  | "cpf_procurador"
-  | "email_procurador"
-  | "endereco_procurador"
-  | "confirmar_endereco_procurador"
-  | "documento_rg_procurador"
+  | "escolha_socio_procurador"
   | "documento_procuracao"
   | "endereco_mesmo_socio"
   | "endereco_qual_socio"
@@ -113,7 +135,7 @@ export type PendingInput =
 export type FaseChat = "chat" | "analisando" | "resultado";
 
 export interface ResultadoFinalChat {
-  tipo: "aprovado" | "manual";
+  tipo: "aprovado" | "manual" | "duplicado";
   titulo: string;
   mensagem: string;
 }

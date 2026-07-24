@@ -4,7 +4,7 @@ import { useState, type DragEvent } from "react";
 
 interface FileDropZoneProps {
   instrucao: string;
-  onArquivo: (nomeArquivo: string) => void;
+  onArquivo: (arquivo: File) => void;
 }
 
 export function FileDropZone({ instrucao, onArquivo }: FileDropZoneProps) {
@@ -14,7 +14,7 @@ export function FileDropZone({ instrucao, onArquivo }: FileDropZoneProps) {
     event.preventDefault();
     setEmArraste(false);
     const arquivo = event.dataTransfer.files?.[0];
-    if (arquivo) onArquivo(arquivo.name);
+    if (arquivo) onArquivo(arquivo);
   }
 
   return (
@@ -39,10 +39,10 @@ export function FileDropZone({ instrucao, onArquivo }: FileDropZoneProps) {
         <input
           type="file"
           className="hidden"
-          accept="image/*,.pdf"
+          accept=".pdf,.jpg,.jpeg,.png"
           onChange={(event) => {
             const arquivo = event.target.files?.[0];
-            if (arquivo) onArquivo(arquivo.name);
+            if (arquivo) onArquivo(arquivo);
             event.target.value = "";
           }}
         />

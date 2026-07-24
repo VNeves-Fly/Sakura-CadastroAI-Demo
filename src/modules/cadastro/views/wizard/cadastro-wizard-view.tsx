@@ -10,8 +10,9 @@ import { SecaoCard } from "@/modules/cadastro/components/secao-card";
 import { Passo1Documentos } from "@/modules/cadastro/components/steps/passo1-documentos";
 import { Passo2Empresa } from "@/modules/cadastro/components/steps/passo2-empresa";
 import { Passo5Socios } from "@/modules/cadastro/components/steps/passo5-socios";
-import { Passo6EnderecoBanco } from "@/modules/cadastro/components/steps/passo6-endereco-banco";
-import { Passo7Revisao } from "@/modules/cadastro/components/steps/passo7-revisao";
+import { Passo6Endereco } from "@/modules/cadastro/components/steps/passo6-endereco";
+import { Passo7Banco } from "@/modules/cadastro/components/steps/passo7-banco";
+import { Passo8Revisao } from "@/modules/cadastro/components/steps/passo8-revisao";
 
 interface CadastroWizardViewProps {
   origem: string | null;
@@ -124,8 +125,9 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
                     </div>
                   ) : null}
                   {numero === 2 ? <Passo5Socios {...wizard} /> : null}
-                  {numero === 3 ? <Passo6EnderecoBanco {...wizard} /> : null}
-                  {numero === 4 ? <Passo7Revisao {...wizard} /> : null}
+                  {numero === 3 ? <Passo6Endereco {...wizard} /> : null}
+                  {numero === 4 ? <Passo7Banco {...wizard} /> : null}
+                  {numero === 5 ? <Passo8Revisao {...wizard} /> : null}
 
                   {podeAvancar ? (
                     <button

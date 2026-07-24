@@ -6,10 +6,7 @@ import { Loader2 } from "lucide-react";
 import { SocioWizardCard } from "@/modules/cadastro/components/socio-wizard-card";
 import { PersonPlusIcon } from "@/modules/cadastro/components/icons";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
-import type {
-  SocioWizardValidacao,
-  SocioWizardValoresExtraidosIa,
-} from "@/modules/cadastro/types/socio-wizard.types";
+import type { SocioWizardValidacao } from "@/modules/cadastro/types/socio-wizard.types";
 
 type Passo5SociosProps = ReturnType<typeof useCadastroWizardViewModel>;
 
@@ -26,16 +23,6 @@ const VALIDACAO_VAZIA: SocioWizardValidacao = {
 
 const ANALISE_IDENTIFICACAO_VAZIA = { analisando: false, analise: null };
 
-const VALORES_EXTRAIDOS_IA_VAZIO: SocioWizardValoresExtraidosIa = {
-  nome: null,
-  cpf: null,
-  dataNascimento: null,
-  rg: null,
-  rgOrgaoEmissor: null,
-  rgUf: null,
-  endereco: null,
-};
-
 function prefereMovimentoReduzido(): boolean {
   return (
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -50,7 +37,6 @@ export function Passo5Socios({
   socios,
   sociosValidacao,
   sociosAnaliseIdentificacao,
-  sociosValoresExtraidosIa,
   sociosGating,
   socioCepBuscando,
   analisandoContratoSocial,
@@ -172,9 +158,6 @@ export function Passo5Socios({
             validacao={sociosValidacao[socioAtivoIndex] ?? VALIDACAO_VAZIA}
             analiseIdentificacao={
               sociosAnaliseIdentificacao[socioAtivoIndex] ?? ANALISE_IDENTIFICACAO_VAZIA
-            }
-            valoresExtraidosIa={
-              sociosValoresExtraidosIa[socioAtivoIndex] ?? VALORES_EXTRAIDOS_IA_VAZIO
             }
             podeRemover={socios.length > 1}
             cepBuscando={socioCepBuscando === socioAtivoIndex}

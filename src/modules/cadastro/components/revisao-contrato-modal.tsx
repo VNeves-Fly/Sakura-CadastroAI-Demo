@@ -8,23 +8,13 @@ import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types
 import { PencilIcon } from "@/modules/cadastro/components/icons";
 import { SocioWizardCard } from "@/modules/cadastro/components/socio-wizard-card";
 import { Passo2Empresa } from "@/modules/cadastro/components/steps/passo2-empresa";
-import { Passo6EnderecoBanco } from "@/modules/cadastro/components/steps/passo6-endereco-banco";
+import { Passo6Endereco } from "@/modules/cadastro/components/steps/passo6-endereco";
+import { Passo7Banco } from "@/modules/cadastro/components/steps/passo7-banco";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
-import type { SocioWizardValoresExtraidosIa } from "@/modules/cadastro/types/socio-wizard.types";
 
 // sócio já preenchido no wizard: não há análise de identificação em
-// andamento nem valor extraído pela IA pra mostrar/divergir aqui.
+// andamento pra mostrar aqui.
 const ANALISE_IDENTIFICACAO_VAZIA = { analisando: false, analise: null };
-
-const VALORES_EXTRAIDOS_IA_VAZIO: SocioWizardValoresExtraidosIa = {
-  nome: null,
-  cpf: null,
-  dataNascimento: null,
-  rg: null,
-  rgOrgaoEmissor: null,
-  rgUf: null,
-  endereco: null,
-};
 
 type RevisaoContratoModalProps = ReturnType<typeof useCadastroWizardViewModel> & {
   aberto: boolean;
@@ -47,7 +37,7 @@ interface CabecalhoSecaoProps {
   onToggle: () => void;
 }
 
-// Cabeçalho reaproveitado pelas 3 seções editáveis — o botão só alterna
+// Cabeçalho reaproveitado pelas seções editáveis — o botão só alterna
 // entre a visão em texto (dl/dd) e o formulário real da etapa
 // correspondente do wizard, que já vive fora daqui (SOLID: nenhuma regra
 // de validação é duplicada neste componente).
@@ -67,7 +57,7 @@ function CabecalhoSecao({ titulo, editando, onToggle }: CabecalhoSecaoProps) {
   );
 }
 
-// Modal de revisão final: mostra tudo que o usuário preencheu nas 3
+// Modal de revisão final: mostra tudo que o usuário preencheu nas
 // seções anteriores + um aceite explícito. Cada seção pode ser aberta em
 // modo de edição, que renderiza o mesmo componente de etapa usado no
 // wizard (mesmo estado do Zustand, sem cópia paralela) — CNPJ, contrato
@@ -92,7 +82,6 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
     socios,
     sociosValidacao,
     sociosAnaliseIdentificacao,
-    sociosValoresExtraidosIa,
     socioCepBuscando,
     updateSocio,
     toggleRepresentante,
@@ -106,9 +95,10 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
   const [aceite, setAceite] = useState(false);
   const [editandoEmpresa, setEditandoEmpresa] = useState(false);
   const [editandoSocios, setEditandoSocios] = useState(false);
+  const [editandoEndereco, setEditandoEndereco] = useState(false);
   const [editandoBanco, setEditandoBanco] = useState(false);
 
-  // O modal nunca é desmontado pelo pai (Passo7Revisao sempre renderiza
+  // O modal nunca é desmontado pelo pai (Passo8Revisao sempre renderiza
   // <RevisaoContratoModal aberto={...} />) — só alterna entre `aberto`
   // true/false. Por isso dá pra controlar a saída aqui dentro: `visivel`
   // mantém o DOM montado um pouco além de `aberto` viar false, só o
@@ -166,7 +156,7 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
 
   if (!visivel) return null;
 
-  const editandoAlgo = editandoEmpresa || editandoSocios || editandoBanco;
+  const editandoAlgo = editandoEmpresa || editandoSocios || editandoEndereco || editandoBanco;
 
   const socioVinculado =
     enderecoBanco.enderecoMesmoSocio && enderecoBanco.socioEnderecoVinculado !== null
@@ -305,9 +295,6 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
                     analiseIdentificacao={
                       sociosAnaliseIdentificacao[index] ?? ANALISE_IDENTIFICACAO_VAZIA
                     }
-                    valoresExtraidosIa={
-                      sociosValoresExtraidosIa[index] ?? VALORES_EXTRAIDOS_IA_VAZIO
-                    }
                     podeRemover={false}
                     cepBuscando={socioCepBuscando === index}
                     onUpdate={(patch) => updateSocio(index, patch)}
@@ -371,13 +358,13 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
           <section className="flex flex-col gap-3">
             <CabecalhoSecao
               titulo="Endereço"
-              editando={editandoBanco}
-              onToggle={() => setEditandoBanco((atual) => !atual)}
+              editando={editandoEndereco}
+              onToggle={() => setEditandoEndereco((atual) => !atual)}
             />
 
-            {editandoBanco ? (
+            {editandoEndereco ? (
               <div className="border-border/60 bg-background/40 rounded-2xl border p-4">
-                <Passo6EnderecoBanco {...props} />
+                <Passo6Endereco {...props} />
               </div>
             ) : (
               <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
@@ -389,6 +376,23 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
                       : "—"}
                   </dd>
                 </div>
+              </dl>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <CabecalhoSecao
+              titulo="Banco"
+              editando={editandoBanco}
+              onToggle={() => setEditandoBanco((atual) => !atual)}
+            />
+
+            {editandoBanco ? (
+              <div className="border-border/60 bg-background/40 rounded-2xl border p-4">
+                <Passo7Banco {...props} />
+              </div>
+            ) : (
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
                 <div>
                   <dt className="text-muted-foreground">Banco</dt>
                   <dd className="text-foreground font-medium break-words">
