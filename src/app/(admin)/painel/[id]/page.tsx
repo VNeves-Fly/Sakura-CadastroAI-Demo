@@ -10,6 +10,7 @@ import {
   ScrollText,
   FolderCheck,
   Bell,
+  Sparkles,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -385,6 +386,10 @@ export default async function DossieAgenciaPage({
             )}
           </SecaoColapsavel>
 
+          <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
+            <ParecerIa parecer={parecerIa} />
+          </SecaoColapsavel>
+
           <ConsultaAmatCard amat={amat} />
           <ConsultaSofiaCard sofia={sofia} />
 
@@ -554,15 +559,8 @@ export default async function DossieAgenciaPage({
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
-                contrato foi criado ainda.
+                contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
               </p>
-
-              <div className="border-border rounded-xl border px-4 py-3">
-                <SubsecaoLabel>Parecer</SubsecaoLabel>
-                <div className="mt-2">
-                  <ParecerIa parecer={parecerIa} />
-                </div>
-              </div>
 
               {mostrandoEtapaAtual ? (
                 <div className="flex flex-wrap gap-2">
