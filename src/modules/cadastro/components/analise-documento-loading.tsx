@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface AnaliseDocumentoLoadingProps {
   visivel: boolean;
@@ -13,7 +14,11 @@ const DURACAO_TRANSICAO_MS = 250;
 // atrás, mostrado enquanto um documento é analisado pela IA (contrato
 // social, RG/CNH). Fica sempre montado — `visivel` que liga/desliga o
 // fade + blur suave (em vez de aparecer/sumir de repente); só some do
-// DOM de verdade depois que a transição de saída termina.
+// DOM de verdade depois que a transição de saída termina. Renderizado
+// em portal direto no body (mesmo motivo do RevisaoContratoModal): usado
+// dentro do modal de revisão, cujo painel anima com `transform` — isso
+// vira containing block de `position: fixed`, então sem portal o
+// overlay escureceria só o modal, não a tela inteira.
 export function AnaliseDocumentoLoading({
   visivel,
   mensagem = "Analisando o documento...",
@@ -40,7 +45,7 @@ export function AnaliseDocumentoLoading({
 
   if (!montado) return null;
 
-  return (
+  return createPortal(
     <div
       className={`fixed inset-0 z-[65] flex items-center justify-center px-4 transition-all duration-[250ms] ${
         ativo
@@ -59,6 +64,7 @@ export function AnaliseDocumentoLoading({
         <img src="/loading/aviao-analisando.svg" alt="" aria-hidden="true" className="size-28" />
         <p className="text-foreground text-sm font-medium">{mensagemExibida}</p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
