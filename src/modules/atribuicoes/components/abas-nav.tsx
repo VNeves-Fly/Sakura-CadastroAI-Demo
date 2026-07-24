@@ -1,11 +1,14 @@
 import Link from "next/link";
 
+// Ordem reflete a hierarquia comercial de cima pra baixo: Região > Base
+// > Gestor > Executivo (decisão do usuário, 2026-07-24). Cidades saiu
+// da navegação por enquanto — a aba continua existindo (ver page.tsx),
+// só não tem link visível pra chegar nela.
 const ABAS = [
   { chave: "regioes", label: "Regiões" },
   { chave: "bases", label: "Bases" },
-  { chave: "executivos", label: "Executivos" },
   { chave: "gestores", label: "Gestores" },
-  { chave: "cidades", label: "Cidades" },
+  { chave: "executivos", label: "Executivos" },
   { chave: "remanejar", label: "Remanejar" },
 ] as const;
 
