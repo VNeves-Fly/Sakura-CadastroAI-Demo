@@ -40,8 +40,39 @@ model User {
   textosProntosCriados    TextoPronto[]
   transferenciasFeitas    SolicitacaoTransferencia[]   @relation("TransferenciaFeitaPor")
   transferenciasRecebidas SolicitacaoTransferencia[]   @relation("TransferenciaParaAnalista")
+  passwordResetTokens     PasswordResetToken[]
 
   @@map("users")
+}
+
+enum PasswordResetStatus {
+  PENDING
+  VERIFIED
+  USED
+}
+
+// Recuperação de senha por OTP (6 dígitos) + token de link, ambos enviados
+// por e-mail e nunca persistidos em texto puro (só sha256 em tokenHash/
+// codigoHash — ver password-reset-hash.util.ts). A proteção real vem de
+// expiraEm + tentativas + status USED (uso único), não do custo do hash.
+model PasswordResetToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash  String @unique
+  codigoHash String
+
+  status       PasswordResetStatus @default(PENDING)
+  tentativas   Int                 @default(0)
+  verificadoEm DateTime?
+  usadoEm      DateTime?
+  expiraEm     DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // ---------------------------------------------------------------------------

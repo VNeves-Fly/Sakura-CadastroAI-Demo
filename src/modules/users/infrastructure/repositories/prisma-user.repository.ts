@@ -55,10 +55,17 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { id },
-      data: { password: passwordHash, mustChangePassword: false },
-    });
+    // Transação: qualquer troca de senha (primeiro acesso ou recuperação
+    // por OTP) invalida tokens de recuperação pendentes do usuário — sem
+    // isso, um OTP emitido continuaria válido por até OTP_TTL_MINUTES
+    // depois da senha já ter mudado por outra via.
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id },
+        data: { password: passwordHash, mustChangePassword: false },
+      }),
+      this.prisma.passwordResetToken.deleteMany({ where: { userId: id } }),
+    ]);
   }
 
   private toDomain(record: UserRecord): User {
