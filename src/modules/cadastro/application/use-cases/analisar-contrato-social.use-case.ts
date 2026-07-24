@@ -2,6 +2,7 @@ import type { UseCase } from "@/modules/shared/application/use-case";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { DocumentAnalysisService } from "@/modules/cadastro/domain/services/document-analysis-service";
 import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import { normalizarEstadoCivil } from "@/modules/cadastro/utils/estado-civil.util";
 import type {
   AnalisarContratoSocialInput,
   AnalisarContratoSocialOutput,
@@ -116,7 +117,7 @@ function extrairSocios(camposExtraidos: Record<string, unknown>): SocioContratoS
         nome,
         cpf: extrairString(registro.cpf),
         dataNascimento: extrairDataNascimentoIso(registro.data_nascimento),
-        estadoCivil: extrairString(registro.estado_civil),
+        estadoCivil: normalizarEstadoCivil(registro.estado_civil),
         nacionalidade: extrairString(registro.nacionalidade),
         regimeBens: extrairString(registro.regime_bens),
         participacao: extrairParticipacao(registro.participacao),

@@ -1,3 +1,5 @@
+import type { EstadoCivil } from "@/modules/cadastro/domain/enums";
+
 export interface AnalisarContratoSocialInput {
   cnpj: string;
   contratoSocial: {
@@ -29,7 +31,7 @@ export interface SocioContratoSocialExtraido {
   nome: string;
   cpf: string | null;
   dataNascimento: string | null;
-  estadoCivil: string | null;
+  estadoCivil: EstadoCivil | null;
   nacionalidade: string | null;
   regimeBens: string | null;
   participacao: number | null;
