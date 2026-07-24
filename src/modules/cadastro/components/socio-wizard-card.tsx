@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
+import { AnaliseDocumentoLoading } from "@/modules/cadastro/components/analise-documento-loading";
 import {
   PAISES_TELEFONE,
   PAISES_TELEFONE_ITEMS,
@@ -104,10 +104,7 @@ export function SocioWizardCard({
       />
 
       {analiseIdentificacao.analisando ? (
-        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <Loader2 className="size-3.5 animate-spin" />
-          Analisando o documento...
-        </span>
+        <AnaliseDocumentoLoading mensagem="Analisando o documento..." />
       ) : null}
 
       {!socio.rgArquivo ? (

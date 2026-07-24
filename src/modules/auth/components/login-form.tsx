@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import type { LoginFormValues } from "@/modules/auth/types/login.types";
 
@@ -61,6 +62,12 @@ export function LoginForm({ isSubmitting, error, onSubmit }: LoginFormProps) {
             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
         </div>
+        <Link
+          href="/recuperar-senha"
+          className="text-primary self-end text-xs font-medium hover:underline"
+        >
+          Esqueci minha senha
+        </Link>
       </div>
 
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
