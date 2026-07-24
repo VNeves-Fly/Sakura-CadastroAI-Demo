@@ -1,5 +1,7 @@
 import type { UseCase } from "@/modules/shared/application/use-case";
+import { ConflictError } from "@/modules/shared/domain/errors";
 import {
+  STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_EM_COMPLEMENTAR,
   type AgenciaRepository,
@@ -116,6 +118,17 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     }
 
     const { agencia, complementar, representantesLegais, contratoSocial } = detalhe;
+
+    // Só roda (ou reprocessa) enquanto a agência ainda está numa etapa que
+    // depende da IA — evita que um reprocessamento indevido (link direto,
+    // página em cache, chamada duplicada) sobrescreva o parecer e regrida
+    // o status de uma agência que já avançou (aguardando_validacao, ativo
+    // etc.), ou gere um segundo contrato real se já existir um.
+    if (agencia.status !== STATUS_EM_ANALISE && agencia.status !== STATUS_EM_COMPLEMENTAR) {
+      throw new ConflictError(
+        `Cadastro não está em uma etapa que aceita (re)análise de IA (status atual: ${agencia.status}).`,
+      );
+    }
 
     // Tolerante a falha por design (ver FlysakuraDocumentAnalysisAdapter) —
     // nunca lança, só devolve um resultado vazio quando o agente falha.
