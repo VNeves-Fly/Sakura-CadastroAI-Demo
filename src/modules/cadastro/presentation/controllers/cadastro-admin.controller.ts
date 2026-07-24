@@ -68,7 +68,7 @@ import {
   SolicitarReenvioDocumentosUseCase,
   type SolicitarReenvioDocumentosInput,
 } from "@/modules/cadastro/application/use-cases/solicitar-reenvio-documentos.use-case";
-import { ResendEmailAdapter } from "@/modules/shared/infrastructure/adapters/resend-email.adapter";
+import { SmtpEmailAdapter } from "@/modules/shared/infrastructure/adapters/smtp-email.adapter";
 import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
 import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos.use-case";
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
@@ -113,11 +113,9 @@ const documentoArquivoService = process.env.GCS_BUCKET_NAME
   : new LocalDocumentoArquivoAdapter();
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 const midiaOrigemRepository = new PrismaMensagemRepository(prisma);
-// Mesmo critério dos outros adapters externos: Resend real quando
-// RESEND_API_KEY está configurada, senão só loga (ver ConsoleEmailAdapter).
-const emailSender = process.env.RESEND_API_KEY
-  ? new ResendEmailAdapter()
-  : new ConsoleEmailAdapter();
+// Mesmo critério dos outros adapters externos: SMTP real quando SMTP_HOST
+// está configurada, senão só loga (ver ConsoleEmailAdapter).
+const emailSender = process.env.SMTP_HOST ? new SmtpEmailAdapter() : new ConsoleEmailAdapter();
 // Mesma regra do controller público: D4Sign real quando D4SIGN_TOKEN_API
 // está configurada, senão mock — antes ficava sempre no mock aqui, então
 // aprovarComplementar nunca mandava contrato de verdade em produção.
