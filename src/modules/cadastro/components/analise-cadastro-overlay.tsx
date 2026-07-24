@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WhatsAppIcon } from "@/modules/cadastro/components/icons";
-import { WHATSAPP_LINK_ATENDIMENTO } from "@/modules/shared/utils/whatsapp.util";
+import {
+  WHATSAPP_LINK_ATENDIMENTO,
+  WHATSAPP_NUMERO_FORMATADO,
+} from "@/modules/shared/utils/whatsapp.util";
 
 export type FaseAnaliseCadastro = "analisando" | "aprovado" | "revisao";
 
@@ -41,6 +44,27 @@ function SeloCheck({ ativo }: { ativo: boolean }) {
         />
       </svg>
     </span>
+  );
+}
+
+// Botão + número em texto puro — se o cliente não conseguir abrir o
+// WhatsApp Web no computador, ainda consegue ler e salvar o número no
+// celular em vez de ficar sem nenhuma forma de contato.
+function WhatsAppCta({ texto }: { texto: string }) {
+  return (
+    <>
+      <p className="text-muted-foreground text-sm">{texto}</p>
+      <a
+        href={WHATSAPP_LINK_ATENDIMENTO}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-success hover:bg-success/90 flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
+      >
+        <WhatsAppIcon className="size-4" />
+        Falar no WhatsApp
+      </a>
+      <p className="text-muted-foreground text-xs">{WHATSAPP_NUMERO_FORMATADO}</p>
+    </>
   );
 }
 
@@ -82,22 +106,7 @@ function ResultadoAnalise({ fase }: { fase: "aprovado" | "revisao" }) {
           : "Seu cadastro precisou de uma análise mais aprofundada, em breve nossa equipe entrará em contato para mais informações. Fique ligado!"}
       </p>
 
-      {!aprovado ? (
-        <>
-          <p className="text-muted-foreground text-sm">
-            Ficou com alguma dúvida? Fale com um de nossos atendentes pelo WhatsApp.
-          </p>
-          <a
-            href={WHATSAPP_LINK_ATENDIMENTO}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-success hover:bg-success/90 flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
-          >
-            <WhatsAppIcon className="size-4" />
-            Falar no WhatsApp
-          </a>
-        </>
-      ) : null}
+      <WhatsAppCta texto="Ficou com alguma dúvida? Fale com um de nossos atendentes pelo WhatsApp." />
     </div>
   );
 }

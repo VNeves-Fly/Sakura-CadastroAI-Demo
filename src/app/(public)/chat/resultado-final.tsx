@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { animate } from "animejs";
 import { WhatsAppIcon } from "@/modules/cadastro/components/icons";
-import { WHATSAPP_LINK_ATENDIMENTO } from "@/modules/shared/utils/whatsapp.util";
+import {
+  WHATSAPP_LINK_ATENDIMENTO,
+  WHATSAPP_NUMERO_FORMATADO,
+} from "@/modules/shared/utils/whatsapp.util";
 import type { ResultadoFinalChat } from "./types";
 
 function prefereMovimentoReduzido(): boolean {
@@ -36,6 +39,10 @@ const CORES_FUNDO: Record<ResultadoFinalChat["tipo"], string> = {
 export function ResultadoFinal({ resultado }: { resultado: ResultadoFinalChat }) {
   const aprovado = resultado.tipo === "aprovado";
   const precisaRevisaoManual = resultado.tipo === "manual";
+  // Cadastro concluído (aprovado) também ganha o CTA de WhatsApp — se o
+  // cliente não conseguir abrir o WhatsApp Web no computador, o número
+  // em texto puro abaixo do botão ainda dá pra salvar no celular.
+  const mostrarWhatsappCta = precisaRevisaoManual || aprovado;
   const fundoRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -97,7 +104,7 @@ export function ResultadoFinal({ resultado }: { resultado: ResultadoFinalChat })
           <p className="text-foreground font-semibold">{resultado.titulo}</p>
           <p className="text-muted-foreground">{resultado.mensagem}</p>
 
-          {precisaRevisaoManual ? (
+          {mostrarWhatsappCta ? (
             <>
               <p className="text-muted-foreground">
                 Ficou com alguma dúvida? Fale com um de nossos atendentes pelo WhatsApp.
@@ -111,6 +118,7 @@ export function ResultadoFinal({ resultado }: { resultado: ResultadoFinalChat })
                 <WhatsAppIcon className="size-4" />
                 Falar no WhatsApp
               </a>
+              <p className="text-muted-foreground text-xs">{WHATSAPP_NUMERO_FORMATADO}</p>
             </>
           ) : null}
         </div>
