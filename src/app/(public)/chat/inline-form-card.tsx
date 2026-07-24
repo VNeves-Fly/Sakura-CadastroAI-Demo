@@ -46,6 +46,7 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
               <input
                 type="text"
                 inputMode={campo.nome === "cep" ? "numeric" : undefined}
+                autoComplete="off"
                 placeholder={campo.placeholder}
                 value={String(valores[campo.nome] ?? "")}
                 onChange={(event) => {

@@ -29,6 +29,7 @@ export function Passo1Documentos({
         <input
           id="cnpj"
           type="text"
+          autoComplete="off"
           value={cnpj}
           onChange={(event) => setCnpj(event.target.value)}
           className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-full border px-4 py-2.5 text-sm outline-none focus:ring-2"

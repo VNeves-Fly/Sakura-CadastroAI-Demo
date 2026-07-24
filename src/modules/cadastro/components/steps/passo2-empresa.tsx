@@ -79,6 +79,7 @@ export function Passo2Empresa({
           <input
             type="tel"
             inputMode="numeric"
+            autoComplete="off"
             value={telefoneComercial}
             disabled={bloqueado || semTelefoneComercial}
             onChange={(event) => setTelefoneComercial(event.target.value)}
@@ -123,6 +124,7 @@ export function Passo2Empresa({
           </label>
           <input
             type="email"
+            autoComplete="off"
             value={emailOperacional}
             disabled={bloqueado}
             onChange={(event) => setEmailOperacional(event.target.value)}
@@ -138,6 +140,7 @@ export function Passo2Empresa({
           <label className="text-foreground text-sm font-bold">E-mail setor comercial</label>
           <input
             type="email"
+            autoComplete="off"
             value={emailComercial}
             disabled={bloqueado}
             onChange={(event) => setEmailComercial(event.target.value)}
@@ -153,6 +156,7 @@ export function Passo2Empresa({
           <label className="text-foreground text-sm font-bold">E-mail setor financeiro</label>
           <input
             type="email"
+            autoComplete="off"
             value={emailFinanceiro}
             disabled={bloqueado}
             onChange={(event) => setEmailFinanceiro(event.target.value)}
