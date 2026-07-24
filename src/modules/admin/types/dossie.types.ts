@@ -39,6 +39,17 @@ export interface AnaliseIaResumo {
   camposExtraidos: Record<string, unknown>;
 }
 
+// Veredito final da IA sobre a agência (não sobre um documento) — ver
+// paraAnaliseIaAgenciaResumo em dossie.adapter.ts. `resultado` distingue
+// reprovação real de falha técnica (ver ResultadoAnaliseIa no domínio).
+export interface AnaliseIaAgenciaResumo {
+  resultado: string;
+  parecer: string | null;
+  motivo: string | null;
+  flagsRisco: string[];
+  avaliadoEm: Date;
+}
+
 // Linha da fila de assinatura do contrato (sócio da agência ou
 // signatário fixo da Sakura) — ver montarFilaAssinatura em
 // dossie.adapter.ts pra como `assinado` é derivado.

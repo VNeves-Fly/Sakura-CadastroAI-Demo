@@ -6,6 +6,7 @@ import {
   calcularProgressoTrilha,
   montarFilaAssinatura,
   paraAnaliseIaResumo,
+  paraAnaliseIaAgenciaResumo,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -17,7 +18,14 @@ export async function obterDossieView(id: string) {
 
   if (!detalhe) return null;
 
-  const { agencia, complementar, representantesLegais, contratoSocial, contratos } = detalhe;
+  const {
+    agencia,
+    complementar,
+    representantesLegais,
+    contratoSocial,
+    contratos,
+    analiseIaAgencia,
+  } = detalhe;
   const contratoAtual = contratos[0] ?? null;
 
   // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
@@ -121,6 +129,7 @@ export async function obterDossieView(id: string) {
     trilhaRecusada: recusado,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    analiseIaAgencia: paraAnaliseIaAgenciaResumo(analiseIaAgencia),
     dadosReceita,
     usuarioMaster,
   };

@@ -19,12 +19,14 @@ import {
   CONTRATO_STATUS_ASSINADO_AGENCIA,
   CONTRATO_STATUS_ASSINADO,
   type RepresentanteLegalDetalhe,
+  type AnaliseIaAgenciaDetalhe,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type {
   DocumentoRevisao,
   DocumentoHistoricoItem,
   SignatarioFila,
   AnaliseIaResumo,
+  AnaliseIaAgenciaResumo,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -238,6 +240,22 @@ export function paraAnaliseIaResumo(analise: AnaliseIaDocumento | null): Analise
     alertas: analise.alertas,
     resumoAnalise: analise.resumoAnalise,
     camposExtraidos: analise.camposExtraidos,
+  };
+}
+
+// Recorte plano do veredito final da IA sobre a agência (não sobre um
+// documento) — null enquanto a agência ainda está "em_analise" (IA não
+// rodou) ou em cadastros anteriores a esta funcionalidade.
+export function paraAnaliseIaAgenciaResumo(
+  analise: AnaliseIaAgenciaDetalhe | null,
+): AnaliseIaAgenciaResumo | null {
+  if (!analise) return null;
+  return {
+    resultado: analise.resultado,
+    parecer: analise.parecer,
+    motivo: analise.motivo,
+    flagsRisco: analise.flagsRisco,
+    avaliadoEm: analise.avaliadoEm,
   };
 }
 

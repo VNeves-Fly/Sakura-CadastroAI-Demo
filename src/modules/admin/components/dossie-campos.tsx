@@ -4,7 +4,11 @@ import type {
   DadosReceitaEndereco,
   DadosReceitaCnae,
 } from "@/modules/cadastro/domain/entities/dados-receita.entity";
-import type { AnaliseIaResumo, DocumentoRevisao } from "@/modules/admin/types/dossie.types";
+import type {
+  AnaliseIaResumo,
+  AnaliseIaAgenciaResumo,
+  DocumentoRevisao,
+} from "@/modules/admin/types/dossie.types";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 
@@ -226,6 +230,69 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
       ) : (
         <span className="text-muted-foreground">Nenhum campo estruturado extraído.</span>
       )}
+    </div>
+  );
+}
+
+const RESULTADO_ANALISE_LABELS: Record<string, string> = {
+  APROVADO: "Aprovado pela IA",
+  REPROVADO: "Reprovado pela IA",
+  FALHA_ANALISE: "Falha técnica na análise",
+  FALHA_CONTRATO: "Falha na geração do contrato",
+};
+
+const RESULTADO_ANALISE_CLASSES: Record<string, string> = {
+  APROVADO: "bg-success-bg text-success-text",
+  REPROVADO: "bg-destructive-bg text-destructive-text",
+  FALHA_ANALISE: "bg-warning-bg text-warning-text",
+  FALHA_CONTRATO: "bg-warning-bg text-warning-text",
+};
+
+// Veredito final da IA sobre a agência (distinto de AnaliseIaDetalhe, que
+// é por documento) — `resultado` vem de ResultadoAnaliseIa e já separa
+// reprovação real (REPROVADO) de falha técnica (FALHA_ANALISE/
+// FALHA_CONTRATO), então o rótulo/cor do badge conta essa história sem
+// precisar abrir o `motivo` em texto livre.
+export function ParecerFinalIa({ analise }: { analise: AnaliseIaAgenciaResumo | null }) {
+  if (!analise) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        Ainda não há parecer final da IA — análise pendente ou cadastro anterior a esta
+        funcionalidade.
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+            RESULTADO_ANALISE_CLASSES[analise.resultado] ?? "bg-muted text-muted-foreground"
+          }`}
+        >
+          {RESULTADO_ANALISE_LABELS[analise.resultado] ?? analise.resultado}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          avaliado em {formatarData(analise.avaliadoEm)}
+        </span>
+      </div>
+
+      {analise.parecer ? (
+        <p>
+          <strong className="text-foreground">Parecer:</strong> {analise.parecer}
+        </p>
+      ) : null}
+
+      {analise.motivo ? <p className="text-muted-foreground">{analise.motivo}</p> : null}
+
+      {analise.flagsRisco.length > 0 ? (
+        <ul className="text-warning list-inside list-disc">
+          {analise.flagsRisco.map((flag, index) => (
+            <li key={index}>{flag}</li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

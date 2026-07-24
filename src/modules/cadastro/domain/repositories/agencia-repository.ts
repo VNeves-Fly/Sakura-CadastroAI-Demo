@@ -1,10 +1,10 @@
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
-import type { OrigemGeracaoContrato } from "@/modules/cadastro/domain/enums";
+import type { OrigemGeracaoContrato, ResultadoAnaliseIa } from "@/modules/cadastro/domain/enums";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/analise-ia-service";
 
-export type { OrigemGeracaoContrato };
+export type { OrigemGeracaoContrato, ResultadoAnaliseIa };
 
 // Ciclo de vida completo da agência (decisão do usuário, 2026-07-16;
 // "em_analise" adicionado em 2026-07-24 quando o envio do cadastro passou
@@ -192,6 +192,20 @@ export interface CadastroComplementarDetalhe {
   favorecidoDoc: string | null;
 }
 
+// Veredito final gravado por AnalisarCadastroUseCase.registrarAnaliseFinal
+// — `resultado` classifica POR QUE a agência chegou no status atual
+// (REPROVADO real vs FALHA_ANALISE/FALHA_CONTRATO técnicas), `motivo`/
+// `parecer`/`flagsRisco` dão o contexto legível pro analista. Null
+// enquanto a agência ainda está em "em_analise" (IA não rodou ainda) ou
+// em cadastros criados antes desta funcionalidade existir.
+export interface AnaliseIaAgenciaDetalhe {
+  resultado: ResultadoAnaliseIa;
+  parecer: string | null;
+  motivo: string | null;
+  flagsRisco: string[];
+  avaliadoEm: Date;
+}
+
 export interface AgenciaDetalhe {
   agencia: Agencia;
   complementar: CadastroComplementarDetalhe | null;
@@ -200,6 +214,7 @@ export interface AgenciaDetalhe {
   // slot" dos documentos de sócio (ver RepresentanteLegalDetalhe).
   contratoSocial: Documento | null;
   contratos: ContratoDetalhe[];
+  analiseIaAgencia: AnaliseIaAgenciaDetalhe | null;
 }
 
 // Ponto diário do gráfico de fluxo de contratos — só dado real, contado
@@ -240,10 +255,13 @@ export interface AgenciaRepository {
   // move a Agencia pro status resultante (aguardando_assinatura ou
   // em_complementar) numa única operação — reaproveitado tanto pelo
   // fluxo automático quanto pelo reprocessamento manual no admin.
+  // `resultado` classifica POR QUE chegou nesse status (ver
+  // ResultadoAnaliseIa) — distingue reprovação real de falha técnica.
   registrarAnaliseFinal(
     agenciaId: string,
-    resultado: AnaliseIaResultado,
+    avaliacao: AnaliseIaResultado,
     novoStatus: string,
+    resultado: ResultadoAnaliseIa,
   ): Promise<void>;
   atualizarStatus(id: string, status: string): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;

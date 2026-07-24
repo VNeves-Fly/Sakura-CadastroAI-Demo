@@ -497,16 +497,31 @@ model AnaliseIaDocumento {
   @@map("analises_ia_documentos")
 }
 
+// Classificação de por que a agência chegou no status atual — distingue
+// um REPROVADO de verdade (a IA avaliou e disse não) de uma falha técnica
+// que nunca chegou a produzir um parecer real (FALHA_ANALISE) ou de uma
+// aprovação cujo contrato não pôde ser gerado/enviado (FALHA_CONTRATO).
+// Adicionado em 2026-07-24 junto do fluxo assíncrono de análise (ver
+// AnalisarCadastroUseCase) — antes disso só existia o texto livre em
+// `motivo`, sem como diferenciar programaticamente os três casos.
+enum ResultadoAnaliseIa {
+  APROVADO
+  REPROVADO
+  FALHA_ANALISE
+  FALHA_CONTRATO
+}
+
 // Veredito final do /agency-analysis/sync (parecer/justificativa/flags_risco
 // + stage3, o cruzamento documento×fonte oficial×fornecido) — uma linha por
 // agência, gravada na mesma transação de FinalizarCadastroUseCase. Existe
 // pra dar contexto real ao analista quando o parecer não é APROVADO, em vez
 // de só o status "em_complementar" sem explicação.
 model AnaliseIaAgencia {
-  id        String  @id @default(cuid())
-  agenciaId String  @unique
-  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  id        String             @id @default(cuid())
+  agenciaId String             @unique
+  agencia   Agencia            @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
 
+  resultado    ResultadoAnaliseIa
   parecer      String?
   motivo       String?
   flagsRisco   String[]

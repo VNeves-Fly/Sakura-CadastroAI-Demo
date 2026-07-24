@@ -10,6 +10,7 @@ import {
   ScrollText,
   FolderCheck,
   Bell,
+  BrainCircuit,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -23,6 +24,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
+  ParecerFinalIa,
 } from "@/modules/admin/components/dossie-campos";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
 import {
@@ -194,6 +196,7 @@ export default async function DossieAgenciaPage({
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    analiseIaAgencia,
     dadosReceita,
     usuarioMaster,
   } = view;
@@ -347,6 +350,10 @@ export default async function DossieAgenciaPage({
                 <AnaliseIaDetalhe analise={analiseIaContratoSocial} />
               </Campo>
             </dl>
+          </SecaoColapsavel>
+
+          <SecaoColapsavel titulo="Parecer da IA" icon={<BrainCircuit className="size-4" />}>
+            <ParecerFinalIa analise={analiseIaAgencia} />
           </SecaoColapsavel>
 
           <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
@@ -575,12 +582,8 @@ export default async function DossieAgenciaPage({
                 contrato foi criado ainda.
               </p>
 
-              <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-                <strong className="text-foreground">Parecer da IA indisponível:</strong> a
-                normalização de dados do cadastro complementar não trouxe mais o campo estruturado
-                do parecer (motivo/inconsistências/pontos a avaliar) — sinalizando aqui em vez de
-                mostrar um parecer desatualizado ou inventado. Precisa alinhar com quem mexeu no
-                schema onde esse dado deveria morar agora.
+              <div className="border-border bg-muted/40 rounded-xl border border-dashed px-4 py-3">
+                <ParecerFinalIa analise={analiseIaAgencia} />
               </div>
 
               {mostrandoEtapaAtual ? (

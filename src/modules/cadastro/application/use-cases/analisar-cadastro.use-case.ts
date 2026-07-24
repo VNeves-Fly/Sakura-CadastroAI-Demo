@@ -96,8 +96,12 @@ function extrairEnderecoContratoSocial(valor: unknown): DadosReceitaEndereco | n
 // Qualquer falha aqui (rede, agente fora do ar, D4Sign indisponível)
 // nunca deixa a Agência perdida: sempre converge pra "em_complementar"
 // (fila de revisão manual existente), com o motivo técnico registrado em
-// AnaliseIaAgencia.motivo — pra o analista distinguir "IA reprovou" de
-// "IA quebrou tecnicamente" antes de decidir.
+// AnaliseIaAgencia.motivo e a causa classificada em
+// AnaliseIaAgencia.resultado (ver ResultadoAnaliseIa) — REPROVADO (a IA
+// avaliou de verdade e disse não), FALHA_ANALISE (a chamada de avaliação
+// quebrou antes de produzir parecer) ou FALHA_CONTRATO (a IA aprovou, mas
+// a geração/envio do contrato falhou) — pra o analista distinguir os três
+// antes de decidir.
 export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, void> {
   constructor(
     private readonly agenciaRepository: AgenciaRepository,
@@ -177,6 +181,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
         agenciaId,
         { aprovado: false, motivo: `Falha técnica na análise automática: ${String(error)}` },
         STATUS_EM_COMPLEMENTAR,
+        "FALHA_ANALISE",
       );
       return;
     }
@@ -207,6 +212,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
           agenciaId,
           analiseIa,
           STATUS_AGUARDANDO_ASSINATURA,
+          "APROVADO",
         );
       } catch (error) {
         // IA aprovou, mas o contrato não pôde ser gerado/enviado (D4Sign
@@ -223,6 +229,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
               (analiseIa.motivo ? ` — ${analiseIa.motivo}` : ""),
           },
           STATUS_EM_COMPLEMENTAR,
+          "FALHA_CONTRATO",
         );
       }
     } else {
@@ -230,6 +237,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
         agenciaId,
         analiseIa,
         STATUS_EM_COMPLEMENTAR,
+        "REPROVADO",
       );
     }
 

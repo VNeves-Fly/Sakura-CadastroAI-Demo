@@ -5,6 +5,7 @@ import {
   Prisma,
   StatusAgencia as PrismaStatusAgencia,
   StatusContrato as PrismaStatusContrato,
+  ResultadoAnaliseIa as PrismaResultadoAnaliseIa,
   TipoDocumento,
 } from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
@@ -32,6 +33,7 @@ import {
   type ListarCadastrosResult,
   type OrigemGeracaoContrato,
   type RepresentanteLegalDetalhe,
+  type ResultadoAnaliseIa,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface AgenciaRecord {
@@ -94,14 +96,16 @@ function analiseIaParaPrisma(
 }
 
 function analiseIaFinalParaPrisma(
-  resultado: AnaliseIaResultado,
+  avaliacao: AnaliseIaResultado,
+  resultado: ResultadoAnaliseIa,
 ): Prisma.AnaliseIaAgenciaCreateWithoutAgenciaInput {
   return {
-    parecer: resultado.parecer ?? null,
-    motivo: resultado.motivo,
-    flagsRisco: resultado.flagsRisco ?? [],
-    detalhamento: resultado.detalhamento
-      ? (resultado.detalhamento as unknown as Prisma.InputJsonValue)
+    resultado: resultado as PrismaResultadoAnaliseIa,
+    parecer: avaliacao.parecer ?? null,
+    motivo: avaliacao.motivo,
+    flagsRisco: avaliacao.flagsRisco ?? [],
+    detalhamento: avaliacao.detalhamento
+      ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
   };
 }
@@ -247,6 +251,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         // de montar cada slot.
         documentos: { orderBy: { createdAt: "desc" } },
         contratos: { orderBy: { createdAt: "desc" } },
+        analiseIa: true,
       },
     });
 
@@ -259,6 +264,15 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         representanteToDomain(socio, record.documentos),
       ),
       contratoSocial: documentoAtual(record.documentos, TipoDocumento.CONTRATO_SOCIAL, null),
+      analiseIaAgencia: record.analiseIa
+        ? {
+            resultado: record.analiseIa.resultado as ResultadoAnaliseIa,
+            parecer: record.analiseIa.parecer,
+            motivo: record.analiseIa.motivo,
+            flagsRisco: record.analiseIa.flagsRisco,
+            avaliadoEm: record.analiseIa.avaliadoEm,
+          }
+        : null,
       contratos: record.contratos.map((contrato) => ({
         id: contrato.id,
         provedorId: contrato.provedorId,
@@ -405,10 +419,11 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
 
   async registrarAnaliseFinal(
     agenciaId: string,
-    resultado: AnaliseIaResultado,
+    avaliacao: AnaliseIaResultado,
     novoStatus: string,
+    resultado: ResultadoAnaliseIa,
   ): Promise<void> {
-    const dados = analiseIaFinalParaPrisma(resultado);
+    const dados = analiseIaFinalParaPrisma(avaliacao, resultado);
     await this.prisma.$transaction([
       this.prisma.analiseIaAgencia.upsert({
         where: { agenciaId },
