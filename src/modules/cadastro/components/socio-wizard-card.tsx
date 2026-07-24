@@ -103,9 +103,10 @@ export function SocioWizardCard({
         required
       />
 
-      {analiseIdentificacao.analisando ? (
-        <AnaliseDocumentoLoading mensagem="Analisando o documento..." />
-      ) : null}
+      <AnaliseDocumentoLoading
+        visivel={analiseIdentificacao.analisando}
+        mensagem="Analisando o documento..."
+      />
 
       {!socio.rgArquivo ? (
         <p className="text-muted-foreground text-xs">

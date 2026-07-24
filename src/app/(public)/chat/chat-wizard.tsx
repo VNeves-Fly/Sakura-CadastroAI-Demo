@@ -79,7 +79,10 @@ export function ChatWizard() {
 
       <MessageBox pending={pending} onEnviar={onEnviarTexto} />
 
-      {analisandoDocumento ? <AnaliseDocumentoLoading mensagem={analisandoDocumento} /> : null}
+      <AnaliseDocumentoLoading
+        visivel={Boolean(analisandoDocumento)}
+        mensagem={analisandoDocumento ?? undefined}
+      />
     </div>
   );
 }
