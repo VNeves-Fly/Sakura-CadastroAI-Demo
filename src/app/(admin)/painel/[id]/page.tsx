@@ -10,6 +10,7 @@ import {
   ScrollText,
   FolderCheck,
   Bell,
+  Sparkles,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -23,6 +24,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
+  ParecerIa,
 } from "@/modules/admin/components/dossie-campos";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
 import {
@@ -192,6 +194,7 @@ export default async function DossieAgenciaPage({
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    parecerIa,
     dadosReceita,
     usuarioMaster,
   } = view;
@@ -383,6 +386,10 @@ export default async function DossieAgenciaPage({
             )}
           </SecaoColapsavel>
 
+          <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
+            <ParecerIa parecer={parecerIa} />
+          </SecaoColapsavel>
+
           <ConsultaAmatCard amat={amat} />
           <ConsultaSofiaCard sofia={sofia} />
 
@@ -552,16 +559,8 @@ export default async function DossieAgenciaPage({
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
-                contrato foi criado ainda.
+                contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
               </p>
-
-              <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-                <strong className="text-foreground">Parecer da IA indisponível:</strong> a
-                normalização de dados do cadastro complementar não trouxe mais o campo estruturado
-                do parecer (motivo/inconsistências/pontos a avaliar) — sinalizando aqui em vez de
-                mostrar um parecer desatualizado ou inventado. Precisa alinhar com quem mexeu no
-                schema onde esse dado deveria morar agora.
-              </div>
 
               {mostrandoEtapaAtual ? (
                 <div className="flex flex-wrap gap-2">

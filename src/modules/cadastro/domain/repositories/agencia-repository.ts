@@ -2,7 +2,10 @@ import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity"
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { OrigemGeracaoContrato } from "@/modules/cadastro/domain/enums";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
-import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type {
+  AnaliseIaResultado,
+  AnaliseIaDetalhamento,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 
 export type { OrigemGeracaoContrato };
 
@@ -206,6 +209,17 @@ export interface CadastroComplementarDetalhe {
   favorecidoDoc: string | null;
 }
 
+// Parecer final da IA sobre a agência (avaliar() do AnaliseIaService),
+// gravado por FinalizarCadastroUseCase em AnaliseIaAgencia — já existia
+// no banco, mas nunca era lido de volta pro dossiê (ver obterDetalhe).
+export interface AnaliseIaAgenciaDetalhe {
+  parecer: string | null;
+  motivo: string | null;
+  flagsRisco: string[];
+  detalhamento: AnaliseIaDetalhamento | null;
+  avaliadoEm: Date;
+}
+
 export interface AgenciaDetalhe {
   agencia: Agencia;
   complementar: CadastroComplementarDetalhe | null;
@@ -214,6 +228,9 @@ export interface AgenciaDetalhe {
   // slot" dos documentos de sócio (ver RepresentanteLegalDetalhe).
   contratoSocial: Documento | null;
   contratos: ContratoDetalhe[];
+  // null = agência anterior a essa avaliação existir, ou avaliação ainda
+  // não rodou (ex.: cadastro em andamento).
+  analiseIa: AnaliseIaAgenciaDetalhe | null;
 }
 
 // Ponto diário do gráfico de fluxo de contratos — só dado real, contado
