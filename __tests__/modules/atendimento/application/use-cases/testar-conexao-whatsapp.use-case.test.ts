@@ -4,12 +4,10 @@ import { fakeWhatsAppMessagingService } from "../../fixtures";
 describe("TestarConexaoWhatsappUseCase", () => {
   it("devolve sucesso com o número/nome verificado quando a chamada à Meta funciona", async () => {
     const whatsAppMessagingService = fakeWhatsAppMessagingService({
-      verificarCredenciais: jest
-        .fn()
-        .mockResolvedValue({
-          displayPhoneNumber: "+55 11 99999-9999",
-          verifiedName: "Sakura Travel",
-        }),
+      verificarCredenciais: jest.fn().mockResolvedValue({
+        displayPhoneNumber: "+55 11 99999-9999",
+        verifiedName: "Sakura Travel",
+      }),
     });
     const useCase = new TestarConexaoWhatsappUseCase(whatsAppMessagingService);
 
