@@ -129,7 +129,7 @@ function detalheFake(overrides: Partial<AgenciaDetalhe> = {}): AgenciaDetalhe {
     representantesLegais: [socioFake()],
     contratoSocial: documentoFake("doc-contrato-1", "agencias/12345678000195/contrato-social.pdf"),
     contratos: [],
-    analiseIaAgencia: null,
+    analiseIa: null,
     ...overrides,
   };
 }

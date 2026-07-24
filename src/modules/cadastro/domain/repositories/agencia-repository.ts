@@ -2,7 +2,10 @@ import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity"
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { OrigemGeracaoContrato, ResultadoAnaliseIa } from "@/modules/cadastro/domain/enums";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
-import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type {
+  AnaliseIaResultado,
+  AnaliseIaDetalhamento,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 
 export type { OrigemGeracaoContrato, ResultadoAnaliseIa };
 
@@ -192,17 +195,20 @@ export interface CadastroComplementarDetalhe {
   favorecidoDoc: string | null;
 }
 
-// Veredito final gravado por AnalisarCadastroUseCase.registrarAnaliseFinal
-// — `resultado` classifica POR QUE a agência chegou no status atual
-// (REPROVADO real vs FALHA_ANALISE/FALHA_CONTRATO técnicas), `motivo`/
-// `parecer`/`flagsRisco` dão o contexto legível pro analista. Null
-// enquanto a agência ainda está em "em_analise" (IA não rodou ainda) ou
-// em cadastros criados antes desta funcionalidade existir.
+// Veredito (ou estado atual) gravado por
+// AnalisarCadastroUseCase.registrarAnaliseFinal — `resultado` classifica
+// POR QUE a agência chegou no status atual (REPROVADO real vs
+// FALHA_ANALISE/FALHA_CONTRATO técnicas vs EM_ANALISE, ainda pendente),
+// `motivo`/`parecer`/`flagsRisco`/`detalhamento` dão o contexto legível
+// pro analista (detalhamento é o cruzamento documental do stage3, usado
+// pra montar o checklist "o que checar" no dossiê). null só em cadastros
+// anteriores a esta funcionalidade existir.
 export interface AnaliseIaAgenciaDetalhe {
   resultado: ResultadoAnaliseIa;
   parecer: string | null;
   motivo: string | null;
   flagsRisco: string[];
+  detalhamento: AnaliseIaDetalhamento | null;
   avaliadoEm: Date;
 }
 
@@ -214,7 +220,8 @@ export interface AgenciaDetalhe {
   // slot" dos documentos de sócio (ver RepresentanteLegalDetalhe).
   contratoSocial: Documento | null;
   contratos: ContratoDetalhe[];
-  analiseIaAgencia: AnaliseIaAgenciaDetalhe | null;
+  // null = agência anterior a essa avaliação existir.
+  analiseIa: AnaliseIaAgenciaDetalhe | null;
 }
 
 // Ponto diário do gráfico de fluxo de contratos — só dado real, contado

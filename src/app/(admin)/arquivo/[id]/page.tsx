@@ -7,7 +7,7 @@ import {
   FileSignature,
   ScrollText,
   FolderCheck,
-  BrainCircuit,
+  Sparkles,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -21,7 +21,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
-  ParecerFinalIa,
+  ParecerIa,
   HistoricoDocumento,
 } from "@/modules/admin/components/dossie-campos";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
@@ -129,7 +129,7 @@ export default async function ArquivoDossiePage({
     documentosPendentes,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
-    analiseIaAgencia,
+    parecerIa,
     dadosReceita,
   } = view;
 
@@ -249,8 +249,8 @@ export default async function ArquivoDossiePage({
                 </dl>
               </SecaoColapsavel>
 
-              <SecaoColapsavel titulo="Parecer da IA" icon={<BrainCircuit className="size-4" />}>
-                <ParecerFinalIa analise={analiseIaAgencia} />
+              <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
+                <ParecerIa parecer={parecerIa} />
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>

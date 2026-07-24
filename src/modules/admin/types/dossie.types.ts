@@ -39,14 +39,32 @@ export interface AnaliseIaResumo {
   camposExtraidos: Record<string, unknown>;
 }
 
-// Veredito final da IA sobre a agência (não sobre um documento) — ver
-// paraAnaliseIaAgenciaResumo em dossie.adapter.ts. `resultado` distingue
-// reprovação real de falha técnica (ver ResultadoAnaliseIa no domínio).
-export interface AnaliseIaAgenciaResumo {
+// Um item do "o que o analista precisa checar" — sempre um ponto
+// concreto de divergência ou alerta de extração encontrado no
+// cruzamento documental (stage3), nunca um resumo genérico. `origem` é
+// o rótulo de onde veio (tipo do documento da empresa, como retornado
+// pela IA, ou nome do sócio).
+export interface ParecerIaItemChecklist {
+  origem: string;
+  mensagem: string;
+}
+
+// Consolidação do parecer da IA sobre a agência (ver
+// AnaliseIaAgenciaDetalhe no domínio) pronta pra tela — uma seção só
+// ("Parecer") reunindo veredito, motivo, pontos de alerta (flagsRisco)
+// e o checklist derivado do cruzamento documental (stage3), pedido
+// explicitamente pelo usuário em vez de espalhar essa informação em
+// blocos separados. `resultado` classifica POR QUE a agência chegou no
+// status atual (REPROVADO real vs FALHA_ANALISE/FALHA_CONTRATO técnicas
+// vs EM_ANALISE ainda pendente — ver ResultadoAnaliseIa no domínio); é a
+// fonte da verdade pro badge/rótulo, já que `parecer` (texto bruto do
+// agente externo) fica null nos casos de falha técnica.
+export interface ParecerIaView {
   resultado: string;
   parecer: string | null;
   motivo: string | null;
-  flagsRisco: string[];
+  pontosDeAlerta: string[];
+  itensParaChecar: ParecerIaItemChecklist[];
   avaliadoEm: Date;
 }
 

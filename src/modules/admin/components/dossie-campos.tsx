@@ -6,8 +6,8 @@ import type {
 } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
   AnaliseIaResumo,
-  AnaliseIaAgenciaResumo,
   DocumentoRevisao,
+  ParecerIaView,
 } from "@/modules/admin/types/dossie.types";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
@@ -250,54 +250,85 @@ const RESULTADO_ANALISE_CLASSES: Record<string, string> = {
   FALHA_CONTRATO: "bg-warning-bg text-warning-text",
 };
 
-// Veredito (ou estado atual) da IA sobre a agência (distinto de
-// AnaliseIaDetalhe, que é por documento) — `resultado` vem de
-// ResultadoAnaliseIa e já separa reprovação real (REPROVADO) de falha
-// técnica (FALHA_ANALISE/FALHA_CONTRATO) e do estado ainda pendente
-// (EM_ANALISE), então o rótulo/cor do badge conta essa história sem
-// precisar abrir o `motivo` em texto livre. `analise` só vem null pra
-// cadastros criados antes desta funcionalidade existir — qualquer
-// cadastro novo já nasce com a linha em EM_ANALISE.
-export function ParecerFinalIa({ analise }: { analise: AnaliseIaAgenciaResumo | null }) {
-  if (!analise) {
+// Badge do veredito — chaveado por `resultado` (ResultadoAnaliseIa), não
+// pelo `parecer` bruto do agente externo: `resultado` já separa
+// reprovação real (REPROVADO) de falha técnica (FALHA_ANALISE/
+// FALHA_CONTRATO) e do estado ainda pendente (EM_ANALISE), enquanto
+// `parecer` fica null nas falhas técnicas (nunca chegou a existir um
+// veredito de verdade).
+function ResultadoBadge({ resultado }: { resultado: string }) {
+  return (
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+        RESULTADO_ANALISE_CLASSES[resultado] ?? "bg-muted text-muted-foreground"
+      }`}
+    >
+      {RESULTADO_ANALISE_LABELS[resultado] ?? resultado}
+    </span>
+  );
+}
+
+// Seção única "Parecer": consolida o veredito da IA sobre a agência, o
+// motivo de não ter passado direto pra contrato, os pontos de alerta
+// (flagsRisco) e o checklist do que o analista precisa checar — pedido
+// explícito do usuário em vez de espalhar essa informação em blocos
+// separados pela ficha. `parecer` só vem null pra cadastros criados
+// antes desta funcionalidade existir — qualquer cadastro novo já nasce
+// com a linha em EM_ANALISE.
+export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
+  if (!parecer) {
     return (
       <span className="text-muted-foreground text-xs">
-        Sem registro de análise de IA — cadastro anterior a esta funcionalidade.
+        Sem parecer de IA registrado pra este cadastro.
       </span>
     );
   }
 
-  const emAnalise = analise.resultado === "EM_ANALISE";
+  const emAnalise = parecer.resultado === "EM_ANALISE";
 
   return (
-    <div className="flex flex-col gap-2 text-sm">
+    <div className="flex flex-col gap-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-            RESULTADO_ANALISE_CLASSES[analise.resultado] ?? "bg-muted text-muted-foreground"
-          }`}
-        >
-          {RESULTADO_ANALISE_LABELS[analise.resultado] ?? analise.resultado}
-        </span>
+        <ResultadoBadge resultado={parecer.resultado} />
         <span className="text-muted-foreground text-xs">
-          {emAnalise ? "desde" : "avaliado em"} {formatarData(analise.avaliadoEm)}
+          {emAnalise ? "desde" : "avaliado em"} {formatarData(parecer.avaliadoEm)}
         </span>
       </div>
 
-      {analise.parecer ? (
+      {parecer.parecer ? (
         <p>
-          <strong className="text-foreground">Parecer:</strong> {analise.parecer}
+          <strong className="text-foreground">Parecer do agente:</strong> {parecer.parecer}
         </p>
       ) : null}
 
-      {analise.motivo ? <p className="text-muted-foreground">{analise.motivo}</p> : null}
+      {parecer.motivo ? <p className="text-foreground">{parecer.motivo}</p> : null}
 
-      {analise.flagsRisco.length > 0 ? (
-        <ul className="text-warning list-inside list-disc">
-          {analise.flagsRisco.map((flag, index) => (
-            <li key={index}>{flag}</li>
-          ))}
-        </ul>
+      {parecer.pontosDeAlerta.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <SubsecaoLabel>Pontos de alerta</SubsecaoLabel>
+          <ul className="text-warning list-inside list-disc text-xs">
+            {parecer.pontosDeAlerta.map((ponto, index) => (
+              <li key={index}>{ponto}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {parecer.itensParaChecar.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <SubsecaoLabel>O que o analista precisa checar</SubsecaoLabel>
+          <ul className="flex flex-col gap-1.5">
+            {parecer.itensParaChecar.map((item, index) => (
+              <li
+                key={index}
+                className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs"
+              >
+                <span className="text-foreground font-semibold">{item.origem}: </span>
+                <span className="text-muted-foreground">{item.mensagem}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );

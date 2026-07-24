@@ -10,7 +10,7 @@ import {
   ScrollText,
   FolderCheck,
   Bell,
-  BrainCircuit,
+  Sparkles,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -24,7 +24,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
-  ParecerFinalIa,
+  ParecerIa,
 } from "@/modules/admin/components/dossie-campos";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
 import {
@@ -196,7 +196,7 @@ export default async function DossieAgenciaPage({
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
-    analiseIaAgencia,
+    parecerIa,
     dadosReceita,
     usuarioMaster,
   } = view;
@@ -352,10 +352,6 @@ export default async function DossieAgenciaPage({
             </dl>
           </SecaoColapsavel>
 
-          <SecaoColapsavel titulo="Parecer da IA" icon={<BrainCircuit className="size-4" />}>
-            <ParecerFinalIa analise={analiseIaAgencia} />
-          </SecaoColapsavel>
-
           <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
             {!dadosReceita ? (
               <p className="text-muted-foreground text-sm">
@@ -408,6 +404,10 @@ export default async function DossieAgenciaPage({
                 </p>
               </div>
             )}
+          </SecaoColapsavel>
+
+          <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
+            <ParecerIa parecer={parecerIa} />
           </SecaoColapsavel>
 
           <ConsultaAmatCard amat={amat} />
@@ -579,12 +579,8 @@ export default async function DossieAgenciaPage({
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
-                contrato foi criado ainda.
+                contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
               </p>
-
-              <div className="border-border bg-muted/40 rounded-xl border border-dashed px-4 py-3">
-                <ParecerFinalIa analise={analiseIaAgencia} />
-              </div>
 
               {mostrandoEtapaAtual ? (
                 <div className="flex flex-wrap gap-2">
