@@ -20,7 +20,7 @@ function urlBase(): string {
 
 // Notifica a agência (e-mail de contato do cadastro) sobre os documentos
 // reprovados que precisam de reenvio, com o link da página pública onde
-// o cliente sobe o arquivo novo. Best-effort: se o Resend não estiver
+// o cliente sobe o arquivo novo. Best-effort: se o SMTP não estiver
 // configurado, EmailSender cai pro console (ver composition root) — a
 // página do dossiê mostra o link mesmo assim, então o analista consegue
 // copiar/colar manualmente independente do e-mail ir ou não.
