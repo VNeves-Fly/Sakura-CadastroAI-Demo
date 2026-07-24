@@ -161,6 +161,13 @@ model Agencia {
   emailContato       String
   telefoneContato    String
   origem             String?
+  // uuid do parâmetro `?executivo=` do link pessoal do promotor (ver
+  // Promotor.linkExecutivoId) — capturado no cadastro público quando o
+  // cliente usa o link de um executivo/gestor específico. Atribuição
+  // automática: essa agência passa a ser desse executivo e,
+  // consequentemente, do gestor/base dele (decisão do usuário,
+  // 2026-07-24). Null = cadastro não veio de um link de promotor.
+  promotorLinkId     String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -966,4 +973,38 @@ model TemplateWhatsApp {
   sincronizadoEm DateTime @default(now())
 
   @@map("templates_whatsapp")
+}
+
+// Fonte real (planilha "Links Promotores.xlsx", aba Promotores) de quem
+// é cada executivo/gestor comercial — substitui o mock em memória de
+// nomes abreviados/apelidos de cidades-mapa-comercial.json como
+// identidade (decisão do usuário, 2026-07-24): todo promotor tem `sica`
+// (não opcional), o mock de cidades continua só como fonte de
+// base/cidade/região atendida, cruzado por nome.
+model Promotor {
+  id              String   @id @default(cuid())
+  sica            Int      @unique
+  nome            String
+  gestor          String
+  email           String
+  // Nullable — 7 dos 81 registros da planilha de origem vêm sem
+  // telefone preenchido; não inventado.
+  telefone        String?
+  link            String
+  // uuid(s) do parâmetro `?executivo=` extraído(s) de `link` — chave real
+  // de atribuição automática: um cadastro feito por um desses links vira
+  // dessa pessoa (e do gestor/base dela) automaticamente, ver
+  // Agencia.promotorLinkId. Lista (não campo único) porque sócios que
+  // dividem o mesmo SICA (ex.: sica 26) têm dois links pessoais
+  // diferentes apontando pra essa mesma linha.
+  linkExecutivoId String[]
+  // Planilha de origem não tem coluna de base — fica null até existir
+  // uma fonte real pra esse dado (não inventado a partir do mock de
+  // cidades, que usa nomes divergentes).
+  base            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("promotores")
 }

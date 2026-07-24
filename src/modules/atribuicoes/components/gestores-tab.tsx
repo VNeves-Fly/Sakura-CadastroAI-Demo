@@ -16,8 +16,11 @@ export function GestoresTab({ gestores }: GestoresTabProps) {
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead className="border-border bg-muted/40 border-b">
-          <tr>
+          <tr className="divide-border divide-x">
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Gestor</th>
+            <th className="text-muted-foreground px-4 py-2.5 font-medium">ID SICA</th>
+            <th className="text-muted-foreground px-4 py-2.5 font-medium">E-mail</th>
+            <th className="text-muted-foreground px-4 py-2.5 font-medium">Telefone</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Bases</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Executivos</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Cidades</th>
@@ -25,13 +28,22 @@ export function GestoresTab({ gestores }: GestoresTabProps) {
               Agências
               <span className="text-muted-foreground/70 ml-1 font-normal italic">(exemplo)</span>
             </th>
-            <th className="text-muted-foreground px-4 py-2.5 font-medium"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-border divide-y">
           {gestores.map((gestor) => (
-            <tr key={gestor.gestor} className="border-border border-b last:border-0">
-              <td className="text-foreground px-4 py-3 font-medium">{gestor.gestor}</td>
+            <tr key={gestor.gestor} className="divide-border divide-x">
+              <td className="px-4 py-3 font-medium">
+                <Link
+                  href={`/atribuicoes/colaborador?tipo=gestor&nome=${encodeURIComponent(gestor.gestor)}`}
+                  className="text-primary hover:underline"
+                >
+                  {gestor.gestor}
+                </Link>
+              </td>
+              <td className="text-foreground px-4 py-3">{gestor.idSica ?? "—"}</td>
+              <td className="text-foreground px-4 py-3">{gestor.email ?? "—"}</td>
+              <td className="text-foreground px-4 py-3">{gestor.telefone ?? "—"}</td>
               <td className="text-foreground px-4 py-3">{gestor.totalBases}</td>
               <td className="text-foreground px-4 py-3">{gestor.totalExecutivos}</td>
               <td className="text-foreground px-4 py-3">{gestor.totalCidades}</td>
@@ -39,14 +51,6 @@ export function GestoresTab({ gestores }: GestoresTabProps) {
                 <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-semibold">
                   {gestor.totalAgenciasMock}
                 </span>
-              </td>
-              <td className="px-4 py-3 text-right">
-                <Link
-                  href={`/atribuicoes/substituir?tipo=gestor&nome=${encodeURIComponent(gestor.gestor)}`}
-                  className="text-primary text-xs font-semibold whitespace-nowrap hover:underline"
-                >
-                  Substituir
-                </Link>
               </td>
             </tr>
           ))}

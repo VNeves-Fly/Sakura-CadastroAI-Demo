@@ -106,6 +106,12 @@ export interface CreateAgenciaData {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
+  // uuid do parâmetro `?executivo=` do link pessoal de um promotor
+  // (atribuições/módulo Promotor) — null se o cadastro não veio de um
+  // link desses. Resolvido pra nome/gestor/base só na leitura (ver
+  // atribuicoesAdminController), não aqui — este módulo não conhece o
+  // domínio de Promotor.
+  promotorLinkId: string | null;
   // Gravado atomicamente junto (Agencia + sócios + CadastroComplementar
   // e, se houver, Contrato), numa transação — não existe intervalo entre
   // eles. Contrato só existe quando a IA já aprovou o cadastro (nesse
@@ -276,4 +282,16 @@ export interface AgenciaRepository {
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;
   obterAnaliseContratos(dias: number): Promise<AnaliseContratos>;
+  // Agências atribuídas a um promotor (qualquer um dos uuids do link
+  // pessoal dele, ver Promotor.linkExecutivoId) — usado pela ficha de
+  // colaborador em Atribuições, não pelo dossiê em si.
+  listarPorPromotorLinkId(uuids: string[]): Promise<AgenciaResumoPromotor[]>;
+}
+
+export interface AgenciaResumoPromotor {
+  id: string;
+  razaoSocial: string;
+  cnpj: string;
+  status: string;
+  createdAt: Date;
 }

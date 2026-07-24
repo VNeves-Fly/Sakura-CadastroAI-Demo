@@ -60,11 +60,16 @@ export async function createAgenciaRoute(request: Request) {
     const formData = await request.formData();
 
     const origemRaw = formData.get("origem");
+    const promotorLinkIdRaw = formData.get("promotorLinkId");
 
     const parsedMeta = finalizarCadastroMetaSchema.safeParse({
       cnpj: formData.get("cnpj"),
       razaoSocial: formData.get("razaoSocial") ?? "",
       origem: typeof origemRaw === "string" && origemRaw.length > 0 ? origemRaw : undefined,
+      promotorLinkId:
+        typeof promotorLinkIdRaw === "string" && promotorLinkIdRaw.length > 0
+          ? promotorLinkIdRaw
+          : undefined,
       telefoneComercial: formData.get("telefoneComercial") ?? "",
       semTelefoneComercial: formData.get("semTelefoneComercial") === "true",
       emailOperacional: formData.get("emailOperacional") ?? "",
@@ -138,6 +143,7 @@ export async function createAgenciaRoute(request: Request) {
       cnpj: parsedMeta.data.cnpj,
       razaoSocial: parsedMeta.data.razaoSocial,
       origem: parsedMeta.data.origem ?? null,
+      promotorLinkId: parsedMeta.data.promotorLinkId ?? null,
       contratoSocial: await toUploadedFile(contratoSocialFile),
       telefoneComercial: parsedMeta.data.telefoneComercial,
       emailOperacional: parsedMeta.data.emailOperacional,

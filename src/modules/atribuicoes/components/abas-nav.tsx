@@ -6,6 +6,7 @@ const ABAS = [
   { chave: "executivos", label: "Executivos" },
   { chave: "gestores", label: "Gestores" },
   { chave: "cidades", label: "Cidades" },
+  { chave: "remanejar", label: "Remanejar" },
 ] as const;
 
 interface AbasNavProps {

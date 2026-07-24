@@ -54,3 +54,22 @@ export function substituirGestor(nomeAntigo: string, nomeNovo: string): number {
 
   return afetadas;
 }
+
+export function substituirBase(nomeAntigo: string, nomeNovo: string): number {
+  let afetadas = 0;
+  cidades = cidades.map((cidade) => {
+    if (cidade.base !== nomeAntigo) return cidade;
+    afetadas += 1;
+    return { ...cidade, base: nomeNovo };
+  });
+
+  historico.push({
+    tipo: "base",
+    nomeAntigo,
+    nomeNovo,
+    totalCidadesAfetadas: afetadas,
+    data: new Date().toISOString(),
+  });
+
+  return afetadas;
+}

@@ -209,6 +209,7 @@ export class FinalizarCadastroUseCase implements UseCase<
       emailContato: input.emailOperacional,
       telefoneContato: input.telefoneComercial,
       origem: input.origem,
+      promotorLinkId: input.promotorLinkId,
       empresa: {
         telefoneComercial: input.telefoneComercial,
         emailOperacional: input.emailOperacional,

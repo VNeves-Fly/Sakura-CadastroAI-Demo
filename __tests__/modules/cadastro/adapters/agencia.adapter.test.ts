@@ -226,6 +226,7 @@ describe("agenciaAdapter.toFinalizarCadastroFormData", () => {
       razaoSocial: "Empresa Teste Ltda",
       contratoSocial: arquivoFake("contrato.pdf"),
       origem: "evento-teste",
+      promotorLinkId: null,
       telefoneComercial: "(11) 99999-9999",
       telefoneComercialPais: "BR",
       semTelefoneComercial: false,

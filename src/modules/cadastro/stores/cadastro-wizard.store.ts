@@ -25,6 +25,10 @@ interface CadastroWizardState {
   // secoesReveladas é quantas seções (a partir da 1) já estão visíveis.
   secoesReveladas: number;
   origem: string | null;
+  // uuid do parâmetro `?executivo=` do link pessoal de um promotor
+  // (ver Promotor.linkExecutivoId) — atribuição automática da agência a
+  // esse executivo/gestor. Null = cadastro não veio de um link desses.
+  promotorLinkId: string | null;
 
   // Seção 1 — Empresa (documentos + dados da empresa)
   cnpj: string;
@@ -62,6 +66,7 @@ interface CadastroWizardState {
   duplicado: boolean;
 
   setOrigem: (origem: string | null) => void;
+  setPromotorLinkId: (promotorLinkId: string | null) => void;
   avancarSecao: () => void;
   setCnpj: (cnpj: string) => void;
   setCnpjStatus: (status: CnpjStatus) => void;
@@ -112,6 +117,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
     (set) => ({
       secoesReveladas: 1,
       origem: null,
+      promotorLinkId: null,
 
       cnpj: "",
       cnpjStatus: { valido: false, mensagem: null },
@@ -143,6 +149,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       duplicado: false,
 
       setOrigem: (origem) => set({ origem }),
+      setPromotorLinkId: (promotorLinkId) => set({ promotorLinkId }),
 
       avancarSecao: () =>
         set((state) => ({ secoesReveladas: Math.min(state.secoesReveladas + 1, TOTAL_ETAPAS) })),
@@ -217,6 +224,7 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       partialize: (state) => ({
         secoesReveladas: state.secoesReveladas,
         origem: state.origem,
+        promotorLinkId: state.promotorLinkId,
         cnpj: state.cnpj,
         cnpjStatus: state.cnpjStatus,
         qsaResult: state.qsaResult,

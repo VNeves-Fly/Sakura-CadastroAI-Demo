@@ -39,16 +39,19 @@ export const ETAPA_LABELS = ["Empresa", "Sócios", "Endereço", "Banco", "Revis�
 
 interface UseCadastroWizardOptions {
   origem: string | null;
+  promotorLinkId: string | null;
 }
 
 // Orquestra a revelação progressiva das seções (página única, sem
 // bloqueio de validação — só no envio final) e a lógica de campos da
 // seção Empresa (CNPJ + contrato social + consulta QSA + dados da
 // empresa).
-export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions) {
+export function useCadastroWizardViewModel({ origem, promotorLinkId }: UseCadastroWizardOptions) {
   const secoesReveladas = useCadastroWizardStore((state) => state.secoesReveladas);
   const avancarSecao = useCadastroWizardStore((state) => state.avancarSecao);
   const setOrigem = useCadastroWizardStore((state) => state.setOrigem);
+  const promotorLinkIdSalvo = useCadastroWizardStore((state) => state.promotorLinkId);
+  const setPromotorLinkId = useCadastroWizardStore((state) => state.setPromotorLinkId);
 
   const cnpj = useCadastroWizardStore((state) => state.cnpj);
   const cnpjStatus = useCadastroWizardStore((state) => state.cnpjStatus);
@@ -181,6 +184,15 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setOrigem(origem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origem]);
+
+  // Só grava quando vier preenchido (diferente do setOrigem acima) —
+  // uma vez capturado o link do promotor, uma revisita sem o parâmetro
+  // (ex.: continuando o rascunho salvo) não pode apagar a atribuição já
+  // guardada.
+  useEffect(() => {
+    if (promotorLinkId) setPromotorLinkId(promotorLinkId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promotorLinkId]);
 
   // LEGADO — qsaResult nunca é populado hoje (consultarQsaSeCompleto não é
   // mais chamado por setCnpj), então este efeito fica inerte. Mantido junto
@@ -734,6 +746,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       razaoSocial,
       contratoSocial,
       origem,
+      promotorLinkId: promotorLinkIdSalvo,
       telefoneComercial,
       telefoneComercialPais,
       semTelefoneComercial,

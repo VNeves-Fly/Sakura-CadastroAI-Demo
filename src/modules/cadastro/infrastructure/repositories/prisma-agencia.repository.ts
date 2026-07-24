@@ -23,6 +23,7 @@ import {
   STATUS_RECUSADO,
   type AgenciaDetalhe,
   type AgenciaRepository,
+  type AgenciaResumoPromotor,
   type AnaliseContratos,
   type AnaliseIaAgenciaDetalhe,
   type CadastroComplementarDetalhe,
@@ -311,6 +312,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           emailContato: data.emailContato,
           telefoneContato: data.telefoneContato,
           origem: data.origem,
+          promotorLinkId: data.promotorLinkId,
           representantesLegais: {
             create: data.socios.map((socio) => ({
               nome: socio.nome,
@@ -635,6 +637,24 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     }));
 
     return { porOrigem, porDia };
+  }
+
+  async listarPorPromotorLinkId(uuids: string[]): Promise<AgenciaResumoPromotor[]> {
+    if (uuids.length === 0) return [];
+
+    const registros = await this.prisma.agencia.findMany({
+      where: { promotorLinkId: { in: uuids } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, razaoSocial: true, cnpj: true, status: true, createdAt: true },
+    });
+
+    return registros.map((registro) => ({
+      id: registro.id,
+      razaoSocial: registro.razaoSocial,
+      cnpj: registro.cnpj,
+      status: registro.status,
+      createdAt: registro.createdAt,
+    }));
   }
 
   private toDomain(record: AgenciaRecord): Agencia {

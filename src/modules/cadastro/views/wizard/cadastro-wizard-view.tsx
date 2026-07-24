@@ -16,13 +16,14 @@ import { Passo8Revisao } from "@/modules/cadastro/components/steps/passo8-revisa
 
 interface CadastroWizardViewProps {
   origem: string | null;
+  promotorLinkId: string | null;
 }
 
 // View: só renderiza, delegando toda a lógica ao ViewModel do wizard.
 // Página única: as seções ficam empilhadas e vão sendo reveladas
 // conforme o usuário avança (sem bloqueio de validação — só no envio final).
-export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
-  const wizard = useCadastroWizardViewModel({ origem });
+export function CadastroWizardView({ origem, promotorLinkId }: CadastroWizardViewProps) {
+  const wizard = useCadastroWizardViewModel({ origem, promotorLinkId });
   const secaoRefs = useRef<Array<HTMLDivElement | null>>([]);
   const primeiraRenderizacao = useRef(true);
 

@@ -6,6 +6,7 @@ import { BasesTab } from "@/modules/atribuicoes/components/bases-tab";
 import { ExecutivosTab } from "@/modules/atribuicoes/components/executivos-tab";
 import { GestoresTab } from "@/modules/atribuicoes/components/gestores-tab";
 import { CidadesTab } from "@/modules/atribuicoes/components/cidades-tab";
+import { RemanejarTab } from "@/modules/atribuicoes/components/remanejar-tab";
 import {
   carregarCidades,
   filtrarCidades,
@@ -13,7 +14,10 @@ import {
   agregarBases,
   agregarExecutivos,
   agregarGestores,
+  paraExecutivosView,
+  paraGestoresView,
 } from "@/modules/atribuicoes/utils/agregacoes.util";
+import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 
 const TAMANHO_PAGINA = 50;
 
@@ -29,7 +33,7 @@ interface AtribuicoesPageProps {
   };
 }
 
-export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) {
+export default async function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) {
   const aba = searchParams.aba ?? "regioes";
   const busca = searchParams.busca ?? "";
   const regiao = searchParams.regiao ?? "";
@@ -37,20 +41,50 @@ export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) 
   const executivo = searchParams.executivo ?? "";
   const gestor = searchParams.gestor ?? "";
 
-  const todasCidades = carregarCidades();
+  const [todasCidades, promotores] = await Promise.all([
+    Promise.resolve(carregarCidades()),
+    atribuicoesAdminController.listarPromotores(),
+  ]);
   const cidadesFiltradas = filtrarCidades(todasCidades, { busca, regiao, base, executivo, gestor });
 
   const regioes = agregarRegioes(cidadesFiltradas);
   const bases = agregarBases(cidadesFiltradas);
+  // Identidade real (tabela Promotor, todo mundo com SICA) pras abas
+  // Executivos/Gestores — cruzada com o recorte filtrado de cidades só
+  // pras estatísticas de base/cidades atendidas, nunca pra decidir quem
+  // aparece na lista (isso vem sempre da planilha inteira).
+  const executivosView = paraExecutivosView(promotores, cidadesFiltradas);
+  const gestoresView = paraGestoresView(promotores, cidadesFiltradas);
+  // Cidades-mock puro (nomes abreviados) — usado só pelos filtros/
+  // Remanejar/resumo de seleção, que mexem exatamente nesses valores.
   const executivos = agregarExecutivos(cidadesFiltradas);
   const gestores = agregarGestores(cidadesFiltradas);
 
-  // Listas completas (não filtradas) pros selects — senão a opção
-  // escolhida "some" da lista assim que o filtro é aplicado.
-  const todasRegioes = agregarRegioes(todasCidades).map((item) => item.regiao);
-  const todasBases = agregarBases(todasCidades).map((item) => item.base);
-  const todosExecutivos = agregarExecutivos(todasCidades).map((item) => item.executivo);
-  const todosGestores = agregarGestores(todasCidades).map((item) => item.gestor);
+  // Opções de cada select em cascata: calculadas a partir dos OUTROS
+  // filtros já aplicados (nunca do próprio), pra só oferecer combinações
+  // coerentes — ex.: escolher executivo=Douglas estreita as opções de
+  // Região/Base/Gestor pras que Douglas realmente atende, em vez de
+  // deixar montar uma combinação que não existe nos dados e só dar
+  // "nenhuma cidade encontrada" depois de filtrar.
+  const opcoesRegiao = agregarRegioes(
+    filtrarCidades(todasCidades, { busca, base, executivo, gestor }),
+  ).map((item) => item.regiao);
+  const opcoesBase = agregarBases(
+    filtrarCidades(todasCidades, { busca, regiao, executivo, gestor }),
+  ).map((item) => item.base);
+  const opcoesExecutivo = agregarExecutivos(
+    filtrarCidades(todasCidades, { busca, regiao, base, gestor }),
+  ).map((item) => item.executivo);
+  const opcoesGestor = agregarGestores(
+    filtrarCidades(todasCidades, { busca, regiao, base, executivo }),
+  ).map((item) => item.gestor);
+
+  // Remanejar mexe no cadastro inteiro (todas as cidades daquele nome
+  // vão pro substituto), não só no recorte filtrado — sempre lista tudo,
+  // independente dos filtros ativos nas outras abas.
+  const todosExecutivos = agregarExecutivos(todasCidades);
+  const todosGestores = agregarGestores(todasCidades);
+  const todasBases = agregarBases(todasCidades);
 
   const regiaoResumo = regiao ? (regioes.find((item) => item.regiao === regiao) ?? null) : null;
   const baseResumo = base ? (bases.find((item) => item.base === base) ?? null) : null;
@@ -77,25 +111,29 @@ export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) 
         </p>
       </div>
 
-      <FiltrosAtribuicoes
-        aba={aba}
-        busca={busca}
-        regiaoSelecionada={regiao}
-        baseSelecionada={base}
-        executivoSelecionado={executivo}
-        gestorSelecionado={gestor}
-        regioes={todasRegioes}
-        bases={todasBases}
-        executivos={todosExecutivos}
-        gestores={todosGestores}
-      />
+      {aba !== "remanejar" ? (
+        <>
+          <FiltrosAtribuicoes
+            aba={aba}
+            busca={busca}
+            regiaoSelecionada={regiao}
+            baseSelecionada={base}
+            executivoSelecionado={executivo}
+            gestorSelecionado={gestor}
+            regioes={opcoesRegiao}
+            bases={opcoesBase}
+            executivos={opcoesExecutivo}
+            gestores={opcoesGestor}
+          />
 
-      <ResumoSelecao
-        regiao={regiaoResumo}
-        base={baseResumo}
-        executivo={executivoResumo}
-        gestor={gestorResumo}
-      />
+          <ResumoSelecao
+            regiao={regiaoResumo}
+            base={baseResumo}
+            executivo={executivoResumo}
+            gestor={gestorResumo}
+          />
+        </>
+      ) : null}
 
       <div className="border-border bg-card overflow-hidden rounded-2xl border">
         <AbasNav
@@ -109,9 +147,9 @@ export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) 
         {aba === "bases" ? (
           <BasesTab bases={bases} />
         ) : aba === "executivos" ? (
-          <ExecutivosTab executivos={executivos} />
+          <ExecutivosTab executivos={executivosView} />
         ) : aba === "gestores" ? (
-          <GestoresTab gestores={gestores} />
+          <GestoresTab gestores={gestoresView} />
         ) : aba === "cidades" ? (
           <CidadesTab
             cidades={cidadesPagina}
@@ -124,6 +162,8 @@ export default function AtribuicoesPage({ searchParams }: AtribuicoesPageProps) 
             executivo={executivo}
             gestor={gestor}
           />
+        ) : aba === "remanejar" ? (
+          <RemanejarTab executivos={todosExecutivos} gestores={todosGestores} bases={todasBases} />
         ) : (
           <RegioesTab regioes={regioes} />
         )}

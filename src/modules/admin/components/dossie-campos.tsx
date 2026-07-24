@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type {
   DadosReceitaEndereco,
@@ -19,7 +19,8 @@ import { VisualizarDocumento } from "@/modules/admin/components/visualizar-docum
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo neutro (a cor
 // de marca fica reservada pra ação primária e identidade, não pra rótulo
-// estrutural) e valor em destaque.
+// estrutural) e valor em destaque. Fundo próprio (bg-card) pra funcionar
+// como "célula" dentro de CamposGrid (ver truque do seam abaixo).
 export function Campo({
   label,
   children,
@@ -30,10 +31,43 @@ export function Campo({
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={`bg-card px-3 py-2.5 ${className ?? ""}`}>
       <dt className="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">{label}</dt>
       <dd className="text-foreground mt-0.5 text-sm font-medium break-words">{children}</dd>
     </div>
+  );
+}
+
+// Grid de Campo com linhas horizontais E verticais de verdade (pedido
+// explícito do usuário — "todo o sistema carece de linhas", 2026-07-24),
+// via truque do "seam": o fundo do container é a cor da linha
+// (bg-border) e cada Campo é opaco (bg-card) com gap-px entre eles — o
+// fundo aparece como um fio de 1px em toda borda de célula, mesmo com
+// grid quebrando linha (divide-x/divide-y não dá conta disso num grid
+// que quebra, só em sequência linear).
+export function CamposGrid({ children, className }: { children: ReactNode; className?: string }) {
+  // Número ímpar de Campo deixa uma célula vazia no grid de 2 colunas —
+  // sem elemento nenhum ali, só o bg-border do container aparecendo
+  // como um bloco sólido feio. Corrige esticando o último Campo pra
+  // ocupar a linha inteira nesse caso.
+  const itens = Children.toArray(children);
+  const itensAjustados =
+    itens.length % 2 === 0
+      ? itens
+      : itens.map((item, index) => {
+          if (index !== itens.length - 1 || !isValidElement(item)) return item;
+          const elemento = item as ReactElement<{ className?: string }>;
+          return cloneElement(elemento, {
+            className: `${elemento.props.className ?? ""} sm:col-span-2`,
+          });
+        });
+
+  return (
+    <dl
+      className={`border-border bg-border grid grid-cols-1 gap-px overflow-hidden rounded-xl border sm:grid-cols-2 ${className ?? ""}`}
+    >
+      {itensAjustados}
+    </dl>
   );
 }
 

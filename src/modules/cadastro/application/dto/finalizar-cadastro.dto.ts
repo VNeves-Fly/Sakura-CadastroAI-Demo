@@ -51,6 +51,7 @@ export interface FinalizarCadastroInput {
   razaoSocial: string;
   contratoSocial: UploadedFileInput;
   origem: string | null;
+  promotorLinkId: string | null;
   telefoneComercial: string;
   emailOperacional: string;
   emailComercial: string;

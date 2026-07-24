@@ -1160,6 +1160,7 @@ export function useChatScript() {
         razaoSocial: ctx.razaoSocial,
         contratoSocial: ctx.contratoSocial!,
         origem: "Chat",
+        promotorLinkId: null,
         telefoneComercial: ctx.telefoneComercial?.numero ?? "",
         telefoneComercialPais: "BR",
         semTelefoneComercial: !ctx.telefoneComercial,

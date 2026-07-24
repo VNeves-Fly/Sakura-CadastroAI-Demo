@@ -136,6 +136,7 @@ export const agenciaAdapter = {
     razaoSocial: string;
     contratoSocial: File;
     origem: string | null;
+    promotorLinkId: string | null;
     telefoneComercial: string;
     telefoneComercialPais: string;
     semTelefoneComercial: boolean;
@@ -151,6 +152,9 @@ export const agenciaAdapter = {
     formData.set("razaoSocial", params.razaoSocial);
     if (params.origem) {
       formData.set("origem", params.origem);
+    }
+    if (params.promotorLinkId) {
+      formData.set("promotorLinkId", params.promotorLinkId);
     }
     formData.set("contratoSocial", params.contratoSocial);
     formData.set(
