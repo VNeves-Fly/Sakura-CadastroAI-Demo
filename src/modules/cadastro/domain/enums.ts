@@ -50,3 +50,20 @@ export type TipoVenda = "NACIONAL" | "INTERNACIONAL" | "TERRESTRE";
 export type EtapaDecisao = "ANALISE" | "COMPLEMENTAR";
 
 export type ResultadoDecisao = "APROVADO" | "REPROVADO";
+
+// Espelha o enum MaritalStatus do agente de análise de documentos
+// (domain/entities/marital_status.py) — não é um enum do Prisma
+// (estadoCivil é String no schema), mas o valor só pode vir de um destes
+// 7 valores depois de normalizado (ver estado-civil.util.ts).
+export type EstadoCivil =
+  "solteiro" | "casado" | "separado" | "divorciado" | "viuvo" | "uniao_estavel" | "desquitado";
+
+export const ESTADO_CIVIL_VALORES: readonly [EstadoCivil, ...EstadoCivil[]] = [
+  "solteiro",
+  "casado",
+  "separado",
+  "divorciado",
+  "viuvo",
+  "uniao_estavel",
+  "desquitado",
+];

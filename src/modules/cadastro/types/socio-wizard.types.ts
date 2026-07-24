@@ -1,12 +1,19 @@
 import type { validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
 import type { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
+import type { EstadoCivil } from "@/modules/cadastro/domain/enums";
 
-export const ESTADO_CIVIL_OPCOES = [
+// Catálogo completo do enum EstadoCivil (ver domain/enums.ts) — precisa
+// cobrir os 7 valores que o agente de análise de documentos pode
+// devolver, senão o Select não consegue exibir/selecionar um sócio
+// separado ou desquitado extraído do contrato social.
+export const ESTADO_CIVIL_OPCOES: Array<{ valor: EstadoCivil; label: string }> = [
   { valor: "solteiro", label: "Solteiro(a)" },
   { valor: "casado", label: "Casado(a)" },
+  { valor: "separado", label: "Separado(a)" },
   { valor: "divorciado", label: "Divorciado(a)" },
   { valor: "viuvo", label: "Viúvo(a)" },
   { valor: "uniao_estavel", label: "União Estável" },
+  { valor: "desquitado", label: "Desquitado(a)" },
 ];
 
 // Mapa valor → rótulo, pro `items` do Select — sem ele, `<Select.Value>`
