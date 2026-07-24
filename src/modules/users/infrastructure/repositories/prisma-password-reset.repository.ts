@@ -64,7 +64,9 @@ export class PrismaPasswordResetRepository implements PasswordResetRepository {
   }
 
   async deleteActiveByUserId(userId: string): Promise<void> {
-    await this.prisma.passwordResetToken.deleteMany({ where: { userId } });
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId, status: { not: "USED" } },
+    });
   }
 
   private toDomain(record: PasswordResetTokenRecord): PasswordResetRecord {
