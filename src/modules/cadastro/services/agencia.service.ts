@@ -2,8 +2,9 @@ export interface RawAgenciaResponse {
   id: string;
   cnpj: string;
   razaoSocial: string;
+  // Sempre "em_analise" — a IA roda depois, em background (ver
+  // AnalisarCadastroUseCase). O desfecho final não é conhecido aqui.
   status: string;
-  precisaRevisaoManual: boolean;
 }
 
 export interface RawQsaResponse {

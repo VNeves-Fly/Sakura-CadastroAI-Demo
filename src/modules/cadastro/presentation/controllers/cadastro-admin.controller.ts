@@ -13,6 +13,10 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
+import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
+import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter";
+import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
+import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 // Cross-módulo só aqui na composition root (nunca no domain/application):
@@ -32,6 +36,7 @@ import {
   type SalvarUsuarioMasterInput,
 } from "@/modules/cadastro/application/use-cases/salvar-usuario-master.use-case";
 import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
+import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
 import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
 import { ObterAnaliseContratosUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-contratos.use-case";
 import {
@@ -122,6 +127,15 @@ const emailSender = process.env.SMTP_HOST ? new SmtpEmailAdapter() : new Console
 const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
   ? new D4SignAdapter(signatarioPadraoRepository)
   : new MockD4SignService();
+// Mesmo critério do controller público: agente real quando
+// AGENCY_ANALYSIS_API_KEY está configurada, senão mock — usado só pelo
+// reprocessamento manual de análise (ver reprocessarAnalise).
+const analiseIaService = process.env.AGENCY_ANALYSIS_API_KEY
+  ? new FlysakuraAnaliseIaAdapter()
+  : new MockAnaliseIaService();
+const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
+  ? new FlysakuraDocumentAnalysisAdapter()
+  : new MockDocumentAnalysisService();
 
 export const cadastroAdminController = {
   listarCadastros(filtros: ListarCadastrosFiltros) {
@@ -155,6 +169,21 @@ export const cadastroAdminController = {
       contratoAssinaturaService,
     );
     return useCase.execute(id);
+  },
+
+  // Reprocessa a análise de IA de um cadastro travado em "em_analise"
+  // (ex.: o processo caiu no meio da análise assíncrona, ou a chamada à
+  // IA falhou tecnicamente) — reentrante, roda o mesmo pipeline do envio
+  // automático (ver AnalisarCadastroUseCase).
+  reprocessarAnalise(id: string) {
+    const useCase = new AnalisarCadastroUseCase(
+      agenciaRepository,
+      contratoAssinaturaService,
+      analiseIaService,
+      documentAnalysisService,
+      dadosReceitaRepository,
+    );
+    return useCase.execute({ agenciaId: id });
   },
 
   marcarContratoAssinado(id: string) {

@@ -1,4 +1,5 @@
 import {
+  STATUS_EM_ANALISE,
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
@@ -8,6 +9,7 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 export const STATUS_LABELS: Record<string, string> = {
+  [STATUS_EM_ANALISE]: "Em análise (IA)",
   [STATUS_EM_COMPLEMENTAR]: "Em complementar",
   [STATUS_AGUARDANDO_ASSINATURA]: "Aguardando assinatura",
   [STATUS_AGUARDANDO_VALIDACAO]: "Aguardando validação",
@@ -25,6 +27,7 @@ export function labelStatus(status: string): string {
 // positivo, vermelho pra estado final negativo — rosa (marca) fica
 // reservado pra elementos de identidade/ação primária, não pra status.
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
+  [STATUS_EM_ANALISE]: "bg-muted text-foreground",
   [STATUS_EM_COMPLEMENTAR]: "bg-warning-bg text-warning-text",
   [STATUS_AGUARDANDO_ASSINATURA]: "bg-warning-bg text-warning-text",
   [STATUS_AGUARDANDO_VALIDACAO]: "bg-warning-bg text-warning-text",

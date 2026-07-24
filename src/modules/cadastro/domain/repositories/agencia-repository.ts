@@ -6,12 +6,16 @@ import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/anal
 
 export type { OrigemGeracaoContrato };
 
-// Ciclo de vida completo da agência (decisão do usuário, 2026-07-16):
-// 1. em_complementar        — IA reprovou, sem contrato ainda, analista revisa manualmente.
+// Ciclo de vida completo da agência (decisão do usuário, 2026-07-16;
+// "em_analise" adicionado em 2026-07-24 quando o envio do cadastro passou
+// a persistir antes da IA rodar — ver AnalisarCadastroUseCase):
+// 0. em_analise             — persistido, aguardando a análise de IA rodar em background.
+// 1. em_complementar        — IA reprovou (ou a análise falhou tecnicamente), sem contrato ainda, analista revisa manualmente.
 // 2. aguardando_assinatura  — contrato gerado (pela IA ou pelo analista) e enviado, aguardando os sócios assinarem.
 // 3. aguardando_validacao   — contrato assinado, analista precisa validar o contrato assinado.
 // 4. aguardando_ativacao    — validado; falta só SICA/Travel Link/Usuário Master (não implementados) e clicar em ativar.
 // 5. ativo / recusado       — estados finais.
+export const STATUS_EM_ANALISE = "em_analise";
 export const STATUS_EM_COMPLEMENTAR = "em_complementar";
 export const STATUS_AGUARDANDO_ASSINATURA = "aguardando_assinatura";
 export const STATUS_AGUARDANDO_VALIDACAO = "aguardando_validacao";
@@ -67,11 +71,6 @@ export interface SocioData {
   rgBucket: string | null;
   procuracaoPath: string | null;
   procuracaoBucket: string | null;
-  // Resultado do documentAnalysisService.analisar() sobre o RG deste
-  // sócio — o repository grava como AnaliseIaDocumento vinculada ao
-  // Documento real dentro da mesma transação (precisa do id gerado no
-  // create, por isso não é gravado direto no use-case).
-  analiseIa: DocumentAnalysisResultado | null;
 }
 
 export interface EnderecoBancoData {
@@ -103,28 +102,14 @@ export interface CreateAgenciaData {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
-  // Gravado atomicamente junto (Agencia + sócios + CadastroComplementar
-  // e, se houver, Contrato), numa transação — não existe intervalo entre
-  // eles. Contrato só existe quando a IA já aprovou o cadastro (nesse
-  // caso o status inicial já é "aguardando_assinatura") — na fila
-  // "em_complementar" não há contrato ainda.
+  // Gravado atomicamente junto (Agencia + sócios + CadastroComplementar),
+  // numa transação — não existe intervalo entre eles. Status inicial é
+  // sempre STATUS_EM_ANALISE: a análise de IA e o contrato (se aprovado)
+  // são gravados depois, de forma assíncrona, via registrarAnaliseDocumento/
+  // registrarAnaliseFinal/criarContrato (ver AnalisarCadastroUseCase).
   empresa: EmpresaData;
   socios: SocioData[];
-  // Resultado do documentAnalysisService.analisar() sobre o contrato
-  // social — mesma lógica de SocioData.analiseIa.
-  analiseIaContratoSocial: DocumentAnalysisResultado | null;
-  // Veredito final do analiseIaService.avaliar() (parecer/motivo/flags de
-  // risco + detalhamento do cruzamento) — grava como AnaliseIaAgencia na
-  // mesma transação, pra dar contexto ao analista quando o parecer não é
-  // APROVADO. Null só no mock que não popula parecer estruturado.
-  analiseIaFinal: AnaliseIaResultado | null;
   enderecoBanco: EnderecoBancoData;
-  contrato: {
-    provedorId: string;
-    status: string;
-    origemGeracao: OrigemGeracaoContrato;
-    signatarios: ContratoSignatarioData[];
-  } | null;
 }
 
 export interface ListarCadastrosFiltros {
@@ -148,6 +133,7 @@ export interface ListarCadastrosResult {
 }
 
 export interface CadastrosKpis {
+  emAnalise: number;
   emComplementar: number;
   aguardandoAssinatura: number;
   aguardandoValidacao: number;
@@ -243,6 +229,22 @@ export interface AgenciaRepository {
   findByContratoProvedorId(provedorId: string): Promise<ContratoPorProvedorId | null>;
   obterDetalhe(id: string): Promise<AgenciaDetalhe | null>;
   create(data: CreateAgenciaData): Promise<Agencia>;
+  // Grava (ou regrava, em caso de reprocessamento) o resultado do
+  // documentAnalysisService.analisar() pro documento já existente — parte
+  // do fluxo assíncrono pós-persistência (ver AnalisarCadastroUseCase).
+  registrarAnaliseDocumento(
+    documentoId: string,
+    resultado: DocumentAnalysisResultado,
+  ): Promise<void>;
+  // Grava (ou regrava) o veredito final do analiseIaService.avaliar() e
+  // move a Agencia pro status resultante (aguardando_assinatura ou
+  // em_complementar) numa única operação — reaproveitado tanto pelo
+  // fluxo automático quanto pelo reprocessamento manual no admin.
+  registrarAnaliseFinal(
+    agenciaId: string,
+    resultado: AnaliseIaResultado,
+    novoStatus: string,
+  ): Promise<void>;
   atualizarStatus(id: string, status: string): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
   salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;

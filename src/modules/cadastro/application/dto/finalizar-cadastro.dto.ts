@@ -63,10 +63,8 @@ export interface FinalizarCadastroOutput {
   id: string;
   cnpj: string;
   razaoSocial: string;
+  // Sempre "em_analise" nesta resposta — a IA ainda não rodou (roda
+  // depois, em background — ver AnalisarCadastroUseCase). O desfecho
+  // final (aprovado/revisão manual) não é conhecido na hora do submit.
   status: string;
-  // true quando a IA sinalizou algo errado e o caso foi pra revisão
-  // manual (fila "em_complementar") — nesse caso contratoStatus é null,
-  // já que nenhum contrato foi gerado ainda.
-  precisaRevisaoManual: boolean;
-  contratoStatus: string | null;
 }

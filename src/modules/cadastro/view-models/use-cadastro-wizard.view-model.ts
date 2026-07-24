@@ -125,16 +125,15 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setSubmitDuplicado = useCadastroWizardStore((state) => state.setDuplicado);
   const resetWizardStore = useCadastroWizardStore((state) => state.reset);
 
-  // "analisando" cobre toda a espera pós-clique em Enviar (reconsulta QSA,
-  // análise de documentos pela IA, geração do contrato); "aprovado"/"revisao"
-  // é o desfecho final — fica exibido (sem trocar pra nenhuma outra tela por
-  // trás, que seria uma segunda mensagem redundante). A duração mínima de
-  // "analisando" vale pra QUALQUER desfecho (sucesso, duplicado ou erro) —
-  // sem isso, uma resposta rápida do servidor (ex: erro de validação em <1s)
-  // fazia a animação sumir quase instantaneamente.
-  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "aprovado" | "revisao">(
-    "idle",
-  );
+  // "analisando" cobre a espera pós-clique em Enviar até o cadastro ser
+  // persistido no servidor; "recebido" é o desfecho final — a IA (análise
+  // de documentos, avaliação final, geração do contrato) roda depois, de
+  // forma assíncrona, então o resultado (aprovado ou revisão manual) não
+  // é mais conhecido nesta resposta — ver AnalisarCadastroUseCase. A
+  // duração mínima de "analisando" vale pra QUALQUER desfecho (sucesso,
+  // duplicado ou erro) — sem isso, uma resposta rápida do servidor (ex:
+  // erro de validação em <1s) fazia a animação sumir quase instantaneamente.
+  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "recebido">("idle");
   const inicioAnaliseRef = useRef<number | null>(null);
 
   const DURACAO_MINIMA_ANALISE_MS = 10000;
@@ -754,7 +753,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       await aguardarDuracaoMinimaAnalise();
 
       if (resultado.success) {
-        setFaseSubmit(resultado.precisaRevisaoManual ? "revisao" : "aprovado");
+        setFaseSubmit("recebido");
         // Cadastro já persistido de verdade no banco — o rascunho salvo
         // localmente (autosave) não tem mais função, limpa. O resultado da
         // análise (fase do overlay) já foi guardado acima em faseSubmit,

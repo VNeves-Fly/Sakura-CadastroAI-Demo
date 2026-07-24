@@ -14,6 +14,7 @@ import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/ada
 import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
+import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
 import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/consultar-qsa.use-case";
 import { AnalisarContratoSocialUseCase } from "@/modules/cadastro/application/use-cases/analisar-contrato-social.use-case";
 import { AnalisarDocumentoIdentificacaoUseCase } from "@/modules/cadastro/application/use-cases/analisar-documento-identificacao.use-case";
@@ -64,15 +65,22 @@ const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
 
 export const cadastroPublicoController = {
   finalizarCadastro(input: FinalizarCadastroInput) {
-    const useCase = new FinalizarCadastroUseCase(
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    return useCase.execute(input);
+  },
+
+  // Disparada (sem await) pela rota logo após finalizarCadastro persistir
+  // a Agência — roda a análise de IA e a geração do contrato em
+  // background, atualizando o registro já existente.
+  analisarCadastro(agenciaId: string) {
+    const useCase = new AnalisarCadastroUseCase(
       agenciaRepository,
-      fileStorage,
       contratoAssinaturaService,
       analiseIaService,
       documentAnalysisService,
       dadosReceitaRepository,
     );
-    return useCase.execute(input);
+    return useCase.execute({ agenciaId });
   },
 
   consultarQsa(cnpj: string) {

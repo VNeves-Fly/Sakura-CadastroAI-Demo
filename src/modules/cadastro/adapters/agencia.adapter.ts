@@ -241,11 +241,7 @@ export const agenciaAdapter = {
 
   toSubmitResultView(result: CriarAgenciaResult): SubmitResultView {
     if (result.ok) {
-      return {
-        success: true,
-        agenciaId: result.data.id,
-        precisaRevisaoManual: result.data.precisaRevisaoManual,
-      };
+      return { success: true, agenciaId: result.data.id };
     }
 
     return { success: false, duplicado: result.duplicado, error: result.error };

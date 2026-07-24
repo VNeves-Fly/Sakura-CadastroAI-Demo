@@ -147,6 +147,17 @@ export async function createAgenciaRoute(request: Request) {
       enderecoBanco: parsedMeta.data.enderecoBanco,
     });
 
+    // Fire-and-forget: a Agência já está persistida (status "em_analise"),
+    // então a resposta HTTP não precisa esperar a IA rodar. Roda em
+    // background no mesmo processo (container persistente, não
+    // serverless) — qualquer falha é só logada aqui, porque
+    // AnalisarCadastroUseCase já trata suas próprias falhas internamente
+    // (sempre converge pra um status final, nunca deixa a Agência presa
+    // silenciosamente).
+    void cadastroPublicoController.analisarCadastro(agencia.id).catch((error) => {
+      console.error(`Falha ao disparar análise assíncrona (agenciaId=${agencia.id}):`, error);
+    });
+
     return httpCreated(agencia);
   } catch (error) {
     return mapErrorToResponse(error);
