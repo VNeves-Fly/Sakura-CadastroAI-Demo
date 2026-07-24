@@ -1,5 +1,5 @@
 import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
-import { ResendEmailAdapter } from "@/modules/shared/infrastructure/adapters/resend-email.adapter";
+import { SmtpEmailAdapter } from "@/modules/shared/infrastructure/adapters/smtp-email.adapter";
 import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
 
 // Ponto único de escolha do provedor de e-mail genérico (recuperação de
@@ -7,8 +7,8 @@ import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/co
 // EmailSender compartilhado (não o WelcomeEmailSender específico do
 // e-mail de boas-vindas).
 export function createEmailSender(): EmailSender {
-  if (process.env.RESEND_API_KEY) {
-    return new ResendEmailAdapter();
+  if (process.env.SMTP_HOST) {
+    return new SmtpEmailAdapter();
   }
 
   return new ConsoleEmailAdapter();
