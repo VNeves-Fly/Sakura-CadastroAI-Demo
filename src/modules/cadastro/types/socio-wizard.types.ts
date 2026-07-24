@@ -40,28 +40,6 @@ export interface SocioWizardFormValues {
   procuracaoArquivo: File | null;
 }
 
-// Valores brutos que a IA extraiu do RG/CNH e do contrato social desse
-// sócio — guardados à parte do form pra comparar com o que o usuário
-// digitou (ver divergencia-ia.util.ts) sem virar fonte de verdade do
-// formulário. Nunca sobrescreve o que o usuário já preencheu; só serve
-// pra sinalizar divergência.
-export interface SocioWizardValoresExtraidosIa {
-  nome: string | null;
-  cpf: string | null;
-  dataNascimento: string | null;
-  rg: string | null;
-  rgOrgaoEmissor: string | null;
-  rgUf: string | null;
-  endereco: {
-    logradouro: string | null;
-    numero: string | null;
-    bairro: string | null;
-    cidade: string | null;
-    uf: string | null;
-    cep: string | null;
-  } | null;
-}
-
 // Resultado de validação de um sócio — calculado no ViewModel (única
 // fonte de verdade), consumido pelo SocioWizardCard só pra exibir.
 export interface SocioWizardValidacao {

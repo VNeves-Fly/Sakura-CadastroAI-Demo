@@ -11,9 +11,6 @@ import {
   ESTADO_CIVIL_OPCOES,
   ESTADO_CIVIL_OPCOES_ITEMS,
 } from "@/modules/cadastro/types/socio-wizard.types";
-import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
-import { unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
-import { verificarDivergenciaCampo } from "@/modules/cadastro/utils/divergencia-ia.util";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
@@ -25,7 +22,6 @@ import {
 import type {
   SocioWizardFormValues,
   SocioWizardValidacao,
-  SocioWizardValoresExtraidosIa,
 } from "@/modules/cadastro/types/socio-wizard.types";
 import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
 
@@ -39,7 +35,6 @@ interface SocioWizardCardProps {
   socio: SocioWizardFormValues;
   validacao: SocioWizardValidacao;
   analiseIdentificacao: SocioAnaliseIdentificacaoProps;
-  valoresExtraidosIa: SocioWizardValoresExtraidosIa;
   podeRemover: boolean;
   cepBuscando: boolean;
   onUpdate: (patch: Partial<SocioWizardFormValues>) => void;
@@ -51,17 +46,11 @@ interface SocioWizardCardProps {
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30";
 
-function AvisoDivergencia({ mensagem }: { mensagem: string | null }) {
-  if (!mensagem) return null;
-  return <span className="text-warning text-xs font-medium">⚠ {mensagem}</span>;
-}
-
 export function SocioWizardCard({
   index,
   socio,
   validacao,
   analiseIdentificacao,
-  valoresExtraidosIa,
   podeRemover,
   cepBuscando,
   onUpdate,
@@ -79,61 +68,6 @@ export function SocioWizardCard({
     procuracaoErro,
   } = validacao;
   const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
-  const alertasIdentificacao = analiseIdentificacao.analise
-    ? alertasVisiveis(analiseIdentificacao.analise.alertas)
-    : [];
-  const endereco = valoresExtraidosIa.endereco;
-
-  const divergenciaNome = verificarDivergenciaCampo("Nome", socio.nome, valoresExtraidosIa.nome);
-  const divergenciaCpf = verificarDivergenciaCampo(
-    "CPF",
-    socio.cpf,
-    valoresExtraidosIa.cpf,
-    unmaskCpf,
-  );
-  const divergenciaDataNascimento = verificarDivergenciaCampo(
-    "Data de nascimento",
-    socio.dataNascimento,
-    valoresExtraidosIa.dataNascimento,
-  );
-  const divergenciaRg = verificarDivergenciaCampo("RG", socio.rg, valoresExtraidosIa.rg);
-  const divergenciaRgOrgao = verificarDivergenciaCampo(
-    "Órgão emissor",
-    socio.rgOrgaoEmissor,
-    valoresExtraidosIa.rgOrgaoEmissor,
-  );
-  const divergenciaRgUf = verificarDivergenciaCampo(
-    "UF do RG",
-    socio.rgUf,
-    valoresExtraidosIa.rgUf,
-  );
-  const divergenciaLogradouro = verificarDivergenciaCampo(
-    "Logradouro",
-    socio.logradouro,
-    endereco?.logradouro ?? null,
-  );
-  const divergenciaNumero = verificarDivergenciaCampo(
-    "Número",
-    socio.numero,
-    endereco?.numero ?? null,
-  );
-  const divergenciaBairro = verificarDivergenciaCampo(
-    "Bairro",
-    socio.bairro,
-    endereco?.bairro ?? null,
-  );
-  const divergenciaCidade = verificarDivergenciaCampo(
-    "Cidade",
-    socio.cidade,
-    endereco?.cidade ?? null,
-  );
-  const divergenciaUf = verificarDivergenciaCampo("UF", socio.uf, endereco?.uf ?? null);
-  const divergenciaCep = verificarDivergenciaCampo(
-    "CEP",
-    socio.cep,
-    endereco?.cep ?? null,
-    (valor) => valor.replace(/\D/g, ""),
-  );
 
   return (
     <div className="border-border bg-card flex flex-col gap-4 rounded-2xl border p-4">
@@ -176,24 +110,11 @@ export function SocioWizardCard({
         </span>
       ) : null}
 
-      {!analiseIdentificacao.analisando && alertasIdentificacao.length > 0 ? (
-        <ul className="flex flex-col gap-0.5 text-xs font-medium">
-          {alertasIdentificacao.map((alerta, alertaIndex) => (
-            <li
-              key={alertaIndex}
-              className={alerta.tipo === "erro" ? "text-destructive" : "text-warning"}
-            >
-              {alerta.mensagem}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
       {!socio.rgArquivo ? (
         <p className="text-muted-foreground text-xs">
           Anexe o RG ou CNH do sócio pra liberar o restante do cadastro.
         </p>
-      ) : (
+      ) : analiseIdentificacao.analisando ? null : (
         <>
           <div className="flex flex-col gap-1">
             <label className="text-foreground text-xs font-bold tracking-wide uppercase">
@@ -206,7 +127,6 @@ export function SocioWizardCard({
               className={INPUT_CLASSNAME}
               placeholder="Nome conforme QSA"
             />
-            <AvisoDivergencia mensagem={divergenciaNome.mensagem} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -227,7 +147,6 @@ export function SocioWizardCard({
               {cpfStatus.valido ? (
                 <span className="text-success text-xs font-medium">✓ CPF válido</span>
               ) : null}
-              <AvisoDivergencia mensagem={divergenciaCpf.mensagem} />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -244,7 +163,6 @@ export function SocioWizardCard({
                   {dataNascimentoStatus.mensagem}
                 </span>
               ) : null}
-              <AvisoDivergencia mensagem={divergenciaDataNascimento.mensagem} />
             </div>
           </div>
 
@@ -314,7 +232,6 @@ export function SocioWizardCard({
                 onChange={(event) => onUpdate({ rg: event.target.value })}
                 className={INPUT_CLASSNAME}
               />
-              <AvisoDivergencia mensagem={divergenciaRg.mensagem} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-foreground text-xs font-bold tracking-wide uppercase">
@@ -327,7 +244,6 @@ export function SocioWizardCard({
                 className={INPUT_CLASSNAME}
                 placeholder="SSP"
               />
-              <AvisoDivergencia mensagem={divergenciaRgOrgao.mensagem} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-foreground text-xs font-bold tracking-wide uppercase">
@@ -340,7 +256,6 @@ export function SocioWizardCard({
                 onChange={(event) => onUpdate({ rgUf: event.target.value.toUpperCase() })}
                 className={INPUT_CLASSNAME}
               />
-              <AvisoDivergencia mensagem={divergenciaRgUf.mensagem} />
             </div>
           </div>
 
@@ -387,7 +302,6 @@ export function SocioWizardCard({
                 {cepBuscando ? "Buscando..." : "Buscar"}
               </button>
             </div>
-            <AvisoDivergencia mensagem={divergenciaCep.mensagem} />
           </div>
 
           <div className="flex flex-col gap-1">
@@ -400,7 +314,6 @@ export function SocioWizardCard({
               onChange={(event) => onUpdate({ logradouro: event.target.value })}
               className={INPUT_CLASSNAME}
             />
-            <AvisoDivergencia mensagem={divergenciaLogradouro.mensagem} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -414,7 +327,6 @@ export function SocioWizardCard({
                 onChange={(event) => onUpdate({ numero: event.target.value })}
                 className={INPUT_CLASSNAME}
               />
-              <AvisoDivergencia mensagem={divergenciaNumero.mensagem} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-foreground text-xs font-bold tracking-wide uppercase">
@@ -426,7 +338,6 @@ export function SocioWizardCard({
                 onChange={(event) => onUpdate({ bairro: event.target.value })}
                 className={INPUT_CLASSNAME}
               />
-              <AvisoDivergencia mensagem={divergenciaBairro.mensagem} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-foreground text-xs font-bold tracking-wide uppercase">
@@ -439,7 +350,6 @@ export function SocioWizardCard({
                 onChange={(event) => onUpdate({ uf: event.target.value.toUpperCase() })}
                 className={INPUT_CLASSNAME}
               />
-              <AvisoDivergencia mensagem={divergenciaUf.mensagem} />
             </div>
           </div>
 
@@ -453,7 +363,6 @@ export function SocioWizardCard({
               onChange={(event) => onUpdate({ cidade: event.target.value })}
               className={INPUT_CLASSNAME}
             />
-            <AvisoDivergencia mensagem={divergenciaCidade.mensagem} />
           </div>
 
           <label className="text-foreground flex items-center gap-2 text-sm font-medium">

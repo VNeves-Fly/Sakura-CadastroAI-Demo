@@ -22,10 +22,7 @@ import { maskCep } from "@/modules/cadastro/utils/cep.util";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import { cepService } from "@/modules/cadastro/services/cep.service";
 import { criarSocioWizardVazio } from "@/modules/cadastro/types/socio-wizard.types";
-import type {
-  SocioWizardFormValues,
-  SocioWizardValoresExtraidosIa,
-} from "@/modules/cadastro/types/socio-wizard.types";
+import type { SocioWizardFormValues } from "@/modules/cadastro/types/socio-wizard.types";
 import type { Banco, EnderecoBancoFormValues } from "@/modules/cadastro/types/endereco-banco.types";
 import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
 
@@ -34,21 +31,11 @@ interface SocioAnaliseIdentificacaoState {
   analise: DocumentoIdentificacaoAnaliseView | null;
 }
 
-const VALORES_EXTRAIDOS_IA_VAZIO: SocioWizardValoresExtraidosIa = {
-  nome: null,
-  cpf: null,
-  dataNascimento: null,
-  rg: null,
-  rgOrgaoEmissor: null,
-  rgUf: null,
-  endereco: null,
-};
-
 // Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só. A
 // seção Comercial foi removida e Representação virou uma flag dentro do
 // form de Sócios (o procurador é tratado como um sócio, com slot extra
 // de procuração) — não é mais uma seção separada.
-export const ETAPA_LABELS = ["Empresa", "Sócios", "Endereço & Banco", "Revisão"];
+export const ETAPA_LABELS = ["Empresa", "Sócios", "Endereço", "Banco", "Revisão"];
 
 interface UseCadastroWizardOptions {
   origem: string | null;
@@ -99,13 +86,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const [sociosAnaliseIdentificacao, setSociosAnaliseIdentificacao] = useState<
     Record<number, SocioAnaliseIdentificacaoState>
   >({});
-  // Valores brutos que a IA extraiu (RG/CNH + contrato social) por sócio —
-  // nunca é a fonte de verdade do formulário, só serve pra sinalizar
-  // divergência quando o usuário digita algo diferente (ver
-  // divergencia-ia.util.ts, usado pelo SocioWizardCard).
-  const [sociosValoresExtraidosIa, setSociosValoresExtraidosIa] = useState<
-    Record<number, SocioWizardValoresExtraidosIa>
-  >({});
 
   const telefoneComercial = useCadastroWizardStore((state) => state.telefoneComercial);
   const telefoneComercialPais = useCadastroWizardStore((state) => state.telefoneComercialPais);
@@ -139,16 +119,11 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
 
   const isSubmitting = useCadastroWizardStore((state) => state.isSubmitting);
   const submitError = useCadastroWizardStore((state) => state.error);
-  const submitSuccess = useCadastroWizardStore((state) => state.success);
-  const submitPrecisaRevisaoManual = useCadastroWizardStore((state) => state.precisaRevisaoManual);
   const submitDuplicado = useCadastroWizardStore((state) => state.duplicado);
   const setSubmitting = useCadastroWizardStore((state) => state.setSubmitting);
   const setSubmitError = useCadastroWizardStore((state) => state.setError);
-  const setSubmitSuccess = useCadastroWizardStore((state) => state.setSuccess);
-  const setSubmitPrecisaRevisaoManual = useCadastroWizardStore(
-    (state) => state.setPrecisaRevisaoManual,
-  );
   const setSubmitDuplicado = useCadastroWizardStore((state) => state.setDuplicado);
+  const resetWizardStore = useCadastroWizardStore((state) => state.reset);
 
   // "analisando" cobre toda a espera pós-clique em Enviar (reconsulta QSA,
   // análise de documentos pela IA, geração do contrato); "aprovado"/"revisao"
@@ -229,11 +204,9 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   // Quando a análise do contrato social resolve, tenta preencher um card de
   // sócio pra cada item de `qsa` — nome, cpf, data de nascimento, RG e
   // endereço já vêm do próprio contrato social agora (antes só o nome).
-  // Também guarda o valor bruto extraído em sociosValoresExtraidosIa, pra
-  // sinalizar divergência depois. doc_identificacao continua completando o
-  // que faltar (mesma regra fill-if-empty de sempre, já que o merge daqui
-  // roda primeiro — contrato social é anexado no Passo 1, antes do RG no
-  // Passo 5).
+  // doc_identificacao continua completando o que faltar (mesma regra
+  // fill-if-empty de sempre, já que o merge daqui roda primeiro — contrato
+  // social é anexado no Passo 1, antes do RG no Passo 5).
   useEffect(() => {
     if (!contratoSocialAnalise) return;
 
@@ -283,23 +256,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       }
     });
     setSocios(atualizados);
-
-    setSociosValoresExtraidosIa((atual) => {
-      const proximo = { ...atual };
-      contratoSocialAnalise.socios.forEach((socioExtraido, index) => {
-        proximo[index] = {
-          ...(proximo[index] ?? VALORES_EXTRAIDOS_IA_VAZIO),
-          nome: socioExtraido.nome,
-          cpf: socioExtraido.cpf,
-          dataNascimento: socioExtraido.dataNascimento,
-          rg: socioExtraido.rg,
-          rgOrgaoEmissor: socioExtraido.rgExpedidor,
-          rgUf: socioExtraido.rgExpedidoUf,
-          endereco: socioExtraido.endereco,
-        };
-      });
-      return proximo;
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contratoSocialAnalise]);
 
@@ -412,18 +368,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
           return atualizado;
         }),
       );
-
-      setSociosValoresExtraidosIa((atual) => ({
-        ...atual,
-        [indice]: {
-          ...(atual[indice] ?? VALORES_EXTRAIDOS_IA_VAZIO),
-          cpf: analise.cpf,
-          dataNascimento: analise.dataNascimento,
-          rg: analise.rg,
-          rgOrgaoEmissor: analise.rgOrgaoEmissor,
-          rgUf: analise.rgUf,
-        },
-      }));
     } catch {
       // Best-effort — falha na análise não deve travar o preenchimento manual.
       setSociosAnaliseIdentificacao((atual) => ({
@@ -526,7 +470,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // (reaparecem se o usuário reanexar um arquivo).
     setSociosArquivoErros({});
     setSociosAnaliseIdentificacao({});
-    setSociosValoresExtraidosIa({});
   }
 
   function updateSocio(index: number, patch: Partial<SocioWizardFormValues>) {
@@ -550,22 +493,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
           const proximo = { ...atual };
           delete proximo[index];
           return proximo;
-        });
-        // Só limpa o que vinha do RG/CNH — nome/endereço extraídos do
-        // contrato social não dependem desse arquivo e continuam válidos.
-        setSociosValoresExtraidosIa((atual) => {
-          if (!atual[index]) return atual;
-          return {
-            ...atual,
-            [index]: {
-              ...atual[index],
-              cpf: null,
-              dataNascimento: null,
-              rg: null,
-              rgOrgaoEmissor: null,
-              rgUf: null,
-            },
-          };
         });
       }
     }
@@ -827,12 +754,18 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       await aguardarDuracaoMinimaAnalise();
 
       if (resultado.success) {
-        setSubmitPrecisaRevisaoManual(Boolean(resultado.precisaRevisaoManual));
-        setSubmitSuccess(true);
-        // Cadastro já persistido de verdade no banco — o rascunho salvo
-        // localmente (autosave) não tem mais função, limpa.
-        void useCadastroWizardStore.persist.clearStorage();
         setFaseSubmit(resultado.precisaRevisaoManual ? "revisao" : "aprovado");
+        // Cadastro já persistido de verdade no banco — o rascunho salvo
+        // localmente (autosave) não tem mais função, limpa. O resultado da
+        // análise (fase do overlay) já foi guardado acima em faseSubmit,
+        // estado local independente da store — pode zerar a store (e os
+        // dados extraídos por IA que ficaram em memória) sem afetar o que
+        // é exibido pro usuário.
+        void useCadastroWizardStore.persist.clearStorage();
+        resetWizardStore();
+        setContratoSocialErro(null);
+        setSociosArquivoErros({});
+        setSociosAnaliseIdentificacao({});
         return;
       }
 
@@ -895,7 +828,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     socios,
     sociosValidacao,
     sociosAnaliseIdentificacao,
-    sociosValoresExtraidosIa,
     sociosGating,
     socioCepBuscando,
     addSocio,
@@ -914,8 +846,6 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     documentosPendentes,
     isSubmitting,
     submitError,
-    submitSuccess,
-    submitPrecisaRevisaoManual,
     submitDuplicado,
     submit,
     faseSubmit,
