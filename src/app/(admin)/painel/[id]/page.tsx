@@ -34,6 +34,7 @@ import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
+import { CnpjCopiavel } from "./cnpj-copiavel";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
   labelOrigemContrato,
@@ -47,7 +48,6 @@ import {
   usuarioMasterEstaCompleto,
   documentosAguardandoRevisaoPosReenvio,
 } from "@/modules/admin/adapters/dossie.adapter";
-import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { resolverOrigemEvento } from "@/modules/eventos/utils/resolver-origem.util";
 import {
@@ -273,9 +273,7 @@ export default async function DossieAgenciaPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground font-medium">CNPJ:</span>
-            <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-base font-bold">
-              {maskCnpj(agencia.cnpj)}
-            </span>
+            <CnpjCopiavel cnpj={agencia.cnpj} />
           </p>
           <span
             className={`rounded-full px-3 py-1 text-sm font-medium ${classesBadgeStatus(agencia.status)}`}
