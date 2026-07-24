@@ -19,29 +19,6 @@ export interface Banco {
   nomeCompleto: string;
 }
 
-// Lista estática usada só pelo wizard /chat (use-chat-script.ts), que
-// monta campos de formulário síncronos — não tem como buscar a lista via
-// BrasilAPI sem reestruturar aquele fluxo. O wizard /cadastro usa `Banco`
-// acima, via API.
-export const BANCOS_BRASILEIROS = [
-  "Banco do Brasil",
-  "Bradesco",
-  "Itaú Unibanco",
-  "Caixa Econômica Federal",
-  "Santander",
-  "Nubank",
-  "Inter",
-  "BTG Pactual",
-  "Sicoob",
-  "Sicredi",
-  "C6 Bank",
-  "Banco Original",
-  "Banco Safra",
-  "Banrisul",
-  "Mercado Pago",
-  "PagBank",
-];
-
 export interface EnderecoBancoFormValues {
   enderecoMesmoSocio: boolean;
   socioEnderecoVinculado: number | null;

@@ -14,9 +14,10 @@ const rubik = Rubik({
   variable: "--font-rubik",
 });
 
-// Protótipo visual: mesmo roteiro de campos do wizard em /cadastro/[slug],
-// só que no estilo de conversa (inspirado em codepen.io/supah/pen/jqOBqp).
-// Sem slug/convite — CNPJ é a primeira pergunta. Ver use-chat-script.ts.
+// Mesmo roteiro de campos do wizard /cadastro, só que no estilo de
+// conversa (inspirado em codepen.io/supah/pen/jqOBqp) — ligado aos
+// mesmos service/adapter reais (agenciaService, cepService), sem
+// slug/convite: CNPJ é a primeira pergunta. Ver use-chat-script.ts.
 // Fonte (Rubik 300–900) e cores seguem o guia de estilo entregue — ver
 // ".chat-scope" em globals.css, escopado só a esta rota.
 export default function ChatPage() {
