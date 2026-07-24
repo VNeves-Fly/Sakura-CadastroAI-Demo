@@ -102,6 +102,7 @@ export function Passo6Endereco({
             <div className="flex gap-2">
               <input
                 type="text"
+                autoComplete="off"
                 value={enderecoBanco.cep}
                 onChange={(event) => updateEnderecoBanco({ cep: event.target.value })}
                 className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
@@ -124,6 +125,7 @@ export function Passo6Endereco({
             </label>
             <input
               type="text"
+              autoComplete="off"
               value={enderecoBanco.logradouro}
               onChange={(event) => updateEnderecoBanco({ logradouro: event.target.value })}
               className={INPUT_CLASSNAME}
@@ -137,6 +139,7 @@ export function Passo6Endereco({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={enderecoBanco.numero}
                 onChange={(event) => updateEnderecoBanco({ numero: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -146,6 +149,7 @@ export function Passo6Endereco({
               <label className="text-foreground text-sm font-medium">Complemento</label>
               <input
                 type="text"
+                autoComplete="off"
                 value={enderecoBanco.complemento}
                 onChange={(event) => updateEnderecoBanco({ complemento: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -157,6 +161,7 @@ export function Passo6Endereco({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={enderecoBanco.bairro}
                 onChange={(event) => updateEnderecoBanco({ bairro: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -171,6 +176,7 @@ export function Passo6Endereco({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={enderecoBanco.cidade}
                 onChange={(event) => updateEnderecoBanco({ cidade: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -183,6 +189,7 @@ export function Passo6Endereco({
               <input
                 type="text"
                 maxLength={2}
+                autoComplete="off"
                 value={enderecoBanco.uf}
                 onChange={(event) => updateEnderecoBanco({ uf: event.target.value.toUpperCase() })}
                 className={INPUT_CLASSNAME}

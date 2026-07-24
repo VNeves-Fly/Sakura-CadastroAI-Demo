@@ -13,7 +13,7 @@ export function AnaliseDocumentoLoading({
   mensagem = "Analisando o documento...",
 }: AnaliseDocumentoLoadingProps) {
   return (
-    <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/10 px-4">
+    <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
       <div className="bg-card border-border animate-in fade-in-0 zoom-in-95 flex w-full max-w-[220px] flex-col items-center gap-3 rounded-2xl border p-6 text-center shadow-2xl duration-200">
         {/* eslint-disable-next-line @next/next/no-img-element -- SVG com
         animação SMIL própria; next/image exigiria dangerouslyAllowSVG e
