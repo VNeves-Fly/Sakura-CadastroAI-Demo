@@ -81,7 +81,19 @@ export function ResultadoFinal({ resultado }: { resultado: ResultadoFinalChat })
           </h2>
         </div>
 
-        <div className="flex flex-col gap-2 px-6 py-6 text-sm">
+        <div className="flex flex-col items-center gap-2 px-6 py-6 text-sm">
+          {aprovado ? (
+            // SVG com animação própria (círculo pulsando + check se
+            // desenhando); next/image rasterizaria/otimizaria e quebraria
+            // a animação.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/success/cadastro-aprovado.svg"
+              alt=""
+              aria-hidden="true"
+              className="-mt-2 size-16"
+            />
+          ) : null}
           <p className="text-foreground font-semibold">{resultado.titulo}</p>
           <p className="text-muted-foreground">{resultado.mensagem}</p>
 

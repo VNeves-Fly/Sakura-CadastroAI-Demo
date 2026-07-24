@@ -49,23 +49,14 @@ function ResultadoAnalise({ fase }: { fase: "aprovado" | "revisao" }) {
 
   return (
     <div className="animate-in fade-in-0 zoom-in-95 flex w-80 flex-col items-center gap-3 rounded-2xl bg-white p-8 text-center shadow-2xl duration-300">
-      <div
-        className={`flex h-14 w-14 items-center justify-center rounded-full ${
-          aprovado ? "bg-success/15" : "bg-warning/15"
-        }`}
-      >
-        {aprovado ? (
-          <svg
-            viewBox="0 0 24 24"
-            width="26"
-            height="26"
-            fill="none"
-            stroke="#16a34a"
-            strokeWidth="2"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        ) : (
+      {aprovado ? (
+        // SVG com animação própria (círculo pulsando + check se
+        // desenhando); next/image rasterizaria/otimizaria e quebraria a
+        // animação.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src="/success/cadastro-aprovado.svg" alt="" aria-hidden="true" className="size-20" />
+      ) : (
+        <div className="bg-warning/15 flex h-14 w-14 items-center justify-center rounded-full">
           <svg
             viewBox="0 0 24 24"
             width="26"
@@ -80,8 +71,8 @@ function ResultadoAnalise({ fase }: { fase: "aprovado" | "revisao" }) {
               d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a1 1 0 0 0 .86 1.5h18.64a1 1 0 0 0 .86-1.5L13.71 3.86a1 1 0 0 0-1.72 0Z"
             />
           </svg>
-        )}
-      </div>
+        </div>
+      )}
       <p className={`text-base font-semibold ${aprovado ? "text-success" : "text-warning"}`}>
         {aprovado ? "Cadastro aprovado" : "Cadastro enviado para análise"}
       </p>

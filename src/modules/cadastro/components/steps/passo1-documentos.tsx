@@ -68,9 +68,10 @@ export function Passo1Documentos({
         required
       />
 
-      {analisandoContratoSocial ? (
-        <AnaliseDocumentoLoading mensagem="Analisando o contrato social..." />
-      ) : null}
+      <AnaliseDocumentoLoading
+        visivel={analisandoContratoSocial}
+        mensagem="Analisando o contrato social..."
+      />
     </div>
   );
 }
