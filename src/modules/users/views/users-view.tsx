@@ -2,6 +2,7 @@
 
 import { useUsersListViewModel } from "@/modules/users/view-models/use-users-list.view-model";
 import { useCreateUserViewModel } from "@/modules/users/view-models/use-create-user.view-model";
+import { useResetUserPasswordViewModel } from "@/modules/users/view-models/use-reset-user-password.view-model";
 import { UserList } from "@/modules/users/components/user-list";
 import { CreateUserForm } from "@/modules/users/components/create-user-form";
 import { CreateUserSuccess } from "@/modules/users/components/create-user-success";
@@ -16,6 +17,7 @@ export function UsersView() {
     lastCreatedResult,
     dismissSuccess,
   } = useCreateUserViewModel();
+  const { statusById: resetPasswordStatusById, triggerReset } = useResetUserPasswordViewModel();
 
   return (
     <div className="flex w-full max-w-2xl flex-col gap-6">
@@ -26,7 +28,13 @@ export function UsersView() {
       ) : null}
 
       <CreateUserForm isSubmitting={isSubmitting} error={createError} onSubmit={submit} />
-      <UserList users={users} isLoading={isLoading} error={error} />
+      <UserList
+        users={users}
+        isLoading={isLoading}
+        error={error}
+        resetPasswordStatusById={resetPasswordStatusById}
+        onResetPassword={triggerReset}
+      />
     </div>
   );
 }

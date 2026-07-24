@@ -40,4 +40,15 @@ export const usersService = {
 
     return response.json();
   },
+
+  async requestPasswordReset(userId: string): Promise<void> {
+    const response = await fetch(`/api/users/${userId}/recuperar-senha`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error ?? "Não foi possível enviar o e-mail de recuperação.");
+    }
+  },
 };
