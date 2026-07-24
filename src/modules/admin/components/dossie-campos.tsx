@@ -235,6 +235,7 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
 }
 
 const RESULTADO_ANALISE_LABELS: Record<string, string> = {
+  EM_ANALISE: "Em análise",
   APROVADO: "Aprovado pela IA",
   REPROVADO: "Reprovado pela IA",
   FALHA_ANALISE: "Falha técnica na análise",
@@ -242,26 +243,31 @@ const RESULTADO_ANALISE_LABELS: Record<string, string> = {
 };
 
 const RESULTADO_ANALISE_CLASSES: Record<string, string> = {
+  EM_ANALISE: "bg-muted text-muted-foreground",
   APROVADO: "bg-success-bg text-success-text",
   REPROVADO: "bg-destructive-bg text-destructive-text",
   FALHA_ANALISE: "bg-warning-bg text-warning-text",
   FALHA_CONTRATO: "bg-warning-bg text-warning-text",
 };
 
-// Veredito final da IA sobre a agência (distinto de AnaliseIaDetalhe, que
-// é por documento) — `resultado` vem de ResultadoAnaliseIa e já separa
-// reprovação real (REPROVADO) de falha técnica (FALHA_ANALISE/
-// FALHA_CONTRATO), então o rótulo/cor do badge conta essa história sem
-// precisar abrir o `motivo` em texto livre.
+// Veredito (ou estado atual) da IA sobre a agência (distinto de
+// AnaliseIaDetalhe, que é por documento) — `resultado` vem de
+// ResultadoAnaliseIa e já separa reprovação real (REPROVADO) de falha
+// técnica (FALHA_ANALISE/FALHA_CONTRATO) e do estado ainda pendente
+// (EM_ANALISE), então o rótulo/cor do badge conta essa história sem
+// precisar abrir o `motivo` em texto livre. `analise` só vem null pra
+// cadastros criados antes desta funcionalidade existir — qualquer
+// cadastro novo já nasce com a linha em EM_ANALISE.
 export function ParecerFinalIa({ analise }: { analise: AnaliseIaAgenciaResumo | null }) {
   if (!analise) {
     return (
       <span className="text-muted-foreground text-xs">
-        Ainda não há parecer final da IA — análise pendente ou cadastro anterior a esta
-        funcionalidade.
+        Sem registro de análise de IA — cadastro anterior a esta funcionalidade.
       </span>
     );
   }
+
+  const emAnalise = analise.resultado === "EM_ANALISE";
 
   return (
     <div className="flex flex-col gap-2 text-sm">
@@ -274,7 +280,7 @@ export function ParecerFinalIa({ analise }: { analise: AnaliseIaAgenciaResumo | 
           {RESULTADO_ANALISE_LABELS[analise.resultado] ?? analise.resultado}
         </span>
         <span className="text-muted-foreground text-xs">
-          avaliado em {formatarData(analise.avaliadoEm)}
+          {emAnalise ? "desde" : "avaliado em"} {formatarData(analise.avaliadoEm)}
         </span>
       </div>
 

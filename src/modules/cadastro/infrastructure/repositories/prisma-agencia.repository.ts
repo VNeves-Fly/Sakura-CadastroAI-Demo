@@ -107,6 +107,11 @@ function analiseIaFinalParaPrisma(
     detalhamento: avaliacao.detalhamento
       ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    // Explícito (não só o @default(now()) do create): a linha já existe
+    // desde a persistência do cadastro (resultado=EM_ANALISE), então sem
+    // isso um upsert de update manteria o avaliadoEm original (hora da
+    // persistência) em vez da hora em que a IA de fato terminou.
+    avaliadoEm: new Date(),
   };
 }
 
@@ -398,6 +403,17 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           favorecidoEhEmpresa: data.enderecoBanco.favorecidoEhEmpresa,
           favorecidoNome: data.enderecoBanco.favorecidoNome,
           favorecidoDoc: data.enderecoBanco.favorecidoDoc,
+        },
+      });
+
+      // Criada já aqui (resultado=EM_ANALISE) — um cadastro persistido
+      // nunca fica sem essa linha; registrarAnaliseFinal só faz upsert
+      // pra atualizar quando a IA terminar (ver AnalisarCadastroUseCase).
+      await tx.analiseIaAgencia.create({
+        data: {
+          agenciaId: agencia.id,
+          resultado: PrismaResultadoAnaliseIa.EM_ANALISE,
+          flagsRisco: [],
         },
       });
 

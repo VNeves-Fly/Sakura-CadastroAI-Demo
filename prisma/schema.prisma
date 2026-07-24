@@ -501,21 +501,28 @@ model AnaliseIaDocumento {
 // um REPROVADO de verdade (a IA avaliou e disse não) de uma falha técnica
 // que nunca chegou a produzir um parecer real (FALHA_ANALISE) ou de uma
 // aprovação cujo contrato não pôde ser gerado/enviado (FALHA_CONTRATO).
+// EM_ANALISE é o valor inicial, gravado já na persistência do cadastro
+// (junto da Agencia, status "em_analise") — a linha nunca fica ausente
+// pra um cadastro que já foi persistido; registrarAnaliseFinal só
+// atualiza pra um dos outros três quando a IA termina.
 // Adicionado em 2026-07-24 junto do fluxo assíncrono de análise (ver
 // AnalisarCadastroUseCase) — antes disso só existia o texto livre em
 // `motivo`, sem como diferenciar programaticamente os três casos.
 enum ResultadoAnaliseIa {
+  EM_ANALISE
   APROVADO
   REPROVADO
   FALHA_ANALISE
   FALHA_CONTRATO
 }
 
-// Veredito final do /agency-analysis/sync (parecer/justificativa/flags_risco
-// + stage3, o cruzamento documento×fonte oficial×fornecido) — uma linha por
-// agência, gravada na mesma transação de FinalizarCadastroUseCase. Existe
-// pra dar contexto real ao analista quando o parecer não é APROVADO, em vez
-// de só o status "em_complementar" sem explicação.
+// Veredito (ou estado atual) do /agency-analysis/sync
+// (parecer/justificativa/flags_risco + stage3, o cruzamento
+// documento×fonte oficial×fornecido) — uma linha por agência, criada já
+// na persistência do cadastro (resultado=EM_ANALISE) e atualizada quando
+// a IA termina. Existe pra dar contexto real ao analista quando o
+// parecer não é APROVADO, em vez de só o status "em_complementar" sem
+// explicação.
 model AnaliseIaAgencia {
   id        String             @id @default(cuid())
   agenciaId String             @unique
