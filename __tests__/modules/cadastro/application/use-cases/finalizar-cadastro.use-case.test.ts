@@ -6,6 +6,7 @@ import {
   type CreateAgenciaData,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
+import type { ExecutivoResolver } from "@/modules/cadastro/domain/repositories/executivo-resolver";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import type {
   EnderecoBancoSubmitInput,
@@ -80,6 +81,9 @@ function inputFake(overrides: Partial<FinalizarCadastroInput> = {}): FinalizarCa
     razaoSocial: "Empresa Teste Ltda",
     contratoSocial: ARQUIVO,
     origem: null,
+    executivoId: null,
+    associacaoId: null,
+    eventoId: null,
     telefoneComercial: "11988887777",
     emailOperacional: "operacional@example.com",
     emailComercial: "comercial@example.com",
@@ -129,6 +133,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
     listar: jest.fn(),
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
+    listarPorExecutivoId: jest.fn(),
     ...overrides,
   } as unknown as AgenciaRepository;
 }
@@ -140,6 +145,13 @@ function criarFileStorageFake(): FileStorage {
       contador += 1;
       return Promise.resolve({ path: `${pathHint}-${contador}.pdf`, bucket: "meu-bucket" });
     }),
+  };
+}
+
+function criarExecutivoResolverFake(overrides: Partial<ExecutivoResolver> = {}): ExecutivoResolver {
+  return {
+    resolve: jest.fn().mockResolvedValue(null),
+    ...overrides,
   };
 }
 
@@ -169,7 +181,8 @@ describe("FinalizarCadastroUseCase", () => {
       ),
     });
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await expect(useCase.execute(inputFake())).rejects.toThrow(ConflictError);
     expect(fileStorage.save).not.toHaveBeenCalled();
@@ -179,7 +192,8 @@ describe("FinalizarCadastroUseCase", () => {
   it("salva o contrato social e o RG de cada sócio no storage antes de persistir", async () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(inputFake());
 
@@ -198,7 +212,8 @@ describe("FinalizarCadastroUseCase", () => {
       originalName: "proc.pdf",
       mimeType: "application/pdf",
     };
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(
       inputFake({ socios: [socioFake({ isRepresentante: true, procuracao })] }),
@@ -213,7 +228,8 @@ describe("FinalizarCadastroUseCase", () => {
   it("não tenta salvar procuração quando o sócio não é representante (procuracao null)", async () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(
       inputFake({ socios: [socioFake({ isRepresentante: false, procuracao: null })] }),
@@ -228,7 +244,8 @@ describe("FinalizarCadastroUseCase", () => {
   it("persiste a Agência sempre com status em_analise, independente do que a IA vai decidir depois", async () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(inputFake());
 
@@ -240,7 +257,8 @@ describe("FinalizarCadastroUseCase", () => {
   it("usa o CNPJ como razão social quando o wizard não extraiu nenhuma (contrato social ilegível)", async () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(inputFake({ razaoSocial: "" }));
 
@@ -252,7 +270,8 @@ describe("FinalizarCadastroUseCase", () => {
   it("copia o endereço do sócio vinculado quando enderecoMesmoSocio é true", async () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(
       inputFake({
@@ -276,7 +295,8 @@ describe("FinalizarCadastroUseCase", () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
     const enderecoBancoProprio = enderecoBancoFake().endereco!;
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(inputFake());
 
@@ -290,7 +310,8 @@ describe("FinalizarCadastroUseCase", () => {
   it("cai num endereço vazio (nunca undefined/erro) se enderecoMesmoSocio aponta pra um índice de sócio inexistente", async () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     await useCase.execute(
       inputFake({
@@ -322,7 +343,8 @@ describe("FinalizarCadastroUseCase", () => {
   it("devolve id/cnpj/razaoSocial/status vindos da Agência criada, sem inventar campos (sem precisaRevisaoManual/contratoStatus)", async () => {
     const agenciaRepository = criarRepositorioFake();
     const fileStorage = criarFileStorageFake();
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
 
     const resultado = await useCase.execute(inputFake());
 
@@ -332,5 +354,48 @@ describe("FinalizarCadastroUseCase", () => {
       razaoSocial: "Empresa Teste Ltda",
       status: STATUS_EM_ANALISE,
     });
+  });
+
+  it("resolve o executivoId cru (link pessoal ou de evento) via ExecutivoResolver antes de persistir", async () => {
+    const agenciaRepository = criarRepositorioFake();
+    const fileStorage = criarFileStorageFake();
+    const executivoResolver = criarExecutivoResolverFake({
+      resolve: jest.fn().mockResolvedValue("promotor-1"),
+    });
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
+
+    await useCase.execute(inputFake({ executivoId: "uuid-do-link-pessoal" }));
+
+    expect(executivoResolver.resolve).toHaveBeenCalledWith("uuid-do-link-pessoal");
+    expect(agenciaRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ executivoId: "promotor-1" }),
+    );
+  });
+
+  it("não chama o ExecutivoResolver e grava executivoId null quando o cadastro não veio de um link", async () => {
+    const agenciaRepository = criarRepositorioFake();
+    const fileStorage = criarFileStorageFake();
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
+
+    await useCase.execute(inputFake({ executivoId: null }));
+
+    expect(executivoResolver.resolve).not.toHaveBeenCalled();
+    expect(agenciaRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ executivoId: null }),
+    );
+  });
+
+  it("repassa associacaoId/eventoId direto pro repository, sem resolução (já vêm resolvidos do form)", async () => {
+    const agenciaRepository = criarRepositorioFake();
+    const fileStorage = criarFileStorageFake();
+    const executivoResolver = criarExecutivoResolverFake();
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
+
+    await useCase.execute(inputFake({ associacaoId: "associacao-1", eventoId: "evento-1" }));
+
+    expect(agenciaRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ associacaoId: "associacao-1", eventoId: "evento-1" }),
+    );
   });
 });

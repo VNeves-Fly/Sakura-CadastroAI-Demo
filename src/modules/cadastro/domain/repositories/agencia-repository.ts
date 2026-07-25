@@ -105,6 +105,18 @@ export interface CreateAgenciaData {
   emailContato: string;
   telefoneContato: string;
   origem: string | null;
+  // Id real do Promotor atribuído (Agencia.executivoId) — já resolvido
+  // pelo ExecutivoResolver antes de chegar aqui (a partir do link pessoal
+  // do promotor ou de um link de Evento), null se nenhum executivo foi
+  // atribuído. Nome/gestor/base continuam resolvidos só na leitura (ver
+  // atribuicoesAdminController) — este módulo não conhece o domínio de
+  // Promotor além do id.
+  executivoId: string | null;
+  // Id da Associacao atribuída (combobox do form público ou link de
+  // Evento) — null se nenhuma foi atribuída.
+  associacaoId: string | null;
+  // Id do Evento (painel /eventos) de onde veio o link usado, se houver.
+  eventoId: string | null;
   // Gravado atomicamente junto (Agencia + sócios + CadastroComplementar),
   // numa transação — não existe intervalo entre eles. Status inicial é
   // sempre STATUS_EM_ANALISE: a análise de IA e o contrato (se aprovado)
@@ -120,6 +132,9 @@ export interface ListarCadastrosFiltros {
   status?: string | string[];
   sortBy?: "razaoSocial" | "createdAt";
   sortDir?: "asc" | "desc";
+  executivoId?: string;
+  associacaoId?: string;
+  eventoId?: string;
 }
 
 export interface ListarCadastrosItem {
@@ -128,6 +143,14 @@ export interface ListarCadastrosItem {
   // contexto na listagem (ex.: tooltip "gerado pela IA" vs "gerado pelo
   // analista" na fila Aguardando Assinatura).
   origemContratoAtual: OrigemGeracaoContrato | null;
+  // Nome da associação (Agencia.associacaoId), já resolvido — null se a
+  // agência não pertence a nenhuma.
+  associacaoNome: string | null;
+  // Nome do executivo atribuído (Agencia.executivoId) e do evento de
+  // origem (Agencia.eventoId), já resolvidos — mesma lógica de
+  // associacaoNome. Null quando não há atribuição.
+  executivoNome: string | null;
+  eventoNome: string | null;
 }
 
 export interface ListarCadastrosResult {
@@ -222,6 +245,11 @@ export interface AgenciaDetalhe {
   contratos: ContratoDetalhe[];
   // null = agência anterior a essa avaliação existir.
   analiseIa: AnaliseIaAgenciaDetalhe | null;
+  // Origem da agência, já resolvida — mesma lógica de ListarCadastrosItem
+  // (ver comentário lá), exposta aqui pro dossiê mostrar as 3 badges.
+  executivoNome: string | null;
+  associacaoNome: string | null;
+  eventoNome: string | null;
 }
 
 // Ponto diário do gráfico de fluxo de contratos — só dado real, contado
@@ -286,4 +314,16 @@ export interface AgenciaRepository {
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;
   obterAnaliseContratos(dias: number): Promise<AnaliseContratos>;
+  // Agências atribuídas a um promotor (Agencia.executivoId = id do
+  // Promotor) — usado pela ficha de colaborador em Atribuições, não pelo
+  // dossiê em si.
+  listarPorExecutivoId(promotorId: string): Promise<AgenciaResumoPromotor[]>;
+}
+
+export interface AgenciaResumoPromotor {
+  id: string;
+  razaoSocial: string;
+  cnpj: string;
+  status: string;
+  createdAt: Date;
 }

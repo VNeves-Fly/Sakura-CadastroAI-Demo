@@ -136,6 +136,9 @@ export const agenciaAdapter = {
     razaoSocial: string;
     contratoSocial: File;
     origem: string | null;
+    executivoId: string | null;
+    associacaoId: string | null;
+    eventoId: string | null;
     telefoneComercial: string;
     telefoneComercialPais: string;
     semTelefoneComercial: boolean;
@@ -151,6 +154,15 @@ export const agenciaAdapter = {
     formData.set("razaoSocial", params.razaoSocial);
     if (params.origem) {
       formData.set("origem", params.origem);
+    }
+    if (params.executivoId) {
+      formData.set("executivoId", params.executivoId);
+    }
+    if (params.associacaoId) {
+      formData.set("associacaoId", params.associacaoId);
+    }
+    if (params.eventoId) {
+      formData.set("eventoId", params.eventoId);
     }
     formData.set("contratoSocial", params.contratoSocial);
     formData.set(

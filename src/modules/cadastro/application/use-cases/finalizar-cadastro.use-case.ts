@@ -4,6 +4,7 @@ import {
   STATUS_EM_ANALISE,
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
+import type { ExecutivoResolver } from "@/modules/cadastro/domain/repositories/executivo-resolver";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type {
   EnderecoInput,
@@ -34,6 +35,7 @@ export class FinalizarCadastroUseCase implements UseCase<
   constructor(
     private readonly agenciaRepository: AgenciaRepository,
     private readonly fileStorage: FileStorage,
+    private readonly executivoResolver: ExecutivoResolver,
   ) {}
 
   async execute(input: FinalizarCadastroInput): Promise<FinalizarCadastroOutput> {
@@ -94,6 +96,13 @@ export class FinalizarCadastroUseCase implements UseCase<
         ? socios[input.enderecoBanco.socioEnderecoVinculado ?? -1]?.endereco
         : input.enderecoBanco.endereco) ?? ENDERECO_VAZIO;
 
+    // `input.executivoId` pode ser o Promotor.id direto (vindo de um link
+    // de Evento) ou o uuid pessoal do link antigo (Promotor.linkExecutivoId)
+    // — o resolver aceita os dois formatos e sempre devolve o id canônico.
+    const executivoId = input.executivoId
+      ? await this.executivoResolver.resolve(input.executivoId)
+      : null;
+
     const agencia = await this.agenciaRepository.create({
       razaoSocial,
       cnpj: input.cnpj,
@@ -103,6 +112,9 @@ export class FinalizarCadastroUseCase implements UseCase<
       emailContato: input.emailOperacional,
       telefoneContato: input.telefoneComercial,
       origem: input.origem,
+      executivoId,
+      associacaoId: input.associacaoId,
+      eventoId: input.eventoId,
       empresa: {
         telefoneComercial: input.telefoneComercial,
         emailOperacional: input.emailOperacional,

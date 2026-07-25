@@ -15,7 +15,7 @@ export function BasesTab({ bases }: BasesTabProps) {
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead className="border-border bg-muted/40 border-b">
-          <tr>
+          <tr className="divide-border divide-x">
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Base</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Gestor</th>
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Região(ões)</th>
@@ -23,9 +23,9 @@ export function BasesTab({ bases }: BasesTabProps) {
             <th className="text-muted-foreground px-4 py-2.5 font-medium">Cidades</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-border divide-y">
           {bases.map((base) => (
-            <tr key={base.base} className="border-border border-b last:border-0">
+            <tr key={base.base} className="divide-border divide-x">
               <td className="text-foreground px-4 py-3 font-medium">{base.base}</td>
               <td className="text-foreground px-4 py-3">{base.gestor ?? "—"}</td>
               <td className="text-muted-foreground px-4 py-3 text-xs">

@@ -3,6 +3,7 @@ import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repos
 import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import { PrismaDadosReceitaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-dados-receita.repository";
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
+import { PrismaExecutivoResolver } from "@/modules/cadastro/infrastructure/repositories/prisma-executivo-resolver";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 import { createQsaConsultaService } from "@/modules/cadastro/infrastructure/factories/qsa-consulta-service.factory";
@@ -45,6 +46,7 @@ const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const documentoRepository = new PrismaDocumentoRepository(prisma);
 const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
+const executivoResolver = new PrismaExecutivoResolver(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 // LEGADO — não é mais usado por FinalizarCadastroUseCase (razão social vem
 // do contrato social, dados oficiais vêm da Stage 1 do /agency-analysis/sync).
@@ -66,7 +68,7 @@ const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
 
 export const cadastroPublicoController = {
   finalizarCadastro(input: FinalizarCadastroInput) {
-    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage);
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
     return useCase.execute(input);
   },
 

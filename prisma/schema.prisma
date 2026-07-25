@@ -161,6 +161,23 @@ model Agencia {
   emailContato       String
   telefoneContato    String
   origem             String?
+  // Id real do Promotor atribuído a essa agência (2026-07-25) — resolvido
+  // no momento do cadastro tanto a partir do link pessoal do promotor
+  // (uuid em Promotor.linkExecutivoId) quanto de um link de Evento
+  // personalizado (Promotor.id direto, ver EventoLink). Sempre um id
+  // canônico, nunca o uuid cru do parâmetro `?executivo=` — substitui o
+  // antigo `promotorLinkId`. Null = nenhum executivo atribuído.
+  executivoId        String?
+  executivo          Promotor?     @relation(fields: [executivoId], references: [id])
+  // Uma agência pertence a no máximo uma associação (1:N a partir de
+  // Associacao) — decisão explícita do usuário, 2026-07-24.
+  associacaoId       String?
+  associacao         Associacao?   @relation(fields: [associacaoId], references: [id])
+  // Evento (painel /eventos) de onde veio o cadastro, quando o link
+  // personalizado usado carregava um `?evento=` — null = cadastro direto
+  // ou via link pessoal de promotor sem evento (2026-07-25).
+  eventoId           String?
+  evento             Evento?       @relation(fields: [eventoId], references: [id])
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -988,4 +1005,98 @@ model TemplateWhatsApp {
   sincronizadoEm DateTime @default(now())
 
   @@map("templates_whatsapp")
+}
+
+// Fonte real (planilha "Links Promotores.xlsx", aba Promotores) de quem
+// é cada executivo/gestor comercial — substitui o mock em memória de
+// nomes abreviados/apelidos de cidades-mapa-comercial.json como
+// identidade (decisão do usuário, 2026-07-24): todo promotor tem `sica`
+// (não opcional), o mock de cidades continua só como fonte de
+// base/cidade/região atendida, cruzado por nome.
+model Promotor {
+  id              String   @id @default(cuid())
+  sica            Int      @unique
+  nome            String
+  gestor          String
+  email           String
+  // Nullable — 7 dos 81 registros da planilha de origem vêm sem
+  // telefone preenchido; não inventado.
+  telefone        String?
+  link            String
+  // uuid(s) do parâmetro `?executivo=` extraído(s) de `link` — chave real
+  // de atribuição automática: um cadastro feito por um desses links vira
+  // dessa pessoa (e do gestor/base dela) automaticamente, ver
+  // Agencia.executivoId (resolvido a partir daqui pelo ExecutivoResolver).
+  // Lista (não campo único) porque sócios que dividem o mesmo SICA (ex.:
+  // sica 26) têm dois links pessoais diferentes apontando pra essa mesma
+  // linha.
+  linkExecutivoId String[]
+  // Planilha de origem não tem coluna de base — fica null até existir
+  // uma fonte real pra esse dado (não inventado a partir do mock de
+  // cidades, que usa nomes divergentes).
+  base            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agenciasAtribuidas Agencia[]
+  eventoLinks        EventoLink[]
+
+  @@map("promotores")
+}
+
+// Grupo que recebe um percentual por indicar agências (decisão do
+// usuário, 2026-07-24) — uma associação tem várias agências, mas cada
+// agência pertence a no máximo uma (1:N, ver Agencia.associacaoId).
+// `id` não é gerado aqui de propósito: preserva o uuid real do export
+// (`associacoes-export-2026-07-24_18-58-37.csv`) em vez de cunhar um
+// novo, pra bater com a fonte original se ela um dia virar integração
+// de verdade.
+model Associacao {
+  id        String   @id
+  nome      String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agencias    Agencia[]
+  eventoLinks EventoLink[]
+
+  @@map("associacoes")
+}
+
+// Campanha de captação criada no painel (/painel/eventos) — agrupa vários
+// EventoLink, cada um uma combinação de executivo e/ou associação pra
+// personalizar o cadastro público (2026-07-25). Substitui o mock
+// front-end que existia antes (sem tabela própria, link apontando pra
+// uma rota `/{slug}` que nunca existiu de verdade).
+model Evento {
+  id        String   @id @default(cuid())
+  nome      String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links    EventoLink[]
+  agencias Agencia[]
+
+  @@map("eventos")
+}
+
+// Uma variante de link personalizado de um Evento — não tem rota própria,
+// é resolvido inteiramente por query string na rota pública /cadastro
+// (`?evento=&executivo=&associacao=`). Pelo menos um entre promotorId e
+// associacaoId é exigido na criação (validado no use-case, não aqui).
+model EventoLink {
+  id           String      @id @default(cuid())
+  eventoId     String
+  evento       Evento      @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  promotorId   String?
+  promotor     Promotor?   @relation(fields: [promotorId], references: [id])
+  associacaoId String?
+  associacao   Associacao? @relation(fields: [associacaoId], references: [id])
+  ativo        Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+
+  @@map("evento_links")
 }

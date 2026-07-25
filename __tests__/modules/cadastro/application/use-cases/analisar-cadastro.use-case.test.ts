@@ -130,6 +130,9 @@ function detalheFake(overrides: Partial<AgenciaDetalhe> = {}): AgenciaDetalhe {
     contratoSocial: documentoFake("doc-contrato-1", "agencias/12345678000195/contrato-social.pdf"),
     contratos: [],
     analiseIa: null,
+    executivoNome: null,
+    associacaoNome: null,
+    eventoNome: null,
     ...overrides,
   };
 }
@@ -151,6 +154,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
     listar: jest.fn(),
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
+    listarPorExecutivoId: jest.fn(),
     ...overrides,
   } as unknown as AgenciaRepository;
 }

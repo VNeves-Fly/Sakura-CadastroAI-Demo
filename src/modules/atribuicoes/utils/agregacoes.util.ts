@@ -1,4 +1,5 @@
 import { obterCidades } from "@/modules/atribuicoes/services/atribuicoes-store";
+import type { Promotor } from "@/modules/atribuicoes/domain/entities/promotor.entity";
 import type {
   Cidade,
   FiltrosAtribuicoes,
@@ -115,6 +116,13 @@ export function agregarBases(cidades: Cidade[]): ResumoBase[] {
     .sort((a, b) => a.base.localeCompare(b.base));
 }
 
+// Agregação pura do mock de cidades (nomes abreviados/apelidos,
+// "MAPA COMERCIAL GESTORES") — usada só pelos filtros, pelo Remanejar e
+// pela tela de Substituir, que mexem exatamente nesses valores brutos
+// (Cidade.executivo/gestor). A identidade real de cada pessoa (nome
+// completo, contato, SICA) vive na tabela Promotor — ver
+// paraExecutivosView/paraGestoresView, usadas pelas abas Executivos/
+// Gestores e pela ficha do colaborador.
 export function agregarExecutivos(cidades: Cidade[]): ResumoExecutivo[] {
   const mapa = new Map<
     string,
@@ -142,6 +150,9 @@ export function agregarExecutivos(cidades: Cidade[]): ResumoExecutivo[] {
       gestor: valor.gestores.size > 0 ? [...valor.gestores].join(", ") : null,
       totalCidades: valor.totalCidades,
       totalAgenciasMock: mockTotalAgencias(executivo),
+      idSica: null,
+      email: null,
+      telefone: null,
     }))
     .sort((a, b) => a.executivo.localeCompare(b.executivo));
 }
@@ -177,6 +188,85 @@ export function agregarGestores(cidades: Cidade[]): ResumoGestor[] {
         (total, nomeExecutivo) => total + mockTotalAgencias(nomeExecutivo),
         0,
       ),
+      idSica: null,
+      email: null,
+      telefone: null,
     }))
     .sort((a, b) => b.totalExecutivos - a.totalExecutivos);
+}
+
+// Estatísticas de cidades/bases atendidas por nome (do mock de
+// cidades) — cruzamento por igualdade EXATA de string com o nome real
+// do Promotor. A planilha real usa nome completo; o mock de cidades
+// usa muito apelido/primeiro nome, então a maioria não bate — isso é
+// esperado (mostra 0 cidades/sem base em vez de adivinhar por
+// aproximação, que arriscaria juntar pessoas diferentes).
+function estatisticasPorNome(cidades: Cidade[], campo: "executivo" | "gestor") {
+  const mapa = new Map<string, { bases: Set<string>; totalCidades: number }>();
+  for (const cidade of cidades) {
+    const nome = cidade[campo];
+    if (!nome) continue;
+    const entrada = mapa.get(nome) ?? { bases: new Set<string>(), totalCidades: 0 };
+    entrada.totalCidades += 1;
+    if (cidade.base) entrada.bases.add(cidade.base);
+    mapa.set(nome, entrada);
+  }
+  return mapa;
+}
+
+// Fonte real de identidade (planilha "Links Promotores.xlsx", tabela
+// Promotor) pra aba Executivos — todo promotor tem SICA, sem apelido.
+// Cruza com o mock de cidades só pra estatística de bases/cidades
+// atendidas (ver estatisticasPorNome).
+export function paraExecutivosView(promotores: Promotor[], cidades: Cidade[]): ResumoExecutivo[] {
+  const stats = estatisticasPorNome(cidades, "executivo");
+
+  return promotores
+    .map((promotor) => {
+      const entrada = stats.get(promotor.nome);
+      return {
+        executivo: promotor.nome,
+        base: entrada && entrada.bases.size > 0 ? [...entrada.bases].join(", ") : null,
+        totalBases: entrada?.bases.size ?? 0,
+        gestor: promotor.gestor,
+        totalCidades: entrada?.totalCidades ?? 0,
+        totalAgenciasMock: mockTotalAgencias(promotor.nome),
+        idSica: promotor.sica,
+        email: promotor.email,
+        telefone: promotor.telefone,
+      };
+    })
+    .sort((a, b) => a.executivo.localeCompare(b.executivo));
+}
+
+// Idem, pra aba Gestores — "gestor" aqui é qualquer nome que apareça na
+// coluna Gestor de pelo menos um promotor; o contato (SICA/e-mail/tel)
+// só existe se esse gestor também tiver sua própria linha de promotor
+// (ex.: gestores que atendem cidades diretamente).
+export function paraGestoresView(promotores: Promotor[], cidades: Cidade[]): ResumoGestor[] {
+  const stats = estatisticasPorNome(cidades, "gestor");
+  const promotorPorNome = new Map(promotores.map((promotor) => [promotor.nome, promotor]));
+  const nomesGestores = [...new Set(promotores.map((promotor) => promotor.gestor))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+  return nomesGestores.map((nomeGestor) => {
+    const entrada = stats.get(nomeGestor);
+    const contato = promotorPorNome.get(nomeGestor) ?? null;
+    const subordinados = promotores.filter((promotor) => promotor.gestor === nomeGestor);
+
+    return {
+      gestor: nomeGestor,
+      totalBases: entrada?.bases.size ?? 0,
+      totalExecutivos: subordinados.length,
+      totalCidades: entrada?.totalCidades ?? 0,
+      totalAgenciasMock: subordinados.reduce(
+        (total, promotor) => total + mockTotalAgencias(promotor.nome),
+        0,
+      ),
+      idSica: contato?.sica ?? null,
+      email: contato?.email ?? null,
+      telefone: contato?.telefone ?? null,
+    };
+  });
 }

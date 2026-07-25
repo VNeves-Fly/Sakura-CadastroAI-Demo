@@ -13,7 +13,11 @@ interface EventoLinkRowProps {
 export function EventoLinkRow({ link, onAlternarAtivo }: EventoLinkRowProps) {
   const [copiado, setCopiado] = useState(false);
   const [isAlternando, setIsAlternando] = useState(false);
-  const url = montarUrlEventoLink(link.slug);
+  const url = montarUrlEventoLink({
+    eventoId: link.eventoId,
+    promotorId: link.promotorId,
+    associacaoId: link.associacaoId,
+  });
 
   async function copiarUrl() {
     await navigator.clipboard.writeText(url);
@@ -34,9 +38,16 @@ export function EventoLinkRow({ link, onAlternarAtivo }: EventoLinkRowProps) {
     <div className="border-border bg-muted/20 flex flex-col gap-2 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap">
-            {link.executivoNome}
-          </span>
+          {link.promotorNome ? (
+            <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap">
+              {link.promotorNome}
+            </span>
+          ) : null}
+          {link.associacaoNome ? (
+            <span className="bg-accent text-accent-foreground rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap">
+              {link.associacaoNome}
+            </span>
+          ) : null}
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${
               link.ativo

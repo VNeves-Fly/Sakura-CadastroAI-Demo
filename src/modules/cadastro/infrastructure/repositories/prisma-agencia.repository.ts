@@ -25,6 +25,7 @@ import {
   STATUS_RECUSADO,
   type AgenciaDetalhe,
   type AgenciaRepository,
+  type AgenciaResumoPromotor,
   type AnaliseContratos,
   type AnaliseIaAgenciaDetalhe,
   type CadastroComplementarDetalhe,
@@ -284,6 +285,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         documentos: { orderBy: { createdAt: "desc" } },
         contratos: { orderBy: { createdAt: "desc" } },
         analiseIa: true,
+        executivo: { select: { nome: true } },
+        associacao: { select: { nome: true } },
+        evento: { select: { nome: true } },
       },
     });
 
@@ -304,6 +308,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         createdAt: contrato.createdAt,
       })),
       analiseIa: analiseIaAgenciaToDomain(record.analiseIa),
+      executivoNome: record.executivo?.nome ?? null,
+      associacaoNome: record.associacao?.nome ?? null,
+      eventoNome: record.evento?.nome ?? null,
     };
   }
 
@@ -325,6 +332,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           emailContato: data.emailContato,
           telefoneContato: data.telefoneContato,
           origem: data.origem,
+          executivoId: data.executivoId,
+          associacaoId: data.associacaoId,
+          eventoId: data.eventoId,
           representantesLegais: {
             create: data.socios.map((socio) => ({
               nome: socio.nome,
@@ -559,11 +569,20 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         : (filtros.status as PrismaStatusAgencia);
     }
 
+    if (filtros.executivoId) where.executivoId = filtros.executivoId;
+    if (filtros.associacaoId) where.associacaoId = filtros.associacaoId;
+    if (filtros.eventoId) where.eventoId = filtros.eventoId;
+
     const [records, total] = await Promise.all([
       this.prisma.agencia.findMany({
         where,
         orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
-        include: { contratos: { orderBy: { createdAt: "desc" }, take: 1 } },
+        include: {
+          contratos: { orderBy: { createdAt: "desc" }, take: 1 },
+          associacao: { select: { nome: true } },
+          executivo: { select: { nome: true } },
+          evento: { select: { nome: true } },
+        },
       }),
       this.prisma.agencia.count({ where }),
     ]);
@@ -572,6 +591,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       items: records.map((record) => ({
         agencia: this.toDomain(record),
         origemContratoAtual: (record.contratos[0]?.origemGeracao as OrigemGeracaoContrato) ?? null,
+        associacaoNome: record.associacao?.nome ?? null,
+        executivoNome: record.executivo?.nome ?? null,
+        eventoNome: record.evento?.nome ?? null,
       })),
       total,
     };
@@ -655,6 +677,22 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     }));
 
     return { porOrigem, porDia };
+  }
+
+  async listarPorExecutivoId(promotorId: string): Promise<AgenciaResumoPromotor[]> {
+    const registros = await this.prisma.agencia.findMany({
+      where: { executivoId: promotorId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, razaoSocial: true, cnpj: true, status: true, createdAt: true },
+    });
+
+    return registros.map((registro) => ({
+      id: registro.id,
+      razaoSocial: registro.razaoSocial,
+      cnpj: registro.cnpj,
+      status: registro.status,
+      createdAt: registro.createdAt,
+    }));
   }
 
   private toDomain(record: AgenciaRecord): Agencia {

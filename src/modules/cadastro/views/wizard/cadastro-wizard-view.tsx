@@ -3,7 +3,11 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { animate } from "animejs";
-import { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import {
+  useCadastroWizardViewModel,
+  type ExecutivoOption,
+  type AssociacaoOption,
+} from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import { AnaliseCadastroOverlay } from "@/modules/cadastro/components/analise-cadastro-overlay";
 import { WizardStepper } from "@/modules/cadastro/components/wizard-stepper";
 import { SecaoCard } from "@/modules/cadastro/components/secao-card";
@@ -16,13 +20,32 @@ import { Passo8Revisao } from "@/modules/cadastro/components/steps/passo8-revisa
 
 interface CadastroWizardViewProps {
   origem: string | null;
+  executivoId: string | null;
+  associacaoId: string | null;
+  eventoId: string | null;
+  executivos: ExecutivoOption[];
+  associacoes: AssociacaoOption[];
 }
 
 // View: só renderiza, delegando toda a lógica ao ViewModel do wizard.
 // Página única: as seções ficam empilhadas e vão sendo reveladas
 // conforme o usuário avança (sem bloqueio de validação — só no envio final).
-export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
-  const wizard = useCadastroWizardViewModel({ origem });
+export function CadastroWizardView({
+  origem,
+  executivoId,
+  associacaoId,
+  eventoId,
+  executivos,
+  associacoes,
+}: CadastroWizardViewProps) {
+  const wizard = useCadastroWizardViewModel({
+    origem,
+    executivoId,
+    associacaoId,
+    eventoId,
+    executivos,
+    associacoes,
+  });
   const secaoRefs = useRef<Array<HTMLDivElement | null>>([]);
   const primeiraRenderizacao = useRef(true);
 

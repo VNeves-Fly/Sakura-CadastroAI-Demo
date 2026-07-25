@@ -25,6 +25,13 @@ interface CadastroWizardState {
   // secoesReveladas é quantas seções (a partir da 1) já estão visíveis.
   secoesReveladas: number;
   origem: string | null;
+  // Id real do Promotor/Associacao/Evento atribuído ao cadastro (já
+  // resolvido, ver ExecutivoResolver) — vem pré-preenchido via
+  // querystring (link pessoal de promotor ou link de Evento) ou por
+  // seleção manual da pessoa no formulário. Null = nenhuma atribuição.
+  executivoId: string | null;
+  associacaoId: string | null;
+  eventoId: string | null;
 
   // Seção 1 — Empresa (documentos + dados da empresa)
   cnpj: string;
@@ -67,6 +74,9 @@ interface CadastroWizardState {
   duplicado: boolean;
 
   setOrigem: (origem: string | null) => void;
+  setExecutivoId: (executivoId: string | null) => void;
+  setAssociacaoId: (associacaoId: string | null) => void;
+  setEventoId: (eventoId: string | null) => void;
   avancarSecao: () => void;
   setCnpj: (cnpj: string) => void;
   setCnpjStatus: (status: CnpjStatus) => void;
@@ -119,6 +129,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
     (set) => ({
       secoesReveladas: 1,
       origem: null,
+      executivoId: null,
+      associacaoId: null,
+      eventoId: null,
 
       cnpj: "",
       cnpjStatus: { valido: false, mensagem: null },
@@ -152,6 +165,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       duplicado: false,
 
       setOrigem: (origem) => set({ origem }),
+      setExecutivoId: (executivoId) => set({ executivoId }),
+      setAssociacaoId: (associacaoId) => set({ associacaoId }),
+      setEventoId: (eventoId) => set({ eventoId }),
 
       avancarSecao: () =>
         set((state) => ({ secoesReveladas: Math.min(state.secoesReveladas + 1, TOTAL_ETAPAS) })),
@@ -231,6 +247,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       partialize: (state) => ({
         secoesReveladas: state.secoesReveladas,
         origem: state.origem,
+        executivoId: state.executivoId,
+        associacaoId: state.associacaoId,
+        eventoId: state.eventoId,
         cnpj: state.cnpj,
         cnpjStatus: state.cnpjStatus,
         qsaResult: state.qsaResult,

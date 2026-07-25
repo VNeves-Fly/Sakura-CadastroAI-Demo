@@ -11,8 +11,17 @@ import { FileDropZone } from "./file-drop-zone";
 import { LoadingPage } from "./loading-page";
 import { ResultadoFinal } from "./resultado-final";
 import { AnaliseDocumentoLoading } from "@/modules/cadastro/components/analise-documento-loading";
+import type {
+  ExecutivoOption,
+  AssociacaoOption,
+} from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
-export function ChatWizard() {
+interface ChatWizardProps {
+  executivos: ExecutivoOption[];
+  associacoes: AssociacaoOption[];
+}
+
+export function ChatWizard({ executivos, associacoes }: ChatWizardProps) {
   const {
     messages,
     pending,
@@ -23,7 +32,7 @@ export function ChatWizard() {
     onQuickReply,
     onEnviarForm,
     onEnviarArquivo,
-  } = useChatScript();
+  } = useChatScript({ executivos, associacoes });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
