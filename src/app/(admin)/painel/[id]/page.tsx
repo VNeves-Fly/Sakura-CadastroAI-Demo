@@ -52,7 +52,6 @@ import {
   documentosAguardandoRevisaoPosReenvio,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
-import { resolverOrigemEvento } from "@/modules/eventos/utils/resolver-origem.util";
 import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -184,6 +183,9 @@ export default async function DossieAgenciaPage({
 
   const {
     agencia,
+    executivoNome,
+    associacaoNome,
+    eventoNome,
     complementar,
     representantesLegais,
     contratoSocial,
@@ -239,7 +241,6 @@ export default async function DossieAgenciaPage({
     (etapa) => etapa.status === STATUS_AGUARDANDO_ATIVACAO,
   );
   const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
-  const origemEvento = resolverOrigemEvento(agencia.origem);
 
   return (
     <div className="flex flex-col gap-4">
@@ -249,16 +250,25 @@ export default async function DossieAgenciaPage({
           {/* Gestor/Base escondidos até existir fonte de dado real (aguardando
               modelagem no backend) — mostrar "—" com tooltip parecia
               funcionalidade quebrada, não um espaço reservado pro futuro.
-              Evento/Executivo já dá pra resolver via o mock de /eventos
-              (ver resolver-origem.util.ts) a partir de Agencia.origem. */}
-          {origemEvento ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="bg-accent text-accent-foreground rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap">
-                {origemEvento.eventoNome}
-              </span>
-              <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
-                {origemEvento.executivoNome}
-              </span>
+              Evento/Executivo/Associação vêm resolvidos de verdade agora
+              (Agencia.eventoId/executivoId/associacaoId). */}
+          {eventoNome || executivoNome || associacaoNome ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {eventoNome ? (
+                <span className="bg-accent text-accent-foreground rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap">
+                  {eventoNome}
+                </span>
+              ) : null}
+              {executivoNome ? (
+                <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
+                  {executivoNome}
+                </span>
+              ) : null}
+              {associacaoNome ? (
+                <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
+                  {associacaoNome}
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>

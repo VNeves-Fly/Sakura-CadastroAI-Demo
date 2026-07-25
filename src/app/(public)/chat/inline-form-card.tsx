@@ -10,6 +10,18 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  Combobox,
+  ComboboxInputGroup,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxItem,
+} from "@/components/ui/combobox";
+
+interface OpcaoCombobox {
+  valor: string;
+  label: string;
+}
 
 interface InlineFormCardProps {
   titulo: string;
@@ -80,6 +92,37 @@ export function InlineFormCard({ titulo, campos, onConfirmar }: InlineFormCardPr
                   ))}
                 </SelectContent>
               </Select>
+            ) : null}
+            {campo.tipo === "combobox" ? (
+              <Combobox<OpcaoCombobox>
+                items={campo.opcoes ?? []}
+                value={
+                  (campo.opcoes ?? []).find(
+                    (opcao) => opcao.valor === String(valores[campo.nome] ?? ""),
+                  ) ?? null
+                }
+                onValueChange={(opcao) => atualizar(campo.nome, opcao?.valor ?? "")}
+                itemToStringLabel={(opcao) => opcao.label}
+              >
+                <ComboboxInputGroup>
+                  <ComboboxInput
+                    placeholder={campo.placeholder ?? "Busque..."}
+                    autoComplete="off"
+                    className="focus:border-accent border-white/20 bg-white/10 text-white placeholder:text-white/40"
+                  />
+                </ComboboxInputGroup>
+                <ComboboxContent className="border-white/10 bg-zinc-900/95 text-white backdrop-blur-md">
+                  {(opcao: OpcaoCombobox) => (
+                    <ComboboxItem
+                      key={opcao.valor}
+                      value={opcao}
+                      className="data-highlighted:bg-white/10 data-highlighted:text-white"
+                    >
+                      {opcao.label}
+                    </ComboboxItem>
+                  )}
+                </ComboboxContent>
+              </Combobox>
             ) : null}
             {campo.tipo === "checkbox" ? (
               <div className="flex items-center justify-between gap-3">

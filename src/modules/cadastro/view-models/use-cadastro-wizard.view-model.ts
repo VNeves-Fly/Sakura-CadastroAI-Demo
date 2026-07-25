@@ -37,21 +37,57 @@ interface SocioAnaliseIdentificacaoState {
 // de procuração) — não é mais uma seção separada.
 export const ETAPA_LABELS = ["Empresa", "Sócios", "Endereço", "Banco", "Revisão"];
 
+export interface ExecutivoOption {
+  id: string;
+  nome: string;
+}
+
+export interface AssociacaoOption {
+  id: string;
+  nome: string;
+}
+
 interface UseCadastroWizardOptions {
   origem: string | null;
-  promotorLinkId: string | null;
+  // Já resolvidos/validados no server component (page.tsx) — presentes
+  // aqui só quando o acesso veio por um link personalizado (pessoal de
+  // promotor ou de Evento); nesse caso o campo correspondente nasce
+  // travado no formulário (ver Passo2Empresa).
+  executivoId: string | null;
+  associacaoId: string | null;
+  eventoId: string | null;
+  // Listas reais pro combobox de busca (Promotor/Associacao) — vêm do
+  // server component, a página pública não conhece esses domínios além
+  // de precisar exibi-los.
+  executivos: ExecutivoOption[];
+  associacoes: AssociacaoOption[];
 }
 
 // Orquestra a revelação progressiva das seções (página única, sem
 // bloqueio de validação — só no envio final) e a lógica de campos da
 // seção Empresa (CNPJ + contrato social + consulta QSA + dados da
 // empresa).
-export function useCadastroWizardViewModel({ origem, promotorLinkId }: UseCadastroWizardOptions) {
+export function useCadastroWizardViewModel({
+  origem,
+  executivoId,
+  associacaoId,
+  eventoId,
+  executivos,
+  associacoes,
+}: UseCadastroWizardOptions) {
   const secoesReveladas = useCadastroWizardStore((state) => state.secoesReveladas);
   const avancarSecao = useCadastroWizardStore((state) => state.avancarSecao);
   const setOrigem = useCadastroWizardStore((state) => state.setOrigem);
-  const promotorLinkIdSalvo = useCadastroWizardStore((state) => state.promotorLinkId);
-  const setPromotorLinkId = useCadastroWizardStore((state) => state.setPromotorLinkId);
+  const executivoIdSalvo = useCadastroWizardStore((state) => state.executivoId);
+  const setExecutivoId = useCadastroWizardStore((state) => state.setExecutivoId);
+  const associacaoIdSalvo = useCadastroWizardStore((state) => state.associacaoId);
+  const setAssociacaoId = useCadastroWizardStore((state) => state.setAssociacaoId);
+  const eventoIdSalvo = useCadastroWizardStore((state) => state.eventoId);
+  const setEventoId = useCadastroWizardStore((state) => state.setEventoId);
+  // Travado (não editável) só quando a própria prop da URL trouxe um
+  // valor — uma seleção manual anterior (sem link) nunca trava o campo.
+  const executivoTravado = Boolean(executivoId);
+  const associacaoTravado = Boolean(associacaoId);
 
   const cnpj = useCadastroWizardStore((state) => state.cnpj);
   const cnpjStatus = useCadastroWizardStore((state) => state.cnpjStatus);
@@ -185,14 +221,24 @@ export function useCadastroWizardViewModel({ origem, promotorLinkId }: UseCadast
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origem]);
 
-  // Só grava quando vier preenchido (diferente do setOrigem acima) —
-  // uma vez capturado o link do promotor, uma revisita sem o parâmetro
-  // (ex.: continuando o rascunho salvo) não pode apagar a atribuição já
-  // guardada.
+  // Só grava quando vier preenchido (diferente do setOrigem acima) — uma
+  // vez capturada a atribuição via link, uma revisita sem o parâmetro
+  // (ex.: continuando o rascunho salvo) não pode apagar o que já foi
+  // guardado.
   useEffect(() => {
-    if (promotorLinkId) setPromotorLinkId(promotorLinkId);
+    if (executivoId) setExecutivoId(executivoId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [promotorLinkId]);
+  }, [executivoId]);
+
+  useEffect(() => {
+    if (associacaoId) setAssociacaoId(associacaoId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [associacaoId]);
+
+  useEffect(() => {
+    if (eventoId) setEventoId(eventoId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventoId]);
 
   // LEGADO — qsaResult nunca é populado hoje (consultarQsaSeCompleto não é
   // mais chamado por setCnpj), então este efeito fica inerte. Mantido junto
@@ -746,7 +792,9 @@ export function useCadastroWizardViewModel({ origem, promotorLinkId }: UseCadast
       razaoSocial,
       contratoSocial,
       origem,
-      promotorLinkId: promotorLinkIdSalvo,
+      executivoId: executivoIdSalvo,
+      associacaoId: associacaoIdSalvo,
+      eventoId: eventoIdSalvo,
       telefoneComercial,
       telefoneComercialPais,
       semTelefoneComercial,
@@ -804,6 +852,15 @@ export function useCadastroWizardViewModel({ origem, promotorLinkId }: UseCadast
     totalEtapas: TOTAL_ETAPAS,
     labels: ETAPA_LABELS,
     avancarSecao,
+
+    executivos,
+    associacoes,
+    executivoIdSelecionado: executivoIdSalvo,
+    associacaoIdSelecionado: associacaoIdSalvo,
+    executivoTravado,
+    associacaoTravado,
+    setExecutivoId,
+    setAssociacaoId,
 
     cnpj,
     cnpjStatus,

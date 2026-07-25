@@ -50,6 +50,10 @@ function parseJsonField(value: FormDataEntryValue | null): unknown {
   return typeof value === "string" ? JSON.parse(value) : undefined;
 }
 
+function parseStringField(value: FormDataEntryValue | null): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
 export async function createAgenciaRoute(request: Request) {
   try {
     const chaveRateLimit = `cadastro-agencia:${obterIpCliente(request)}`;
@@ -59,17 +63,13 @@ export async function createAgenciaRoute(request: Request) {
 
     const formData = await request.formData();
 
-    const origemRaw = formData.get("origem");
-    const promotorLinkIdRaw = formData.get("promotorLinkId");
-
     const parsedMeta = finalizarCadastroMetaSchema.safeParse({
       cnpj: formData.get("cnpj"),
       razaoSocial: formData.get("razaoSocial") ?? "",
-      origem: typeof origemRaw === "string" && origemRaw.length > 0 ? origemRaw : undefined,
-      promotorLinkId:
-        typeof promotorLinkIdRaw === "string" && promotorLinkIdRaw.length > 0
-          ? promotorLinkIdRaw
-          : undefined,
+      origem: parseStringField(formData.get("origem")),
+      executivoId: parseStringField(formData.get("executivoId")),
+      associacaoId: parseStringField(formData.get("associacaoId")),
+      eventoId: parseStringField(formData.get("eventoId")),
       telefoneComercial: formData.get("telefoneComercial") ?? "",
       semTelefoneComercial: formData.get("semTelefoneComercial") === "true",
       emailOperacional: formData.get("emailOperacional") ?? "",
@@ -143,7 +143,9 @@ export async function createAgenciaRoute(request: Request) {
       cnpj: parsedMeta.data.cnpj,
       razaoSocial: parsedMeta.data.razaoSocial,
       origem: parsedMeta.data.origem ?? null,
-      promotorLinkId: parsedMeta.data.promotorLinkId ?? null,
+      executivoId: parsedMeta.data.executivoId ?? null,
+      associacaoId: parsedMeta.data.associacaoId ?? null,
+      eventoId: parsedMeta.data.eventoId ?? null,
       contratoSocial: await toUploadedFile(contratoSocialFile),
       telefoneComercial: parsedMeta.data.telefoneComercial,
       emailOperacional: parsedMeta.data.emailOperacional,

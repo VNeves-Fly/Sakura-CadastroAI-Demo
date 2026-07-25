@@ -18,8 +18,17 @@ export async function obterDossieView(id: string) {
 
   if (!detalhe) return null;
 
-  const { agencia, complementar, representantesLegais, contratoSocial, contratos, analiseIa } =
-    detalhe;
+  const {
+    agencia,
+    complementar,
+    representantesLegais,
+    contratoSocial,
+    contratos,
+    analiseIa,
+    executivoNome,
+    associacaoNome,
+    eventoNome,
+  } = detalhe;
   const contratoAtual = contratos[0] ?? null;
   const parecerIa = paraParecerView(analiseIa);
 
@@ -111,6 +120,9 @@ export async function obterDossieView(id: string) {
 
   return {
     agencia,
+    executivoNome,
+    associacaoNome,
+    eventoNome,
     complementar,
     representantesLegais,
     contratoSocial,

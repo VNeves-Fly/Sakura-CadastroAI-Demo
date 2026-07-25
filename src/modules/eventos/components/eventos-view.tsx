@@ -3,11 +3,16 @@
 import { useEventos } from "@/modules/eventos/view-models/use-eventos.view-model";
 import { CriarEventoForm } from "@/modules/eventos/components/criar-evento-form";
 import { EventoCard } from "@/modules/eventos/components/evento-card";
+import type { Executivo, AssociacaoOpcao } from "@/modules/eventos/types/evento.types";
 
-export function EventosView() {
+interface EventosViewProps {
+  executivos: Executivo[];
+  associacoes: AssociacaoOpcao[];
+}
+
+export function EventosView({ executivos, associacoes }: EventosViewProps) {
   const {
     eventos,
-    executivos,
     isLoading,
     isSalvando,
     hasError,
@@ -37,8 +42,8 @@ export function EventosView() {
       <div>
         <h1 className="text-foreground text-lg font-bold">Eventos</h1>
         <p className="text-muted-foreground text-sm">
-          Crie links de afiliado por executivo — toda agência cadastrada pelo link carrega a tag do
-          executivo dono.
+          Crie links personalizados por executivo e/ou associação — toda agência cadastrada por um
+          desses links carrega a atribuição correspondente automaticamente.
         </p>
       </div>
 
@@ -53,8 +58,9 @@ export function EventosView() {
               key={evento.id}
               evento={evento}
               executivos={executivos}
+              associacoes={associacoes}
               isSalvando={isSalvando}
-              onCriarLink={(executivoId) => criarEventoLink({ eventoId: evento.id, executivoId })}
+              onCriarLink={(data) => criarEventoLink({ eventoId: evento.id, ...data })}
               onAlternarAtivoLink={alternarAtivoLink}
             />
           ))}

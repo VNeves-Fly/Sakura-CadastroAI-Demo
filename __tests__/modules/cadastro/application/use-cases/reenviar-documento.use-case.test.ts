@@ -42,7 +42,7 @@ function criarMocks(documento: Documento) {
     listar: jest.fn(),
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
-    listarPorPromotorLinkId: jest.fn(),
+    listarPorExecutivoId: jest.fn(),
   };
 
   const save = jest.fn((_arquivo: unknown, pathHint: string) =>

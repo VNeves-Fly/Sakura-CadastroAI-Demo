@@ -9,13 +9,10 @@ import type {
 // promotor com as agências que ele trouxe, não uma escrita no domínio
 // de cadastro — mesmo tipo de composição que o dossiê do admin já faz
 // com vários repositories de módulos diferentes.
-export class ListarAgenciasPorPromotorUseCase implements UseCase<
-  string[],
-  AgenciaResumoPromotor[]
-> {
+export class ListarAgenciasPorPromotorUseCase implements UseCase<string, AgenciaResumoPromotor[]> {
   constructor(private readonly agenciaRepository: AgenciaRepository) {}
 
-  async execute(linkExecutivoId: string[]): Promise<AgenciaResumoPromotor[]> {
-    return this.agenciaRepository.listarPorPromotorLinkId(linkExecutivoId);
+  async execute(promotorId: string): Promise<AgenciaResumoPromotor[]> {
+    return this.agenciaRepository.listarPorExecutivoId(promotorId);
   }
 }

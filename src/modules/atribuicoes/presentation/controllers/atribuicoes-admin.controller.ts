@@ -18,9 +18,9 @@ export const atribuicoesAdminController = {
     const useCase = new ListarPromotoresUseCase(promotorRepository);
     return useCase.execute();
   },
-  listarAgenciasPorPromotor(linkExecutivoId: string[]) {
+  listarAgenciasPorPromotor(promotorId: string) {
     const useCase = new ListarAgenciasPorPromotorUseCase(agenciaRepository);
-    return useCase.execute(linkExecutivoId);
+    return useCase.execute(promotorId);
   },
   listarAssociacoes() {
     const useCase = new ListarAssociacoesUseCase(associacaoRepository);

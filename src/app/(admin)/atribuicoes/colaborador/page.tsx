@@ -155,12 +155,20 @@ export default async function ColaboradorPage({ searchParams }: ColaboradorPageP
       .map((promotor) => promotor.nome)
       .sort((a, b) => a.localeCompare(b));
     const promotorGestorProprio = promotores.find((promotor) => promotor.nome === nome);
-    const linksDoGestor = [
-      ...(promotorGestorProprio?.linkExecutivoId ?? []),
-      ...subordinados.flatMap((promotor) => promotor.linkExecutivoId),
+    const idsPromotoresDoGestor = [
+      ...new Set(
+        [promotorGestorProprio, ...subordinados]
+          .filter((promotor): promotor is NonNullable<typeof promotor> => Boolean(promotor))
+          .map((promotor) => promotor.id),
+      ),
     ];
-    const agenciasDoGestor =
-      await atribuicoesAdminController.listarAgenciasPorPromotor(linksDoGestor);
+    const agenciasDoGestor = (
+      await Promise.all(
+        idsPromotoresDoGestor.map((id) => atribuicoesAdminController.listarAgenciasPorPromotor(id)),
+      )
+    )
+      .flat()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return (
       <div className="flex max-w-2xl flex-col gap-6">
@@ -213,9 +221,9 @@ export default async function ColaboradorPage({ searchParams }: ColaboradorPageP
   if (!nome || !resumo) return <NaoEncontrado tipo="executivo" />;
 
   const promotorAtual = promotores.find((promotor) => promotor.nome === nome);
-  const agenciasDoExecutivo = await atribuicoesAdminController.listarAgenciasPorPromotor(
-    promotorAtual?.linkExecutivoId ?? [],
-  );
+  const agenciasDoExecutivo = promotorAtual
+    ? await atribuicoesAdminController.listarAgenciasPorPromotor(promotorAtual.id)
+    : [];
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
