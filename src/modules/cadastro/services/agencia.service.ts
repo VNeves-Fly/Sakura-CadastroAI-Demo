@@ -2,8 +2,9 @@ export interface RawAgenciaResponse {
   id: string;
   cnpj: string;
   razaoSocial: string;
+  // Sempre "em_analise" — a IA roda depois, em background (ver
+  // AnalisarCadastroUseCase). O desfecho final não é conhecido aqui.
   status: string;
-  precisaRevisaoManual: boolean;
 }
 
 export interface RawQsaResponse {
@@ -76,6 +77,23 @@ export interface RawBancoResponse {
 
 // Única camada autorizada a se comunicar com a API externa (rotas /api/cadastro).
 export const agenciaService = {
+  // Aviso antecipado no preenchimento (não substitui a checagem real do
+  // submit final) — best-effort: falha aqui não deve travar o usuário.
+  async verificarCnpjCadastrado(cnpj: string): Promise<boolean> {
+    const response = await fetch("/api/cadastro/verificar-cnpj", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cnpj }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Não foi possível verificar o CNPJ.");
+    }
+
+    const data: { existe: boolean } = await response.json();
+    return data.existe;
+  },
+
   async consultarQsa(cnpj: string): Promise<RawQsaResponse | null> {
     const response = await fetch("/api/cadastro/qsa", {
       method: "POST",

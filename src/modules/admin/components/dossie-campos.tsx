@@ -268,23 +268,36 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
   );
 }
 
-// Veredito da IA em badge — mesma linguagem semântica de
-// SituacaoCadastralBadge, mas pro vocabulário próprio do parecer
-// (APROVADO/PENDENTE/REPROVADO, como devolvido pelo agente externo).
-function ParecerBadge({ parecer }: { parecer: string | null }) {
-  if (!parecer) return <span className="text-muted-foreground text-xs">—</span>;
+const RESULTADO_ANALISE_LABELS: Record<string, string> = {
+  EM_ANALISE: "Em análise",
+  APROVADO: "Aprovado pela IA",
+  REPROVADO: "Reprovado pela IA",
+  FALHA_ANALISE: "Falha técnica na análise",
+  FALHA_CONTRATO: "Falha na geração do contrato",
+};
 
-  const normalizado = parecer.toUpperCase();
-  const classes =
-    normalizado === "APROVADO"
-      ? "bg-success-bg text-success-text"
-      : normalizado === "REPROVADO"
-        ? "bg-destructive-bg text-destructive-text"
-        : "bg-warning-bg text-warning-text";
+const RESULTADO_ANALISE_CLASSES: Record<string, string> = {
+  EM_ANALISE: "bg-muted text-muted-foreground",
+  APROVADO: "bg-success-bg text-success-text",
+  REPROVADO: "bg-destructive-bg text-destructive-text",
+  FALHA_ANALISE: "bg-warning-bg text-warning-text",
+  FALHA_CONTRATO: "bg-warning-bg text-warning-text",
+};
 
+// Badge do veredito — chaveado por `resultado` (ResultadoAnaliseIa), não
+// pelo `parecer` bruto do agente externo: `resultado` já separa
+// reprovação real (REPROVADO) de falha técnica (FALHA_ANALISE/
+// FALHA_CONTRATO) e do estado ainda pendente (EM_ANALISE), enquanto
+// `parecer` fica null nas falhas técnicas (nunca chegou a existir um
+// veredito de verdade).
+function ResultadoBadge({ resultado }: { resultado: string }) {
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${classes}`}>
-      {parecer}
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+        RESULTADO_ANALISE_CLASSES[resultado] ?? "bg-muted text-muted-foreground"
+      }`}
+    >
+      {RESULTADO_ANALISE_LABELS[resultado] ?? resultado}
     </span>
   );
 }
@@ -293,7 +306,9 @@ function ParecerBadge({ parecer }: { parecer: string | null }) {
 // motivo de não ter passado direto pra contrato, os pontos de alerta
 // (flagsRisco) e o checklist do que o analista precisa checar — pedido
 // explícito do usuário em vez de espalhar essa informação em blocos
-// separados pela ficha.
+// separados pela ficha. `parecer` só vem null pra cadastros criados
+// antes desta funcionalidade existir — qualquer cadastro novo já nasce
+// com a linha em EM_ANALISE.
 export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
   if (!parecer) {
     return (
@@ -303,14 +318,22 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
     );
   }
 
+  const emAnalise = parecer.resultado === "EM_ANALISE";
+
   return (
     <div className="flex flex-col gap-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <ParecerBadge parecer={parecer.parecer} />
+        <ResultadoBadge resultado={parecer.resultado} />
         <span className="text-muted-foreground text-xs">
-          Avaliado em {formatarData(parecer.avaliadoEm)}
+          {emAnalise ? "desde" : "avaliado em"} {formatarData(parecer.avaliadoEm)}
         </span>
       </div>
+
+      {parecer.parecer ? (
+        <p>
+          <strong className="text-foreground">Parecer do agente:</strong> {parecer.parecer}
+        </p>
+      ) : null}
 
       {parecer.motivo ? <p className="text-foreground">{parecer.motivo}</p> : null}
 

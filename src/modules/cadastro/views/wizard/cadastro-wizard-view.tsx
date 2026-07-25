@@ -82,10 +82,10 @@ export function CadastroWizardView({
 
   const secoesVisiveis = Array.from({ length: wizard.secoesReveladas }, (_, index) => index + 1);
 
-  // O desfecho de sucesso (aprovado ou enviado pra análise) é mostrado só
-  // pelo AnaliseCadastroOverlay em tela cheia (fase "aprovado"/"revisao",
-  // renderizado mais abaixo) — nenhuma tela adicional troca por trás
-  // disso, pra não duplicar a mensagem em duas telas diferentes.
+  // A confirmação de recebimento é mostrada só pelo AnaliseCadastroOverlay
+  // em tela cheia (fase "recebido", renderizado mais abaixo) — nenhuma
+  // tela adicional troca por trás disso, pra não duplicar a mensagem em
+  // duas telas diferentes.
   if (wizard.submitDuplicado) {
     return (
       <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10">

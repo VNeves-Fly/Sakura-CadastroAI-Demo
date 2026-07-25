@@ -7,6 +7,7 @@ import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-ca
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import {
+  STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
@@ -25,8 +26,11 @@ interface CadastrosPageProps {
   };
 }
 
-// Filas clicáveis — ciclo completo de 6 estados (decisão do usuário,
-// 2026-07-16): a IA avalia o cadastro no envio; se reprovar vai pra
+// Filas clicáveis — ciclo completo de estados (decisão do usuário,
+// 2026-07-16; "em_analise" adicionado em 2026-07-24 quando o envio do
+// cadastro passou a persistir antes da IA rodar): o cadastro é
+// persistido assim que enviado ("em_analise") e a IA avalia depois, em
+// background; se reprovar (ou a análise falhar tecnicamente) vai pra
 // "em_complementar" (sem contrato ainda). Se aprovar (ou depois que o
 // analista aprovar manualmente na fila Complementar), o contrato é
 // gerado e cai em "aguardando_assinatura". Assinado, vira
@@ -34,6 +38,11 @@ interface CadastrosPageProps {
 // validado, vira "aguardando_ativacao" (só falta SICA/Travel
 // Link/Usuário Master + clicar ativar).
 const FILAS = [
+  {
+    status: STATUS_EM_ANALISE,
+    label: "Em análise (IA)",
+    sublabel: "aguardando a IA avaliar",
+  },
   { status: STATUS_EM_COMPLEMENTAR, label: "Em complementar", sublabel: "IA sinalizou revisão" },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
@@ -53,6 +62,7 @@ const FILAS = [
 ];
 
 const KPIS = [
+  { chave: "emAnalise" as const, label: "Em análise (IA)" },
   { chave: "emComplementar" as const, label: "Em complementar" },
   { chave: "aguardandoAssinatura" as const, label: "Aguard. assinatura" },
   { chave: "aguardandoValidacao" as const, label: "Aguard. validação" },
