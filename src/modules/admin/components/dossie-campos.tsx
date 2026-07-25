@@ -9,6 +9,7 @@ import type {
   DocumentoRevisao,
   ParecerIaView,
 } from "@/modules/admin/types/dossie.types";
+import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 
@@ -222,6 +223,94 @@ export function CampoDocumento({
   return <Arquivo documento={documento} analise={analise} />;
 }
 
+const PARECER_DOCUMENTO_CLASSES: Record<string, string> = {
+  APROVADO: "bg-success-bg text-success-text",
+  REPROVADO: "bg-destructive-bg text-destructive-text",
+  PENDENTE: "bg-warning-bg text-warning-text",
+};
+
+// Badge de uma checagem estrutural (formato válido, campos obrigatórios
+// presentes, referência cruzada ok) — omitida quando `null` (a IA não
+// avaliou esse critério pra esse documento, não é "reprovou").
+function ChecagemBadge({ label, valor }: { label: string; valor: boolean | null }) {
+  if (valor === null) return null;
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+        valor ? "bg-success-bg text-success-text" : "bg-destructive-bg text-destructive-text"
+      }`}
+    >
+      {label}: {valor ? "sim" : "não"}
+    </span>
+  );
+}
+
+// Par chave/valor genérico, mesmo tratamento usado pra `camposExtraidos` —
+// reaproveitado também por `camposExtras` e `detalhesChecagem`, que têm a
+// mesma forma (Record<string, unknown> sem schema fixo, dependem do agente).
+function CamposDetalhe({ titulo, campos }: { titulo: string; campos: Record<string, unknown> }) {
+  const entradas = Object.entries(campos);
+  if (entradas.length === 0) return null;
+
+  return (
+    <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5">
+      <summary className="text-primary cursor-pointer text-xs font-semibold">
+        {titulo} ({entradas.length})
+      </summary>
+      <dl className="mt-2 flex flex-col gap-1">
+        {entradas.map(([chave, valor]) => (
+          <div key={chave} className="flex flex-wrap gap-1.5">
+            <dt className="text-muted-foreground shrink-0 font-mono">{chave}:</dt>
+            <dd className="text-foreground break-all">{String(valor)}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
+// Comparação campo a campo com fonte oficial (Receita) — só populado pra
+// contrato_social hoje (ver docs/agency-analysis-params-tracking.md).
+// `confere: null` significa "nada a comparar" (campo não veio nem extraído
+// nem oficial), não é divergência.
+function ComparacaoOficialDetalhe({ campos }: { campos: AnaliseIaComparacaoCampo[] }) {
+  if (campos.length === 0) return null;
+
+  return (
+    <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5">
+      <summary className="text-primary cursor-pointer text-xs font-semibold">
+        Comparação oficial ({campos.length})
+      </summary>
+      <ul className="mt-2 flex flex-col gap-1.5">
+        {campos.map((item) => (
+          <li key={item.campo} className="flex items-start gap-1.5">
+            <span
+              className={
+                item.confere === true
+                  ? "text-success"
+                  : item.confere === false
+                    ? "text-destructive"
+                    : "text-muted-foreground"
+              }
+            >
+              {item.confere === true ? "✓" : item.confere === false ? "✗" : "—"}
+            </span>
+            <span>
+              <span className="text-foreground font-mono">{item.campo}</span>
+              <span className="text-muted-foreground">
+                {" "}
+                — extraído &quot;{item.extraido ?? "—"}&quot;, oficial &quot;
+                {item.oficial ?? "—"}&quot;
+                {item.fornecido ? `, fornecido "${item.fornecido}"` : ""}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 // Mostra a análise de IA gravada sobre o documento (RG/CNH, contrato
 // social) — lida de volta agora que FinalizarCadastroUseCase passou a
 // persistir isso (antes era descartada). Os nomes de campo dentro de
@@ -236,12 +325,20 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
     );
   }
 
-  const campos = Object.entries(analise.camposExtraidos);
   const alertas = alertasVisiveis(analise.alertas);
 
   return (
     <div className="flex flex-col gap-1.5 text-xs">
       <div className="flex flex-wrap items-center gap-2">
+        {analise.parecer ? (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+              PARECER_DOCUMENTO_CLASSES[analise.parecer] ?? "bg-muted text-muted-foreground"
+            }`}
+          >
+            {analise.parecer}
+          </span>
+        ) : null}
         <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
           Confiança: {analise.confiancaExtracao}
         </span>
@@ -250,6 +347,9 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
             {alertas.length} alerta{alertas.length > 1 ? "s" : ""}
           </span>
         ) : null}
+        <ChecagemBadge label="Formato" valor={analise.formatoValido} />
+        <ChecagemBadge label="Campos obrigatórios" valor={analise.camposObrigatoriosPresentes} />
+        <ChecagemBadge label="Ref. cruzada" valor={analise.referenciaCruzadaOk} />
       </div>
 
       {analise.resumoAnalise ? (
@@ -269,23 +369,29 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
         </ul>
       ) : null}
 
-      {campos.length > 0 ? (
-        <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5">
-          <summary className="text-primary cursor-pointer text-xs font-semibold">
-            Ver campos extraídos ({campos.length})
-          </summary>
-          <dl className="mt-2 flex flex-col gap-1">
-            {campos.map(([chave, valor]) => (
-              <div key={chave} className="flex flex-wrap gap-1.5">
-                <dt className="text-muted-foreground shrink-0 font-mono">{chave}:</dt>
-                <dd className="text-foreground break-all">{String(valor)}</dd>
-              </div>
-            ))}
-          </dl>
-        </details>
+      {analise.comparacaoOficial ? (
+        <ComparacaoOficialDetalhe campos={analise.comparacaoOficial} />
+      ) : null}
+
+      {Object.keys(analise.camposExtraidos).length > 0 ? (
+        <CamposDetalhe titulo="Ver campos extraídos" campos={analise.camposExtraidos} />
       ) : (
         <span className="text-muted-foreground">Nenhum campo estruturado extraído.</span>
       )}
+
+      <CamposDetalhe titulo="Ver campos extras" campos={analise.camposExtras} />
+      {analise.detalhesChecagem ? (
+        <CamposDetalhe titulo="Ver detalhes da checagem" campos={analise.detalhesChecagem} />
+      ) : null}
+
+      {analise.textoBruto ? (
+        <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5">
+          <summary className="text-primary cursor-pointer text-xs font-semibold">
+            Ver texto bruto extraído
+          </summary>
+          <p className="text-muted-foreground mt-2 whitespace-pre-wrap">{analise.textoBruto}</p>
+        </details>
+      ) : null}
     </div>
   );
 }

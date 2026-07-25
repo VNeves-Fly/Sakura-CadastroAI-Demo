@@ -242,10 +242,7 @@ export default async function ArquivoDossiePage({
                   <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
                   <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
                   <Campo label="Contrato Social">
-                    <CampoDocumento documento={contratoSocial} />
-                  </Campo>
-                  <Campo label="Análise de IA" className="sm:col-span-2">
-                    <AnaliseIaDetalhe analise={analiseIaContratoSocial} />
+                    <CampoDocumento documento={contratoSocial} analise={analiseIaContratoSocial} />
                   </Campo>
                 </CamposGrid>
               </SecaoColapsavel>
