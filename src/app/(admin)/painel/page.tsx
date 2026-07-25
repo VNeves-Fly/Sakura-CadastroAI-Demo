@@ -163,7 +163,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           não existe no schema ainda. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {KPIS.map((kpi) => (
-          <div key={kpi.chave} className="rounded-xl bg-neutral-50 p-4">
+          <div key={kpi.chave} className="border-border rounded-xl border bg-white p-4 shadow-sm">
             <span className="line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide text-neutral-500">
               {kpi.label}
             </span>

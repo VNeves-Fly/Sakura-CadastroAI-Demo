@@ -1,4 +1,9 @@
-import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type {
+  AnaliseIaComparacaoCampo,
+  DocumentAnalysisResultado,
+} from "@/modules/cadastro/domain/services/document-analysis-service";
+
+export type { AnaliseIaComparacaoCampo };
 
 export interface AnaliseIaSocioInput {
   nome: string;
@@ -23,17 +28,6 @@ export interface AnaliseIaInput {
   razaoSocial: string;
   email: string;
   socios: AnaliseIaSocioInput[];
-}
-
-// Um item do array `campos` dentro de cada bloco de documento em `stage3`
-// — comparação de um campo entre o que foi extraído do documento, a fonte
-// oficial (quando existe) e o que o cadastrante digitou no formulário.
-export interface AnaliseIaComparacaoCampo {
-  campo: string;
-  extraido: string | null;
-  oficial: string | null;
-  fornecido: string | null;
-  confere: boolean;
 }
 
 // Resultado do cruzamento de um documento específico (stage3) — nome do
@@ -73,12 +67,30 @@ export interface AnaliseIaSociosComparados {
   divergencias: string[];
 }
 
+// Validação estrutural do e-mail (MX + domínio corporativo) — não é uma
+// comparação com "oficial" como os outros campos de stage1, é checagem de
+// formato/entregabilidade.
+export interface AnaliseIaEmailInfo {
+  fornecido: string | null;
+  hasMx: boolean;
+  corporativo: boolean;
+}
+
+export interface AnaliseIaProcessos {
+  verificado: boolean;
+  resumo: string | null;
+}
+
 export interface AnaliseIaStage1 {
   situacaoCadastral: string | null;
   cnaePrincipal: AnaliseIaCnaePrincipal | null;
+  // Mesma forma de cnaePrincipal, lista de CNAEs secundários.
+  cnaesSecundarios: AnaliseIaCnaePrincipal[];
   razaoSocial: AnaliseIaCampoComparado | null;
   nomeFantasia: AnaliseIaCampoComparado | null;
+  email: AnaliseIaEmailInfo | null;
   socios: AnaliseIaSociosComparados | null;
+  processos: AnaliseIaProcessos | null;
 }
 
 // Detalhamento do stage3 (cruzamento documental) devolvido pelo
