@@ -49,13 +49,13 @@ ou o resultado do contrato social.
 - [x] **Chamadas de teste contra o agents real** (Testes 1, 2, 3, 3b e 4,
       2026-07-25) — todas concluídas, shapes confirmados o suficiente pra
       tipar e implementar os itens abaixo.
-- [ ] **`include_official_data`/`include_verdict` como parâmetros de
-      domínio.** Hoje `include_verdict: true` é hardcoded dentro de
-      `flysakura-document-analysis.adapter.ts`; `include_official_data`
-      nunca é enviado. Precisa virar campo opcional em
-      `DocumentAnalysisInput`, com default aplicado no adapter
-      (`includeOfficialData = false`, `includeVerdict = true`).
-- [ ] **Novo: capturar `parecer` (veredito por documento) e
+- [x] **`include_official_data`/`include_verdict` como parâmetros de
+      domínio.** Implementado: `DocumentAnalysisInput` ganhou
+      `includeVerdict?`/`includeOfficialData?`, com default aplicado no
+      adapter (`includeOfficialData = false`, `includeVerdict = true`) —
+      nenhum call site existente precisou mudar pra manter o comportamento
+      de hoje.
+- [x] **Novo: capturar `parecer` (veredito por documento) e
       `comparacao_oficial` na resposta.** Achado do Teste 1 — a resposta já
       traz `parecer` (string) no nível raiz mesmo sem termos pedido nada de
       novo, e `flysakura-document-analysis.adapter.ts` não lê nem `parecer`
@@ -63,55 +63,47 @@ ou o resultado do contrato social.
       `DocumentAnalysisResultado` precisa ganhar esses dois campos.
 
       **Confirmado no Teste 3:** `comparacao_oficial` é um array de
-          `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
-          shape de `AnaliseIaComparacaoCampo`**, já definido em
-          `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
-          esse tipo em vez de criar um novo (DRY) — só alargar
-          `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
-          também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
-          lugar compartilhado entre `document-analysis-service.ts` e
-          `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
-          importar do outro. `parecer` usa o mesmo union já existente em
-          `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
-          null`.
+              `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
+              shape de `AnaliseIaComparacaoCampo`**, já definido em
+              `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
+              esse tipo em vez de criar um novo (DRY) — só alargar
+              `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
+              também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
+              lugar compartilhado entre `document-analysis-service.ts` e
+              `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
+              importar do outro. `parecer` usa o mesmo union já existente em
+              `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
+              null`.
 
-          **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
-          só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
-          buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
-          não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
-          `include_official_data: true` só faz sentido mandar quando
-          `documentType === "contrato_social"` — nos outros casos é um no-op
-          (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
+              **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
+              só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
+              buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
+              não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
+              `include_official_data: true` só faz sentido mandar quando
+              `documentType === "contrato_social"` — nos outros casos é um no-op
+              (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
 
-          | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
-          | --------------------- | --------- | ------------------ | --------------------- |
-          | `contrato_social`     | Sim       | Sim                 | Preenchido             |
-          | `rg`                  | Não       | Não                 | `null`                 |
-          | `cnh`                 | Não       | Não                 | `null`                 |
-          | `doc_identificacao`   | Não       | Não                 | `null`                 |
-          | `cpf`                 | Não       | Não                 | `null`                 |
+              | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
+              | --------------------- | --------- | ------------------ | --------------------- |
+              | `contrato_social`     | Sim       | Sim                 | Preenchido             |
+              | `rg`                  | Não       | Não                 | `null`                 |
+              | `cnh`                 | Não       | Não                 | `null`                 |
+              | `doc_identificacao`   | Não       | Não                 | `null`                 |
+              | `cpf`                 | Não       | Não                 | `null`                 |
 
-- [ ] **`additional_data`.** Não existe em nenhuma interface hoje. Precisa
-      de campo opcional em `DocumentAnalysisInput` (ex.:
-      `additionalData?: Record<string, unknown>`), mapeado pro
-      `additional_data` do request. **Confirmado no Teste 2:** não exige
-      parsing de resposta novo — a divergência aparece só como texto livre
-      em `observations`/`errors` (já mapeado pra `alertas`), e o sinal
-      estruturado (`cross_reference_ok`/`details`) já é capturado hoje. Só
-      trabalho do lado do request.
+- [x] **`additional_data`.** Implementado: `additionalData?: Record<string,
+    unknown>` em `DocumentAnalysisInput`, mapeado pro `additional_data` do
+      request (omitido do body quando `undefined`, via `JSON.stringify`).
+      Sem parsing de resposta novo — confirmado no Teste 2.
 - [ ] **~~Expandir o body do `/agency-analysis/sync`~~ → rebaixado.**
       **Confirmado no Teste 4:** mandar `telefone`/`endereco` extras em
       `analysis_data` não teve nenhum efeito observável na resposta — o
       agente parece ignorar campos fora do schema. Não vale implementar do
       nosso lado agora; virou pergunta pro time do agents (eles pretendem
       processar esses campos?) antes de qualquer trabalho aqui.
-- [ ] **Novo (achado no Teste 4): capturar `stage1.email`,
-      `stage1.processos` e `stage1.cnaesSecundarios`.** A API já devolve os
-      três (`email: {fornecido, has_mx, corporativo}`, `processos:
-    {verificado, resumo}`, `cnaes_secundarios: []` — mesma forma de
-      `cnaePrincipal`) mas `AnaliseIaStage1` (domínio) não tem nenhum dos
-      três — mesmo tipo de gap que `parecer`/`comparacao_oficial`, só que no
-      nível stage1/agência em vez de por documento.
+- [x] **Novo (achado no Teste 4): capturar `stage1.email`,
+      `stage1.processos` e `stage1.cnaesSecundarios`.** Implementado em
+      `AnaliseIaStage1` + `flysakura-analise-ia.adapter.ts` (`mapStage1`).
 - [ ] **Não implementar ainda — `receita_data` (raiz) e `stage2`.** Ambos
       vieram `null` em todos os testes desta sessão (CNPJ de teste foi
       reprovado cedo pelo gate de CNAE-turismo, nunca chegou em stage2/3).
@@ -127,6 +119,48 @@ ou o resultado do contrato social.
       `agency-analysis-sync.md` (stage1, split
       Finalizar/AnalisarCadastroUseCase, exposição já feita ao analista) e
       corrigir `flysakura.md` (ainda cita `/agency-analysis/json`).
+
+## 3.1. Implementação (2026-07-25)
+
+Arquivos alterados pros 4 itens marcados `[x]` acima:
+
+- `src/modules/cadastro/domain/services/document-analysis-service.ts`
+  - `DocumentAnalysisInput` ganhou `includeVerdict?`, `includeOfficialData?`,
+    `additionalData?: Record<string, unknown>`.
+  - Novo `AnaliseIaComparacaoCampo` (movido de `analise-ia-service.ts`, com
+    `confere: boolean | null` em vez de `boolean`).
+  - `DocumentAnalysisResultado` ganhou `parecer?: string | null` e
+    `comparacaoOficial?: AnaliseIaComparacaoCampo[] | null`.
+- `src/modules/cadastro/domain/services/analise-ia-service.ts`
+  - Reexporta `AnaliseIaComparacaoCampo` de `document-analysis-service.ts`
+    em vez de definir localmente (DRY — um import direction só, mesmo
+    sentido que já existia pra `DocumentAnalysisResultado`).
+  - `AnaliseIaStage1` ganhou `cnaesSecundarios`, `email`, `processos`.
+- `src/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter.ts`
+  - Envia `include_verdict`/`include_official_data` com os defaults
+    (override via input), `additional_data` (omitido quando `undefined`).
+  - Parseia `parecer`/`comparacao_oficial` da resposta.
+- `src/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter.ts`
+  - `mapStage1` ganhou `cnaes_secundarios`/`email`/`processos`.
+- Testes atualizados/adicionados nos dois arquivos de teste dos adapters
+  acima (defaults, override explícito, parsing dos campos novos).
+
+**Não alterado (decisão deliberada, escopo contido):**
+`analisar-contrato-social.use-case.ts`, `analisar-documento-identificacao.use-case.ts`
+e `analisar-cadastro.use-case.ts` continuam chamando
+`documentAnalysisService.analisar()` sem passar os novos parâmetros — os
+defaults preservam 100% do comportamento atual. Nenhum desses 3 use-cases
+foi alterado pra ligar `includeOfficialData: true` em `contrato_social`
+porque isso duplicaria a verificação oficial que `stage1` (nível agência)
+já faz em `AnalisarCadastroUseCase` — ligar isso é uma decisão de produto
+separada (custo extra de chamada), não parte deste trabalho. Da mesma
+forma, `parecer`/`comparacaoOficial` por documento **não foram expostos em
+nenhum DTO/UI** ainda — só deixaram de ser descartados silenciosamente no
+domínio/adapter. Expor ao analista é um próximo passo em aberto, não
+assumido aqui.
+
+Verificação: `tsc --noEmit`, `eslint`, `prettier --check` e suíte completa
+(465 testes) sem erros.
 
 ## 4. Chamadas de teste — aguardando resposta real do agents
 
