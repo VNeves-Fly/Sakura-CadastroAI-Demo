@@ -56,6 +56,8 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
         referenciaCruzadaOk: false,
         detalhes: { page_count_valid: true, text_extracted: true },
       },
+      parecer: null,
+      comparacaoOficial: null,
     });
 
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
@@ -68,7 +70,85 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
       session_id: "19131243000197",
       channel: "api",
       include_verdict: true,
+      include_official_data: false,
     });
+  });
+
+  it("aceita includeVerdict/includeOfficialData/additionalData explícitos, sobrescrevendo os defaults", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ extracted_content: { fields: {} } }),
+    });
+
+    await new FlysakuraDocumentAnalysisAdapter().analisar({
+      ...input,
+      includeVerdict: false,
+      includeOfficialData: true,
+      additionalData: { nome: "Fulano de Tal", cpf: "39053344705" },
+    });
+
+    const [, opts] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(JSON.parse(opts.body)).toEqual({
+      internal_document_url:
+        "gs://bucket-teste/cadastro-ai/agencias/19131243000197/contrato-social-123.pdf",
+      document_type: "contrato_social",
+      session_id: "19131243000197",
+      channel: "api",
+      include_verdict: false,
+      include_official_data: true,
+      additional_data: { nome: "Fulano de Tal", cpf: "39053344705" },
+    });
+  });
+
+  it("mapeia parecer e comparacaoOficial da resposta (ver docs/agency-analysis-params-tracking.md)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        extracted_content: { fields: { cnpj: "31635283000171" }, confidence_score: 1 },
+        parecer: "APROVADO",
+        comparacao_oficial: [
+          {
+            campo: "cnpj",
+            extraido: "31.635.283/0001-71",
+            oficial: "31635283000171",
+            fornecido: null,
+            confere: true,
+          },
+          {
+            campo: "natureza_juridica",
+            extraido: null,
+            oficial: "Sociedade Empresária Limitada",
+            fornecido: null,
+            confere: null,
+          },
+        ],
+      }),
+    });
+
+    const resultado = await new FlysakuraDocumentAnalysisAdapter().analisar({
+      ...input,
+      includeOfficialData: true,
+    });
+
+    expect(resultado.parecer).toBe("APROVADO");
+    expect(resultado.comparacaoOficial).toEqual([
+      {
+        campo: "cnpj",
+        extraido: "31.635.283/0001-71",
+        oficial: "31635283000171",
+        fornecido: null,
+        confere: true,
+      },
+      {
+        campo: "natureza_juridica",
+        extraido: null,
+        oficial: "Sociedade Empresária Limitada",
+        fornecido: null,
+        confere: null,
+      },
+    ]);
   });
 
   it("devolve resultado vazio (sem lançar) quando o agente responde erro", async () => {
@@ -84,6 +164,8 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
       resumoAnalise: null,
       textoBruto: null,
       checagens: null,
+      parecer: null,
+      comparacaoOficial: null,
     });
   });
 
@@ -106,6 +188,8 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
       resumoAnalise: null,
       textoBruto: null,
       checagens: null,
+      parecer: null,
+      comparacaoOficial: null,
     });
   });
 
@@ -122,6 +206,8 @@ describe("FlysakuraDocumentAnalysisAdapter", () => {
       resumoAnalise: null,
       textoBruto: null,
       checagens: null,
+      parecer: null,
+      comparacaoOficial: null,
     });
     expect(global.fetch).not.toHaveBeenCalled();
   });

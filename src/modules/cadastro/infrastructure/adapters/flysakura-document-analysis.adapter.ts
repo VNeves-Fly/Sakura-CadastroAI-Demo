@@ -1,4 +1,5 @@
 import type {
+  AnaliseIaComparacaoCampo,
   DocumentAnalysisInput,
   DocumentAnalysisResultado,
   DocumentAnalysisService,
@@ -20,6 +21,13 @@ import type {
 // sessão antes da avaliação final; nenhuma decisão de negócio depende do retorno ainda. Se o
 // agente falhar ou responder algo não parseável, loga um aviso e devolve um resultado vazio
 // em vez de interromper o cadastro.
+//
+// `include_verdict` (default true) e `include_official_data` (default false) são
+// controláveis por chamada via DocumentAnalysisInput — nenhum call site precisa passar nada
+// pra manter o comportamento de hoje. `include_official_data: true` só tem efeito real (gera
+// `comparacaoOficial`) quando documentType === "contrato_social" (único tipo com CNPJ pra
+// buscar hoje); nos demais tipos a resposta sempre traz esse campo null (confirmado em
+// docs/agency-analysis-params-tracking.md).
 function baseUrl(): string {
   return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
 }
@@ -32,6 +40,8 @@ const RESULTADO_VAZIO: DocumentAnalysisResultado = {
   resumoAnalise: null,
   textoBruto: null,
   checagens: null,
+  parecer: null,
+  comparacaoOficial: null,
 };
 
 export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService {
@@ -48,7 +58,9 @@ export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService
           document_type: input.documentType,
           session_id: input.cnpj,
           channel: "api",
-          include_verdict: true,
+          include_verdict: input.includeVerdict ?? true,
+          include_official_data: input.includeOfficialData ?? false,
+          additional_data: input.additionalData,
         }),
       });
 
@@ -75,6 +87,8 @@ export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService
           details?: Record<string, unknown>;
         };
         errors?: string[];
+        parecer?: string | null;
+        comparacao_oficial?: AnaliseIaComparacaoCampo[] | null;
       };
 
       if (data.errors?.length) {
@@ -101,6 +115,8 @@ export class FlysakuraDocumentAnalysisAdapter implements DocumentAnalysisService
               detalhes: data.validation_checks.details ?? {},
             }
           : null,
+        parecer: data.parecer ?? null,
+        comparacaoOficial: data.comparacao_oficial ?? null,
       };
     } catch (error) {
       console.warn(
