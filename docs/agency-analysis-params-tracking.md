@@ -63,36 +63,36 @@ ou o resultado do contrato social.
       `DocumentAnalysisResultado` precisa ganhar esses dois campos.
 
       **Confirmado no Teste 3:** `comparacao_oficial` é um array de
-              `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
-              shape de `AnaliseIaComparacaoCampo`**, já definido em
-              `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
-              esse tipo em vez de criar um novo (DRY) — só alargar
-              `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
-              também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
-              lugar compartilhado entre `document-analysis-service.ts` e
-              `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
-              importar do outro. `parecer` usa o mesmo union já existente em
-              `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
-              null`.
+                  `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
+                  shape de `AnaliseIaComparacaoCampo`**, já definido em
+                  `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
+                  esse tipo em vez de criar um novo (DRY) — só alargar
+                  `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
+                  também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
+                  lugar compartilhado entre `document-analysis-service.ts` e
+                  `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
+                  importar do outro. `parecer` usa o mesmo union já existente em
+                  `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
+                  null`.
 
-              **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
-              só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
-              buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
-              não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
-              `include_official_data: true` só faz sentido mandar quando
-              `documentType === "contrato_social"` — nos outros casos é um no-op
-              (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
+                  **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
+                  só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
+                  buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
+                  não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
+                  `include_official_data: true` só faz sentido mandar quando
+                  `documentType === "contrato_social"` — nos outros casos é um no-op
+                  (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
 
-              | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
-              | --------------------- | --------- | ------------------ | --------------------- |
-              | `contrato_social`     | Sim       | Sim                 | Preenchido             |
-              | `rg`                  | Não       | Não                 | `null`                 |
-              | `cnh`                 | Não       | Não                 | `null`                 |
-              | `doc_identificacao`   | Não       | Não                 | `null`                 |
-              | `cpf`                 | Não       | Não                 | `null`                 |
+                  | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
+                  | --------------------- | --------- | ------------------ | --------------------- |
+                  | `contrato_social`     | Sim       | Sim                 | Preenchido             |
+                  | `rg`                  | Não       | Não                 | `null`                 |
+                  | `cnh`                 | Não       | Não                 | `null`                 |
+                  | `doc_identificacao`   | Não       | Não                 | `null`                 |
+                  | `cpf`                 | Não       | Não                 | `null`                 |
 
 - [x] **`additional_data`.** Implementado: `additionalData?: Record<string,
-    unknown>` em `DocumentAnalysisInput`, mapeado pro `additional_data` do
+  unknown>` em `DocumentAnalysisInput`, mapeado pro `additional_data` do
       request (omitido do body quando `undefined`, via `JSON.stringify`).
       Sem parsing de resposta novo — confirmado no Teste 2.
 - [ ] **~~Expandir o body do `/agency-analysis/sync`~~ → rebaixado.**
@@ -104,11 +104,30 @@ ou o resultado do contrato social.
 - [x] **Novo (achado no Teste 4): capturar `stage1.email`,
       `stage1.processos` e `stage1.cnaesSecundarios`.** Implementado em
       `AnaliseIaStage1` + `flysakura-analise-ia.adapter.ts` (`mapStage1`).
-- [ ] **Não implementar ainda — `receita_data` (raiz) e `stage2`.** Ambos
-      vieram `null` em todos os testes desta sessão (CNPJ de teste foi
-      reprovado cedo pelo gate de CNAE-turismo, nunca chegou em stage2/3).
-      Shape desconhecido — precisa de um teste com CNPJ de atividade
-      turística pra ver populado antes de tipar.
+- [ ] **Não implementar ainda — `receita_data` (raiz) e `stage2`.**
+      **Teste 4b (CNPJ com CNAE turístico, pipeline completo e
+      `APROVADO`):** `stage3` veio rico e bate 100% com o que já
+      implementamos (`AnaliseIaDetalhamento`, sem mudança necessária); mas
+      `stage2`/`receita_data` continuam `null` mesmo com tudo executado.
+      `stage2` tem uma hipótese plausível (condicionado a
+      `verificar_processos`/`verificar_amat`, ambos `false` nos nossos
+      testes); `receita_data` não tem pista nenhuma — pode nem estar
+      populado na API atual. Shape de ambos continua desconhecido; não
+      tipar sem outro teste (`verificar_processos: true`, se quisermos
+      insistir em `stage2`).
+- [ ] **⚠️ Novo (achado no Teste 4b, potencialmente importante): possível
+      reaproveitamento de sessão via `session_id`.** `stage1.email`
+      voltou com um e-mail diferente do que mandamos no request
+      (`vinicius@larian.com.br` em vez de `contato@manumilhas.com.br`) —
+      suspeita de que o agente reaproveita estado de checkpoint do
+      LangGraph pelo `session_id` (que é sempre o CNPJ, tanto neste teste
+      quanto em produção via `FlysakuraAnaliseIaAdapter`). Risco: se
+      `AnalisarCadastroUseCase` reprocessar um cadastro (fluxo reentrante
+      já existente) e algum dado mudar entre tentativas, a análise pode
+      usar dado stale de uma sessão anterior com o mesmo CNPJ. **Não
+      confirmado se é bug do agente ou comportamento esperado — reportar
+      ao time do agents com o payload do Teste 4b antes de confiar em
+      reprocessamento repetido pro mesmo CNPJ.**
 - [ ] **Auto-atualização do painel admin (Zustand).** Confirmado: não existe
       hoje nenhum polling/realtime (`setInterval`/SWR/EventSource) — o
       analista só vê o resultado da análise em background dando refresh
@@ -567,6 +586,194 @@ curl -s -X POST https://agents.flysakura.com/api/v1/agency-analysis/sync \
 5. **`stage2` continua com shape totalmente desconhecido** (`null` nos dois
    testes desta sessão, sempre interrompido antes de chegar lá). Não
    implementar/tipar até termos uma resposta real com `stage2` preenchido.
+
+### Teste 4b — `/agency-analysis/sync` com CNPJ de CNAE compatível com turismo (MANU MILHAS)
+
+Repete o Teste 4, mas com o CNPJ da MANU MILHAS (31.635.283/0001-71,
+`objeto_social: "AGÊNCIA DE VIAGENS"`, já usado nos Testes 3/3b) em vez da
+LARIAN GROUP — objetivo é passar do gate de CNAE-turismo que interrompeu o
+Teste 4 cedo, pra finalmente ver `stage2`/`receita_data` preenchidos. Sócio
+(Emanuelle) incluído com os dados reais extraídos do contrato social; sem
+`documentos` anexado (não temos uma análise de RG real dela).
+
+```bash
+curl -s -X POST https://agents.flysakura.com/api/v1/agency-analysis/sync \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: $AGENCY_ANALYSIS_API_KEY" \
+  -d '{
+    "cnpj": "31635283000171",
+    "channel": "api",
+    "language": "pt-br",
+    "session_id": "31635283000171",
+    "analysis_data": {
+      "cnpj": "31635283000171",
+      "focus": "completo",
+      "verificar_processos": false,
+      "verificar_amat": false,
+      "razao_social": "MANU MILHAS LTDA",
+      "email": "contato@manumilhas.com.br",
+      "socios": [
+        {
+          "nome": "EMANUELLE DE LAZARI TONON",
+          "documento_identificacao": "09303800702",
+          "data_nascimento": "1982-06-30",
+          "documentos": []
+        }
+      ]
+    }
+  }'
+```
+
+**Resposta (2026-07-25):**
+
+```json
+{
+  "cnpj": "31635283000171",
+  "focus": "completo",
+  "stage1": {
+    "description": "Verificação Cadastral — CNPJ, situação, CNAE, razão social, sócios e e-mail",
+    "executed": true,
+    "situacao_cadastral": "ATIVA",
+    "cnae_principal": {
+      "codigo": "79.11-2-00",
+      "description": "Agências de viagens",
+      "compativel_turismo": true
+    },
+    "cnaes_secundarios": [
+      {
+        "codigo": "79.12-1-00",
+        "description": "Operadores turísticos",
+        "compativel_turismo": true
+      },
+      {
+        "codigo": "79.90-2-00",
+        "description": "Serviços de reservas e outros serviços de turismo não especificados anteriormente",
+        "compativel_turismo": true
+      }
+    ],
+    "razao_social": {
+      "fornecido": "MANU MILHAS LTDA",
+      "oficial": "MANU MILHAS LTDA",
+      "confere": true
+    },
+    "nome_fantasia": { "fornecido": null, "oficial": "MANU MILHAS", "confere": true },
+    "email": { "fornecido": "vinicius@larian.com.br", "has_mx": true, "corporativo": true },
+    "socios": {
+      "fornecidos": [{ "nome": "EMANUELLE DE LAZARI TONON", "cpf": "09303800702" }],
+      "oficiais": [{ "nome": "EMANUELLE DE LAZARI TONON", "cpf": "09303800702" }],
+      "divergencias": []
+    },
+    "processos": { "verificado": false, "resumo": "Não verificado conforme solicitação." }
+  },
+  "stage2": null,
+  "stage3": {
+    "description": "Verificação de Documentos — cruzamento dos dados extraídos (fornecidos prontos ou obtidos automaticamente)",
+    "executed": true,
+    "documentos_empresa": [
+      {
+        "tipo": "contrato_social",
+        "campos": [
+          {
+            "campo": "razao_social",
+            "extraido": "MANU MILHAS LTDA",
+            "oficial": "MANU MILHAS LTDA",
+            "fornecido": "MANU MILHAS LTDA",
+            "confere": true
+          },
+          {
+            "campo": "cnpj",
+            "extraido": "31.635.283/0001-71",
+            "oficial": "31.635.283/0001-71",
+            "fornecido": "31635283000171",
+            "confere": true
+          }
+        ],
+        "alertas_extracao": [
+          "Info: Contrato Social homologado pela Junta Comercial do Espírito Santo (JUCEES).",
+          "Info: Documento assinado digitalmente, conforme verificado na página 6.",
+          "Info: Qualidade do documento excelente, sem danos ou rasuras."
+        ],
+        "valido": true
+      }
+    ],
+    "socios": [
+      {
+        "nome": "EMANUELLE DE LAZARI TONON",
+        "documentos": [
+          {
+            "tipo": "doc_identificacao",
+            "campos": [
+              {
+                "campo": "nome_completo",
+                "extraido": "EMANUELLE DE LAZARI TONON",
+                "oficial": "EMANUELLE DE LAZARI TONON",
+                "fornecido": "EMANUELLE DE LAZARI TONON",
+                "confere": true
+              },
+              {
+                "campo": "cpf",
+                "extraido": "093.038.007-02",
+                "oficial": "093.038.007-02",
+                "fornecido": "09303800702",
+                "confere": true
+              }
+            ],
+            "alertas_extracao": [
+              "Info: Documento identificado com sucesso como CIN.",
+              "Info: Assinatura digital verificável via portal gov.br.",
+              "Info: O CPF é utilizado como número único nacional na CIN."
+            ],
+            "valido": true
+          }
+        ]
+      }
+    ]
+  },
+  "parecer": "APROVADO",
+  "justificativa": "A análise cadastral confirmou a situação ativa do CNPJ e a compatibilidade dos CNAEs com o setor de turismo. A documentação da empresa (Contrato Social) e da sócia (CIN) está regular, validada e em conformidade com os registros oficiais. Não foram identificadas divergências nos dados fornecidos.",
+  "flags_risco": [],
+  "receita_data": null
+}
+```
+
+**Achados:**
+
+1. **⚠️ Achado mais importante — `stage1.email.fornecido` veio
+   `"vinicius@larian.com.br"`, não `"contato@manumilhas.com.br"` (o que
+   mandamos no request).** Suspeita: `session_id` foi `"31635283000171"`
+   (o próprio CNPJ — igual `FlysakuraAnaliseIaAdapter` faz em produção), e
+   o agente parece **reaproveitar estado de uma sessão anterior via
+   checkpoint do LangGraph** em vez de usar o dado enviado nesta chamada.
+   **Risco real pro nosso código:** `AnalisarCadastroUseCase` é reentrante
+   (suporta reprocessar um cadastro travado) e sempre usa
+   `session_id: cnpj` — se algum dado mudar entre tentativas de
+   reprocessamento pro mesmo CNPJ, existe risco de a análise usar dado
+   **stale** de uma sessão anterior em vez do dado atual enviado. **Não
+   verificado se é bug do agente ou comportamento esperado do checkpoint —
+   recomendo reportar ao time do agents com esse payload como reprodução,
+   antes de confiar cegamente em reprocessamento com o mesmo `session_id`.**
+
+2. **`stage2` continua `null` mesmo com pipeline completo e `parecer:
+APROVADO`.** Nova hipótese: `stage2` provavelmente corresponde à
+   verificação de processos/AMAT (`verificar_processos`/`verificar_amat`,
+   ambos `false` nos testes desta sessão) — stage2 pode só executar quando
+   um desses for `true`. Não testado; não bloqueia nada, só fica como
+   hipótese pra um teste futuro se algum dia precisarmos tipar `stage2`.
+
+3. **`receita_data` continua `null` mesmo em pipeline 100% bem-sucedido.**
+   Diferente de `stage2` (que tem uma hipótese plausível de estar
+   condicionado a uma flag), `receita_data` veio `null` mesmo com tudo
+   executado e aprovado — isso sugere que pode não estar populado na
+   versão atual da API, e não só "não testamos o caso certo". Continua não
+   implementado/tipado; sem mais pistas por enquanto.
+
+4. **`stage3` bate exatamente com o `AnaliseIaDetalhamento` que já
+   implementamos há tempo** (`documentos_empresa[].campos[]` com
+   `campo/extraido/oficial/fornecido/confere`, `alertas_extracao`,
+   `valido`) — **valida o parsing existente com dado real de ponta a
+   ponta**, nenhuma mudança necessária. Os campos extras `description`/
+   `executed` em `stage1`/`stage3` são ignorados pelo parsing atual (não
+   fazem parte do tipo), sem problema.
 
 ## 5. Decisões em aberto
 
