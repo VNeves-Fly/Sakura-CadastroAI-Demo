@@ -1,10 +1,14 @@
 import type { PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
-import type { AnaliseIaResultado } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type {
+  AnaliseIaResultado,
+  AnaliseIaDetalhamento,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 import {
   Prisma,
   StatusAgencia as PrismaStatusAgencia,
   StatusContrato as PrismaStatusContrato,
+  ResultadoAnaliseIa as PrismaResultadoAnaliseIa,
   TipoDocumento,
 } from "@prisma/client";
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
@@ -16,11 +20,14 @@ import {
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
+  STATUS_EM_ANALISE,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
   type AgenciaDetalhe,
   type AgenciaRepository,
+  type AgenciaResumoPromotor,
   type AnaliseContratos,
+  type AnaliseIaAgenciaDetalhe,
   type CadastroComplementarDetalhe,
   type CadastrosKpis,
   type ContratoPorProvedorId,
@@ -31,6 +38,7 @@ import {
   type ListarCadastrosResult,
   type OrigemGeracaoContrato,
   type RepresentanteLegalDetalhe,
+  type ResultadoAnaliseIa,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface AgenciaRecord {
@@ -93,15 +101,45 @@ function analiseIaParaPrisma(
 }
 
 function analiseIaFinalParaPrisma(
-  resultado: AnaliseIaResultado,
+  avaliacao: AnaliseIaResultado,
+  resultado: ResultadoAnaliseIa,
 ): Prisma.AnaliseIaAgenciaCreateWithoutAgenciaInput {
   return {
-    parecer: resultado.parecer ?? null,
-    motivo: resultado.motivo,
-    flagsRisco: resultado.flagsRisco ?? [],
-    detalhamento: resultado.detalhamento
-      ? (resultado.detalhamento as unknown as Prisma.InputJsonValue)
+    resultado: resultado as PrismaResultadoAnaliseIa,
+    parecer: avaliacao.parecer ?? null,
+    motivo: avaliacao.motivo,
+    flagsRisco: avaliacao.flagsRisco ?? [],
+    detalhamento: avaliacao.detalhamento
+      ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    // Explícito (não só o @default(now()) do create): a linha já existe
+    // desde a persistência do cadastro (resultado=EM_ANALISE), então sem
+    // isso um upsert de update manteria o avaliadoEm original (hora da
+    // persistência) em vez da hora em que a IA de fato terminou.
+    avaliadoEm: new Date(),
+  };
+}
+
+interface AnaliseIaAgenciaRecord {
+  resultado: string;
+  parecer: string | null;
+  motivo: string | null;
+  flagsRisco: string[];
+  detalhamento: Prisma.JsonValue | null;
+  avaliadoEm: Date;
+}
+
+function analiseIaAgenciaToDomain(
+  record: AnaliseIaAgenciaRecord | null,
+): AnaliseIaAgenciaDetalhe | null {
+  if (!record) return null;
+  return {
+    resultado: record.resultado as ResultadoAnaliseIa,
+    parecer: record.parecer,
+    motivo: record.motivo,
+    flagsRisco: record.flagsRisco,
+    detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
+    avaliadoEm: record.avaliadoEm,
   };
 }
 
@@ -246,6 +284,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         // de montar cada slot.
         documentos: { orderBy: { createdAt: "desc" } },
         contratos: { orderBy: { createdAt: "desc" } },
+        analiseIa: true,
+        executivo: { select: { nome: true } },
+        associacao: { select: { nome: true } },
+        evento: { select: { nome: true } },
       },
     });
 
@@ -265,15 +307,21 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         origemGeracao: contrato.origemGeracao as OrigemGeracaoContrato,
         createdAt: contrato.createdAt,
       })),
+      analiseIa: analiseIaAgenciaToDomain(record.analiseIa),
+      executivoNome: record.executivo?.nome ?? null,
+      associacaoNome: record.associacao?.nome ?? null,
+      eventoNome: record.evento?.nome ?? null,
     };
   }
 
   async create(data: CreateAgenciaData): Promise<Agencia> {
-    // Transação: Agencia + sócios (RepresentanteLegal) são criados
-    // primeiro pra existirem ids reais, depois CadastroComplementar (que
-    // pode referenciar um sócio via FK real) e, se a IA já aprovou, o
-    // Contrato + signatários — tudo dentro da mesma transação, sem
-    // intervalo visível entre as escritas.
+    // Persiste só o que o wizard coletou (status inicial sempre
+    // em_analise) — Transação: Agencia + sócios (RepresentanteLegal) são
+    // criados primeiro pra existirem ids reais, depois Documentos e
+    // CadastroComplementar (que pode referenciar um sócio via FK real).
+    // Análise de IA e Contrato não entram aqui: são gravados depois, de
+    // forma assíncrona, por AnalisarCadastroUseCase via
+    // registrarAnaliseDocumento/registrarAnaliseFinal/criarContrato.
     return this.prisma.$transaction(async (tx) => {
       const agencia = await tx.agencia.create({
         data: {
@@ -284,6 +332,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           emailContato: data.emailContato,
           telefoneContato: data.telefoneContato,
           origem: data.origem,
+          executivoId: data.executivoId,
+          associacaoId: data.associacaoId,
+          eventoId: data.eventoId,
           representantesLegais: {
             create: data.socios.map((socio) => ({
               nome: socio.nome,
@@ -311,11 +362,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       );
 
       // Contrato social não tem representanteLegalId (pertence à agência
-      // como um todo) — mesma tabela Documento, só sem esse vínculo.
-      // Criado individualmente (não createMany) porque precisamos do id
-      // real gerado pra vincular a AnaliseIaDocumento correspondente,
-      // dentro da mesma transação.
-      const contratoSocialDoc = await tx.documento.create({
+      // como um todo) — mesma tabela Documento, só sem esse vínculo. A
+      // análise de IA sobre este documento (AnaliseIaDocumento) é gravada
+      // depois, de forma assíncrona, via registrarAnaliseDocumento — não
+      // dá mais pra fazer aqui porque a análise só roda depois que a
+      // Agência já foi persistida (ver AnalisarCadastroUseCase).
+      await tx.documento.create({
         data: {
           agenciaId: agencia.id,
           representanteLegalId: null,
@@ -324,20 +376,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           gcsBucket: data.contratoSocialBucket,
         },
       });
-      if (data.analiseIaContratoSocial) {
-        await tx.analiseIaDocumento.create({
-          data: {
-            documentoId: contratoSocialDoc.id,
-            ...analiseIaParaPrisma(data.analiseIaContratoSocial),
-          },
-        });
-      }
 
       for (const socio of data.socios) {
         const socioRecord = socioRecordPorCpf.get(socio.cpf);
         if (!socioRecord) continue;
 
-        const rgDoc = await tx.documento.create({
+        await tx.documento.create({
           data: {
             agenciaId: agencia.id,
             representanteLegalId: socioRecord.id,
@@ -346,14 +390,6 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
             gcsBucket: socio.rgBucket,
           },
         });
-        if (socio.analiseIa) {
-          await tx.analiseIaDocumento.create({
-            data: {
-              documentoId: rgDoc.id,
-              ...analiseIaParaPrisma(socio.analiseIa),
-            },
-          });
-        }
 
         if (socio.procuracaoPath) {
           await tx.documento.create({
@@ -399,35 +435,51 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         },
       });
 
-      if (data.analiseIaFinal) {
-        await tx.analiseIaAgencia.create({
-          data: {
-            agenciaId: agencia.id,
-            ...analiseIaFinalParaPrisma(data.analiseIaFinal),
-          },
-        });
-      }
-
-      if (data.contrato) {
-        await tx.contrato.create({
-          data: {
-            agenciaId: agencia.id,
-            provedorId: data.contrato.provedorId,
-            status: data.contrato.status as PrismaStatusContrato,
-            origemGeracao: data.contrato.origemGeracao,
-            signatarios: {
-              create: data.contrato.signatarios.map((signatario) => ({
-                nome: signatario.nome,
-                email: signatario.email,
-                cpf: signatario.cpf,
-              })),
-            },
-          },
-        });
-      }
+      // Criada já aqui (resultado=EM_ANALISE) — um cadastro persistido
+      // nunca fica sem essa linha; registrarAnaliseFinal só faz upsert
+      // pra atualizar quando a IA terminar (ver AnalisarCadastroUseCase).
+      await tx.analiseIaAgencia.create({
+        data: {
+          agenciaId: agencia.id,
+          resultado: PrismaResultadoAnaliseIa.EM_ANALISE,
+          flagsRisco: [],
+        },
+      });
 
       return this.toDomain(agencia);
     });
+  }
+
+  async registrarAnaliseDocumento(
+    documentoId: string,
+    resultado: DocumentAnalysisResultado,
+  ): Promise<void> {
+    const dados = analiseIaParaPrisma(resultado);
+    await this.prisma.analiseIaDocumento.upsert({
+      where: { documentoId },
+      create: { documentoId, ...dados },
+      update: dados,
+    });
+  }
+
+  async registrarAnaliseFinal(
+    agenciaId: string,
+    avaliacao: AnaliseIaResultado,
+    novoStatus: string,
+    resultado: ResultadoAnaliseIa,
+  ): Promise<void> {
+    const dados = analiseIaFinalParaPrisma(avaliacao, resultado);
+    await this.prisma.$transaction([
+      this.prisma.analiseIaAgencia.upsert({
+        where: { agenciaId },
+        create: { agenciaId, ...dados },
+        update: dados,
+      }),
+      this.prisma.agencia.update({
+        where: { id: agenciaId },
+        data: { status: novoStatus as PrismaStatusAgencia },
+      }),
+    ]);
   }
 
   async atualizarStatus(id: string, status: string): Promise<Agencia> {
@@ -517,11 +569,20 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         : (filtros.status as PrismaStatusAgencia);
     }
 
+    if (filtros.executivoId) where.executivoId = filtros.executivoId;
+    if (filtros.associacaoId) where.associacaoId = filtros.associacaoId;
+    if (filtros.eventoId) where.eventoId = filtros.eventoId;
+
     const [records, total] = await Promise.all([
       this.prisma.agencia.findMany({
         where,
         orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
-        include: { contratos: { orderBy: { createdAt: "desc" }, take: 1 } },
+        include: {
+          contratos: { orderBy: { createdAt: "desc" }, take: 1 },
+          associacao: { select: { nome: true } },
+          executivo: { select: { nome: true } },
+          evento: { select: { nome: true } },
+        },
       }),
       this.prisma.agencia.count({ where }),
     ]);
@@ -530,6 +591,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       items: records.map((record) => ({
         agencia: this.toDomain(record),
         origemContratoAtual: (record.contratos[0]?.origemGeracao as OrigemGeracaoContrato) ?? null,
+        associacaoNome: record.associacao?.nome ?? null,
+        executivoNome: record.executivo?.nome ?? null,
+        eventoNome: record.evento?.nome ?? null,
       })),
       total,
     };
@@ -537,6 +601,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
 
   async obterKpis(): Promise<CadastrosKpis> {
     const [
+      emAnalise,
       emComplementar,
       aguardandoAssinatura,
       aguardandoValidacao,
@@ -544,6 +609,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       ativas,
       recusadas,
     ] = await Promise.all([
+      this.prisma.agencia.count({
+        where: { status: STATUS_EM_ANALISE as PrismaStatusAgencia },
+      }),
       this.prisma.agencia.count({
         where: { status: STATUS_EM_COMPLEMENTAR as PrismaStatusAgencia },
       }),
@@ -561,6 +629,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     ]);
 
     return {
+      emAnalise,
       emComplementar,
       aguardandoAssinatura,
       aguardandoValidacao,
@@ -608,6 +677,22 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     }));
 
     return { porOrigem, porDia };
+  }
+
+  async listarPorExecutivoId(promotorId: string): Promise<AgenciaResumoPromotor[]> {
+    const registros = await this.prisma.agencia.findMany({
+      where: { executivoId: promotorId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, razaoSocial: true, cnpj: true, status: true, createdAt: true },
+    });
+
+    return registros.map((registro) => ({
+      id: registro.id,
+      razaoSocial: registro.razaoSocial,
+      cnpj: registro.cnpj,
+      status: registro.status,
+      createdAt: registro.createdAt,
+    }));
   }
 
   private toDomain(record: AgenciaRecord): Agencia {

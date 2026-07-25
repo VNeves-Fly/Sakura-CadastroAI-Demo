@@ -25,6 +25,13 @@ interface CadastroWizardState {
   // secoesReveladas é quantas seções (a partir da 1) já estão visíveis.
   secoesReveladas: number;
   origem: string | null;
+  // Id real do Promotor/Associacao/Evento atribuído ao cadastro (já
+  // resolvido, ver ExecutivoResolver) — vem pré-preenchido via
+  // querystring (link pessoal de promotor ou link de Evento) ou por
+  // seleção manual da pessoa no formulário. Null = nenhuma atribuição.
+  executivoId: string | null;
+  associacaoId: string | null;
+  eventoId: string | null;
 
   // Seção 1 — Empresa (documentos + dados da empresa)
   cnpj: string;
@@ -32,6 +39,11 @@ interface CadastroWizardState {
   qsaChecking: boolean;
   qsaResult: QsaResultView | null;
   avisoAlfanumerico: boolean;
+  // Aviso antecipado (não substitui a checagem do submit final) — não é
+  // persistido: sempre revalidado contra o CNPJ atual, nunca deve mostrar
+  // um aviso "congelado" de uma sessão anterior.
+  verificandoCnpjCadastrado: boolean;
+  cnpjJaCadastrado: boolean;
   contratoSocial: File | null;
   analisandoContratoSocial: boolean;
   contratoSocialAnalise: ContratoSocialAnaliseView | null;
@@ -62,12 +74,17 @@ interface CadastroWizardState {
   duplicado: boolean;
 
   setOrigem: (origem: string | null) => void;
+  setExecutivoId: (executivoId: string | null) => void;
+  setAssociacaoId: (associacaoId: string | null) => void;
+  setEventoId: (eventoId: string | null) => void;
   avancarSecao: () => void;
   setCnpj: (cnpj: string) => void;
   setCnpjStatus: (status: CnpjStatus) => void;
   setQsaChecking: (checking: boolean) => void;
   setQsaResult: (result: QsaResultView | null) => void;
   setAvisoAlfanumerico: (aviso: boolean) => void;
+  setVerificandoCnpjCadastrado: (verificando: boolean) => void;
+  setCnpjJaCadastrado: (jaCadastrado: boolean) => void;
   setContratoSocial: (file: File | null) => void;
   setAnalisandoContratoSocial: (analisando: boolean) => void;
   setContratoSocialAnalise: (analise: ContratoSocialAnaliseView | null) => void;
@@ -112,12 +129,17 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
     (set) => ({
       secoesReveladas: 1,
       origem: null,
+      executivoId: null,
+      associacaoId: null,
+      eventoId: null,
 
       cnpj: "",
       cnpjStatus: { valido: false, mensagem: null },
       qsaChecking: false,
       qsaResult: null,
       avisoAlfanumerico: false,
+      verificandoCnpjCadastrado: false,
+      cnpjJaCadastrado: false,
       contratoSocial: null,
       analisandoContratoSocial: false,
       contratoSocialAnalise: null,
@@ -143,6 +165,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       duplicado: false,
 
       setOrigem: (origem) => set({ origem }),
+      setExecutivoId: (executivoId) => set({ executivoId }),
+      setAssociacaoId: (associacaoId) => set({ associacaoId }),
+      setEventoId: (eventoId) => set({ eventoId }),
 
       avancarSecao: () =>
         set((state) => ({ secoesReveladas: Math.min(state.secoesReveladas + 1, TOTAL_ETAPAS) })),
@@ -152,6 +177,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       setQsaChecking: (qsaChecking) => set({ qsaChecking }),
       setQsaResult: (qsaResult) => set({ qsaResult }),
       setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
+      setVerificandoCnpjCadastrado: (verificandoCnpjCadastrado) =>
+        set({ verificandoCnpjCadastrado }),
+      setCnpjJaCadastrado: (cnpjJaCadastrado) => set({ cnpjJaCadastrado }),
       setContratoSocial: (contratoSocial) => set({ contratoSocial }),
       setAnalisandoContratoSocial: (analisandoContratoSocial) => set({ analisandoContratoSocial }),
       setContratoSocialAnalise: (contratoSocialAnalise) => set({ contratoSocialAnalise }),
@@ -191,6 +219,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
           qsaChecking: false,
           qsaResult: null,
           avisoAlfanumerico: false,
+          verificandoCnpjCadastrado: false,
+          cnpjJaCadastrado: false,
           contratoSocial: null,
           analisandoContratoSocial: false,
           contratoSocialAnalise: null,
@@ -217,6 +247,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       partialize: (state) => ({
         secoesReveladas: state.secoesReveladas,
         origem: state.origem,
+        executivoId: state.executivoId,
+        associacaoId: state.associacaoId,
+        eventoId: state.eventoId,
         cnpj: state.cnpj,
         cnpjStatus: state.cnpjStatus,
         qsaResult: state.qsaResult,

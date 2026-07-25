@@ -1,10 +1,14 @@
-import type { ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type {
   DadosReceitaEndereco,
   DadosReceitaCnae,
 } from "@/modules/cadastro/domain/entities/dados-receita.entity";
-import type { AnaliseIaResumo, DocumentoRevisao } from "@/modules/admin/types/dossie.types";
+import type {
+  AnaliseIaResumo,
+  DocumentoRevisao,
+  ParecerIaView,
+} from "@/modules/admin/types/dossie.types";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 
@@ -15,7 +19,8 @@ import { VisualizarDocumento } from "@/modules/admin/components/visualizar-docum
 
 // Par rótulo/valor reaproveitado em todas as seções — rótulo neutro (a cor
 // de marca fica reservada pra ação primária e identidade, não pra rótulo
-// estrutural) e valor em destaque.
+// estrutural) e valor em destaque. Fundo próprio (bg-card) pra funcionar
+// como "célula" dentro de CamposGrid (ver truque do seam abaixo).
 export function Campo({
   label,
   children,
@@ -26,10 +31,43 @@ export function Campo({
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={`bg-card px-3 py-2.5 ${className ?? ""}`}>
       <dt className="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">{label}</dt>
       <dd className="text-foreground mt-0.5 text-sm font-medium break-words">{children}</dd>
     </div>
+  );
+}
+
+// Grid de Campo com linhas horizontais E verticais de verdade (pedido
+// explícito do usuário — "todo o sistema carece de linhas", 2026-07-24),
+// via truque do "seam": o fundo do container é a cor da linha
+// (bg-border) e cada Campo é opaco (bg-card) com gap-px entre eles — o
+// fundo aparece como um fio de 1px em toda borda de célula, mesmo com
+// grid quebrando linha (divide-x/divide-y não dá conta disso num grid
+// que quebra, só em sequência linear).
+export function CamposGrid({ children, className }: { children: ReactNode; className?: string }) {
+  // Número ímpar de Campo deixa uma célula vazia no grid de 2 colunas —
+  // sem elemento nenhum ali, só o bg-border do container aparecendo
+  // como um bloco sólido feio. Corrige esticando o último Campo pra
+  // ocupar a linha inteira nesse caso.
+  const itens = Children.toArray(children);
+  const itensAjustados =
+    itens.length % 2 === 0
+      ? itens
+      : itens.map((item, index) => {
+          if (index !== itens.length - 1 || !isValidElement(item)) return item;
+          const elemento = item as ReactElement<{ className?: string }>;
+          return cloneElement(elemento, {
+            className: `${elemento.props.className ?? ""} sm:col-span-2`,
+          });
+        });
+
+  return (
+    <dl
+      className={`border-border bg-border grid grid-cols-1 gap-px overflow-hidden rounded-xl border sm:grid-cols-2 ${className ?? ""}`}
+    >
+      {itensAjustados}
+    </dl>
   );
 }
 
@@ -226,6 +264,106 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
       ) : (
         <span className="text-muted-foreground">Nenhum campo estruturado extraído.</span>
       )}
+    </div>
+  );
+}
+
+const RESULTADO_ANALISE_LABELS: Record<string, string> = {
+  EM_ANALISE: "Em análise",
+  APROVADO: "Aprovado pela IA",
+  REPROVADO: "Reprovado pela IA",
+  FALHA_ANALISE: "Falha técnica na análise",
+  FALHA_CONTRATO: "Falha na geração do contrato",
+};
+
+const RESULTADO_ANALISE_CLASSES: Record<string, string> = {
+  EM_ANALISE: "bg-muted text-muted-foreground",
+  APROVADO: "bg-success-bg text-success-text",
+  REPROVADO: "bg-destructive-bg text-destructive-text",
+  FALHA_ANALISE: "bg-warning-bg text-warning-text",
+  FALHA_CONTRATO: "bg-warning-bg text-warning-text",
+};
+
+// Badge do veredito — chaveado por `resultado` (ResultadoAnaliseIa), não
+// pelo `parecer` bruto do agente externo: `resultado` já separa
+// reprovação real (REPROVADO) de falha técnica (FALHA_ANALISE/
+// FALHA_CONTRATO) e do estado ainda pendente (EM_ANALISE), enquanto
+// `parecer` fica null nas falhas técnicas (nunca chegou a existir um
+// veredito de verdade).
+function ResultadoBadge({ resultado }: { resultado: string }) {
+  return (
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+        RESULTADO_ANALISE_CLASSES[resultado] ?? "bg-muted text-muted-foreground"
+      }`}
+    >
+      {RESULTADO_ANALISE_LABELS[resultado] ?? resultado}
+    </span>
+  );
+}
+
+// Seção única "Parecer": consolida o veredito da IA sobre a agência, o
+// motivo de não ter passado direto pra contrato, os pontos de alerta
+// (flagsRisco) e o checklist do que o analista precisa checar — pedido
+// explícito do usuário em vez de espalhar essa informação em blocos
+// separados pela ficha. `parecer` só vem null pra cadastros criados
+// antes desta funcionalidade existir — qualquer cadastro novo já nasce
+// com a linha em EM_ANALISE.
+export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
+  if (!parecer) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        Sem parecer de IA registrado pra este cadastro.
+      </span>
+    );
+  }
+
+  const emAnalise = parecer.resultado === "EM_ANALISE";
+
+  return (
+    <div className="flex flex-col gap-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <ResultadoBadge resultado={parecer.resultado} />
+        <span className="text-muted-foreground text-xs">
+          {emAnalise ? "desde" : "avaliado em"} {formatarData(parecer.avaliadoEm)}
+        </span>
+      </div>
+
+      {parecer.parecer ? (
+        <p>
+          <strong className="text-foreground">Parecer do agente:</strong> {parecer.parecer}
+        </p>
+      ) : null}
+
+      {parecer.motivo ? <p className="text-foreground">{parecer.motivo}</p> : null}
+
+      {parecer.pontosDeAlerta.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <SubsecaoLabel>Pontos de alerta</SubsecaoLabel>
+          <ul className="text-warning list-inside list-disc text-xs">
+            {parecer.pontosDeAlerta.map((ponto, index) => (
+              <li key={index}>{ponto}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {parecer.itensParaChecar.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <SubsecaoLabel>O que o analista precisa checar</SubsecaoLabel>
+          <ul className="flex flex-col gap-1.5">
+            {parecer.itensParaChecar.map((item, index) => (
+              <li
+                key={index}
+                className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs"
+              >
+                <span className="text-foreground font-semibold">{item.origem}: </span>
+                <span className="text-muted-foreground">{item.mensagem}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

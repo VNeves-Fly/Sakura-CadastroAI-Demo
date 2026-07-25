@@ -15,6 +15,10 @@ import { agenciaAdapter } from "@/modules/cadastro/adapters/agencia.adapter";
 import { agenciaService } from "@/modules/cadastro/services/agencia.service";
 import { cepAdapter } from "@/modules/cadastro/adapters/cep.adapter";
 import { cepService } from "@/modules/cadastro/services/cep.service";
+import type {
+  ExecutivoOption,
+  AssociacaoOption,
+} from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import { telefoneChatValido, maskTelefoneChat } from "./format-telefone";
 import type {
   ChatMessage,
@@ -40,6 +44,10 @@ function contextoVazio(): ContextoChat {
     emailComercial: null,
     emailFinanceiroDiferente: false,
     emailFinanceiro: null,
+    executivoId: null,
+    executivoNome: null,
+    associacaoId: null,
+    associacaoNome: null,
     socios: [],
     socioAtualIndex: null,
     temProcurador: null,
@@ -130,11 +138,20 @@ const LIMITE_ERROS_CONSECUTIVOS = 3;
 // conversacional de coletar os mesmos dados. Alertas/divergência que a
 // IA retorna nunca são falados pro cliente (mesma regra aplicada no
 // /cadastro) — só usados pra autopreencher o que der.
-export function useChatScript() {
+interface UseChatScriptOptions {
+  executivos: ExecutivoOption[];
+  associacoes: AssociacaoOption[];
+}
+
+export function useChatScript({ executivos, associacoes }: UseChatScriptOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<PendingInput | null>(null);
   const [fase, setFase] = useState<FaseChat>("chat");
   const [resultadoFinal, setResultadoFinal] = useState<ResultadoFinalChat | null>(null);
+  // Mensagem do card de "analisando" (AnaliseDocumentoLoading) sobreposto
+  // ao chat enquanto uma análise real de documento está em andamento —
+  // null quando nenhuma análise está rolando no momento.
+  const [analisandoDocumento, setAnalisandoDocumento] = useState<string | null>(null);
   // Ref (não state) de propósito — nada na UI renderiza a lista de
   // bancos diretamente, só o roteiro consome; assim a leitura dentro de
   // funções assíncronas do roteiro nunca fica presa a um valor antigo
@@ -359,6 +376,7 @@ export function useChatScript() {
     contextoRef.current.contratoSocialNome = arquivo.name;
 
     await falarBot("Analisando o contrato social...");
+    setAnalisandoDocumento("Analisando o contrato social...");
 
     try {
       const formData = agenciaAdapter.toAnalisarContratoSocialFormData({
@@ -366,6 +384,7 @@ export function useChatScript() {
         contratoSocial: arquivo,
       });
       const raw = await agenciaService.analisarContratoSocial(formData);
+      setAnalisandoDocumento(null);
       const analise = agenciaAdapter.toContratoSocialAnaliseView(raw);
 
       contextoRef.current.contratoSocialAnalise = analise;
@@ -388,6 +407,7 @@ export function useChatScript() {
 
       await perguntarTelefoneComercial();
     } catch {
+      setAnalisandoDocumento(null);
       await validarOuFalhar(
         false,
         "Não conseguimos processar esse arquivo. Pode tentar enviar de novo?",
@@ -472,7 +492,7 @@ export function useChatScript() {
       });
       return;
     }
-    await irParaEscolhaSocio();
+    await perguntarExecutivoPreferido();
   }
 
   async function receberEmailComercial(valorDigitado: string) {
@@ -495,6 +515,97 @@ export function useChatScript() {
     if (!ok) return;
     contextoRef.current.emailFinanceiro = valorDigitado.trim();
     await avancarEmailsAdicionais();
+  }
+
+  // ---------- Executivo preferido / Associação (ambos opcionais, Y/N + busca) ----------
+
+  async function perguntarExecutivoPreferido() {
+    if (executivos.length === 0) {
+      await perguntarAssociacao();
+      return;
+    }
+    await falarBot("Você possui um executivo preferido na Sakura?");
+    setPending({ kind: "quick-replies", tag: "executivo_pergunta", opcoes: OPCOES_SIM_NAO });
+  }
+
+  async function responderExecutivoPergunta(valor: string) {
+    if (valor === "nao") {
+      await perguntarAssociacao();
+      return;
+    }
+    await falarBot("Busque e selecione o executivo.");
+    setPending({
+      kind: "inline-form",
+      tag: "executivo_escolha",
+      titulo: "Executivo preferido",
+      campos: [
+        {
+          nome: "executivoId",
+          label: "Executivo",
+          tipo: "combobox",
+          opcoes: executivos.map((executivo) => ({ valor: executivo.id, label: executivo.nome })),
+          placeholder: "Busque por nome",
+          obrigatorio: true,
+        },
+      ],
+    });
+  }
+
+  async function receberExecutivoEscolha(valores: Record<string, string | boolean>) {
+    const id = String(valores.executivoId ?? "");
+    const executivo = executivos.find((item) => item.id === id) ?? null;
+    contextoRef.current.executivoId = executivo?.id ?? null;
+    contextoRef.current.executivoNome = executivo?.nome ?? null;
+    if (executivo) {
+      await falarBot(`Show, ${executivo.nome} registrado como seu executivo preferido.`);
+    }
+    await perguntarAssociacao();
+  }
+
+  async function perguntarAssociacao() {
+    if (associacoes.length === 0) {
+      await irParaEscolhaSocio();
+      return;
+    }
+    await falarBot("Sua agência faz parte de alguma associação?");
+    setPending({ kind: "quick-replies", tag: "associacao_pergunta", opcoes: OPCOES_SIM_NAO });
+  }
+
+  async function responderAssociacaoPergunta(valor: string) {
+    if (valor === "nao") {
+      await irParaEscolhaSocio();
+      return;
+    }
+    await falarBot("Busque e selecione a associação.");
+    setPending({
+      kind: "inline-form",
+      tag: "associacao_escolha",
+      titulo: "Associação",
+      campos: [
+        {
+          nome: "associacaoId",
+          label: "Associação",
+          tipo: "combobox",
+          opcoes: associacoes.map((associacao) => ({
+            valor: associacao.id,
+            label: associacao.nome,
+          })),
+          placeholder: "Busque por nome",
+          obrigatorio: true,
+        },
+      ],
+    });
+  }
+
+  async function receberAssociacaoEscolha(valores: Record<string, string | boolean>) {
+    const id = String(valores.associacaoId ?? "");
+    const associacao = associacoes.find((item) => item.id === id) ?? null;
+    contextoRef.current.associacaoId = associacao?.id ?? null;
+    contextoRef.current.associacaoNome = associacao?.nome ?? null;
+    if (associacao) {
+      await falarBot(`Perfeito, ${associacao.nome} registrada.`);
+    }
+    await irParaEscolhaSocio();
   }
 
   // ---------- Telefone (sub-fluxo compartilhado) ----------
@@ -790,6 +901,7 @@ export function useChatScript() {
     socio.documentoNome = arquivo.name;
 
     await falarBot("Analisando o documento...");
+    setAnalisandoDocumento("Analisando o documento...");
 
     try {
       const formData = agenciaAdapter.toAnalisarDocumentoIdentificacaoFormData({
@@ -798,6 +910,7 @@ export function useChatScript() {
         documento: arquivo,
       });
       const raw = await agenciaService.analisarDocumentoIdentificacao(formData);
+      setAnalisandoDocumento(null);
       const analise = agenciaAdapter.toDocumentoIdentificacaoAnaliseView(raw);
 
       // Autopreenche o que a IA extraiu — nunca perguntado diretamente,
@@ -810,6 +923,7 @@ export function useChatScript() {
     } catch {
       // Best-effort — falha na análise não deve travar o cadastro; o
       // sócio segue sem esses campos extraídos (mesma regra do /cadastro).
+      setAnalisandoDocumento(null);
     }
 
     contextoRef.current.socioAtualIndex = null;
@@ -1056,6 +1170,8 @@ export function useChatScript() {
       `E-mail de contato: ${ctx.emailContato}`,
       ...(ctx.emailComercialDiferente ? [`E-mail comercial: ${ctx.emailComercial}`] : []),
       ...(ctx.emailFinanceiroDiferente ? [`E-mail financeiro: ${ctx.emailFinanceiro}`] : []),
+      ...(ctx.executivoNome ? [`Executivo preferido: ${ctx.executivoNome}`] : []),
+      ...(ctx.associacaoNome ? [`Associação: ${ctx.associacaoNome}`] : []),
       ...ctx.socios.map(
         (s) => `Sócio: ${s.nome} — CPF ${s.cpf}${s.isRepresentante ? " (procurador)" : ""}`,
       ),
@@ -1150,6 +1266,9 @@ export function useChatScript() {
         razaoSocial: ctx.razaoSocial,
         contratoSocial: ctx.contratoSocial!,
         origem: "Chat",
+        executivoId: ctx.executivoId,
+        associacaoId: ctx.associacaoId,
+        eventoId: null,
         telefoneComercial: ctx.telefoneComercial?.numero ?? "",
         telefoneComercialPais: "BR",
         semTelefoneComercial: !ctx.telefoneComercial,
@@ -1166,21 +1285,16 @@ export function useChatScript() {
       await aguardarRestanteAnalise(inicio);
 
       if (resultado.success) {
-        setResultadoFinal(
-          resultado.precisaRevisaoManual
-            ? {
-                tipo: "manual",
-                titulo: "Seu cadastro foi encaminhado a um de nossos analistas.",
-                mensagem:
-                  "Fique ligado! Em breve alguém da nossa equipe entrará em contato para mais detalhes.",
-              }
-            : {
-                tipo: "aprovado",
-                titulo: "Seu cadastro foi aprovado!",
-                mensagem:
-                  "O link com o contrato da agência foi enviado no e-mail dos sócios cadastrados.",
-              },
-        );
+        // A análise de IA roda depois, em background (ver
+        // AnalisarCadastroUseCase) — não dá mais pra saber aqui se o
+        // cadastro foi aprovado ou encaminhado pra revisão manual, então
+        // usa a mesma mensagem neutra de "recebido" pros dois desfechos.
+        setResultadoFinal({
+          tipo: "manual",
+          titulo: "Cadastro recebido!",
+          mensagem:
+            "Estamos analisando agora. Em breve você recebe por e-mail o contrato para assinatura ou um contato da nossa equipe com mais informações.",
+        });
         setFase("resultado");
         // Cadastro já persistido de verdade no banco — limpa tudo da
         // conversa em memória, mesma regra aplicada no /cadastro.
@@ -1243,6 +1357,8 @@ export function useChatScript() {
 
     if (tag === "escolha_modo_inicial") await escolherModoInicial(valor);
     else if (tag === "telefone_comercial_pergunta") await responderTelefoneComercial(valor);
+    else if (tag === "executivo_pergunta") await responderExecutivoPergunta(valor);
+    else if (tag === "associacao_pergunta") await responderAssociacaoPergunta(valor);
     else if (tag === "tipo_telefone") await escolherTipoTelefone(valor as "fixo" | "celular");
     else if (tag === "confirma_whatsapp") await responderWhatsapp(valor);
     else if (tag === "escolha_socio") await escolherSocio(Number(valor));
@@ -1263,6 +1379,8 @@ export function useChatScript() {
     setPending(null);
 
     if (tag === "email_flags") await receberEmailFlags(valores);
+    else if (tag === "executivo_escolha") await receberExecutivoEscolha(valores);
+    else if (tag === "associacao_escolha") await receberAssociacaoEscolha(valores);
     else if (tag === "endereco_socio") await receberEnderecoSocio(valores);
     else if (tag === "endereco_agencia") await receberEnderecoAgencia(valores);
     else if (tag === "dados_bancarios") await receberDadosBancarios(valores);
@@ -1284,6 +1402,7 @@ export function useChatScript() {
     pending,
     fase,
     resultadoFinal,
+    analisandoDocumento,
     onEnviarTexto,
     onQuickReply,
     onEnviarForm,

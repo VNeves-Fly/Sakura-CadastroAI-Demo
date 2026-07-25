@@ -92,6 +92,9 @@ export const finalizarCadastroMetaSchema = z
     // falhou; o use-case cai pro CNPJ nesse caso (não trava o cadastro).
     razaoSocial: z.string(),
     origem: z.string().trim().min(1).optional(),
+    executivoId: z.string().trim().min(1).optional(),
+    associacaoId: z.string().trim().min(1).optional(),
+    eventoId: z.string().trim().min(1).optional(),
     telefoneComercial: z.string(),
     semTelefoneComercial: z.boolean(),
     emailOperacional: emailOpcionalSchema,

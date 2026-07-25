@@ -155,13 +155,60 @@ describe("FlysakuraAnaliseIaAdapter", () => {
         descricao: "Agências de viagens",
         compativelTurismo: true,
       },
+      cnaesSecundarios: [],
       razaoSocial: { fornecido: "Agência Teste", oficial: "AGENCIA TESTE LTDA", confere: true },
       nomeFantasia: { fornecido: null, oficial: "Agência Teste", confere: null },
+      email: null,
       socios: {
         fornecidos: [{ nome: "Fulano de Tal" }],
         oficiais: [{ nome: "Fulano de Tal", cpf: "39053344705" }],
         divergencias: [],
       },
+      processos: null,
+    });
+  });
+
+  it("mapeia cnaes_secundarios, email e processos da stage1 (achado de docs/agency-analysis-params-tracking.md)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parecer: "REPROVADO",
+        justificativa: "CNAE incompatível com turismo",
+        flags_risco: ["CNAE incompatível com turismo", "Email não corporativo ou inexistente"],
+        stage1: {
+          executed: true,
+          situacao_cadastral: "ATIVA",
+          cnae_principal: {
+            codigo: "6462000",
+            description: "Holdings de instituições não-financeiras",
+            compativel_turismo: false,
+          },
+          cnaes_secundarios: [
+            { codigo: "7911200", description: "Agências de viagens", compativel_turismo: true },
+          ],
+          razao_social: { fornecido: "Agência Teste", oficial: "Agência Teste", confere: true },
+          nome_fantasia: { fornecido: null, oficial: "Agência Teste", confere: true },
+          email: { fornecido: "contato@agenciateste.com", has_mx: false, corporativo: false },
+          socios: { fornecidos: [], oficiais: [], divergencias: [] },
+          processos: { verificado: false, resumo: "Não verificado por solicitação do usuário." },
+        },
+      }),
+    });
+
+    const resultado = await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    expect(resultado.stage1?.cnaesSecundarios).toEqual([
+      { codigo: "7911200", descricao: "Agências de viagens", compativelTurismo: true },
+    ]);
+    expect(resultado.stage1?.email).toEqual({
+      fornecido: "contato@agenciateste.com",
+      hasMx: false,
+      corporativo: false,
+    });
+    expect(resultado.stage1?.processos).toEqual({
+      verificado: false,
+      resumo: "Não verificado por solicitação do usuário.",
     });
   });
 

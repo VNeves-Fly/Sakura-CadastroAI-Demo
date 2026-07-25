@@ -37,24 +37,67 @@ interface SocioAnaliseIdentificacaoState {
 // de procuração) — não é mais uma seção separada.
 export const ETAPA_LABELS = ["Empresa", "Sócios", "Endereço", "Banco", "Revisão"];
 
+export interface ExecutivoOption {
+  id: string;
+  nome: string;
+}
+
+export interface AssociacaoOption {
+  id: string;
+  nome: string;
+}
+
 interface UseCadastroWizardOptions {
   origem: string | null;
+  // Já resolvidos/validados no server component (page.tsx) — presentes
+  // aqui só quando o acesso veio por um link personalizado (pessoal de
+  // promotor ou de Evento); nesse caso o campo correspondente nasce
+  // travado no formulário (ver Passo2Empresa).
+  executivoId: string | null;
+  associacaoId: string | null;
+  eventoId: string | null;
+  // Listas reais pro combobox de busca (Promotor/Associacao) — vêm do
+  // server component, a página pública não conhece esses domínios além
+  // de precisar exibi-los.
+  executivos: ExecutivoOption[];
+  associacoes: AssociacaoOption[];
 }
 
 // Orquestra a revelação progressiva das seções (página única, sem
 // bloqueio de validação — só no envio final) e a lógica de campos da
 // seção Empresa (CNPJ + contrato social + consulta QSA + dados da
 // empresa).
-export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions) {
+export function useCadastroWizardViewModel({
+  origem,
+  executivoId,
+  associacaoId,
+  eventoId,
+  executivos,
+  associacoes,
+}: UseCadastroWizardOptions) {
   const secoesReveladas = useCadastroWizardStore((state) => state.secoesReveladas);
   const avancarSecao = useCadastroWizardStore((state) => state.avancarSecao);
   const setOrigem = useCadastroWizardStore((state) => state.setOrigem);
+  const executivoIdSalvo = useCadastroWizardStore((state) => state.executivoId);
+  const setExecutivoId = useCadastroWizardStore((state) => state.setExecutivoId);
+  const associacaoIdSalvo = useCadastroWizardStore((state) => state.associacaoId);
+  const setAssociacaoId = useCadastroWizardStore((state) => state.setAssociacaoId);
+  const eventoIdSalvo = useCadastroWizardStore((state) => state.eventoId);
+  const setEventoId = useCadastroWizardStore((state) => state.setEventoId);
+  // Travado (não editável) só quando a própria prop da URL trouxe um
+  // valor — uma seleção manual anterior (sem link) nunca trava o campo.
+  const executivoTravado = Boolean(executivoId);
+  const associacaoTravado = Boolean(associacaoId);
 
   const cnpj = useCadastroWizardStore((state) => state.cnpj);
   const cnpjStatus = useCadastroWizardStore((state) => state.cnpjStatus);
   const qsaChecking = useCadastroWizardStore((state) => state.qsaChecking);
   const qsaResult = useCadastroWizardStore((state) => state.qsaResult);
   const avisoAlfanumerico = useCadastroWizardStore((state) => state.avisoAlfanumerico);
+  const verificandoCnpjCadastrado = useCadastroWizardStore(
+    (state) => state.verificandoCnpjCadastrado,
+  );
+  const cnpjJaCadastrado = useCadastroWizardStore((state) => state.cnpjJaCadastrado);
   const contratoSocial = useCadastroWizardStore((state) => state.contratoSocial);
   const analisandoContratoSocial = useCadastroWizardStore(
     (state) => state.analisandoContratoSocial,
@@ -67,6 +110,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setQsaChecking = useCadastroWizardStore((state) => state.setQsaChecking);
   const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
+  const setVerificandoCnpjCadastrado = useCadastroWizardStore(
+    (state) => state.setVerificandoCnpjCadastrado,
+  );
+  const setCnpjJaCadastrado = useCadastroWizardStore((state) => state.setCnpjJaCadastrado);
   const setContratoSocialRaw = useCadastroWizardStore((state) => state.setContratoSocial);
   const setAnalisandoContratoSocial = useCadastroWizardStore(
     (state) => state.setAnalisandoContratoSocial,
@@ -125,16 +172,15 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setSubmitDuplicado = useCadastroWizardStore((state) => state.setDuplicado);
   const resetWizardStore = useCadastroWizardStore((state) => state.reset);
 
-  // "analisando" cobre toda a espera pós-clique em Enviar (reconsulta QSA,
-  // análise de documentos pela IA, geração do contrato); "aprovado"/"revisao"
-  // é o desfecho final — fica exibido (sem trocar pra nenhuma outra tela por
-  // trás, que seria uma segunda mensagem redundante). A duração mínima de
-  // "analisando" vale pra QUALQUER desfecho (sucesso, duplicado ou erro) —
-  // sem isso, uma resposta rápida do servidor (ex: erro de validação em <1s)
-  // fazia a animação sumir quase instantaneamente.
-  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "aprovado" | "revisao">(
-    "idle",
-  );
+  // "analisando" cobre a espera pós-clique em Enviar até o cadastro ser
+  // persistido no servidor; "recebido" é o desfecho final — a IA (análise
+  // de documentos, avaliação final, geração do contrato) roda depois, de
+  // forma assíncrona, então o resultado (aprovado ou revisão manual) não
+  // é mais conhecido nesta resposta — ver AnalisarCadastroUseCase. A
+  // duração mínima de "analisando" vale pra QUALQUER desfecho (sucesso,
+  // duplicado ou erro) — sem isso, uma resposta rápida do servidor (ex:
+  // erro de validação em <1s) fazia a animação sumir quase instantaneamente.
+  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "recebido">("idle");
   const inicioAnaliseRef = useRef<number | null>(null);
 
   const DURACAO_MINIMA_ANALISE_MS = 10000;
@@ -181,6 +227,25 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     setOrigem(origem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origem]);
+
+  // Só grava quando vier preenchido (diferente do setOrigem acima) — uma
+  // vez capturada a atribuição via link, uma revisita sem o parâmetro
+  // (ex.: continuando o rascunho salvo) não pode apagar o que já foi
+  // guardado.
+  useEffect(() => {
+    if (executivoId) setExecutivoId(executivoId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [executivoId]);
+
+  useEffect(() => {
+    if (associacaoId) setAssociacaoId(associacaoId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [associacaoId]);
+
+  useEffect(() => {
+    if (eventoId) setEventoId(eventoId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventoId]);
 
   // LEGADO — qsaResult nunca é populado hoje (consultarQsaSeCompleto não é
   // mais chamado por setCnpj), então este efeito fica inerte. Mantido junto
@@ -430,6 +495,31 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  // Aviso antecipado — não bloqueia o preenchimento nem substitui a
+  // checagem real do submit final (FinalizarCadastroUseCase): é só um
+  // "ei, esse CNPJ já tem cadastro" o mais cedo possível. Best-effort,
+  // igual à consulta de QSA legada: falha (rate limit, instabilidade) não
+  // trava o usuário, só deixa de mostrar o aviso.
+  async function verificarCnpjCadastradoSeCompleto(cnpjMascarado: string) {
+    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+
+    if (cnpjLimpo.length < 14) {
+      setCnpjJaCadastrado(false);
+      return;
+    }
+
+    setVerificandoCnpjCadastrado(true);
+
+    try {
+      const existe = await agenciaService.verificarCnpjCadastrado(cnpjLimpo);
+      setCnpjJaCadastrado(existe);
+    } catch {
+      setCnpjJaCadastrado(false);
+    } finally {
+      setVerificandoCnpjCadastrado(false);
+    }
+  }
+
   function setCnpj(valorDigitado: string) {
     const mascarado = maskCnpj(valorDigitado);
     setCnpjRaw(mascarado);
@@ -438,6 +528,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // do contrato social (ver analisarContratoSocialSeCompleto abaixo e o
     // useEffect de dados da empresa).
     void analisarContratoSocialSeCompleto(mascarado, contratoSocial);
+    void verificarCnpjCadastradoSeCompleto(mascarado);
     socios.forEach((socio, index) => {
       if (socio.rgArquivo) {
         void analisarDocumentoIdentificacaoSeCompleto(mascarado, index, socio.rgArquivo);
@@ -734,6 +825,9 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       razaoSocial,
       contratoSocial,
       origem,
+      executivoId: executivoIdSalvo,
+      associacaoId: associacaoIdSalvo,
+      eventoId: eventoIdSalvo,
       telefoneComercial,
       telefoneComercialPais,
       semTelefoneComercial,
@@ -754,7 +848,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       await aguardarDuracaoMinimaAnalise();
 
       if (resultado.success) {
-        setFaseSubmit(resultado.precisaRevisaoManual ? "revisao" : "aprovado");
+        setFaseSubmit("recebido");
         // Cadastro já persistido de verdade no banco — o rascunho salvo
         // localmente (autosave) não tem mais função, limpa. O resultado da
         // análise (fase do overlay) já foi guardado acima em faseSubmit,
@@ -792,11 +886,22 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     labels: ETAPA_LABELS,
     avancarSecao,
 
+    executivos,
+    associacoes,
+    executivoIdSelecionado: executivoIdSalvo,
+    associacaoIdSelecionado: associacaoIdSalvo,
+    executivoTravado,
+    associacaoTravado,
+    setExecutivoId,
+    setAssociacaoId,
+
     cnpj,
     cnpjStatus,
     qsaChecking,
     qsaResult,
     avisoAlfanumerico,
+    verificandoCnpjCadastrado,
+    cnpjJaCadastrado,
     contratoSocial,
     contratoSocialErro,
     analisandoContratoSocial,

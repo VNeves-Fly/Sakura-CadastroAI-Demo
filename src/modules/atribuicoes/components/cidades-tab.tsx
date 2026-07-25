@@ -47,7 +47,7 @@ export function CidadesTab({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="border-border bg-muted/40 border-b">
-            <tr>
+            <tr className="divide-border divide-x">
               <th className="text-muted-foreground px-4 py-2.5 font-medium">Cidade</th>
               <th className="text-muted-foreground px-4 py-2.5 font-medium">Estado</th>
               <th className="text-muted-foreground px-4 py-2.5 font-medium">DDD</th>
@@ -57,12 +57,9 @@ export function CidadesTab({
               <th className="text-muted-foreground px-4 py-2.5 font-medium">Gestor</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-border divide-y">
             {cidades.map((cidade, index) => (
-              <tr
-                key={`${cidade.cidade}-${index}`}
-                className="border-border border-b last:border-0"
-              >
+              <tr key={`${cidade.cidade}-${index}`} className="divide-border divide-x">
                 <td className="text-foreground px-4 py-2.5">{cidade.cidade}</td>
                 <td className="text-muted-foreground px-4 py-2.5">{cidade.estado ?? "—"}</td>
                 <td className="text-muted-foreground px-4 py-2.5">{cidade.ddd ?? "—"}</td>

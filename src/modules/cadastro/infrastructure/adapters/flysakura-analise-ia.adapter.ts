@@ -1,4 +1,5 @@
 import type {
+  AnaliseIaCnaePrincipal,
   AnaliseIaDetalhamento,
   AnaliseIaDocumentoDetalhe,
   AnaliseIaInput,
@@ -115,41 +116,66 @@ interface RawCampoComparado {
   confere: boolean | null;
 }
 
+interface RawCnae {
+  codigo: string | null;
+  description: string | null;
+  compativel_turismo: boolean | null;
+}
+
 interface RawStage1 {
   executed?: boolean;
   situacao_cadastral: string | null;
-  cnae_principal: {
-    codigo: string | null;
-    description: string | null;
-    compativel_turismo: boolean | null;
-  } | null;
+  cnae_principal: RawCnae | null;
+  cnaes_secundarios?: RawCnae[] | null;
   razao_social: RawCampoComparado | null;
   nome_fantasia: RawCampoComparado | null;
+  email?: {
+    fornecido: string | null;
+    has_mx: boolean;
+    corporativo: boolean;
+  } | null;
   socios: {
     fornecidos: Array<Record<string, unknown>>;
     oficiais: Array<Record<string, unknown>>;
     divergencias: string[];
   } | null;
+  processos?: {
+    verificado: boolean;
+    resumo: string | null;
+  } | null;
+}
+
+function mapCnae(raw: RawCnae): AnaliseIaCnaePrincipal {
+  return {
+    codigo: raw.codigo,
+    descricao: raw.description,
+    compativelTurismo: raw.compativel_turismo,
+  };
 }
 
 function mapStage1(raw: RawStage1): AnaliseIaStage1 {
   return {
     situacaoCadastral: raw.situacao_cadastral,
-    cnaePrincipal: raw.cnae_principal
-      ? {
-          codigo: raw.cnae_principal.codigo,
-          descricao: raw.cnae_principal.description,
-          compativelTurismo: raw.cnae_principal.compativel_turismo,
-        }
-      : null,
+    cnaePrincipal: raw.cnae_principal ? mapCnae(raw.cnae_principal) : null,
+    cnaesSecundarios: (raw.cnaes_secundarios ?? []).map(mapCnae),
     razaoSocial: raw.razao_social,
     nomeFantasia: raw.nome_fantasia,
+    email: raw.email
+      ? {
+          fornecido: raw.email.fornecido,
+          hasMx: raw.email.has_mx,
+          corporativo: raw.email.corporativo,
+        }
+      : null,
     socios: raw.socios
       ? {
           fornecidos: raw.socios.fornecidos,
           oficiais: raw.socios.oficiais,
           divergencias: raw.socios.divergencias,
         }
+      : null,
+    processos: raw.processos
+      ? { verificado: raw.processos.verificado, resumo: raw.processos.resumo }
       : null,
   };
 }

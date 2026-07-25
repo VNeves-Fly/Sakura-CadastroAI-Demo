@@ -1,6 +1,6 @@
 import { CircleDollarSign, ShieldAlert } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
-import { Campo, formatarMoedaBrl } from "@/modules/admin/components/dossie-campos";
+import { Campo, CamposGrid, formatarMoedaBrl } from "@/modules/admin/components/dossie-campos";
 import type {
   ConsultaAmat,
   ConsultaSofia,
@@ -44,12 +44,12 @@ export function ConsultaAmatCard({ amat }: { amat: ConsultaAmat }) {
       <div className="flex flex-col gap-3">
         <AvisoMock />
 
-        <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+        <CamposGrid>
           <Campo label="Dívida Total da Agência">
             <span className="text-lg font-bold">{formatarMoedaBrl(amat.dividaTotalAgencia)}</span>
           </Campo>
           <Campo label="Número de Sócios">{amat.socios.length}</Campo>
-        </dl>
+        </CamposGrid>
 
         <div className="flex flex-col gap-2">
           {amat.socios.map((divida, index) => (

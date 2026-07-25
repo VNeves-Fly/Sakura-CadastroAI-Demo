@@ -42,6 +42,7 @@ export function MessageBox({ pending, onEnviar }: MessageBoxProps) {
       <textarea
         value={valor}
         disabled={!habilitado}
+        autoComplete="off"
         onChange={(event) => setValor(aplicarMascara(event.target.value, pending))}
         onKeyDown={aoTeclar}
         placeholder={

@@ -3,7 +3,11 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { animate } from "animejs";
-import { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import {
+  useCadastroWizardViewModel,
+  type ExecutivoOption,
+  type AssociacaoOption,
+} from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import { AnaliseCadastroOverlay } from "@/modules/cadastro/components/analise-cadastro-overlay";
 import { WizardStepper } from "@/modules/cadastro/components/wizard-stepper";
 import { SecaoCard } from "@/modules/cadastro/components/secao-card";
@@ -16,13 +20,32 @@ import { Passo8Revisao } from "@/modules/cadastro/components/steps/passo8-revisa
 
 interface CadastroWizardViewProps {
   origem: string | null;
+  executivoId: string | null;
+  associacaoId: string | null;
+  eventoId: string | null;
+  executivos: ExecutivoOption[];
+  associacoes: AssociacaoOption[];
 }
 
 // View: só renderiza, delegando toda a lógica ao ViewModel do wizard.
 // Página única: as seções ficam empilhadas e vão sendo reveladas
 // conforme o usuário avança (sem bloqueio de validação — só no envio final).
-export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
-  const wizard = useCadastroWizardViewModel({ origem });
+export function CadastroWizardView({
+  origem,
+  executivoId,
+  associacaoId,
+  eventoId,
+  executivos,
+  associacoes,
+}: CadastroWizardViewProps) {
+  const wizard = useCadastroWizardViewModel({
+    origem,
+    executivoId,
+    associacaoId,
+    eventoId,
+    executivos,
+    associacoes,
+  });
   const secaoRefs = useRef<Array<HTMLDivElement | null>>([]);
   const primeiraRenderizacao = useRef(true);
 
@@ -59,10 +82,10 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
 
   const secoesVisiveis = Array.from({ length: wizard.secoesReveladas }, (_, index) => index + 1);
 
-  // O desfecho de sucesso (aprovado ou enviado pra análise) é mostrado só
-  // pelo AnaliseCadastroOverlay em tela cheia (fase "aprovado"/"revisao",
-  // renderizado mais abaixo) — nenhuma tela adicional troca por trás
-  // disso, pra não duplicar a mensagem em duas telas diferentes.
+  // A confirmação de recebimento é mostrada só pelo AnaliseCadastroOverlay
+  // em tela cheia (fase "recebido", renderizado mais abaixo) — nenhuma
+  // tela adicional troca por trás disso, pra não duplicar a mensagem em
+  // duas telas diferentes.
   if (wizard.submitDuplicado) {
     return (
       <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10">
@@ -124,12 +147,12 @@ export function CadastroWizardView({ origem }: CadastroWizardViewProps) {
                       <Passo2Empresa {...wizard} />
                     </div>
                   ) : null}
-                  {numero === 2 ? <Passo5Socios {...wizard} /> : null}
+                  {numero === 2 ? <Passo5Socios {...wizard} podeAvancar={podeAvancar} /> : null}
                   {numero === 3 ? <Passo6Endereco {...wizard} /> : null}
                   {numero === 4 ? <Passo7Banco {...wizard} /> : null}
                   {numero === 5 ? <Passo8Revisao {...wizard} /> : null}
 
-                  {podeAvancar ? (
+                  {podeAvancar && numero !== 2 ? (
                     <button
                       type="button"
                       onClick={wizard.avancarSecao}

@@ -185,22 +185,20 @@ describe("agenciaAdapter.toDocumentoIdentificacaoAnaliseView", () => {
 });
 
 describe("agenciaAdapter.toSubmitResultView", () => {
-  it("mapeia sucesso preservando id e sinal de revisão manual", () => {
+  it("mapeia sucesso preservando o id da agência", () => {
     const resultado: CriarAgenciaResult = {
       ok: true,
       data: {
         id: "abc123",
         cnpj: "11222333000181",
         razaoSocial: "Empresa Teste Ltda",
-        status: "aguardando_assinatura",
-        precisaRevisaoManual: false,
+        status: "em_analise",
       },
     };
 
     expect(agenciaAdapter.toSubmitResultView(resultado)).toEqual({
       success: true,
       agenciaId: "abc123",
-      precisaRevisaoManual: false,
     });
   });
 
@@ -226,6 +224,9 @@ describe("agenciaAdapter.toFinalizarCadastroFormData", () => {
       razaoSocial: "Empresa Teste Ltda",
       contratoSocial: arquivoFake("contrato.pdf"),
       origem: "evento-teste",
+      executivoId: null,
+      associacaoId: null,
+      eventoId: null,
       telefoneComercial: "(11) 99999-9999",
       telefoneComercialPais: "BR",
       semTelefoneComercial: false,

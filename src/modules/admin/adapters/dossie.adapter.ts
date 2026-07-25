@@ -3,6 +3,7 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import type { UsuarioMaster } from "@/modules/cadastro/domain/entities/usuario-master.entity";
+import type { AnaliseIaDocumentoDetalhe } from "@/modules/cadastro/domain/services/analise-ia-service";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import {
   TIPO_CONTA_OPCOES,
@@ -19,12 +20,15 @@ import {
   CONTRATO_STATUS_ASSINADO_AGENCIA,
   CONTRATO_STATUS_ASSINADO,
   type RepresentanteLegalDetalhe,
+  type AnaliseIaAgenciaDetalhe,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type {
   DocumentoRevisao,
   DocumentoHistoricoItem,
   SignatarioFila,
   AnaliseIaResumo,
+  ParecerIaView,
+  ParecerIaItemChecklist,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -238,6 +242,68 @@ export function paraAnaliseIaResumo(analise: AnaliseIaDocumento | null): Analise
     alertas: analise.alertas,
     resumoAnalise: analise.resumoAnalise,
     camposExtraidos: analise.camposExtraidos,
+  };
+}
+
+// Extrai só os pontos que o analista precisa checar de um documento do
+// stage3: campos onde o extraído/oficial diverge do que foi fornecido
+// (confere: false) e alertas de extração — nunca os campos que
+// conferem, isso é ruído pro analista, não uma pendência.
+function itensDoDocumento(
+  detalhe: AnaliseIaDocumentoDetalhe,
+  origem: string,
+): ParecerIaItemChecklist[] {
+  const itens: ParecerIaItemChecklist[] = [];
+
+  for (const campo of detalhe.campos) {
+    if (campo.confere) continue;
+    itens.push({
+      origem,
+      mensagem: `${campo.campo}: informado "${campo.fornecido ?? "—"}", extraído "${campo.extraido ?? "—"}"${campo.oficial ? `, oficial "${campo.oficial}"` : ""}`,
+    });
+  }
+
+  for (const alerta of detalhe.alertasExtracao) {
+    itens.push({ origem, mensagem: alerta });
+  }
+
+  if (!detalhe.valido && detalhe.campos.length === 0 && detalhe.alertasExtracao.length === 0) {
+    itens.push({ origem, mensagem: "Documento não pôde ser validado." });
+  }
+
+  return itens;
+}
+
+// Consolida o parecer da IA (veredito, motivo, pontos de alerta e
+// checklist) numa seção só — pedido explícito do usuário em vez de
+// espalhar essa informação em blocos separados pela ficha. `resultado`
+// classifica POR QUE chegou nesse status (REPROVADO real vs
+// FALHA_ANALISE/FALHA_CONTRATO técnicas vs EM_ANALISE ainda pendente) —
+// é o dado mais confiável pro badge, já que `parecer` (texto bruto do
+// agente externo) fica null nas falhas técnicas. null só em cadastros
+// anteriores a esta funcionalidade existir.
+export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): ParecerIaView | null {
+  if (!analiseIa) return null;
+
+  const detalhamento = analiseIa.detalhamento;
+  const itensParaChecar: ParecerIaItemChecklist[] = detalhamento
+    ? [
+        ...detalhamento.documentosEmpresa.flatMap((documento) =>
+          itensDoDocumento(documento, documento.tipo),
+        ),
+        ...detalhamento.socios.flatMap((socio) =>
+          socio.documentos.flatMap((documento) => itensDoDocumento(documento, socio.nome)),
+        ),
+      ]
+    : [];
+
+  return {
+    resultado: analiseIa.resultado,
+    parecer: analiseIa.parecer,
+    motivo: analiseIa.motivo,
+    pontosDeAlerta: analiseIa.flagsRisco,
+    itensParaChecar,
+    avaliadoEm: analiseIa.avaliadoEm,
   };
 }
 

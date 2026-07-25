@@ -5,10 +5,23 @@ import { revalidatePath } from "next/cache";
 import {
   substituirExecutivo,
   substituirGestor,
+  substituirBase,
 } from "@/modules/atribuicoes/services/atribuicoes-store";
 
+const ABA_POR_TIPO: Record<"executivo" | "gestor" | "base", string> = {
+  executivo: "executivos",
+  gestor: "gestores",
+  base: "bases",
+};
+
+function normalizarTipo(valor: FormDataEntryValue | null): "executivo" | "gestor" | "base" {
+  if (valor === "gestor") return "gestor";
+  if (valor === "base") return "base";
+  return "executivo";
+}
+
 export async function substituirAction(formData: FormData) {
-  const tipo = formData.get("tipo") === "gestor" ? "gestor" : "executivo";
+  const tipo = normalizarTipo(formData.get("tipo"));
   const nomeAntigo = String(formData.get("nomeAntigo") ?? "").trim();
   const nomeExistente = String(formData.get("nomeExistente") ?? "").trim();
   const nomeNovoDigitado = String(formData.get("nomeNovo") ?? "").trim();
@@ -28,10 +41,12 @@ export async function substituirAction(formData: FormData) {
 
   if (tipo === "gestor") {
     substituirGestor(nomeAntigo, nomeNovo);
+  } else if (tipo === "base") {
+    substituirBase(nomeAntigo, nomeNovo);
   } else {
     substituirExecutivo(nomeAntigo, nomeNovo);
   }
 
   revalidatePath("/atribuicoes");
-  redirect(`/atribuicoes?aba=${tipo === "gestor" ? "gestores" : "executivos"}`);
+  redirect(`/atribuicoes?aba=${ABA_POR_TIPO[tipo]}`);
 }

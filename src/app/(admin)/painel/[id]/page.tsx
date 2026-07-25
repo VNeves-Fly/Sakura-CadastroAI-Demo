@@ -10,10 +10,12 @@ import {
   ScrollText,
   FolderCheck,
   Bell,
+  Sparkles,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
   Campo,
+  CamposGrid,
   formatarData,
   formatarDataCurta,
   formatarMoedaBrl,
@@ -23,6 +25,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
+  ParecerIa,
 } from "@/modules/admin/components/dossie-campos";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
 import {
@@ -34,6 +37,7 @@ import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
+import { CnpjCopiavel } from "./cnpj-copiavel";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
   labelOrigemContrato,
@@ -47,10 +51,9 @@ import {
   usuarioMasterEstaCompleto,
   documentosAguardandoRevisaoPosReenvio,
 } from "@/modules/admin/adapters/dossie.adapter";
-import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
-import { resolverOrigemEvento } from "@/modules/eventos/utils/resolver-origem.util";
 import {
+  STATUS_EM_ANALISE,
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
@@ -68,6 +71,7 @@ import {
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
+  reprocessarAnaliseAction,
   validarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
@@ -171,7 +175,7 @@ export default async function DossieAgenciaPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { etapa?: string };
+  searchParams: { etapa?: string; leitura?: string };
 }) {
   const view = await obterDossieView(params.id);
 
@@ -181,6 +185,9 @@ export default async function DossieAgenciaPage({
 
   const {
     agencia,
+    executivoNome,
+    associacaoNome,
+    eventoNome,
     complementar,
     representantesLegais,
     contratoSocial,
@@ -192,6 +199,7 @@ export default async function DossieAgenciaPage({
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    parecerIa,
     dadosReceita,
     usuarioMaster,
   } = view;
@@ -216,7 +224,11 @@ export default async function DossieAgenciaPage({
   const etapaParam = Number(searchParams?.etapa);
   const etapaValida = Number.isInteger(etapaParam) && etapaParam >= 0 && etapaParam <= indiceTrilha;
   const etapaExibida = !trilhaRecusada && etapaValida ? etapaParam : indiceTrilha;
-  const mostrandoEtapaAtual = etapaExibida === indiceTrilha;
+  // ?leitura=1 força modo leitura mesmo na etapa atual — usado quando um
+  // executivo abre o dossiê pela própria ficha (Atribuições), que nunca
+  // pode agir no cadastro, só consultar.
+  const somenteLeituraExterna = searchParams?.leitura === "1";
+  const mostrandoEtapaAtual = etapaExibida === indiceTrilha && !somenteLeituraExterna;
 
   const indiceComplementar = ETAPAS_PIPELINE.findIndex(
     (etapa) => etapa.status === STATUS_EM_COMPLEMENTAR,
@@ -231,7 +243,6 @@ export default async function DossieAgenciaPage({
     (etapa) => etapa.status === STATUS_AGUARDANDO_ATIVACAO,
   );
   const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
-  const origemEvento = resolverOrigemEvento(agencia.origem);
 
   return (
     <div className="flex flex-col gap-4">
@@ -241,16 +252,25 @@ export default async function DossieAgenciaPage({
           {/* Gestor/Base escondidos até existir fonte de dado real (aguardando
               modelagem no backend) — mostrar "—" com tooltip parecia
               funcionalidade quebrada, não um espaço reservado pro futuro.
-              Evento/Executivo já dá pra resolver via o mock de /eventos
-              (ver resolver-origem.util.ts) a partir de Agencia.origem. */}
-          {origemEvento ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="bg-accent text-accent-foreground rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap">
-                {origemEvento.eventoNome}
-              </span>
-              <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
-                {origemEvento.executivoNome}
-              </span>
+              Evento/Executivo/Associação vêm resolvidos de verdade agora
+              (Agencia.eventoId/executivoId/associacaoId). */}
+          {eventoNome || executivoNome || associacaoNome ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {eventoNome ? (
+                <span className="bg-accent text-accent-foreground rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap">
+                  {eventoNome}
+                </span>
+              ) : null}
+              {executivoNome ? (
+                <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
+                  {executivoNome}
+                </span>
+              ) : null}
+              {associacaoNome ? (
+                <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
+                  {associacaoNome}
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -273,9 +293,7 @@ export default async function DossieAgenciaPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground font-medium">CNPJ:</span>
-            <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-base font-bold">
-              {maskCnpj(agencia.cnpj)}
-            </span>
+            <CnpjCopiavel cnpj={agencia.cnpj} />
           </p>
           <span
             className={`rounded-full px-3 py-1 text-sm font-medium ${classesBadgeStatus(agencia.status)}`}
@@ -294,7 +312,29 @@ export default async function DossieAgenciaPage({
         />
       </div>
 
-      {!mostrandoEtapaAtual ? (
+      {agencia.status === STATUS_EM_ANALISE ? (
+        <div className="border-border bg-muted/40 text-muted-foreground flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed px-4 py-3 text-sm">
+          <span>
+            Cadastro persistido, aguardando a análise de IA rodar em background (documentos +
+            avaliação final). Se estiver parado aqui por muito tempo, a análise pode ter falhado
+            tecnicamente — use o botão ao lado pra rodar de novo.
+          </span>
+          <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
+            <button
+              type="submit"
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition"
+            >
+              Reprocessar análise
+            </button>
+          </form>
+        </div>
+      ) : null}
+
+      {somenteLeituraExterna ? (
+        <div className="border-primary/30 bg-primary/5 text-primary rounded-2xl border border-dashed px-4 py-3 text-sm">
+          Visualização somente leitura — nenhuma ação pode ser feita aqui.
+        </div>
+      ) : !mostrandoEtapaAtual ? (
         <div className="border-primary/30 bg-primary/5 text-primary flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed px-4 py-3 text-sm">
           <span>
             Modo leitura — revendo a etapa <strong>{ETAPAS_PIPELINE[etapaExibida]?.label}</strong>,
@@ -316,7 +356,7 @@ export default async function DossieAgenciaPage({
       ) : (
         <>
           <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+            <CamposGrid>
               <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
               <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
               <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
@@ -328,7 +368,7 @@ export default async function DossieAgenciaPage({
               <Campo label="Análise de IA" className="sm:col-span-2">
                 <AnaliseIaDetalhe analise={analiseIaContratoSocial} />
               </Campo>
-            </dl>
+            </CamposGrid>
           </SecaoColapsavel>
 
           <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
@@ -339,7 +379,7 @@ export default async function DossieAgenciaPage({
               </p>
             ) : (
               <div className="flex flex-col gap-4">
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                <CamposGrid>
                   <Campo label="Situação Cadastral">
                     <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
                   </Campo>
@@ -356,14 +396,14 @@ export default async function DossieAgenciaPage({
                       ? `Sim${dadosReceita.dataOpcaoSimples ? ` (desde ${formatarDataCurta(dadosReceita.dataOpcaoSimples)})` : ""}`
                       : "Não"}
                   </Campo>
-                </dl>
+                </CamposGrid>
 
                 <div className="flex flex-col gap-2">
                   <SubsecaoLabel>Contato</SubsecaoLabel>
-                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                  <CamposGrid>
                     <Campo label="Telefone (Receita)">{dadosReceita.telefone || "—"}</Campo>
                     <Campo label="E-mail (Receita)">{dadosReceita.email || "—"}</Campo>
-                  </dl>
+                  </CamposGrid>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -385,6 +425,10 @@ export default async function DossieAgenciaPage({
             )}
           </SecaoColapsavel>
 
+          <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
+            <ParecerIa parecer={parecerIa} />
+          </SecaoColapsavel>
+
           <ConsultaAmatCard amat={amat} />
           <ConsultaSofiaCard sofia={sofia} />
 
@@ -403,7 +447,7 @@ export default async function DossieAgenciaPage({
                       </span>
                     ) : null}
                   </div>
-                  <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                  <CamposGrid>
                     <Campo label="CPF">{socio.cpf}</Campo>
                     <Campo label="E-mail">{socio.email}</Campo>
                     <Campo label="Telefone">{socio.telefone}</Campo>
@@ -422,14 +466,14 @@ export default async function DossieAgenciaPage({
                     <Campo label="Análise de IA (RG)" className="sm:col-span-2">
                       <AnaliseIaDetalhe analise={analiseIaPorSocioId.get(socio.id) ?? null} />
                     </Campo>
-                  </dl>
+                  </CamposGrid>
                 </div>
               ))}
             </div>
           </SecaoColapsavel>
 
           <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+            <CamposGrid>
               <Campo label="Endereço da Agência" className="sm:col-span-2">
                 {formatarEndereco(complementar.enderecoAgencia)}
               </Campo>
@@ -443,7 +487,7 @@ export default async function DossieAgenciaPage({
               <Campo label="Favorecido" className="sm:col-span-2">
                 {complementar.favorecidoNome} — {complementar.favorecidoDoc}
               </Campo>
-            </dl>
+            </CamposGrid>
           </SecaoColapsavel>
         </>
       )}
@@ -554,16 +598,8 @@ export default async function DossieAgenciaPage({
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
-                contrato foi criado ainda.
+                contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
               </p>
-
-              <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-                <strong className="text-foreground">Parecer da IA indisponível:</strong> a
-                normalização de dados do cadastro complementar não trouxe mais o campo estruturado
-                do parecer (motivo/inconsistências/pontos a avaliar) — sinalizando aqui em vez de
-                mostrar um parecer desatualizado ou inventado. Precisa alinhar com quem mexeu no
-                schema onde esse dado deveria morar agora.
-              </div>
 
               {mostrandoEtapaAtual ? (
                 <div className="flex flex-wrap gap-2">
@@ -581,6 +617,14 @@ export default async function DossieAgenciaPage({
                       className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
                     >
                       Recusar
+                    </button>
+                  </form>
+                  <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    >
+                      Reprocessar análise de IA
                     </button>
                   </form>
                 </div>

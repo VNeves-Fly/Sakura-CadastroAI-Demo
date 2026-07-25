@@ -1,9 +1,18 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { Building2, Users, Landmark, FileSignature, ScrollText, FolderCheck } from "lucide-react";
+import {
+  Building2,
+  Users,
+  Landmark,
+  FileSignature,
+  ScrollText,
+  FolderCheck,
+  Sparkles,
+} from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
   Campo,
+  CamposGrid,
   formatarData,
   formatarDataCurta,
   formatarMoedaBrl,
@@ -13,6 +22,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   AnaliseIaDetalhe,
+  ParecerIa,
   HistoricoDocumento,
 } from "@/modules/admin/components/dossie-campos";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
@@ -120,6 +130,7 @@ export default async function ArquivoDossiePage({
     documentosPendentes,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
+    parecerIa,
     dadosReceita,
   } = view;
 
@@ -224,7 +235,7 @@ export default async function ArquivoDossiePage({
           ) : (
             <>
               <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                <CamposGrid>
                   <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
                   <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
                   <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
@@ -236,7 +247,11 @@ export default async function ArquivoDossiePage({
                   <Campo label="Análise de IA" className="sm:col-span-2">
                     <AnaliseIaDetalhe analise={analiseIaContratoSocial} />
                   </Campo>
-                </dl>
+                </CamposGrid>
+              </SecaoColapsavel>
+
+              <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
+                <ParecerIa parecer={parecerIa} />
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
@@ -247,7 +262,7 @@ export default async function ArquivoDossiePage({
                   </p>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <CamposGrid>
                       <Campo label="Situação Cadastral">
                         <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
                       </Campo>
@@ -268,14 +283,14 @@ export default async function ArquivoDossiePage({
                           ? `Sim${dadosReceita.dataOpcaoSimples ? ` (desde ${formatarDataCurta(dadosReceita.dataOpcaoSimples)})` : ""}`
                           : "Não"}
                       </Campo>
-                    </dl>
+                    </CamposGrid>
 
                     <div className="flex flex-col gap-2">
                       <SubsecaoLabel>Contato</SubsecaoLabel>
-                      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                      <CamposGrid>
                         <Campo label="Telefone (Receita)">{dadosReceita.telefone || "—"}</Campo>
                         <Campo label="E-mail (Receita)">{dadosReceita.email || "—"}</Campo>
-                      </dl>
+                      </CamposGrid>
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -315,7 +330,7 @@ export default async function ArquivoDossiePage({
                           </span>
                         ) : null}
                       </div>
-                      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                      <CamposGrid>
                         <Campo label="CPF">{socio.cpf}</Campo>
                         <Campo label="E-mail">{socio.email}</Campo>
                         <Campo label="Telefone">{socio.telefone}</Campo>
@@ -334,14 +349,14 @@ export default async function ArquivoDossiePage({
                         <Campo label="Análise de IA (RG)" className="sm:col-span-2">
                           <AnaliseIaDetalhe analise={analiseIaPorSocioId.get(socio.id) ?? null} />
                         </Campo>
-                      </dl>
+                      </CamposGrid>
                     </div>
                   ))}
                 </div>
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                <CamposGrid>
                   <Campo label="Endereço da Agência" className="sm:col-span-2">
                     {formatarEndereco(complementar.enderecoAgencia)}
                   </Campo>
@@ -357,7 +372,7 @@ export default async function ArquivoDossiePage({
                   <Campo label="Favorecido" className="sm:col-span-2">
                     {complementar.favorecidoNome} — {complementar.favorecidoDoc}
                   </Campo>
-                </dl>
+                </CamposGrid>
               </SecaoColapsavel>
             </>
           )}

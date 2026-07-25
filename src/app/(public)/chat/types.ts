@@ -69,6 +69,10 @@ export interface ContextoChat {
   emailComercial: string | null;
   emailFinanceiroDiferente: boolean;
   emailFinanceiro: string | null;
+  executivoId: string | null;
+  executivoNome: string | null;
+  associacaoId: string | null;
+  associacaoNome: string | null;
   socios: SocioChat[];
   socioAtualIndex: number | null;
   temProcurador: boolean | null;
@@ -88,7 +92,10 @@ export type ChatMessage =
 export interface CampoInlineForm {
   nome: string;
   label: string;
-  tipo: "text" | "select" | "checkbox";
+  // "combobox" difere de "select": tem busca por texto, pensado pra
+  // listas maiores (executivos, associações) onde rolar um <select>
+  // comum seria ruim — mesmo componente (Combobox) usado em /cadastro.
+  tipo: "text" | "select" | "combobox" | "checkbox";
   opcoes?: { valor: string; label: string }[];
   placeholder?: string;
   obrigatorio?: boolean;
@@ -109,6 +116,10 @@ export type PendingTag =
   | "email_flags"
   | "email_comercial"
   | "email_financeiro"
+  | "executivo_pergunta"
+  | "executivo_escolha"
+  | "associacao_pergunta"
+  | "associacao_escolha"
   | "escolha_socio"
   | "cpf"
   | "email"

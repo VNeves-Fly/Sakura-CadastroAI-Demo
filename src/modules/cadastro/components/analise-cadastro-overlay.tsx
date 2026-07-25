@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { WhatsAppIcon } from "@/modules/cadastro/components/icons";
+import { WHATSAPP_LINK_ATENDIMENTO } from "@/modules/shared/utils/whatsapp.util";
 
-export type FaseAnaliseCadastro = "analisando" | "aprovado" | "revisao";
+export type FaseAnaliseCadastro = "analisando" | "recebido";
 
 interface AnaliseCadastroOverlayProps {
   fase: FaseAnaliseCadastro;
@@ -42,63 +44,44 @@ function SeloCheck({ ativo }: { ativo: boolean }) {
   );
 }
 
-function ResultadoAnalise({ fase }: { fase: "aprovado" | "revisao" }) {
-  const aprovado = fase === "aprovado";
-
+// Desde que a análise de IA passou a rodar em background (depois do
+// cadastro já persistido — ver AnalisarCadastroUseCase), esta tela não
+// conhece mais o desfecho (aprovado ou revisão manual) na hora do
+// submit: só confirma que o cadastro foi recebido. O resultado de
+// verdade chega depois por e-mail (contrato, se aprovado) ou contato da
+// equipe (se for pra revisão manual).
+function ResultadoAnalise() {
   return (
     <div className="animate-in fade-in-0 zoom-in-95 flex w-80 flex-col items-center gap-3 rounded-2xl bg-white p-8 text-center shadow-2xl duration-300">
-      <div
-        className={`flex h-14 w-14 items-center justify-center rounded-full ${
-          aprovado ? "bg-success/15" : "bg-warning/15"
-        }`}
-      >
-        {aprovado ? (
-          <svg
-            viewBox="0 0 24 24"
-            width="26"
-            height="26"
-            fill="none"
-            stroke="#16a34a"
-            strokeWidth="2"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        ) : (
-          <svg
-            viewBox="0 0 24 24"
-            width="26"
-            height="26"
-            fill="none"
-            stroke="#d97706"
-            strokeWidth="2"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a1 1 0 0 0 .86 1.5h18.64a1 1 0 0 0 .86-1.5L13.71 3.86a1 1 0 0 0-1.72 0Z"
-            />
-          </svg>
-        )}
-      </div>
-      <p className={`text-base font-semibold ${aprovado ? "text-success" : "text-warning"}`}>
-        {aprovado ? "Cadastro aprovado" : "Cadastro enviado para análise"}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/success/cadastro-aprovado.svg" alt="" aria-hidden="true" className="size-20" />
+      <p className="text-success text-base font-semibold">Cadastro recebido</p>
+      <p className="text-muted-foreground text-sm">
+        Estamos analisando seu cadastro agora. Em breve você recebe por e-mail o contrato para
+        assinatura ou um contato da nossa equipe com mais informações.
       </p>
       <p className="text-muted-foreground text-sm">
-        {aprovado
-          ? "Seu cadastro foi aprovado, um link com o contrato foi enviado para o e-mail dos sócios cadastrados."
-          : "Seu cadastro precisou de uma análise mais aprofundada, em breve nossa equipe entrará em contato para mais informações. Fique ligado!"}
+        Ficou com alguma dúvida? Fale com um de nossos atendentes pelo WhatsApp.
       </p>
+      <a
+        href={WHATSAPP_LINK_ATENDIMENTO}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-success hover:bg-success/90 flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
+      >
+        <WhatsAppIcon className="size-4" />
+        Falar no WhatsApp
+      </a>
     </div>
   );
 }
 
-// Tela cheia exibida entre o clique em "Enviar Cadastro" e o resultado
-// final: enquanto a análise roda de verdade no servidor (reconsulta QSA,
-// análise de documentos pela IA, geração do contrato), mostra a lista de
-// frases girando com "check" progressivo, igual ao protótipo aprovado.
-// Ao concluir, cruza pro cartão de resultado — aprovado ou revisão
-// manual, nunca "reprovado": a IA de hoje só decide entre aprovar na
-// hora ou mandar pra checagem humana, não existe rejeição automática.
+// Tela cheia exibida entre o clique em "Enviar Cadastro" e a confirmação
+// de recebimento: enquanto o cadastro é persistido no servidor, mostra a
+// lista de frases girando com "check" progressivo, igual ao protótipo
+// aprovado. A análise de IA (reconsulta QSA, documentos, geração do
+// contrato) roda depois, em background — esta tela não espera mais por
+// ela, só confirma o recebimento (ver AnalisarCadastroUseCase).
 // Renderizado em portal (mesmo motivo do RevisaoContratoModal: escapar
 // de qualquer ancestral com transform que vire containing block de um
 // elemento fixed).
@@ -172,7 +155,7 @@ export function AnaliseCadastroOverlay({ fase }: AnaliseCadastroOverlayProps) {
           </div>
         </div>
       ) : (
-        <ResultadoAnalise fase={fase} />
+        <ResultadoAnalise />
       )}
     </div>,
     document.body,

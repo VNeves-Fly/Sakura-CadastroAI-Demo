@@ -3,6 +3,7 @@ import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repos
 import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import { PrismaDadosReceitaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-dados-receita.repository";
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
+import { PrismaExecutivoResolver } from "@/modules/cadastro/infrastructure/repositories/prisma-executivo-resolver";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 import { createQsaConsultaService } from "@/modules/cadastro/infrastructure/factories/qsa-consulta-service.factory";
@@ -14,7 +15,9 @@ import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/ada
 import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
+import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
 import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/consultar-qsa.use-case";
+import { VerificarCnpjCadastradoUseCase } from "@/modules/cadastro/application/use-cases/verificar-cnpj-cadastrado.use-case";
 import { AnalisarContratoSocialUseCase } from "@/modules/cadastro/application/use-cases/analisar-contrato-social.use-case";
 import { AnalisarDocumentoIdentificacaoUseCase } from "@/modules/cadastro/application/use-cases/analisar-documento-identificacao.use-case";
 import { ListarDocumentosPendentesUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos-pendentes.use-case";
@@ -43,6 +46,7 @@ const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const documentoRepository = new PrismaDocumentoRepository(prisma);
 const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
+const executivoResolver = new PrismaExecutivoResolver(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 // LEGADO — não é mais usado por FinalizarCadastroUseCase (razão social vem
 // do contrato social, dados oficiais vêm da Stage 1 do /agency-analysis/sync).
@@ -64,19 +68,33 @@ const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
 
 export const cadastroPublicoController = {
   finalizarCadastro(input: FinalizarCadastroInput) {
-    const useCase = new FinalizarCadastroUseCase(
+    const useCase = new FinalizarCadastroUseCase(agenciaRepository, fileStorage, executivoResolver);
+    return useCase.execute(input);
+  },
+
+  // Disparada (sem await) pela rota logo após finalizarCadastro persistir
+  // a Agência — roda a análise de IA e a geração do contrato em
+  // background, atualizando o registro já existente.
+  analisarCadastro(agenciaId: string) {
+    const useCase = new AnalisarCadastroUseCase(
       agenciaRepository,
-      fileStorage,
       contratoAssinaturaService,
       analiseIaService,
       documentAnalysisService,
       dadosReceitaRepository,
     );
-    return useCase.execute(input);
+    return useCase.execute({ agenciaId });
   },
 
   consultarQsa(cnpj: string) {
     const useCase = new ConsultarQsaUseCase(qsaConsultaService);
+    return useCase.execute({ cnpj });
+  },
+
+  // Aviso antecipado no wizard (não substitui a checagem real do submit
+  // final, em FinalizarCadastroUseCase) — só diz se já existe cadastro.
+  verificarCnpjCadastrado(cnpj: string) {
+    const useCase = new VerificarCnpjCadastradoUseCase(agenciaRepository);
     return useCase.execute({ cnpj });
   },
 

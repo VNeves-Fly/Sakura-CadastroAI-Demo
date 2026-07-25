@@ -42,6 +42,13 @@ export interface ResumoExecutivo {
   // de limitação). Gerado de forma determinística a partir do nome só
   // pra dar um número plausível de exemplo na tela.
   totalAgenciasMock: number;
+  // Contato real — vem da tabela Promotor (planilha "Links
+  // Promotores.xlsx") quando essa view é montada por
+  // paraExecutivosView; fica null quando é a agregação pura do mock de
+  // cidades (agregarExecutivos, usada só por filtros/Remanejar).
+  idSica: number | null;
+  email: string | null;
+  telefone: string | null;
 }
 
 export interface ResumoGestor {
@@ -52,10 +59,16 @@ export interface ResumoGestor {
   // Soma do totalAgenciasMock dos executivos desse gestor — mesma
   // ressalva de dado ilustrativo do ResumoExecutivo.
   totalAgenciasMock: number;
+  // Mesma ressalva do ResumoExecutivo — só vem preenchido quando essa
+  // view é montada por paraGestoresView (tabela Promotor), e mesmo
+  // assim só se o gestor também tiver sua própria linha de promotor.
+  idSica: number | null;
+  email: string | null;
+  telefone: string | null;
 }
 
 export interface SubstituicaoHistorico {
-  tipo: "executivo" | "gestor";
+  tipo: "executivo" | "gestor" | "base";
   nomeAntigo: string;
   nomeNovo: string;
   totalCidadesAfetadas: number;

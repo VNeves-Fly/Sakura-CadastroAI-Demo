@@ -36,6 +36,7 @@ function enderecoBancoValido() {
     endereco: enderecoValido(),
     bancoPais: "nacional",
     bancoNome: "Banco do Brasil",
+    bancoCodigo: "001",
     bancoAgencia: "1234",
     bancoConta: "56789-0",
     bancoSwift: "",

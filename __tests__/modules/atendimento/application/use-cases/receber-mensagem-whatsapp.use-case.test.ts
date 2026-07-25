@@ -178,7 +178,7 @@ describe("ReceberMensagemWhatsAppUseCase", () => {
     expect(whatsAppMessagingService.baixarMidia).toHaveBeenCalledWith("media-meta-123");
     expect(fileStorage.save).toHaveBeenCalledWith(
       expect.objectContaining({ mimeType: "image/jpeg", originalName: "media-meta-123.jpg" }),
-      "atendimento/conv-midia",
+      "atendimento/conv-midia/media-meta-123",
     );
     expect(mensagemRepository.criarMidia).toHaveBeenCalledWith({
       fileName: "media-meta-123.jpg",

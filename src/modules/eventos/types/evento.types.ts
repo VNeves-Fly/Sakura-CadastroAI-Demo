@@ -1,21 +1,27 @@
-// Domínio da página /painel/eventos — 100% mock front-end (ver
-// eventos-api.ts). Um Evento (ex.: "SUMMIT 2026 SP") agrupa vários
-// EventoLink, um por Executivo, cada um com slug público único
-// (cadastroai.flysakura.com/{slug}) que — quando o back-end existir —
-// vai travar o cadastro àquele executivo, gravando a tag na agência.
+// Domínio da página /painel/eventos — back-end real (ver
+// eventos-admin.controller.ts): um Evento (ex.: "SUMMIT 2026 SP") agrupa
+// vários EventoLink, cada um uma combinação de Executivo e/ou Associação
+// que personaliza o cadastro público. Sem rota própria: o link é sempre
+// a rota pública /cadastro com querystring
+// (`?evento=&executivo=&associacao=`).
 
 export interface Executivo {
   id: string;
   nome: string;
-  email: string;
+}
+
+export interface AssociacaoOpcao {
+  id: string;
+  nome: string;
 }
 
 export interface EventoLink {
   id: string;
   eventoId: string;
-  executivoId: string;
-  executivoNome: string;
-  slug: string;
+  promotorId: string | null;
+  promotorNome: string | null;
+  associacaoId: string | null;
+  associacaoNome: string | null;
   ativo: boolean;
   totalAgenciasCadastradas: number;
   createdAt: string;
@@ -35,5 +41,6 @@ export interface CriarEventoInput {
 
 export interface CriarEventoLinkInput {
   eventoId: string;
-  executivoId: string;
+  promotorId: string | null;
+  associacaoId: string | null;
 }

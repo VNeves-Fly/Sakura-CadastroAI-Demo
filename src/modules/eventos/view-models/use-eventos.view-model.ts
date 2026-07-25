@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
   Evento,
-  Executivo,
   CriarEventoInput,
   CriarEventoLinkInput,
 } from "@/modules/eventos/types/evento.types";
@@ -11,21 +10,16 @@ import { eventosApi } from "@/modules/eventos/services/eventos-api";
 
 export function useEventos() {
   const [eventos, setEventos] = useState<Evento[]>([]);
-  const [executivos, setExecutivos] = useState<Executivo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSalvando, setIsSalvando] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const carregarTudo = useCallback(async () => {
+  const carregarEventos = useCallback(async () => {
     setIsLoading(true);
     setHasError(false);
     try {
-      const [eventosCarregados, executivosCarregados] = await Promise.all([
-        eventosApi.listarEventos(),
-        eventosApi.listarExecutivos(),
-      ]);
+      const eventosCarregados = await eventosApi.listarEventos();
       setEventos(eventosCarregados);
-      setExecutivos(executivosCarregados);
     } catch {
       setHasError(true);
     } finally {
@@ -34,41 +28,45 @@ export function useEventos() {
   }, []);
 
   useEffect(() => {
-    void carregarTudo();
-  }, [carregarTudo]);
+    void carregarEventos();
+  }, [carregarEventos]);
 
-  const criarEvento = useCallback(async (input: CriarEventoInput) => {
-    setIsSalvando(true);
-    try {
-      const novoEvento = await eventosApi.criarEvento(input);
-      setEventos((atual) => [novoEvento, ...atual]);
-    } finally {
-      setIsSalvando(false);
-    }
-  }, []);
+  const criarEvento = useCallback(
+    async (input: CriarEventoInput) => {
+      setIsSalvando(true);
+      try {
+        await eventosApi.criarEvento(input);
+        await carregarEventos();
+      } finally {
+        setIsSalvando(false);
+      }
+    },
+    [carregarEventos],
+  );
 
-  const criarEventoLink = useCallback(async (input: CriarEventoLinkInput) => {
-    setIsSalvando(true);
-    try {
-      const eventoAtualizado = await eventosApi.criarEventoLink(input);
-      setEventos((atual) =>
-        atual.map((evento) => (evento.id === eventoAtualizado.id ? eventoAtualizado : evento)),
-      );
-    } finally {
-      setIsSalvando(false);
-    }
-  }, []);
+  const criarEventoLink = useCallback(
+    async (input: CriarEventoLinkInput) => {
+      setIsSalvando(true);
+      try {
+        await eventosApi.criarEventoLink(input);
+        await carregarEventos();
+      } finally {
+        setIsSalvando(false);
+      }
+    },
+    [carregarEventos],
+  );
 
-  const alternarAtivoLink = useCallback(async (linkId: string) => {
-    const eventoAtualizado = await eventosApi.alternarAtivoLink(linkId);
-    setEventos((atual) =>
-      atual.map((evento) => (evento.id === eventoAtualizado.id ? eventoAtualizado : evento)),
-    );
-  }, []);
+  const alternarAtivoLink = useCallback(
+    async (linkId: string) => {
+      await eventosApi.alternarAtivoLink(linkId);
+      await carregarEventos();
+    },
+    [carregarEventos],
+  );
 
   return {
     eventos,
-    executivos,
     isLoading,
     isSalvando,
     hasError,

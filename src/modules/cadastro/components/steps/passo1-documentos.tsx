@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
+import { AnaliseDocumentoLoading } from "@/modules/cadastro/components/analise-documento-loading";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
 type Passo1DocumentosProps = ReturnType<typeof useCadastroWizardViewModel>;
@@ -13,6 +13,8 @@ export function Passo1Documentos({
   cnpjStatus,
   qsaChecking,
   avisoAlfanumerico,
+  verificandoCnpjCadastrado,
+  cnpjJaCadastrado,
   contratoSocial,
   contratoSocialErro,
   analisandoContratoSocial,
@@ -29,6 +31,7 @@ export function Passo1Documentos({
         <input
           id="cnpj"
           type="text"
+          autoComplete="off"
           value={cnpj}
           onChange={(event) => setCnpj(event.target.value)}
           className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-full border px-4 py-2.5 text-sm outline-none focus:ring-2"
@@ -41,6 +44,12 @@ export function Passo1Documentos({
         {avisoAlfanumerico ? (
           <span className="text-warning text-xs font-medium">
             CNPJ alfanumérico — consulta automática ainda não disponível pra esse formato.
+          </span>
+        ) : null}
+        {!verificandoCnpjCadastrado && cnpjJaCadastrado ? (
+          <span className="text-warning text-xs font-medium">
+            Este CNPJ já possui um cadastro. Se você acredita que isso é um engano, entre em contato
+            com a Sakura.
           </span>
         ) : null}
         {!qsaChecking && cnpjStatus.mensagem ? (
@@ -67,12 +76,10 @@ export function Passo1Documentos({
         required
       />
 
-      {analisandoContratoSocial ? (
-        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <Loader2 className="size-3.5 animate-spin" />
-          Analisando o contrato social...
-        </span>
-      ) : null}
+      <AnaliseDocumentoLoading
+        visivel={analisandoContratoSocial}
+        mensagem="Analisando o contrato social..."
+      />
     </div>
   );
 }

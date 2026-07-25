@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
+import { AnaliseDocumentoLoading } from "@/modules/cadastro/components/analise-documento-loading";
 import {
   PAISES_TELEFONE,
   PAISES_TELEFONE_ITEMS,
@@ -103,12 +103,10 @@ export function SocioWizardCard({
         required
       />
 
-      {analiseIdentificacao.analisando ? (
-        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <Loader2 className="size-3.5 animate-spin" />
-          Analisando o documento...
-        </span>
-      ) : null}
+      <AnaliseDocumentoLoading
+        visivel={analiseIdentificacao.analisando}
+        mensagem="Analisando o documento..."
+      />
 
       {!socio.rgArquivo ? (
         <p className="text-muted-foreground text-xs">
@@ -122,6 +120,7 @@ export function SocioWizardCard({
             </label>
             <input
               type="text"
+              autoComplete="off"
               value={socio.nome}
               onChange={(event) => onUpdate({ nome: event.target.value })}
               className={INPUT_CLASSNAME}
@@ -136,6 +135,7 @@ export function SocioWizardCard({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={socio.cpf}
                 onChange={(event) => onUpdate({ cpf: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -173,6 +173,7 @@ export function SocioWizardCard({
               </label>
               <input
                 type="email"
+                autoComplete="off"
                 value={socio.email}
                 onChange={(event) => onUpdate({ email: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -207,6 +208,7 @@ export function SocioWizardCard({
                 <input
                   type="tel"
                   inputMode="numeric"
+                  autoComplete="off"
                   value={socio.telefone}
                   onChange={(event) => onUpdate({ telefone: event.target.value })}
                   className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
@@ -228,6 +230,7 @@ export function SocioWizardCard({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={socio.rg}
                 onChange={(event) => onUpdate({ rg: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -239,6 +242,7 @@ export function SocioWizardCard({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={socio.rgOrgaoEmissor}
                 onChange={(event) => onUpdate({ rgOrgaoEmissor: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -252,6 +256,7 @@ export function SocioWizardCard({
               <input
                 type="text"
                 maxLength={2}
+                autoComplete="off"
                 value={socio.rgUf}
                 onChange={(event) => onUpdate({ rgUf: event.target.value.toUpperCase() })}
                 className={INPUT_CLASSNAME}
@@ -288,6 +293,7 @@ export function SocioWizardCard({
             <div className="flex gap-2">
               <input
                 type="text"
+                autoComplete="off"
                 value={socio.cep}
                 onChange={(event) => onUpdate({ cep: event.target.value })}
                 className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
@@ -310,6 +316,7 @@ export function SocioWizardCard({
             </label>
             <input
               type="text"
+              autoComplete="off"
               value={socio.logradouro}
               onChange={(event) => onUpdate({ logradouro: event.target.value })}
               className={INPUT_CLASSNAME}
@@ -323,6 +330,7 @@ export function SocioWizardCard({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={socio.numero}
                 onChange={(event) => onUpdate({ numero: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -334,6 +342,7 @@ export function SocioWizardCard({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={socio.bairro}
                 onChange={(event) => onUpdate({ bairro: event.target.value })}
                 className={INPUT_CLASSNAME}
@@ -346,6 +355,7 @@ export function SocioWizardCard({
               <input
                 type="text"
                 maxLength={2}
+                autoComplete="off"
                 value={socio.uf}
                 onChange={(event) => onUpdate({ uf: event.target.value.toUpperCase() })}
                 className={INPUT_CLASSNAME}
@@ -359,6 +369,7 @@ export function SocioWizardCard({
             </label>
             <input
               type="text"
+              autoComplete="off"
               value={socio.cidade}
               onChange={(event) => onUpdate({ cidade: event.target.value })}
               className={INPUT_CLASSNAME}

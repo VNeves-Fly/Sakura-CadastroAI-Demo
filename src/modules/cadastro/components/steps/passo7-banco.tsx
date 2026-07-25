@@ -68,6 +68,7 @@ export function Passo7Banco({
         {bancoInternacional ? (
           <input
             type="text"
+            autoComplete="off"
             value={enderecoBanco.bancoNome}
             onChange={(event) => updateEnderecoBanco({ bancoNome: event.target.value })}
             className={INPUT_CLASSNAME}
@@ -91,6 +92,7 @@ export function Passo7Banco({
                   bancosCarregando ? "Carregando bancos..." : "Busque por nome ou código"
                 }
                 disabled={bancosCarregando}
+                autoComplete="off"
               />
             </ComboboxInputGroup>
             <ComboboxContent>
@@ -112,6 +114,7 @@ export function Passo7Banco({
           </label>
           <input
             type="text"
+            autoComplete="off"
             value={enderecoBanco.bancoAgencia}
             onChange={(event) => updateEnderecoBanco({ bancoAgencia: event.target.value })}
             className={INPUT_CLASSNAME}
@@ -124,6 +127,7 @@ export function Passo7Banco({
           </label>
           <input
             type="text"
+            autoComplete="off"
             value={enderecoBanco.bancoConta}
             onChange={(event) => updateEnderecoBanco({ bancoConta: event.target.value })}
             className={INPUT_CLASSNAME}
@@ -159,6 +163,7 @@ export function Passo7Banco({
           </label>
           <input
             type="text"
+            autoComplete="off"
             value={enderecoBanco.bancoSwift}
             onChange={(event) =>
               updateEnderecoBanco({ bancoSwift: event.target.value.toUpperCase() })
@@ -185,6 +190,7 @@ export function Passo7Banco({
           </label>
           <input
             type="text"
+            autoComplete="off"
             value={enderecoBanco.favorecidoNome}
             disabled={enderecoBanco.favorecidoEhEmpresa}
             onChange={(event) => updateEnderecoBanco({ favorecidoNome: event.target.value })}
@@ -197,6 +203,7 @@ export function Passo7Banco({
           </label>
           <input
             type="text"
+            autoComplete="off"
             value={enderecoBanco.favorecidoDoc}
             disabled={enderecoBanco.favorecidoEhEmpresa}
             onChange={(event) => updateEnderecoBanco({ favorecidoDoc: event.target.value })}

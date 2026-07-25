@@ -34,6 +34,8 @@ function criarMocks(documento: Documento) {
     findByContratoProvedorId: jest.fn(),
     obterDetalhe: jest.fn(),
     create: jest.fn(),
+    registrarAnaliseDocumento: jest.fn(),
+    registrarAnaliseFinal: jest.fn(),
     atualizarStatus: jest.fn(),
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
@@ -42,6 +44,7 @@ function criarMocks(documento: Documento) {
     listar: jest.fn(),
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
+    listarPorExecutivoId: jest.fn(),
   };
 
   const save = jest.fn((_arquivo: unknown, pathHint: string) =>

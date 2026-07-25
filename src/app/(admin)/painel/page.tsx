@@ -1,18 +1,13 @@
 import Link from "next/link";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
+import { eventosAdminController } from "@/modules/eventos/presentation/controllers/eventos-admin.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
-import { resolverOrigemEvento } from "@/modules/eventos/utils/resolver-origem.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import {
+  STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
@@ -25,11 +20,17 @@ interface CadastrosPageProps {
     status?: string;
     sort?: string;
     dir?: string;
+    executivo?: string;
+    associacao?: string;
+    evento?: string;
   };
 }
 
-// Filas clicáveis — ciclo completo de 6 estados (decisão do usuário,
-// 2026-07-16): a IA avalia o cadastro no envio; se reprovar vai pra
+// Filas clicáveis — ciclo completo de estados (decisão do usuário,
+// 2026-07-16; "em_analise" adicionado em 2026-07-24 quando o envio do
+// cadastro passou a persistir antes da IA rodar): o cadastro é
+// persistido assim que enviado ("em_analise") e a IA avalia depois, em
+// background; se reprovar (ou a análise falhar tecnicamente) vai pra
 // "em_complementar" (sem contrato ainda). Se aprovar (ou depois que o
 // analista aprovar manualmente na fila Complementar), o contrato é
 // gerado e cai em "aguardando_assinatura". Assinado, vira
@@ -37,6 +38,11 @@ interface CadastrosPageProps {
 // validado, vira "aguardando_ativacao" (só falta SICA/Travel
 // Link/Usuário Master + clicar ativar).
 const FILAS = [
+  {
+    status: STATUS_EM_ANALISE,
+    label: "Em análise (IA)",
+    sublabel: "aguardando a IA avaliar",
+  },
   { status: STATUS_EM_COMPLEMENTAR, label: "Em complementar", sublabel: "IA sinalizou revisão" },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
@@ -56,6 +62,7 @@ const FILAS = [
 ];
 
 const KPIS = [
+  { chave: "emAnalise" as const, label: "Em análise (IA)" },
   { chave: "emComplementar" as const, label: "Em complementar" },
   { chave: "aguardandoAssinatura" as const, label: "Aguard. assinatura" },
   { chave: "aguardandoValidacao" as const, label: "Aguard. validação" },
@@ -63,6 +70,9 @@ const KPIS = [
   { chave: "ativas" as const, label: "Ativas" },
   { chave: "recusadas" as const, label: "Recusadas" },
 ];
+
+const selectClassName =
+  "border-input bg-background text-foreground focus:border-primary focus:ring-ring/30 rounded-full border px-4 py-2 text-sm outline-none focus:ring-2";
 
 const COLUNAS_ORDENAVEIS = [
   { chave: "razaoSocial" as const, label: "Agência" },
@@ -109,15 +119,28 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
 
-  const [{ items, total, kpis }, analise] = await Promise.all([
-    cadastroAdminController.listarCadastros({
-      busca: searchParams.busca,
-      status: searchParams.status,
-      sortBy,
-      sortDir,
-    }),
-    ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
-  ]);
+  const [{ items, total, kpis }, analise, promotores, associacoesTodas, eventosComLinks] =
+    await Promise.all([
+      cadastroAdminController.listarCadastros({
+        busca: searchParams.busca,
+        status: searchParams.status,
+        sortBy,
+        sortDir,
+        executivoId: searchParams.executivo,
+        associacaoId: searchParams.associacao,
+        eventoId: searchParams.evento,
+      }),
+      ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
+      atribuicoesAdminController.listarPromotores(),
+      atribuicoesAdminController.listarAssociacoes(),
+      eventosAdminController.listarEventos(),
+    ]);
+
+  const executivosOpcoes = promotores.map((promotor) => ({ id: promotor.id, nome: promotor.nome }));
+  const associacoesOpcoes = associacoesTodas
+    .filter((associacao) => associacao.ativo)
+    .map((associacao) => ({ id: associacao.id, nome: associacao.nome }));
+  const eventosOpcoes = eventosComLinks.map(({ evento }) => ({ id: evento.id, nome: evento.nome }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -140,7 +163,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           não existe no schema ainda. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {KPIS.map((kpi) => (
-          <div key={kpi.chave} className="rounded-xl bg-neutral-50 p-4">
+          <div key={kpi.chave} className="border-border rounded-xl border bg-white p-4 shadow-sm">
             <span className="line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide text-neutral-500">
               {kpi.label}
             </span>
@@ -160,52 +183,64 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         </div>
       ) : null}
 
-      {/* Filtros. Executivo/Associação/Evento existem no produto original,
-          mas exigem conceitos (executivoId, associacaoId) que não existem
-          no schema atual — ficam desabilitados até essa modelagem ser
-          feita pelo backend. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <form className="flex-1" action="/painel" method="GET">
-          {searchParams.status ? (
-            <input type="hidden" name="status" value={searchParams.status} />
-          ) : null}
-          {searchParams.sort ? <input type="hidden" name="sort" value={searchParams.sort} /> : null}
-          {searchParams.dir ? <input type="hidden" name="dir" value={searchParams.dir} /> : null}
-          <input
-            type="text"
-            name="busca"
-            defaultValue={searchParams.busca ?? ""}
-            placeholder="Buscar por CNPJ, razão social ou e-mail"
-            className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 w-full rounded-full border px-4 py-2 text-sm outline-none focus:ring-2"
-          />
-        </form>
-        <div className="flex gap-2">
-          <Select disabled items={{ executivo: "Executivo" }} defaultValue="executivo">
-            <SelectTrigger className="bg-muted w-auto py-2">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="executivo">Executivo</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select disabled items={{ associacao: "Associação" }} defaultValue="associacao">
-            <SelectTrigger className="bg-muted w-auto py-2">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="associacao">Associação</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select disabled items={{ evento: "Evento" }} defaultValue="evento">
-            <SelectTrigger className="bg-muted w-auto py-2">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="evento">Evento</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* Filtros — busca textual + Executivo/Associação/Evento, todos via
+          querystring (GET) num form só, mesmo padrão de /atribuicoes. */}
+      <form
+        className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+        action="/painel"
+        method="GET"
+      >
+        {searchParams.status ? (
+          <input type="hidden" name="status" value={searchParams.status} />
+        ) : null}
+        {searchParams.sort ? <input type="hidden" name="sort" value={searchParams.sort} /> : null}
+        {searchParams.dir ? <input type="hidden" name="dir" value={searchParams.dir} /> : null}
+        <input
+          type="text"
+          name="busca"
+          defaultValue={searchParams.busca ?? ""}
+          placeholder="Buscar por CNPJ, razão social ou e-mail"
+          className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 min-w-0 flex-1 rounded-full border px-4 py-2 text-sm outline-none focus:ring-2"
+        />
+        <select
+          name="executivo"
+          defaultValue={searchParams.executivo ?? ""}
+          className={selectClassName}
+        >
+          <option value="">Executivo</option>
+          {executivosOpcoes.map((executivo) => (
+            <option key={executivo.id} value={executivo.id}>
+              {executivo.nome}
+            </option>
+          ))}
+        </select>
+        <select
+          name="associacao"
+          defaultValue={searchParams.associacao ?? ""}
+          className={selectClassName}
+        >
+          <option value="">Associação</option>
+          {associacoesOpcoes.map((associacao) => (
+            <option key={associacao.id} value={associacao.id}>
+              {associacao.nome}
+            </option>
+          ))}
+        </select>
+        <select name="evento" defaultValue={searchParams.evento ?? ""} className={selectClassName}>
+          <option value="">Evento</option>
+          {eventosOpcoes.map((evento) => (
+            <option key={evento.id} value={evento.id}>
+              {evento.nome}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"
+        >
+          Filtrar
+        </button>
+      </form>
 
       {/* Filas — clicar filtra a lista por aquele status; clicar de novo
           na mesma remove o filtro. */}
@@ -264,13 +299,13 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                       </th>
                     );
                   })}
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium">Associação</th>
                   <th className="text-muted-foreground px-4 py-2.5 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map(({ agencia, origemContratoAtual }) => {
-                  const origemEvento = resolverOrigemEvento(agencia.origem);
-                  return (
+                {items.map(
+                  ({ agencia, origemContratoAtual, associacaoNome, executivoNome, eventoNome }) => (
                     <tr key={agencia.id} className="border-border border-b last:border-0">
                       <td className="px-4 py-3">
                         <div className="flex items-start justify-between gap-3">
@@ -285,14 +320,18 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               {maskCnpj(agencia.cnpj)}
                             </p>
                           </div>
-                          {origemEvento ? (
+                          {eventoNome || executivoNome ? (
                             <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span className="bg-accent text-accent-foreground rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
-                                {origemEvento.eventoNome}
-                              </span>
-                              <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
-                                {origemEvento.executivoNome}
-                              </span>
+                              {eventoNome ? (
+                                <span className="bg-accent text-accent-foreground rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
+                                  {eventoNome}
+                                </span>
+                              ) : null}
+                              {executivoNome ? (
+                                <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
+                                  {executivoNome}
+                                </span>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
@@ -300,6 +339,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                       <td className="text-muted-foreground px-4 py-3">
                         {formatarData(agencia.createdAt)} · {diasAtras(agencia.createdAt)}
                       </td>
+                      <td className="text-muted-foreground px-4 py-3">{associacaoNome ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${classesBadgeStatus(agencia.status)}`}
@@ -309,8 +349,8 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                         </span>
                       </td>
                     </tr>
-                  );
-                })}
+                  ),
+                )}
               </tbody>
             </table>
           </div>

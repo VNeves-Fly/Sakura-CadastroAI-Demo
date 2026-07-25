@@ -18,6 +18,9 @@ const RATE_LIMIT_SUBMIT = { limite: 5, janelaMs: 10 * 60 * 1000 };
 // Consulta QSA dispara a cada CNPJ completo digitado — mais frequente,
 // limite mais folgado.
 const RATE_LIMIT_QSA = { limite: 30, janelaMs: 60 * 1000 };
+// Verificação de duplicidade dispara no mesmo momento que a QSA (CNPJ
+// completo) — é só um lookup por chave única, mesmo limite generoso.
+const RATE_LIMIT_VERIFICAR_CNPJ = { limite: 30, janelaMs: 60 * 1000 };
 // Análise de documento chama o agents-service (Document AI) — mais custosa
 // que a QSA, dispara só quando CNPJ+arquivo estão prontos.
 const RATE_LIMIT_ANALISE_DOCUMENTO = { limite: 10, janelaMs: 5 * 60 * 1000 };
@@ -50,6 +53,10 @@ function parseJsonField(value: FormDataEntryValue | null): unknown {
   return typeof value === "string" ? JSON.parse(value) : undefined;
 }
 
+function parseStringField(value: FormDataEntryValue | null): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
 export async function createAgenciaRoute(request: Request) {
   try {
     const chaveRateLimit = `cadastro-agencia:${obterIpCliente(request)}`;
@@ -59,12 +66,13 @@ export async function createAgenciaRoute(request: Request) {
 
     const formData = await request.formData();
 
-    const origemRaw = formData.get("origem");
-
     const parsedMeta = finalizarCadastroMetaSchema.safeParse({
       cnpj: formData.get("cnpj"),
       razaoSocial: formData.get("razaoSocial") ?? "",
-      origem: typeof origemRaw === "string" && origemRaw.length > 0 ? origemRaw : undefined,
+      origem: parseStringField(formData.get("origem")),
+      executivoId: parseStringField(formData.get("executivoId")),
+      associacaoId: parseStringField(formData.get("associacaoId")),
+      eventoId: parseStringField(formData.get("eventoId")),
       telefoneComercial: formData.get("telefoneComercial") ?? "",
       semTelefoneComercial: formData.get("semTelefoneComercial") === "true",
       emailOperacional: formData.get("emailOperacional") ?? "",
@@ -138,6 +146,9 @@ export async function createAgenciaRoute(request: Request) {
       cnpj: parsedMeta.data.cnpj,
       razaoSocial: parsedMeta.data.razaoSocial,
       origem: parsedMeta.data.origem ?? null,
+      executivoId: parsedMeta.data.executivoId ?? null,
+      associacaoId: parsedMeta.data.associacaoId ?? null,
+      eventoId: parsedMeta.data.eventoId ?? null,
       contratoSocial: await toUploadedFile(contratoSocialFile),
       telefoneComercial: parsedMeta.data.telefoneComercial,
       emailOperacional: parsedMeta.data.emailOperacional,
@@ -145,6 +156,17 @@ export async function createAgenciaRoute(request: Request) {
       emailFinanceiro: parsedMeta.data.emailFinanceiro,
       socios,
       enderecoBanco: parsedMeta.data.enderecoBanco,
+    });
+
+    // Fire-and-forget: a Agência já está persistida (status "em_analise"),
+    // então a resposta HTTP não precisa esperar a IA rodar. Roda em
+    // background no mesmo processo (container persistente, não
+    // serverless) — qualquer falha é só logada aqui, porque
+    // AnalisarCadastroUseCase já trata suas próprias falhas internamente
+    // (sempre converge pra um status final, nunca deixa a Agência presa
+    // silenciosamente).
+    void cadastroPublicoController.analisarCadastro(agencia.id).catch((error) => {
+      console.error(`Falha ao disparar análise assíncrona (agenciaId=${agencia.id}):`, error);
     });
 
     return httpCreated(agencia);
@@ -168,6 +190,27 @@ export async function consultarQsaRoute(request: Request) {
     }
 
     const resultado = await cadastroPublicoController.consultarQsa(cnpj);
+    return httpOk(resultado);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function verificarCnpjCadastradoRoute(request: Request) {
+  try {
+    const chaveRateLimit = `cadastro-verificar-cnpj:${obterIpCliente(request)}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_VERIFICAR_CNPJ)) {
+      throw new RateLimitError();
+    }
+
+    const body = await request.json();
+    const cnpj = typeof body?.cnpj === "string" ? body.cnpj : "";
+
+    if (!cnpj) {
+      return httpError("CNPJ é obrigatório.", 422);
+    }
+
+    const resultado = await cadastroPublicoController.verificarCnpjCadastrado(cnpj);
     return httpOk(resultado);
   } catch (error) {
     return mapErrorToResponse(error);
