@@ -51,6 +51,16 @@ export type EtapaDecisao = "ANALISE" | "COMPLEMENTAR";
 
 export type ResultadoDecisao = "APROVADO" | "REPROVADO";
 
+// Classificação de por que a agência chegou no status atual, gravada em
+// AnaliseIaAgencia.resultado (ver AnalisarCadastroUseCase): EM_ANALISE é
+// o valor inicial (gravado já na persistência do cadastro, antes da IA
+// rodar); REPROVADO é um parecer real da IA; FALHA_ANALISE é quando a
+// chamada de avaliação falhou tecnicamente (nunca chegou a produzir
+// parecer); FALHA_CONTRATO é quando a IA aprovou mas a geração/envio do
+// contrato falhou.
+export type ResultadoAnaliseIa =
+  "EM_ANALISE" | "APROVADO" | "REPROVADO" | "FALHA_ANALISE" | "FALHA_CONTRATO";
+
 // Espelha o enum MaritalStatus do agente de análise de documentos
 // (domain/entities/marital_status.py) — não é um enum do Prisma
 // (estadoCivil é String no schema), mas o valor só pode vir de um destes

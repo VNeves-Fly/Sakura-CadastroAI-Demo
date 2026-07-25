@@ -1176,21 +1176,16 @@ export function useChatScript() {
       await aguardarRestanteAnalise(inicio);
 
       if (resultado.success) {
-        setResultadoFinal(
-          resultado.precisaRevisaoManual
-            ? {
-                tipo: "manual",
-                titulo: "Seu cadastro foi encaminhado a um de nossos analistas.",
-                mensagem:
-                  "Fique ligado! Em breve alguém da nossa equipe entrará em contato para mais detalhes.",
-              }
-            : {
-                tipo: "aprovado",
-                titulo: "Seu cadastro foi aprovado!",
-                mensagem:
-                  "O link com o contrato da agência foi enviado no e-mail dos sócios cadastrados.",
-              },
-        );
+        // A análise de IA roda depois, em background (ver
+        // AnalisarCadastroUseCase) — não dá mais pra saber aqui se o
+        // cadastro foi aprovado ou encaminhado pra revisão manual, então
+        // usa a mesma mensagem neutra de "recebido" pros dois desfechos.
+        setResultadoFinal({
+          tipo: "manual",
+          titulo: "Cadastro recebido!",
+          mensagem:
+            "Estamos analisando agora. Em breve você recebe por e-mail o contrato para assinatura ou um contato da nossa equipe com mais informações.",
+        });
         setFase("resultado");
         // Cadastro já persistido de verdade no banco — limpa tudo da
         // conversa em memória, mesma regra aplicada no /cadastro.

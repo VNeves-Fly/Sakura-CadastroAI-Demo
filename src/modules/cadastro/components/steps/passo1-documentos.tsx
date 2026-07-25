@@ -13,6 +13,8 @@ export function Passo1Documentos({
   cnpjStatus,
   qsaChecking,
   avisoAlfanumerico,
+  verificandoCnpjCadastrado,
+  cnpjJaCadastrado,
   contratoSocial,
   contratoSocialErro,
   analisandoContratoSocial,
@@ -42,6 +44,12 @@ export function Passo1Documentos({
         {avisoAlfanumerico ? (
           <span className="text-warning text-xs font-medium">
             CNPJ alfanumérico — consulta automática ainda não disponível pra esse formato.
+          </span>
+        ) : null}
+        {!verificandoCnpjCadastrado && cnpjJaCadastrado ? (
+          <span className="text-warning text-xs font-medium">
+            Este CNPJ já possui um cadastro. Se você acredita que isso é um engano, entre em contato
+            com a Sakura.
           </span>
         ) : null}
         {!qsaChecking && cnpjStatus.mensagem ? (

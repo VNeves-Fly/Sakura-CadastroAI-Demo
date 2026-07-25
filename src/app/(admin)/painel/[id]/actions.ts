@@ -33,6 +33,11 @@ export async function recusarCadastroAction(id: string) {
   revalidatePath(`/painel/${id}`);
 }
 
+export async function reprocessarAnaliseAction(id: string) {
+  await cadastroAdminController.reprocessarAnalise(id);
+  revalidatePath(`/painel/${id}`);
+}
+
 export async function aprovarDocumentoAction(agenciaId: string, documentoId: string) {
   await cadastroAdminController.aprovarDocumento(documentoId);
   revalidatePath(`/painel/${agenciaId}`);

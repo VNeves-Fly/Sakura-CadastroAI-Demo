@@ -53,6 +53,7 @@ import {
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { resolverOrigemEvento } from "@/modules/eventos/utils/resolver-origem.util";
 import {
+  STATUS_EM_ANALISE,
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
@@ -70,6 +71,7 @@ import {
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
+  reprocessarAnaliseAction,
   validarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
@@ -294,6 +296,24 @@ export default async function DossieAgenciaPage({
           recusado={trilhaRecusada}
         />
       </div>
+
+      {agencia.status === STATUS_EM_ANALISE ? (
+        <div className="border-border bg-muted/40 text-muted-foreground flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed px-4 py-3 text-sm">
+          <span>
+            Cadastro persistido, aguardando a análise de IA rodar em background (documentos +
+            avaliação final). Se estiver parado aqui por muito tempo, a análise pode ter falhado
+            tecnicamente — use o botão ao lado pra rodar de novo.
+          </span>
+          <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
+            <button
+              type="submit"
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition"
+            >
+              Reprocessar análise
+            </button>
+          </form>
+        </div>
+      ) : null}
 
       {!mostrandoEtapaAtual ? (
         <div className="border-primary/30 bg-primary/5 text-primary flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed px-4 py-3 text-sm">
@@ -578,6 +598,14 @@ export default async function DossieAgenciaPage({
                       className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
                     >
                       Recusar
+                    </button>
+                  </form>
+                  <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    >
+                      Reprocessar análise de IA
                     </button>
                   </form>
                 </div>

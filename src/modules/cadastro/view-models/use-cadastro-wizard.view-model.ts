@@ -55,6 +55,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const qsaChecking = useCadastroWizardStore((state) => state.qsaChecking);
   const qsaResult = useCadastroWizardStore((state) => state.qsaResult);
   const avisoAlfanumerico = useCadastroWizardStore((state) => state.avisoAlfanumerico);
+  const verificandoCnpjCadastrado = useCadastroWizardStore(
+    (state) => state.verificandoCnpjCadastrado,
+  );
+  const cnpjJaCadastrado = useCadastroWizardStore((state) => state.cnpjJaCadastrado);
   const contratoSocial = useCadastroWizardStore((state) => state.contratoSocial);
   const analisandoContratoSocial = useCadastroWizardStore(
     (state) => state.analisandoContratoSocial,
@@ -67,6 +71,10 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setQsaChecking = useCadastroWizardStore((state) => state.setQsaChecking);
   const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
+  const setVerificandoCnpjCadastrado = useCadastroWizardStore(
+    (state) => state.setVerificandoCnpjCadastrado,
+  );
+  const setCnpjJaCadastrado = useCadastroWizardStore((state) => state.setCnpjJaCadastrado);
   const setContratoSocialRaw = useCadastroWizardStore((state) => state.setContratoSocial);
   const setAnalisandoContratoSocial = useCadastroWizardStore(
     (state) => state.setAnalisandoContratoSocial,
@@ -125,16 +133,15 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
   const setSubmitDuplicado = useCadastroWizardStore((state) => state.setDuplicado);
   const resetWizardStore = useCadastroWizardStore((state) => state.reset);
 
-  // "analisando" cobre toda a espera pós-clique em Enviar (reconsulta QSA,
-  // análise de documentos pela IA, geração do contrato); "aprovado"/"revisao"
-  // é o desfecho final — fica exibido (sem trocar pra nenhuma outra tela por
-  // trás, que seria uma segunda mensagem redundante). A duração mínima de
-  // "analisando" vale pra QUALQUER desfecho (sucesso, duplicado ou erro) —
-  // sem isso, uma resposta rápida do servidor (ex: erro de validação em <1s)
-  // fazia a animação sumir quase instantaneamente.
-  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "aprovado" | "revisao">(
-    "idle",
-  );
+  // "analisando" cobre a espera pós-clique em Enviar até o cadastro ser
+  // persistido no servidor; "recebido" é o desfecho final — a IA (análise
+  // de documentos, avaliação final, geração do contrato) roda depois, de
+  // forma assíncrona, então o resultado (aprovado ou revisão manual) não
+  // é mais conhecido nesta resposta — ver AnalisarCadastroUseCase. A
+  // duração mínima de "analisando" vale pra QUALQUER desfecho (sucesso,
+  // duplicado ou erro) — sem isso, uma resposta rápida do servidor (ex:
+  // erro de validação em <1s) fazia a animação sumir quase instantaneamente.
+  const [faseSubmit, setFaseSubmit] = useState<"idle" | "analisando" | "recebido">("idle");
   const inicioAnaliseRef = useRef<number | null>(null);
 
   const DURACAO_MINIMA_ANALISE_MS = 10000;
@@ -430,6 +437,31 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     }
   }
 
+  // Aviso antecipado — não bloqueia o preenchimento nem substitui a
+  // checagem real do submit final (FinalizarCadastroUseCase): é só um
+  // "ei, esse CNPJ já tem cadastro" o mais cedo possível. Best-effort,
+  // igual à consulta de QSA legada: falha (rate limit, instabilidade) não
+  // trava o usuário, só deixa de mostrar o aviso.
+  async function verificarCnpjCadastradoSeCompleto(cnpjMascarado: string) {
+    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+
+    if (cnpjLimpo.length < 14) {
+      setCnpjJaCadastrado(false);
+      return;
+    }
+
+    setVerificandoCnpjCadastrado(true);
+
+    try {
+      const existe = await agenciaService.verificarCnpjCadastrado(cnpjLimpo);
+      setCnpjJaCadastrado(existe);
+    } catch {
+      setCnpjJaCadastrado(false);
+    } finally {
+      setVerificandoCnpjCadastrado(false);
+    }
+  }
+
   function setCnpj(valorDigitado: string) {
     const mascarado = maskCnpj(valorDigitado);
     setCnpjRaw(mascarado);
@@ -438,6 +470,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     // do contrato social (ver analisarContratoSocialSeCompleto abaixo e o
     // useEffect de dados da empresa).
     void analisarContratoSocialSeCompleto(mascarado, contratoSocial);
+    void verificarCnpjCadastradoSeCompleto(mascarado);
     socios.forEach((socio, index) => {
       if (socio.rgArquivo) {
         void analisarDocumentoIdentificacaoSeCompleto(mascarado, index, socio.rgArquivo);
@@ -754,7 +787,7 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
       await aguardarDuracaoMinimaAnalise();
 
       if (resultado.success) {
-        setFaseSubmit(resultado.precisaRevisaoManual ? "revisao" : "aprovado");
+        setFaseSubmit("recebido");
         // Cadastro já persistido de verdade no banco — o rascunho salvo
         // localmente (autosave) não tem mais função, limpa. O resultado da
         // análise (fase do overlay) já foi guardado acima em faseSubmit,
@@ -797,6 +830,8 @@ export function useCadastroWizardViewModel({ origem }: UseCadastroWizardOptions)
     qsaChecking,
     qsaResult,
     avisoAlfanumerico,
+    verificandoCnpjCadastrado,
+    cnpjJaCadastrado,
     contratoSocial,
     contratoSocialErro,
     analisandoContratoSocial,

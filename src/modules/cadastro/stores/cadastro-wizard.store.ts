@@ -32,6 +32,11 @@ interface CadastroWizardState {
   qsaChecking: boolean;
   qsaResult: QsaResultView | null;
   avisoAlfanumerico: boolean;
+  // Aviso antecipado (não substitui a checagem do submit final) — não é
+  // persistido: sempre revalidado contra o CNPJ atual, nunca deve mostrar
+  // um aviso "congelado" de uma sessão anterior.
+  verificandoCnpjCadastrado: boolean;
+  cnpjJaCadastrado: boolean;
   contratoSocial: File | null;
   analisandoContratoSocial: boolean;
   contratoSocialAnalise: ContratoSocialAnaliseView | null;
@@ -68,6 +73,8 @@ interface CadastroWizardState {
   setQsaChecking: (checking: boolean) => void;
   setQsaResult: (result: QsaResultView | null) => void;
   setAvisoAlfanumerico: (aviso: boolean) => void;
+  setVerificandoCnpjCadastrado: (verificando: boolean) => void;
+  setCnpjJaCadastrado: (jaCadastrado: boolean) => void;
   setContratoSocial: (file: File | null) => void;
   setAnalisandoContratoSocial: (analisando: boolean) => void;
   setContratoSocialAnalise: (analise: ContratoSocialAnaliseView | null) => void;
@@ -118,6 +125,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       qsaChecking: false,
       qsaResult: null,
       avisoAlfanumerico: false,
+      verificandoCnpjCadastrado: false,
+      cnpjJaCadastrado: false,
       contratoSocial: null,
       analisandoContratoSocial: false,
       contratoSocialAnalise: null,
@@ -152,6 +161,9 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
       setQsaChecking: (qsaChecking) => set({ qsaChecking }),
       setQsaResult: (qsaResult) => set({ qsaResult }),
       setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
+      setVerificandoCnpjCadastrado: (verificandoCnpjCadastrado) =>
+        set({ verificandoCnpjCadastrado }),
+      setCnpjJaCadastrado: (cnpjJaCadastrado) => set({ cnpjJaCadastrado }),
       setContratoSocial: (contratoSocial) => set({ contratoSocial }),
       setAnalisandoContratoSocial: (analisandoContratoSocial) => set({ analisandoContratoSocial }),
       setContratoSocialAnalise: (contratoSocialAnalise) => set({ contratoSocialAnalise }),
@@ -191,6 +203,8 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
           qsaChecking: false,
           qsaResult: null,
           avisoAlfanumerico: false,
+          verificandoCnpjCadastrado: false,
+          cnpjJaCadastrado: false,
           contratoSocial: null,
           analisandoContratoSocial: false,
           contratoSocialAnalise: null,

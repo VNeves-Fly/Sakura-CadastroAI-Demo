@@ -3,7 +3,6 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import type { UsuarioMaster } from "@/modules/cadastro/domain/entities/usuario-master.entity";
-import type { AnaliseIaAgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { AnaliseIaDocumentoDetalhe } from "@/modules/cadastro/domain/services/analise-ia-service";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import {
@@ -21,6 +20,7 @@ import {
   CONTRATO_STATUS_ASSINADO_AGENCIA,
   CONTRATO_STATUS_ASSINADO,
   type RepresentanteLegalDetalhe,
+  type AnaliseIaAgenciaDetalhe,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type {
   DocumentoRevisao,
@@ -276,7 +276,12 @@ function itensDoDocumento(
 
 // Consolida o parecer da IA (veredito, motivo, pontos de alerta e
 // checklist) numa seção só — pedido explícito do usuário em vez de
-// espalhar essa informação em blocos separados pela ficha.
+// espalhar essa informação em blocos separados pela ficha. `resultado`
+// classifica POR QUE chegou nesse status (REPROVADO real vs
+// FALHA_ANALISE/FALHA_CONTRATO técnicas vs EM_ANALISE ainda pendente) —
+// é o dado mais confiável pro badge, já que `parecer` (texto bruto do
+// agente externo) fica null nas falhas técnicas. null só em cadastros
+// anteriores a esta funcionalidade existir.
 export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): ParecerIaView | null {
   if (!analiseIa) return null;
 
@@ -293,6 +298,7 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
     : [];
 
   return {
+    resultado: analiseIa.resultado,
     parecer: analiseIa.parecer,
     motivo: analiseIa.motivo,
     pontosDeAlerta: analiseIa.flagsRisco,

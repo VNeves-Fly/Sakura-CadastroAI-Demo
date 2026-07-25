@@ -54,8 +54,13 @@ export interface ParecerIaItemChecklist {
 // ("Parecer") reunindo veredito, motivo, pontos de alerta (flagsRisco)
 // e o checklist derivado do cruzamento documental (stage3), pedido
 // explicitamente pelo usuário em vez de espalhar essa informação em
-// blocos separados.
+// blocos separados. `resultado` classifica POR QUE a agência chegou no
+// status atual (REPROVADO real vs FALHA_ANALISE/FALHA_CONTRATO técnicas
+// vs EM_ANALISE ainda pendente — ver ResultadoAnaliseIa no domínio); é a
+// fonte da verdade pro badge/rótulo, já que `parecer` (texto bruto do
+// agente externo) fica null nos casos de falha técnica.
 export interface ParecerIaView {
+  resultado: string;
   parecer: string | null;
   motivo: string | null;
   pontosDeAlerta: string[];
