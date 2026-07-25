@@ -169,10 +169,26 @@ export function CnaesDetalhe({ cnaes }: { cnaes: DadosReceitaCnae[] }) {
 // (fundo tintado + cor de marca + monoespaçada). Clicável: abre a
 // pré-visualização em modal (ver VisualizarDocumento) em vez de só
 // mostrar o nome do arquivo sem nenhuma ação.
-export function Arquivo({ documento }: { documento: Documento }) {
+//
+// `analise` é opcional e distingue dois casos: omitido (não passado) mantém
+// o modal em coluna única de sempre (usado no histórico de versões
+// antigas, que não tem análise vinculada); passado (mesmo que `null`, doc
+// ainda não analisado) liga o painel esquerdo com "Sem análise de IA".
+export function Arquivo({
+  documento,
+  analise,
+}: {
+  documento: Documento;
+  analise?: AnaliseIaResumo | null;
+}) {
   const nomeArquivo = documento.gcsPath.split("/").pop() ?? documento.gcsPath;
   return (
-    <VisualizarDocumento documentoId={documento.id} gcsPath={documento.gcsPath} label={nomeArquivo}>
+    <VisualizarDocumento
+      documentoId={documento.id}
+      gcsPath={documento.gcsPath}
+      label={nomeArquivo}
+      painelEsquerdo={analise !== undefined ? <AnaliseIaDetalhe analise={analise} /> : undefined}
+    >
       <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
         {nomeArquivo}
       </span>
@@ -183,7 +199,13 @@ export function Arquivo({ documento }: { documento: Documento }) {
 // Documento reprovado sai do rol "oficial" da ficha (Empresa/Sócios) —
 // mostra que está faltando reenvio em vez do arquivo que foi rejeitado,
 // já que o soft-delete só marca o status, não apaga a linha do banco.
-export function CampoDocumento({ documento }: { documento: Documento | null }) {
+export function CampoDocumento({
+  documento,
+  analise,
+}: {
+  documento: Documento | null;
+  analise?: AnaliseIaResumo | null;
+}) {
   if (!documento) return <span className="text-muted-foreground">—</span>;
 
   if (documento.status === "REPROVADO") {
@@ -197,7 +219,7 @@ export function CampoDocumento({ documento }: { documento: Documento | null }) {
     );
   }
 
-  return <Arquivo documento={documento} />;
+  return <Arquivo documento={documento} analise={analise} />;
 }
 
 // Mostra a análise de IA gravada sobre o documento (RG/CNH, contrato

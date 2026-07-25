@@ -8,6 +8,7 @@ import type {
   AnaliseIaDocumentoRepository,
   CreateAnaliseIaDocumentoData,
 } from "@/modules/cadastro/domain/repositories/analise-ia-documento-repository";
+import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 
 export class PrismaAnaliseIaDocumentoRepository implements AnaliseIaDocumentoRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -40,6 +41,8 @@ export class PrismaAnaliseIaDocumentoRepository implements AnaliseIaDocumentoRep
       camposObrigatoriosPresentes: record.camposObrigatoriosPresentes,
       referenciaCruzadaOk: record.referenciaCruzadaOk,
       detalhesChecagem: record.detalhesChecagem as Record<string, unknown> | null,
+      parecer: record.parecer,
+      comparacaoOficial: record.comparacaoOficial as AnaliseIaComparacaoCampo[] | null,
       processadoEm: record.processadoEm,
     });
   }

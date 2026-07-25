@@ -491,8 +491,8 @@ model Documento {
 // Espelha DocumentAnalysisResultado (o retorno do FlysakuraDocumentAnalysisAdapter)
 // pra qualquer document_type (contrato_social, cnh_rg, ...) — não um schema fixo
 // tipo CADASTUR, já que o agente decide as chaves de `campos`/`camposExtras`
-// dinamicamente por tipo de documento/sociedade. Roadmap: ainda não populado
-// (FinalizarCadastroUseCase descarta o retorno de documentAnalysisService.analisar()).
+// dinamicamente por tipo de documento/sociedade. Gravado por
+// AgenciaRepository.registrarAnaliseDocumento, chamado de AnalisarCadastroUseCase.
 model AnaliseIaDocumento {
   id          String    @id @default(cuid())
   documentoId String    @unique
@@ -507,6 +507,14 @@ model AnaliseIaDocumento {
   formatoValido               Boolean?
   camposObrigatoriosPresentes Boolean?
   referenciaCruzadaOk         Boolean?
+  // Veredito da IA sobre esse documento específico (independente do parecer
+  // final de agência em AnaliseIaAgencia) — só populado quando include_verdict
+  // foi pedido (default true, ver DocumentAnalysisInput).
+  parecer                     String?
+  // Comparação campo a campo com fonte oficial (Receita) — só populado quando
+  // include_official_data foi pedido E o document_type tem fonte oficial
+  // disponível (hoje: só contrato_social, ver docs/agency-analysis-params-tracking.md).
+  comparacaoOficial            Json?
   detalhesChecagem            Json?
 
   processadoEm DateTime @default(now())

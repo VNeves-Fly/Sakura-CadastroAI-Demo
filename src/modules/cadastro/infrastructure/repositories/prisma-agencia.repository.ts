@@ -97,6 +97,10 @@ function analiseIaParaPrisma(
     detalhesChecagem: resultado.checagens
       ? (resultado.checagens.detalhes as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    parecer: resultado.parecer ?? null,
+    comparacaoOficial: resultado.comparacaoOficial
+      ? (resultado.comparacaoOficial as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
   };
 }
 
