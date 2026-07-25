@@ -21,7 +21,6 @@ import {
   SituacaoCadastralBadge,
   CnaesDetalhe,
   CampoDocumento,
-  AnaliseIaDetalhe,
   ParecerIa,
   HistoricoDocumento,
 } from "@/modules/admin/components/dossie-campos";
@@ -336,16 +335,16 @@ export default async function ArquivoDossiePage({
                           {formatarEndereco(socio.endereco)}
                         </Campo>
                         <Campo label="RG/CNH">
-                          <CampoDocumento documento={socio.rg} />
+                          <CampoDocumento
+                            documento={socio.rg}
+                            analise={analiseIaPorSocioId.get(socio.id) ?? null}
+                          />
                         </Campo>
                         {socio.procuracao ? (
                           <Campo label="Procuração">
                             <CampoDocumento documento={socio.procuracao} />
                           </Campo>
                         ) : null}
-                        <Campo label="Análise de IA (RG)" className="sm:col-span-2">
-                          <AnaliseIaDetalhe analise={analiseIaPorSocioId.get(socio.id) ?? null} />
-                        </Campo>
                       </CamposGrid>
                     </div>
                   ))}
