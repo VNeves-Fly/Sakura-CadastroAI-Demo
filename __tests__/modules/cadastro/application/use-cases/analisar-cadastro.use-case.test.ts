@@ -114,6 +114,7 @@ function detalheFake(overrides: Partial<AgenciaDetalhe> = {}): AgenciaDetalhe {
   return {
     agencia: agenciaFake(STATUS_EM_ANALISE),
     complementar: {
+      id: "complementar-1",
       telefoneComercial: "11988887777",
       emailOperacional: "operacional@example.com",
       emailComercial: "comercial@example.com",

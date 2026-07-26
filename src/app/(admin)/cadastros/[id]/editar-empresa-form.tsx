@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
-import type { CadastroComplementar } from "@/modules/cadastro/domain/entities/cadastro-complementar.entity";
+import type { CadastroComplementarDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type { HistoricoEdicaoCadastro } from "@/modules/cadastro/domain/entities/historico-edicao-cadastro.entity";
 import { formatarData } from "@/modules/admin/components/dossie-campos";
@@ -11,7 +11,7 @@ import { formatarData } from "@/modules/admin/components/dossie-campos";
 interface EditarEmpresaFormProps {
   agenciaId: string;
   agencia: Agencia;
-  complementar: CadastroComplementar;
+  complementar: CadastroComplementarDetalhe;
   dadosReceita: DadosReceita | null;
   historico: HistoricoEdicaoCadastro[];
   editarEmpresaAction: (agenciaId: string, formData: FormData) => Promise<void>;

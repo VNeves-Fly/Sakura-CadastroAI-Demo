@@ -216,6 +216,7 @@ export interface RepresentanteLegalDetalhe {
 }
 
 export interface CadastroComplementarDetalhe {
+  id: string;
   telefoneComercial: string | null;
   emailOperacional: string | null;
   emailComercial: string | null;

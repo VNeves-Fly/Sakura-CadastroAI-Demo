@@ -218,6 +218,7 @@ function representanteToDomain(
 }
 
 interface CadastroComplementarRecord {
+  id: string;
   telefoneComercial: string | null;
   emailOperacional: string | null;
   emailComercial: string | null;
@@ -239,6 +240,7 @@ interface CadastroComplementarRecord {
 
 function complementarToDomain(record: CadastroComplementarRecord): CadastroComplementarDetalhe {
   return {
+    id: record.id,
     telefoneComercial: record.telefoneComercial,
     emailOperacional: record.emailOperacional,
     emailComercial: record.emailComercial,

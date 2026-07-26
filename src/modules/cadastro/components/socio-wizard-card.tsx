@@ -325,20 +325,19 @@ export function SocioWizardCard({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-              Logradouro<span className="text-destructive"> *</span>
-            </label>
-            <input
-              type="text"
-              autoComplete="off"
-              value={socio.logradouro}
-              onChange={(event) => onUpdate({ logradouro: event.target.value })}
-              className={INPUT_CLASSNAME}
-            />
-          </div>
-
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Logradouro<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="text"
+                autoComplete="off"
+                value={socio.logradouro}
+                onChange={(event) => onUpdate({ logradouro: event.target.value })}
+                className={INPUT_CLASSNAME}
+              />
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-foreground text-xs font-bold tracking-wide uppercase">
                 Número<span className="text-destructive"> *</span>
@@ -351,6 +350,21 @@ export function SocioWizardCard({
                 className={INPUT_CLASSNAME}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Complemento
+              </label>
+              <input
+                type="text"
+                autoComplete="off"
+                value={socio.complemento}
+                onChange={(event) => onUpdate({ complemento: event.target.value })}
+                className={INPUT_CLASSNAME}
+              />
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-foreground text-xs font-bold tracking-wide uppercase">
                 Bairro<span className="text-destructive"> *</span>
@@ -360,6 +374,21 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.bairro}
                 onChange={(event) => onUpdate({ bairro: event.target.value })}
+                className={INPUT_CLASSNAME}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Cidade<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="text"
+                autoComplete="off"
+                value={socio.cidade}
+                onChange={(event) => onUpdate({ cidade: event.target.value })}
                 className={INPUT_CLASSNAME}
               />
             </div>
@@ -376,19 +405,6 @@ export function SocioWizardCard({
                 className={INPUT_CLASSNAME}
               />
             </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-              Cidade<span className="text-destructive"> *</span>
-            </label>
-            <input
-              type="text"
-              autoComplete="off"
-              value={socio.cidade}
-              onChange={(event) => onUpdate({ cidade: event.target.value })}
-              className={INPUT_CLASSNAME}
-            />
           </div>
 
           <label className="text-foreground flex items-center gap-2 text-sm font-medium">

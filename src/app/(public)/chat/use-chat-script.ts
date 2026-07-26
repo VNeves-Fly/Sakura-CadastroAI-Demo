@@ -88,14 +88,24 @@ const CAMPOS_ENDERECO = [
 // Usado quando o CEP digitado não é encontrado no ViaCEP — deixa o
 // cliente completar o endereço na mão em vez de travar o cadastro
 // (mesmo espírito de "nunca bloquear o preenchimento" do /cadastro).
+// Ordem alinhada com o card do sócio no /cadastro (socio-wizard-card.tsx):
+// logradouro/número, complemento/bairro, cidade/UF.
 const CAMPOS_ENDERECO_MANUAL = [
-  ...CAMPOS_ENDERECO,
+  { nome: "cep", label: "CEP", tipo: "text" as const, placeholder: "00000000", obrigatorio: true },
   {
     nome: "logradouro",
     label: "Logradouro",
     tipo: "text" as const,
     placeholder: "Rua/Avenida",
     obrigatorio: true,
+  },
+  { nome: "numero", label: "Número", tipo: "text" as const, placeholder: "100", obrigatorio: true },
+  {
+    nome: "complemento",
+    label: "Complemento",
+    tipo: "text" as const,
+    placeholder: "Apto, bloco, sala...",
+    obrigatorio: false,
   },
   {
     nome: "bairro",
@@ -627,6 +637,7 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     const cep = maskCep(String(valores.cep ?? ""));
     const numero = String(valores.numero ?? "");
     const logradouro = String(valores.logradouro ?? "");
+    const complemento = String(valores.complemento ?? "");
     const bairro = String(valores.bairro ?? "");
     const cidade = String(valores.cidade ?? "");
     const uf = String(valores.uf ?? "").toUpperCase();
@@ -635,7 +646,7 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       cep,
       numero,
       logradouro,
-      complemento: "",
+      complemento,
       bairro,
       cidade,
       uf,
@@ -1289,6 +1300,7 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       cep: s.endereco?.cep ?? "",
       logradouro: s.endereco?.logradouro ?? "",
       numero: s.endereco?.numero ?? "",
+      complemento: s.endereco?.complemento ?? "",
       bairro: s.endereco?.bairro ?? "",
       cidade: s.endereco?.cidade ?? "",
       uf: s.endereco?.uf ?? "",

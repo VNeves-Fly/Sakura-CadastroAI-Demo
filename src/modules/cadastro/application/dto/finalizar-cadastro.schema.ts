@@ -10,8 +10,7 @@ const enderecoCoreSchema = {
   uf: z.string().min(1, "UF é obrigatória."),
 };
 
-// Complemento é opcional (sócio nem tem esse campo na tela; Endereço &
-// Banco tem, mas nem todo endereço tem apto/sala/etc.).
+// Complemento é opcional — nem todo endereço tem apto/sala/etc.
 export const enderecoMetaSchema = z.object({
   ...enderecoCoreSchema,
   complemento: z.string(),

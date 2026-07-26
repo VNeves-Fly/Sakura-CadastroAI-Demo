@@ -36,6 +36,7 @@ export interface SocioWizardFormValues {
   cep: string;
   logradouro: string;
   numero: string;
+  complemento: string;
   bairro: string;
   cidade: string;
   uf: string;
@@ -75,6 +76,7 @@ export function criarSocioWizardVazio(nome = ""): SocioWizardFormValues {
     cep: "",
     logradouro: "",
     numero: "",
+    complemento: "",
     bairro: "",
     cidade: "",
     uf: "",

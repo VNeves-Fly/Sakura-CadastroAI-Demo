@@ -439,9 +439,13 @@ export function Arquivo({
 }: {
   documento: Documento;
   analise?: AnaliseIaResumo | null;
-  agenciaId: string;
-  aprovarDocumentoAction: AprovarDocumentoActionFn;
-  reprovarDocumentoAction: ReprovarDocumentoActionFn;
+  // Opcionais: /arquivo/[id] mostra o mesmo dossiê já finalizado, sempre
+  // somente leitura, sem action de aprovar/reprovar disponível — ver
+  // guarda abaixo (só monta AcoesAprovacaoDocumento quando os três estão
+  // presentes).
+  agenciaId?: string;
+  aprovarDocumentoAction?: AprovarDocumentoActionFn;
+  reprovarDocumentoAction?: ReprovarDocumentoActionFn;
   somenteLeitura?: boolean;
   reenviado?: boolean;
 }) {
@@ -464,14 +468,16 @@ export function Arquivo({
         ) : undefined
       }
       acoes={
-        <AcoesAprovacaoDocumento
-          agenciaId={agenciaId}
-          documentoId={documento.id}
-          status={documento.status}
-          aprovarDocumentoAction={aprovarDocumentoAction}
-          reprovarDocumentoAction={reprovarDocumentoAction}
-          somenteLeitura={somenteLeitura}
-        />
+        agenciaId && aprovarDocumentoAction && reprovarDocumentoAction ? (
+          <AcoesAprovacaoDocumento
+            agenciaId={agenciaId}
+            documentoId={documento.id}
+            status={documento.status}
+            aprovarDocumentoAction={aprovarDocumentoAction}
+            reprovarDocumentoAction={reprovarDocumentoAction}
+            somenteLeitura={somenteLeitura}
+          />
+        ) : undefined
       }
     >
       <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
@@ -492,7 +498,7 @@ export function CampoDocumento({
   analise,
   agenciaId,
   tipo,
-  representanteLegalId,
+  representanteLegalId = null,
   aprovarDocumentoAction,
   reprovarDocumentoAction,
   inserirDocumentoManualAction,
@@ -501,12 +507,14 @@ export function CampoDocumento({
 }: {
   documento: Documento | null;
   analise?: AnaliseIaResumo | null;
-  agenciaId: string;
-  tipo: TipoDocumento;
-  representanteLegalId: string | null;
-  aprovarDocumentoAction: AprovarDocumentoActionFn;
-  reprovarDocumentoAction: ReprovarDocumentoActionFn;
-  inserirDocumentoManualAction: InserirDocumentoManualActionFn;
+  // Opcionais pela mesma razão de Arquivo acima: /arquivo/[id] usa este
+  // componente só pra exibição, sem nenhuma action de escrita disponível.
+  agenciaId?: string;
+  tipo?: TipoDocumento;
+  representanteLegalId?: string | null;
+  aprovarDocumentoAction?: AprovarDocumentoActionFn;
+  reprovarDocumentoAction?: ReprovarDocumentoActionFn;
+  inserirDocumentoManualAction?: InserirDocumentoManualActionFn;
   somenteLeitura?: boolean;
   reenviado?: boolean;
 }) {
@@ -514,7 +522,7 @@ export function CampoDocumento({
     return (
       <div className="flex flex-col gap-1.5">
         <span className="text-muted-foreground">—</span>
-        {!somenteLeitura ? (
+        {!somenteLeitura && agenciaId && tipo && inserirDocumentoManualAction ? (
           <InserirDocumentoManual
             agenciaId={agenciaId}
             tipo={tipo}
@@ -533,7 +541,7 @@ export function CampoDocumento({
           Aguardando reenvio
         </span>
         <AuditoriaDocumento documento={documento} />
-        {!somenteLeitura ? (
+        {!somenteLeitura && agenciaId && tipo && inserirDocumentoManualAction ? (
           <InserirDocumentoManual
             agenciaId={agenciaId}
             tipo={tipo}

@@ -241,7 +241,11 @@ export default async function ArquivoDossiePage({
                   <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
                   <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
                   <Campo label="Contrato Social">
-                    <CampoDocumento documento={contratoSocial} analise={analiseIaContratoSocial} />
+                    <CampoDocumento
+                      documento={contratoSocial}
+                      analise={analiseIaContratoSocial}
+                      somenteLeitura
+                    />
                   </Campo>
                 </CamposGrid>
               </SecaoColapsavel>
@@ -338,11 +342,12 @@ export default async function ArquivoDossiePage({
                           <CampoDocumento
                             documento={socio.rg}
                             analise={analiseIaPorSocioId.get(socio.id) ?? null}
+                            somenteLeitura
                           />
                         </Campo>
                         {socio.procuracao ? (
                           <Campo label="Procuração">
-                            <CampoDocumento documento={socio.procuracao} />
+                            <CampoDocumento documento={socio.procuracao} somenteLeitura />
                           </Campo>
                         ) : null}
                       </CamposGrid>

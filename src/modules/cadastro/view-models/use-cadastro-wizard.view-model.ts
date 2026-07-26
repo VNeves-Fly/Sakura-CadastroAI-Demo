@@ -332,6 +332,7 @@ export function useCadastroWizardViewModel({
           cep: endereco.cep ? maskCep(endereco.cep) : atualizados[index].cep,
           logradouro: endereco.logradouro || atualizados[index].logradouro,
           numero: endereco.numero || atualizados[index].numero,
+          complemento: endereco.complemento || atualizados[index].complemento,
           bairro: endereco.bairro || atualizados[index].bairro,
           cidade: endereco.cidade || atualizados[index].cidade,
           uf: endereco.uf || atualizados[index].uf,
