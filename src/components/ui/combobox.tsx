@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -98,4 +98,61 @@ function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.
   );
 }
 
-export { Combobox, ComboboxInputGroup, ComboboxInput, ComboboxContent, ComboboxItem };
+function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
+  return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />;
+}
+
+// Container das chips (multi-select) — fica dentro do InputGroup, antes do
+// Input, pro texto digitado continuar aparecendo depois dos itens já
+// selecionados (mesmo padrão da doc do base-ui pro Combobox multiple).
+function ComboboxChips({ className, ...props }: ComboboxPrimitive.Chips.Props) {
+  return (
+    <ComboboxPrimitive.Chips
+      data-slot="combobox-chips"
+      className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-1 py-1 pl-10", className)}
+      {...props}
+    />
+  );
+}
+
+function ComboboxChip({ className, children, ...props }: ComboboxPrimitive.Chip.Props) {
+  return (
+    <ComboboxPrimitive.Chip
+      data-slot="combobox-chip"
+      className={cn(
+        "bg-accent text-accent-foreground flex items-center gap-1 rounded-full py-1 pr-1.5 pl-2.5 text-xs font-medium",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </ComboboxPrimitive.Chip>
+  );
+}
+
+function ComboboxChipRemove({ className, ...props }: ComboboxPrimitive.ChipRemove.Props) {
+  return (
+    <ComboboxPrimitive.ChipRemove
+      data-slot="combobox-chip-remove"
+      className={cn(
+        "hover:bg-accent-foreground/10 flex items-center justify-center rounded-full p-0.5",
+        className,
+      )}
+      {...props}
+    >
+      <X className="size-3" />
+    </ComboboxPrimitive.ChipRemove>
+  );
+}
+
+export {
+  Combobox,
+  ComboboxInputGroup,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxValue,
+  ComboboxChips,
+  ComboboxChip,
+  ComboboxChipRemove,
+};

@@ -39,7 +39,7 @@ export function Passo5Socios({
   socios,
   sociosValidacao,
   sociosAnaliseIdentificacao,
-  sociosGating,
+  sociosCompletos,
   socioCepBuscando,
   analisandoContratoSocial,
   podeAvancar,
@@ -87,14 +87,19 @@ export function Passo5Socios({
     setSocioAtivoIndex(socios.length);
   }
 
-  // "Continuar" não avança pro próximo passo do wizard direto — antes
-  // disso, cicla pelos sócios que ainda faltam anexar o RG/CNH (mesma
-  // ordem do array), pra não deixar o cliente pular um sócio sem querer
-  // achando que "Continuar" sempre significa ir pra próxima seção. Só
-  // avança de verdade quando todos os sócios já têm o RG anexado.
+  // Quando há mais de um sócio, o botão não avança pro próximo passo do
+  // wizard direto enquanto algum sócio ainda tiver dado obrigatório
+  // faltando (nome, CPF, e-mail, telefone, data de nascimento, estado
+  // civil, endereço, RG/CNH e procuração se for representante) — em vez
+  // disso, pula pro primeiro sócio incompleto (mesma ordem do array), pra
+  // não deixar o cliente pular um sócio sem querer achando que o botão
+  // sempre significa ir pra próxima seção. Só quando todos os sócios
+  // estiverem completos o botão vira "Continuar" de verdade.
+  const indicePendente = socios.findIndex((_, index) => !sociosCompletos[index]);
+  const haSocioPendente = indicePendente !== -1;
+
   function handleContinuar() {
-    const indicePendente = socios.findIndex((_, index) => sociosGating[index]?.rgUploadPendente);
-    if (indicePendente !== -1) {
+    if (haSocioPendente) {
       setSocioAtivoIndex(indicePendente);
       cardRef.current?.scrollIntoView({
         behavior: prefereMovimentoReduzido() ? "auto" : "smooth",
@@ -144,7 +149,6 @@ export function Passo5Socios({
       <div className="flex flex-wrap gap-2">
         {socios.map((socio, index) => {
           const analise = sociosAnaliseIdentificacao[index] ?? ANALISE_IDENTIFICACAO_VAZIA;
-          const gating = sociosGating[index];
           const ativo = index === socioAtivoIndex;
           const rotulo = socio.nome || `Sócio ${index + 1}`;
 
@@ -162,8 +166,8 @@ export function Passo5Socios({
             >
               {analise.analisando ? <Loader2 className="size-3 animate-spin" /> : null}
               {rotulo}
-              {gating?.rgUploadPendente ? (
-                <span className="text-warning" title="RG ou CNH pendente">
+              {!sociosCompletos[index] ? (
+                <span className="text-warning" title="Faltam dados obrigatórios">
                   •
                 </span>
               ) : null}
@@ -197,7 +201,7 @@ export function Passo5Socios({
           onClick={handleContinuar}
           className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit self-end rounded-full px-5 py-2.5 text-sm font-medium transition"
         >
-          Continuar →
+          {haSocioPendente ? "Próximo →" : "Continuar →"}
         </button>
       ) : null}
     </div>

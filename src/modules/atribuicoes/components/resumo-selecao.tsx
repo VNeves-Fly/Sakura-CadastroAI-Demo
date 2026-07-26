@@ -63,6 +63,17 @@ export function ResumoSelecao({ regiao, base, executivo, gestor }: ResumoSelecao
         />
       ) : null}
 
+      {gestor ? (
+        <BlocoResumo
+          itens={[
+            { label: "Gestor", valor: gestor.gestor },
+            { label: "Bases", valor: gestor.totalBases },
+            { label: "Executivos", valor: gestor.totalExecutivos },
+            { label: "Cidades atendidas", valor: gestor.totalCidades },
+          ]}
+        />
+      ) : null}
+
       {executivo ? (
         <BlocoResumo
           itens={[
@@ -71,17 +82,6 @@ export function ResumoSelecao({ regiao, base, executivo, gestor }: ResumoSelecao
             { label: "Gestor", valor: executivo.gestor ?? "—" },
             { label: "Cidades atendidas", valor: executivo.totalCidades },
             { label: "Agências (exemplo)", valor: executivo.totalAgenciasMock },
-          ]}
-        />
-      ) : null}
-
-      {gestor ? (
-        <BlocoResumo
-          itens={[
-            { label: "Gestor", valor: gestor.gestor },
-            { label: "Bases", valor: gestor.totalBases },
-            { label: "Executivos", valor: gestor.totalExecutivos },
-            { label: "Cidades atendidas", valor: gestor.totalCidades },
           ]}
         />
       ) : null}

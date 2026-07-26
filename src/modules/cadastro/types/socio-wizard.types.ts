@@ -43,6 +43,11 @@ export interface SocioWizardFormValues {
   rgOrgaoEmissor: string;
   rgUf: string;
   rgArquivo: File | null;
+  nacionalidade: string;
+  // Extraído pela IA do contrato social (não editável no wizard — só o
+  // analista corrige depois, no painel) — decide se o sócio assina o
+  // contrato (ver formatarClausulaSocio/filtro de signatarios).
+  administrativo: boolean | null;
   isRepresentante: boolean;
   procuracaoArquivo: File | null;
 }
@@ -77,6 +82,8 @@ export function criarSocioWizardVazio(nome = ""): SocioWizardFormValues {
     rgOrgaoEmissor: "",
     rgUf: "",
     rgArquivo: null,
+    nacionalidade: "Brasileiro(a)",
+    administrativo: null,
     isRepresentante: false,
     procuracaoArquivo: null,
   };

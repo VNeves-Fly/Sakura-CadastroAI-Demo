@@ -421,6 +421,11 @@ model RepresentanteLegal {
   // Procuração no wizard) — distinto de `papel`, que é pra um procurador
   // terceiro fora do quadro societário (roadmap, não usado hoje).
   isRepresentanteLegal Boolean            @default(false)
+  // Sócio administrador/quem assina o contrato — extraído pela IA do
+  // contrato social (SocioContratoSocialExtraido.administrativo), editável
+  // pelo analista no painel. null (ainda não avaliado) e true assinam;
+  // só false exclui o sócio da lista de signatarios do contrato.
+  administrativo       Boolean?
   ativo                Boolean            @default(true)
   origem               String?
   preenchidoPorIa      Boolean            @default(false)
@@ -491,8 +496,8 @@ model Documento {
 // Espelha DocumentAnalysisResultado (o retorno do FlysakuraDocumentAnalysisAdapter)
 // pra qualquer document_type (contrato_social, cnh_rg, ...) — não um schema fixo
 // tipo CADASTUR, já que o agente decide as chaves de `campos`/`camposExtras`
-// dinamicamente por tipo de documento/sociedade. Roadmap: ainda não populado
-// (FinalizarCadastroUseCase descarta o retorno de documentAnalysisService.analisar()).
+// dinamicamente por tipo de documento/sociedade. Gravado por
+// AgenciaRepository.registrarAnaliseDocumento, chamado de AnalisarCadastroUseCase.
 model AnaliseIaDocumento {
   id          String    @id @default(cuid())
   documentoId String    @unique
@@ -507,6 +512,14 @@ model AnaliseIaDocumento {
   formatoValido               Boolean?
   camposObrigatoriosPresentes Boolean?
   referenciaCruzadaOk         Boolean?
+  // Veredito da IA sobre esse documento específico (independente do parecer
+  // final de agência em AnaliseIaAgencia) — só populado quando include_verdict
+  // foi pedido (default true, ver DocumentAnalysisInput).
+  parecer                     String?
+  // Comparação campo a campo com fonte oficial (Receita) — só populado quando
+  // include_official_data foi pedido E o document_type tem fonte oficial
+  // disponível (hoje: só contrato_social, ver docs/agency-analysis-params-tracking.md).
+  comparacaoOficial            Json?
   detalhesChecagem            Json?
 
   processadoEm DateTime @default(now())
@@ -1040,7 +1053,6 @@ model Promotor {
   updatedAt DateTime @updatedAt
 
   agenciasAtribuidas Agencia[]
-  eventoLinks        EventoLink[]
 
   @@map("promotores")
 }
@@ -1059,44 +1071,32 @@ model Associacao {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agencias    Agencia[]
-  eventoLinks EventoLink[]
+  agencias Agencia[]
 
   @@map("associacoes")
 }
 
-// Campanha de captação criada no painel (/painel/eventos) — agrupa vários
-// EventoLink, cada um uma combinação de executivo e/ou associação pra
-// personalizar o cadastro público (2026-07-25). Substitui o mock
-// front-end que existia antes (sem tabela própria, link apontando pra
-// uma rota `/{slug}` que nunca existiu de verdade).
+// Campanha de captação criada no painel (/painel/eventos) — o link
+// personalizado (executivo e/ou associação) é montado na hora, client-side,
+// a partir do slug do evento + ids já existentes de Promotor/Associacao;
+// não tem tabela própria pra essa combinação (2026-07-25, decisão do
+// usuário: nada de relevante se perde não persistindo, já que os ids em si
+// já são gerenciados em outro lugar). Substitui o mock front-end que
+// existia antes (sem tabela própria, link apontando pra uma rota `/{slug}`
+// que nunca existiu de verdade) — agora o slug existe de verdade.
 model Evento {
-  id        String   @id @default(cuid())
-  nome      String
-  ativo     Boolean  @default(true)
+  id    String  @id @default(cuid())
+  nome  String
+  // Usado no link público em vez do id bruto (`/cadastro?evento=<slug>`) —
+  // nullable pra não travar a criação do evento (o admin pode definir
+  // depois); sem slug, o evento não tem link público funcional.
+  slug  String? @unique
+  ativo Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  links    EventoLink[]
   agencias Agencia[]
 
   @@map("eventos")
-}
-
-// Uma variante de link personalizado de um Evento — não tem rota própria,
-// é resolvido inteiramente por query string na rota pública /cadastro
-// (`?evento=&executivo=&associacao=`). Pelo menos um entre promotorId e
-// associacaoId é exigido na criação (validado no use-case, não aqui).
-model EventoLink {
-  id           String      @id @default(cuid())
-  eventoId     String
-  evento       Evento      @relation(fields: [eventoId], references: [id], onDelete: Cascade)
-  promotorId   String?
-  promotor     Promotor?   @relation(fields: [promotorId], references: [id])
-  associacaoId String?
-  associacao   Associacao? @relation(fields: [associacaoId], references: [id])
-  ativo        Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-
-  @@map("evento_links")
 }

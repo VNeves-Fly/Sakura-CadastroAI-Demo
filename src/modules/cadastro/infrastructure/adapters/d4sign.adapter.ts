@@ -5,6 +5,10 @@ import type {
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { PapelSignatarioPadrao } from "@/modules/cadastro/domain/enums";
 import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
+import {
+  formatarClausulaSocio,
+  formatarIndicacaoRepresentantes,
+} from "@/modules/cadastro/domain/services/clausula-contrato.formatter";
 
 // Integração real com o D4Sign (https://docapi.d4sign.com.br/). Fluxo:
 // 1. Gera o documento a partir do template Word (variáveis substituídas).
@@ -76,13 +80,18 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     // Nomes dos tokens conferidos ao vivo (POST /templates) pro template
     // MjE5OTI0 ("Contrato Sakura - Geral.docx") — específicos desse
     // template, não genéricos da API.
-    const socios = input.signatarios.map((socio) => `${socio.nome} (CPF: ${socio.cpf})`).join("; ");
+    const socios = input.signatarios.map(formatarClausulaSocio).join(" e ");
+    const indicacao = formatarIndicacaoRepresentantes(input.signatarios.length);
 
     const response = await this.request(
       "POST",
       `/documents/${safeUuid}/makedocumentbytemplateword`,
       {
-        name_document: `Contrato Sakura - ${input.razaoSocial}`,
+        // CNPJ no final do nome do documento (sem máscara) — antes o SICA
+        // faria esse papel de identificador único, mas ele só é coletado
+        // depois do contrato assinado (etapa de Validação), tarde demais
+        // pra nomear o documento na hora da geração.
+        name_document: `Contrato Sakura - ${input.razaoSocial} - ${input.cnpj}`,
         templates: {
           [templateId]: {
             razaosocial: input.razaoSocial,
@@ -94,7 +103,7 @@ export class D4SignAdapter implements ContratoAssinaturaService {
             complemento: input.endereco.complemento,
             bairro: input.endereco.bairro,
             cep: input.endereco.cep,
-            indicacao: input.origem ?? "",
+            indicacao,
             socios,
           },
         },

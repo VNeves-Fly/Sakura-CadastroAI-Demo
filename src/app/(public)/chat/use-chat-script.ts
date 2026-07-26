@@ -492,7 +492,7 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       });
       return;
     }
-    await perguntarExecutivoPreferido();
+    await irParaEscolhaSocio();
   }
 
   async function receberEmailComercial(valorDigitado: string) {
@@ -515,97 +515,6 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     if (!ok) return;
     contextoRef.current.emailFinanceiro = valorDigitado.trim();
     await avancarEmailsAdicionais();
-  }
-
-  // ---------- Executivo preferido / Associação (ambos opcionais, Y/N + busca) ----------
-
-  async function perguntarExecutivoPreferido() {
-    if (executivos.length === 0) {
-      await perguntarAssociacao();
-      return;
-    }
-    await falarBot("Você possui um executivo preferido na Sakura?");
-    setPending({ kind: "quick-replies", tag: "executivo_pergunta", opcoes: OPCOES_SIM_NAO });
-  }
-
-  async function responderExecutivoPergunta(valor: string) {
-    if (valor === "nao") {
-      await perguntarAssociacao();
-      return;
-    }
-    await falarBot("Busque e selecione o executivo.");
-    setPending({
-      kind: "inline-form",
-      tag: "executivo_escolha",
-      titulo: "Executivo preferido",
-      campos: [
-        {
-          nome: "executivoId",
-          label: "Executivo",
-          tipo: "combobox",
-          opcoes: executivos.map((executivo) => ({ valor: executivo.id, label: executivo.nome })),
-          placeholder: "Busque por nome",
-          obrigatorio: true,
-        },
-      ],
-    });
-  }
-
-  async function receberExecutivoEscolha(valores: Record<string, string | boolean>) {
-    const id = String(valores.executivoId ?? "");
-    const executivo = executivos.find((item) => item.id === id) ?? null;
-    contextoRef.current.executivoId = executivo?.id ?? null;
-    contextoRef.current.executivoNome = executivo?.nome ?? null;
-    if (executivo) {
-      await falarBot(`Show, ${executivo.nome} registrado como seu executivo preferido.`);
-    }
-    await perguntarAssociacao();
-  }
-
-  async function perguntarAssociacao() {
-    if (associacoes.length === 0) {
-      await irParaEscolhaSocio();
-      return;
-    }
-    await falarBot("Sua agência faz parte de alguma associação?");
-    setPending({ kind: "quick-replies", tag: "associacao_pergunta", opcoes: OPCOES_SIM_NAO });
-  }
-
-  async function responderAssociacaoPergunta(valor: string) {
-    if (valor === "nao") {
-      await irParaEscolhaSocio();
-      return;
-    }
-    await falarBot("Busque e selecione a associação.");
-    setPending({
-      kind: "inline-form",
-      tag: "associacao_escolha",
-      titulo: "Associação",
-      campos: [
-        {
-          nome: "associacaoId",
-          label: "Associação",
-          tipo: "combobox",
-          opcoes: associacoes.map((associacao) => ({
-            valor: associacao.id,
-            label: associacao.nome,
-          })),
-          placeholder: "Busque por nome",
-          obrigatorio: true,
-        },
-      ],
-    });
-  }
-
-  async function receberAssociacaoEscolha(valores: Record<string, string | boolean>) {
-    const id = String(valores.associacaoId ?? "");
-    const associacao = associacoes.find((item) => item.id === id) ?? null;
-    contextoRef.current.associacaoId = associacao?.id ?? null;
-    contextoRef.current.associacaoNome = associacao?.nome ?? null;
-    if (associacao) {
-      await falarBot(`Perfeito, ${associacao.nome} registrada.`);
-    }
-    await irParaEscolhaSocio();
   }
 
   // ---------- Telefone (sub-fluxo compartilhado) ----------
@@ -759,8 +668,10 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
   async function escolherSocio(indice: number) {
     contextoRef.current.socioAtualIndex = indice;
     const nome = contextoRef.current.socios[indice]!.nome;
-    await falarBot(`Perfeito. Me informe o CPF do sócio ${nome}.`);
-    setPending({ kind: "texto", tag: "cpf", placeholder: "000.000.000-00" });
+    await falarBot(
+      `Perfeito. Envie uma foto ou PDF do RG ou CNH do sócio ${nome} — vamos extrair o CPF e outros dados automaticamente.`,
+    );
+    setPending({ kind: "arquivo", tag: "documento_socio", instrucao: "RG ou CNH (PDF ou imagem)" });
   }
 
   async function receberCpf(valorDigitado: string) {
@@ -834,8 +745,8 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     if (valores.logradouro) {
       const indice = contextoRef.current.socioAtualIndex!;
       contextoRef.current.socios[indice]!.endereco = enderecoManualParaEstrutura(valores);
-      await falarBot("Agora envie uma foto ou PDF do RG do sócio.");
-      setPending({ kind: "arquivo", tag: "documento_socio", instrucao: "RG (PDF ou imagem)" });
+      contextoRef.current.socioAtualIndex = null;
+      await irParaEscolhaSocio();
       return;
     }
 
@@ -882,8 +793,8 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
 
     const indice = contextoRef.current.socioAtualIndex!;
     contextoRef.current.socios[indice]!.endereco = contextoRef.current.enderecoSocioPendente;
-    await falarBot("Agora envie uma foto ou PDF do RG do sócio.");
-    setPending({ kind: "arquivo", tag: "documento_socio", instrucao: "RG (PDF ou imagem)" });
+    contextoRef.current.socioAtualIndex = null;
+    await irParaEscolhaSocio();
   }
 
   async function receberDocumentoSocio(arquivo: File) {
@@ -891,7 +802,7 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     const arquivoValido = await validarOuFalhar(!erro, erro ?? "", {
       kind: "arquivo",
       tag: "documento_socio",
-      instrucao: "RG (PDF ou imagem)",
+      instrucao: "RG ou CNH (PDF ou imagem)",
     });
     if (!arquivoValido) return;
 
@@ -902,6 +813,14 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
 
     await falarBot("Analisando o documento...");
     setAnalisandoDocumento("Analisando o documento...");
+
+    // CPF extraído e validado aqui (silencioso, como os demais campos
+    // abaixo) evita perguntar de novo algo que a IA já leu do documento —
+    // mesmo padrão do /cadastro (analisarDocumentoIdentificacaoSeCompleto).
+    // Só cai pra pergunta manual (tag "cpf") se a extração falhar, vier
+    // vazia, num formato inválido ou duplicada com outro sócio já
+    // cadastrado — nunca trava o fluxo por causa de uma leitura ruim da IA.
+    let cpfExtraidoValido = false;
 
     try {
       const formData = agenciaAdapter.toAnalisarDocumentoIdentificacaoFormData({
@@ -920,14 +839,28 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       if (analise.rg) socio.rg = analise.rg;
       if (analise.rgOrgaoEmissor) socio.rgOrgaoEmissor = analise.rgOrgaoEmissor;
       if (analise.rgUf) socio.rgUf = analise.rgUf;
+
+      if (analise.cpf && validarCpfComMensagem(analise.cpf).valido) {
+        const limpo = unmaskCpf(analise.cpf);
+        if (!cpfDuplicadoEntreSocios(limpo, indice)) {
+          socio.cpf = maskCpf(analise.cpf);
+          cpfExtraidoValido = true;
+        }
+      }
     } catch {
       // Best-effort — falha na análise não deve travar o cadastro; o
       // sócio segue sem esses campos extraídos (mesma regra do /cadastro).
       setAnalisandoDocumento(null);
     }
 
-    contextoRef.current.socioAtualIndex = null;
-    await irParaEscolhaSocio();
+    if (cpfExtraidoValido) {
+      await falarBot(`Show, CPF confirmado: ${socio.cpf}. Qual o e-mail do sócio?`);
+      setPending({ kind: "texto", tag: "email", placeholder: "socio@email.com" });
+      return;
+    }
+
+    await falarBot("Não consegui confirmar o CPF automaticamente. Pode me informar?");
+    setPending({ kind: "texto", tag: "cpf", placeholder: "000.000.000-00" });
   }
 
   // ---------- Procurador (sócio marcado como representante legal) ----------
@@ -1155,6 +1088,101 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     await falarBot(
       `Dados bancários registrados: ${banco.banco}, agência ${banco.agencia}, conta ${banco.conta} (${tipoContaLabel}).`,
     );
+    await perguntarExecutivoPreferido();
+  }
+
+  // ---------- Executivo preferido / Associação (ambos opcionais, Y/N + busca) ----------
+  // Por último, depois de Banco e antes da Revisão — mesma posição do
+  // wizard /cadastro (2026-07-26): nenhum dos dois campos é obrigatório,
+  // então faz sentido perguntar só no fim, sem atrapalhar o fluxo principal
+  // de Empresa → Sócios → Endereço → Banco.
+
+  async function perguntarExecutivoPreferido() {
+    if (executivos.length === 0) {
+      await perguntarAssociacao();
+      return;
+    }
+    await falarBot("Você possui um executivo preferido na Sakura?");
+    setPending({ kind: "quick-replies", tag: "executivo_pergunta", opcoes: OPCOES_SIM_NAO });
+  }
+
+  async function responderExecutivoPergunta(valor: string) {
+    if (valor === "nao") {
+      await perguntarAssociacao();
+      return;
+    }
+    await falarBot("Busque e selecione o executivo.");
+    setPending({
+      kind: "inline-form",
+      tag: "executivo_escolha",
+      titulo: "Executivo preferido",
+      campos: [
+        {
+          nome: "executivoId",
+          label: "Executivo",
+          tipo: "combobox",
+          opcoes: executivos.map((executivo) => ({ valor: executivo.id, label: executivo.nome })),
+          placeholder: "Busque por nome",
+          obrigatorio: true,
+        },
+      ],
+    });
+  }
+
+  async function receberExecutivoEscolha(valores: Record<string, string | boolean>) {
+    const id = String(valores.executivoId ?? "");
+    const executivo = executivos.find((item) => item.id === id) ?? null;
+    contextoRef.current.executivoId = executivo?.id ?? null;
+    contextoRef.current.executivoNome = executivo?.nome ?? null;
+    if (executivo) {
+      await falarBot(`Show, ${executivo.nome} registrado como seu executivo preferido.`);
+    }
+    await perguntarAssociacao();
+  }
+
+  async function perguntarAssociacao() {
+    if (associacoes.length === 0) {
+      await irParaRevisao();
+      return;
+    }
+    await falarBot("Sua agência faz parte de alguma associação?");
+    setPending({ kind: "quick-replies", tag: "associacao_pergunta", opcoes: OPCOES_SIM_NAO });
+  }
+
+  async function responderAssociacaoPergunta(valor: string) {
+    if (valor === "nao") {
+      await irParaRevisao();
+      return;
+    }
+    await falarBot("Busque e selecione a associação.");
+    setPending({
+      kind: "inline-form",
+      tag: "associacao_escolha",
+      titulo: "Associação",
+      campos: [
+        {
+          nome: "associacaoId",
+          label: "Associação",
+          tipo: "combobox",
+          opcoes: associacoes.map((associacao) => ({
+            valor: associacao.id,
+            label: associacao.nome,
+          })),
+          placeholder: "Busque por nome",
+          obrigatorio: true,
+        },
+      ],
+    });
+  }
+
+  async function receberAssociacaoEscolha(valores: Record<string, string | boolean>) {
+    const id = String(valores.associacaoId ?? "");
+    const associacao = associacoes.find((item) => item.id === id) ?? null;
+    contextoRef.current.associacaoId = associacao?.id ?? null;
+    contextoRef.current.associacaoNome = associacao?.nome ?? null;
+    if (associacao) {
+      await falarBot(`Perfeito, ${associacao.nome} registrada.`);
+    }
     await irParaRevisao();
   }
 
@@ -1234,6 +1262,10 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       rgOrgaoEmissor: s.rgOrgaoEmissor ?? "",
       rgUf: s.rgUf ?? "",
       rgArquivo: s.rgArquivo,
+      // O chat não pergunta nacionalidade/administrativo (SocioChat não
+      // tem esses campos) — mesmo default do wizard (/cadastro).
+      nacionalidade: "Brasileiro(a)",
+      administrativo: null,
       isRepresentante: s.isRepresentante,
       procuracaoArquivo: s.procuracaoArquivo,
     }));

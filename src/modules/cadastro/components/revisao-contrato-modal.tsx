@@ -98,7 +98,7 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
   const [editandoEndereco, setEditandoEndereco] = useState(false);
   const [editandoBanco, setEditandoBanco] = useState(false);
 
-  // O modal nunca é desmontado pelo pai (Passo8Revisao sempre renderiza
+  // O modal nunca é desmontado pelo pai (Passo9Revisao sempre renderiza
   // <RevisaoContratoModal aberto={...} />) — só alterna entre `aberto`
   // true/false. Por isso dá pra controlar a saída aqui dentro: `visivel`
   // mantém o DOM montado um pouco além de `aberto` viar false, só o
@@ -440,30 +440,31 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
             />
             Li e confirmo que todas as informações acima estão corretas.
           </label>
-
-          {submitError ? <p className="text-destructive text-sm">{submitError}</p> : null}
         </div>
 
-        <div className="border-border flex flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-8">
-          <button
-            type="button"
-            onClick={handleFechar}
-            disabled={isSubmitting}
-            className="border-input text-foreground hover:bg-accent rounded-full border px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Voltar e editar
-          </button>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={!aceite || isSubmitting || editandoAlgo}
-            title={
-              editandoAlgo ? "Conclua a edição das seções abertas antes de enviar." : undefined
-            }
-            className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? "Enviando..." : "Enviar Cadastro"}
-          </button>
+        <div className="border-border flex flex-col gap-3 border-t px-6 py-4 sm:px-8">
+          {submitError ? <p className="text-destructive text-sm">{submitError}</p> : null}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <button
+              type="button"
+              onClick={handleFechar}
+              disabled={isSubmitting}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Voltar e editar
+            </button>
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={!aceite || isSubmitting || editandoAlgo}
+              title={
+                editandoAlgo ? "Conclua a edição das seções abertas antes de enviar." : undefined
+              }
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? "Enviando..." : "Enviar Cadastro"}
+            </button>
+          </div>
         </div>
       </div>
     </div>,

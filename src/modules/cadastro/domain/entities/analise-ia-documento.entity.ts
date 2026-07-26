@@ -1,3 +1,5 @@
+import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
+
 export interface AnaliseIaDocumentoProps {
   id: string;
   documentoId: string;
@@ -12,6 +14,8 @@ export interface AnaliseIaDocumentoProps {
   camposObrigatoriosPresentes: boolean | null;
   referenciaCruzadaOk: boolean | null;
   detalhesChecagem: Record<string, unknown> | null;
+  parecer: string | null;
+  comparacaoOficial: AnaliseIaComparacaoCampo[] | null;
 
   processadoEm: Date;
 }
@@ -69,6 +73,14 @@ export class AnaliseIaDocumento {
 
   get detalhesChecagem(): Record<string, unknown> | null {
     return this.props.detalhesChecagem;
+  }
+
+  get parecer(): string | null {
+    return this.props.parecer;
+  }
+
+  get comparacaoOficial(): AnaliseIaComparacaoCampo[] | null {
+    return this.props.comparacaoOficial;
   }
 
   get processadoEm(): Date {

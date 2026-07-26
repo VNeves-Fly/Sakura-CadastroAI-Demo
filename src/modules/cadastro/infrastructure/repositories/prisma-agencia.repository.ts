@@ -97,6 +97,10 @@ function analiseIaParaPrisma(
     detalhesChecagem: resultado.checagens
       ? (resultado.checagens.detalhes as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    parecer: resultado.parecer ?? null,
+    comparacaoOficial: resultado.comparacaoOficial
+      ? (resultado.comparacaoOficial as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
   };
 }
 
@@ -167,7 +171,9 @@ interface RepresentanteLegalRecord {
   endereco: EnderecoRecord | null;
   rg: string | null;
   rgOrgaoEmissor: string | null;
+  nacionalidade: string | null;
   dataNascimento: Date | null;
+  administrativo: boolean | null;
 }
 
 // `documentosDaAgencia` já vem ordenado createdAt desc (ver
@@ -205,7 +211,9 @@ function representanteToDomain(
     procuracao: documentoAtual(documentosDaAgencia, TipoDocumento.PROCURACAO, record.id),
     rgNumero: record.rg,
     rgOrgaoEmissor: record.rgOrgaoEmissor,
+    nacionalidade: record.nacionalidade,
     dataNascimento: record.dataNascimento,
+    administrativo: record.administrativo,
   };
 }
 
@@ -343,6 +351,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
               telefone: socio.telefone,
               dataNascimento: socio.dataNascimento,
               estadoCivil: socio.estadoCivil,
+              rg: socio.rgNumero || null,
+              rgOrgaoEmissor: socio.rgOrgaoEmissor || null,
+              nacionalidade: socio.nacionalidade || null,
+              administrativo: socio.administrativo,
               isRepresentanteLegal: socio.isRepresentanteLegal,
               endereco: { create: socio.endereco },
             })),
@@ -537,6 +549,18 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
             nome: signatario.nome,
             email: signatario.email,
             cpf: signatario.cpf,
+            rg: signatario.rgNumero,
+            rgOrgaoEmissor: signatario.rgOrgaoEmissor,
+            nacionalidade: signatario.nacionalidade,
+            estadoCivil: signatario.estadoCivil,
+            dataNascimento: signatario.dataNascimento,
+            cepSnapshot: signatario.endereco.cep || null,
+            logradouroSnapshot: signatario.endereco.logradouro || null,
+            numeroSnapshot: signatario.endereco.numero || null,
+            complementoSnapshot: signatario.endereco.complemento || null,
+            bairroSnapshot: signatario.endereco.bairro || null,
+            cidadeSnapshot: signatario.endereco.cidade || null,
+            ufSnapshot: signatario.endereco.uf || null,
           })),
         },
       },

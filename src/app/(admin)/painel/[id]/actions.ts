@@ -80,6 +80,18 @@ export async function salvarSicaAction(agenciaId: string, formData: FormData) {
   revalidatePath(`/painel/${agenciaId}`);
 }
 
+export async function atualizarAdministrativoSocioAction(
+  agenciaId: string,
+  representanteLegalId: string,
+  administrativo: boolean | null,
+) {
+  await cadastroAdminController.atualizarRepresentanteLegal({
+    id: representanteLegalId,
+    administrativo,
+  });
+  revalidatePath(`/painel/${agenciaId}`);
+}
+
 export async function salvarTravelLinkAction(agenciaId: string, criado: boolean) {
   await cadastroAdminController.salvarTravelLink({
     agenciaId,

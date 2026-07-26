@@ -1,4 +1,5 @@
 import type { StatusDocumento } from "@/modules/cadastro/domain/enums";
+import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 
 // Versão antiga (já substituída) de um documento — reprovada ou não,
 // preservada só pra auditoria/histórico. Nunca é "a atual" do slot (ver
@@ -37,6 +38,19 @@ export interface AnaliseIaResumo {
   alertas: string[];
   resumoAnalise: string | null;
   camposExtraidos: Record<string, unknown>;
+  camposExtras: Record<string, unknown>;
+  textoBruto: string | null;
+  formatoValido: boolean | null;
+  camposObrigatoriosPresentes: boolean | null;
+  referenciaCruzadaOk: boolean | null;
+  detalhesChecagem: Record<string, unknown> | null;
+  // Veredito da IA sobre esse documento específico (independente do parecer
+  // final de agência, ver ParecerIaView) — null quando include_verdict não
+  // foi pedido ou o documento é anterior a essa funcionalidade existir.
+  parecer: string | null;
+  // Comparação campo a campo com fonte oficial (Receita) — só populado pra
+  // contrato_social hoje (ver docs/agency-analysis-params-tracking.md).
+  comparacaoOficial: AnaliseIaComparacaoCampo[] | null;
 }
 
 // Um item do "o que o analista precisa checar" — sempre um ponto
