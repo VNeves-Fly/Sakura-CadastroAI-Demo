@@ -46,6 +46,9 @@ export async function obterDossieView(id: string) {
     dadosReceita,
     usuarioMaster,
     todosDocumentos,
+    historicosSociosRaw,
+    historicoAgencia,
+    historicoComplementar,
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
@@ -70,6 +73,15 @@ export async function obterDossieView(id: string) {
     // slot) — reaproveitado só pra montar o histórico de versões
     // antigas/reprovadas (ver historicoDoSlot), nenhuma query nova.
     cadastroAdminController.listarDocumentos(agencia.id),
+    // Histórico de edição em lote (ver EditarRepresentanteLegalUseCase),
+    // um por sócio.
+    Promise.all(
+      representantesLegais.map((socio) => cadastroAdminController.listarHistoricoEdicoes(socio.id)),
+    ),
+    cadastroAdminController.listarHistoricoEdicoes(agencia.id),
+    complementar
+      ? cadastroAdminController.listarHistoricoEdicoes(complementar.id)
+      : Promise.resolve([]),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
@@ -78,6 +90,15 @@ export async function obterDossieView(id: string) {
       socio.id,
       paraAnaliseIaResumo(analisesSociosRaw[index] ?? null),
     ]),
+  );
+  const historicoEdicoesPorSocioId = new Map(
+    representantesLegais.map((socio, index) => [socio.id, historicosSociosRaw[index] ?? []]),
+  );
+  // Empresa é editada em duas tabelas (Agencia + CadastroComplementar, ver
+  // EditarDadosEmpresaUseCase) — junta as duas linhas do tempo numa lista
+  // só pro form de edição da empresa mostrar um histórico único.
+  const historicoEdicoesEmpresa = [...historicoAgencia, ...historicoComplementar].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
   );
 
   const documentosParaRevisao = [
@@ -139,5 +160,7 @@ export async function obterDossieView(id: string) {
     parecerIa,
     dadosReceita,
     usuarioMaster,
+    historicoEdicoesPorSocioId,
+    historicoEdicoesEmpresa,
   };
 }

@@ -17,8 +17,8 @@ export interface AtualizarRepresentanteLegalInput {
 
 // Campos que o analista pode editar em lote pelo dossiê — mesmo conjunto
 // exibido no card do sócio (ver dossie-campos.tsx/page.tsx). De propósito
-// não inclui papel/origem/preenchidoPorIa/ativo (gerenciados pelo sistema,
-// não pelo analista) nem cnpj/isPj/regimeBens (roadmap, sem UI hoje).
+// não inclui papel/origem/preenchidoPorIa/ativo/cargo (nenhum hoje exibido
+// no dossiê) nem cnpj/isPj/regimeBens (roadmap, sem UI hoje).
 const CAMPOS_EDITAVEIS = [
   "nome",
   "cpf",
@@ -29,7 +29,6 @@ const CAMPOS_EDITAVEIS = [
   "rg",
   "rgOrgaoEmissor",
   "dataNascimento",
-  "cargo",
   "administrativo",
 ] as const;
 

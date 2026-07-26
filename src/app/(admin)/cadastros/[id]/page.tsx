@@ -33,7 +33,8 @@ import {
 } from "@/modules/admin/components/consulta-amat-sofia";
 import { consultarAmat, consultarSofia } from "@/modules/admin/utils/mock-amat-sofia.util";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
-import { SocioAdministrativoToggle } from "./socio-administrativo-toggle";
+import { EditarSocioForm } from "./editar-socio-form";
+import { EditarEmpresaForm } from "./editar-empresa-form";
 import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
@@ -68,6 +69,9 @@ import {
   aprovarComplementarAction,
   aprovarDocumentoAction,
   reprovarDocumentoAction,
+  inserirDocumentoManualAction,
+  editarSocioAction,
+  editarEmpresaAction,
   solicitarReenvioDocumentosAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
@@ -77,7 +81,6 @@ import {
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
-  atualizarAdministrativoSocioAction,
 } from "./actions";
 
 function ChecklistEtapaConcluida({ label }: { label: string }) {
@@ -204,10 +207,16 @@ export default async function DossieAgenciaPage({
     parecerIa,
     dadosReceita,
     usuarioMaster,
+    historicoEdicoesPorSocioId,
+    historicoEdicoesEmpresa,
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
   const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
+  // Mesmo conjunto do banner acima, só que como lookup por id — usado pra
+  // repassar `reenviado` pro CampoDocumento de cada slot (Empresa/Sócios),
+  // que mostra o badge inline em vez de só no aviso global.
+  const idsDocumentosReenviados = new Set(reenviosAguardandoRevisao.map((doc) => doc.id));
 
   const sociosParaConsulta = representantesLegais.map((socio) => ({
     id: socio.id,
@@ -360,6 +369,17 @@ export default async function DossieAgenciaPage({
       ) : (
         <>
           <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
+            <div className="mb-3 flex justify-end">
+              <EditarEmpresaForm
+                agenciaId={agencia.id}
+                agencia={agencia}
+                complementar={complementar}
+                dadosReceita={dadosReceita}
+                historico={historicoEdicoesEmpresa}
+                editarEmpresaAction={editarEmpresaAction}
+                disabled={!mostrandoEtapaAtual}
+              />
+            </div>
             <CamposGrid>
               <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
               <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
@@ -367,7 +387,20 @@ export default async function DossieAgenciaPage({
               <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
               <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
               <Campo label="Contrato Social">
-                <CampoDocumento documento={contratoSocial} analise={analiseIaContratoSocial} />
+                <CampoDocumento
+                  documento={contratoSocial}
+                  analise={analiseIaContratoSocial}
+                  agenciaId={agencia.id}
+                  tipo="CONTRATO_SOCIAL"
+                  representanteLegalId={null}
+                  aprovarDocumentoAction={aprovarDocumentoAction}
+                  reprovarDocumentoAction={reprovarDocumentoAction}
+                  inserirDocumentoManualAction={inserirDocumentoManualAction}
+                  somenteLeitura={!mostrandoEtapaAtual}
+                  reenviado={
+                    contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
+                  }
+                />
               </Campo>
             </CamposGrid>
           </SecaoColapsavel>
@@ -448,11 +481,23 @@ export default async function DossieAgenciaPage({
                           Representante legal
                         </span>
                       ) : null}
-                      <SocioAdministrativoToggle
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          socio.administrativo === false
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-success/15 text-success"
+                        }`}
+                      >
+                        {socio.administrativo === false
+                          ? "Não assina o contrato"
+                          : "Assina o contrato"}
+                      </span>
+                      <EditarSocioForm
                         agenciaId={agencia.id}
-                        representanteLegalId={socio.id}
-                        administrativo={socio.administrativo}
-                        atualizarAdministrativoSocioAction={atualizarAdministrativoSocioAction}
+                        socio={socio}
+                        historico={historicoEdicoesPorSocioId.get(socio.id) ?? []}
+                        editarSocioAction={editarSocioAction}
+                        disabled={!mostrandoEtapaAtual}
                       />
                     </div>
                   </div>
@@ -469,6 +514,14 @@ export default async function DossieAgenciaPage({
                       <CampoDocumento
                         documento={socio.rg}
                         analise={analiseIaPorSocioId.get(socio.id) ?? null}
+                        agenciaId={agencia.id}
+                        tipo="RG_CNPJ"
+                        representanteLegalId={socio.id}
+                        aprovarDocumentoAction={aprovarDocumentoAction}
+                        reprovarDocumentoAction={reprovarDocumentoAction}
+                        inserirDocumentoManualAction={inserirDocumentoManualAction}
+                        somenteLeitura={!mostrandoEtapaAtual}
+                        reenviado={socio.rg ? idsDocumentosReenviados.has(socio.rg.id) : false}
                       />
                     </Campo>
                     {socio.rgNumero ? (
@@ -477,9 +530,23 @@ export default async function DossieAgenciaPage({
                         {socio.rgOrgaoEmissor ? ` / ${socio.rgOrgaoEmissor}` : ""}
                       </Campo>
                     ) : null}
-                    {socio.procuracao ? (
+                    {socio.procuracao || socio.isRepresentanteLegal ? (
                       <Campo label="Procuração">
-                        <CampoDocumento documento={socio.procuracao} />
+                        <CampoDocumento
+                          documento={socio.procuracao}
+                          agenciaId={agencia.id}
+                          tipo="PROCURACAO"
+                          representanteLegalId={socio.id}
+                          aprovarDocumentoAction={aprovarDocumentoAction}
+                          reprovarDocumentoAction={reprovarDocumentoAction}
+                          inserirDocumentoManualAction={inserirDocumentoManualAction}
+                          somenteLeitura={!mostrandoEtapaAtual}
+                          reenviado={
+                            socio.procuracao
+                              ? idsDocumentosReenviados.has(socio.procuracao.id)
+                              : false
+                          }
+                        />
                       </Campo>
                     ) : null}
                   </CamposGrid>
@@ -508,13 +575,14 @@ export default async function DossieAgenciaPage({
         </>
       )}
 
-      {/* Documentação sempre visível, em qualquer etapa do funil — antes
-          só existia dentro da etapa "Complementar", então um reenvio
-          chegando depois dela (ex: agência já em Assinatura/Validação)
-          não tinha onde ser revisado. Aprovar/reprovar continua liberando
-          quantas rodadas forem necessárias (reprovar de novo gera outro
-          "aguardando reenvio", o cliente recebe o mesmo link de sempre). */}
-      <SecaoColapsavel titulo="Documentação" icon={<FolderCheck className="size-4" />}>
+      {/* Reenvio de documentos sempre visível, em qualquer etapa do funil —
+          antes só existia dentro da etapa "Complementar", então um reenvio
+          chegando depois dela (ex: agência já em Assinatura/Validação) não
+          tinha onde ser solicitado. Ver/aprovar/reprovar cada documento
+          agora vive embutido nas seções Empresa/Sócios (ver CampoDocumento
+          acima) — aqui sobra só pedir reenvio de quem está REPROVADO,
+          quantas rodadas forem necessárias. */}
+      <SecaoColapsavel titulo="Reenvio de documentos" icon={<FolderCheck className="size-4" />}>
         <div className="flex flex-col gap-3">
           {reenviosAguardandoRevisao.length > 0 ? (
             <div className="border-warning bg-warning/10 text-warning-text flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold">
@@ -528,10 +596,7 @@ export default async function DossieAgenciaPage({
 
           <RevisaoDocumentosComplementar
             agenciaId={agencia.id}
-            documentosAtivos={documentosAtivos}
             documentosPendentes={documentosPendentes}
-            aprovarDocumentoAction={aprovarDocumentoAction}
-            reprovarDocumentoAction={reprovarDocumentoAction}
             solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
             somenteLeitura={!mostrandoEtapaAtual}
           />

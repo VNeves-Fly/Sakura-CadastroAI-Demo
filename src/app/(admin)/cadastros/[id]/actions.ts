@@ -147,7 +147,6 @@ export async function editarSocioAction(
       nacionalidade: parseStringOuNull(formData.get("nacionalidade")),
       rg: parseStringOuNull(formData.get("rg")),
       rgOrgaoEmissor: parseStringOuNull(formData.get("rgOrgaoEmissor")),
-      cargo: parseStringOuNull(formData.get("cargo")),
       dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
       administrativo: formData.get("administrativo") === "true",
     },
