@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { LogoutButton } from "@/modules/auth/components/logout-button";
+import { UserMenu } from "@/modules/auth/components/user-menu";
 
 interface AdminHeaderProps {
   userName: string | null;
@@ -41,8 +41,7 @@ export function AdminHeader({ userName, userEmail }: AdminHeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-muted-foreground text-sm">{userName ?? userEmail}</span>
-        <LogoutButton />
+        <UserMenu userName={userName} userEmail={userEmail} />
       </div>
     </header>
   );
