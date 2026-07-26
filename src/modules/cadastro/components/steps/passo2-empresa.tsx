@@ -92,7 +92,7 @@ export function Passo2Empresa({
             Telefone incompleto para {paisTelefone.nome}.
           </span>
         ) : null}
-        <label className="text-muted-foreground flex items-center gap-2 text-sm">
+        {/* <label className="text-muted-foreground flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={semTelefoneComercial}
@@ -100,7 +100,7 @@ export function Passo2Empresa({
             onChange={(event) => setSemTelefoneComercial(event.target.checked)}
           />
           Não possui telefone comercial
-        </label>
+        </label> */}
       </div>
 
       <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4">

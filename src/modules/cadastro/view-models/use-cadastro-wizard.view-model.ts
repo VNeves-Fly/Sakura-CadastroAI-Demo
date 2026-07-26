@@ -34,8 +34,17 @@ interface SocioAnaliseIdentificacaoState {
 // Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só. A
 // seção Comercial foi removida e Representação virou uma flag dentro do
 // form de Sócios (o procurador é tratado como um sócio, com slot extra
-// de procuração) — não é mais uma seção separada.
-export const ETAPA_LABELS = ["Empresa", "Sócios", "Endereço", "Banco", "Revisão"];
+// de procuração) — não é mais uma seção separada. "Executivo e Associação"
+// saiu de dentro de Banco e virou etapa própria (2026-07-26), sempre por
+// último antes da Revisão — nenhum dos dois campos é obrigatório.
+export const ETAPA_LABELS = [
+  "Empresa",
+  "Sócios",
+  "Endereço",
+  "Banco",
+  "Executivo e Associação",
+  "Revisão",
+];
 
 export interface ExecutivoOption {
   id: string;

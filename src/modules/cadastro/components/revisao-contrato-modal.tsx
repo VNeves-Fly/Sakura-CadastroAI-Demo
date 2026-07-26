@@ -98,7 +98,7 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
   const [editandoEndereco, setEditandoEndereco] = useState(false);
   const [editandoBanco, setEditandoBanco] = useState(false);
 
-  // O modal nunca é desmontado pelo pai (Passo8Revisao sempre renderiza
+  // O modal nunca é desmontado pelo pai (Passo9Revisao sempre renderiza
   // <RevisaoContratoModal aberto={...} />) — só alterna entre `aberto`
   // true/false. Por isso dá pra controlar a saída aqui dentro: `visivel`
   // mantém o DOM montado um pouco além de `aberto` viar false, só o

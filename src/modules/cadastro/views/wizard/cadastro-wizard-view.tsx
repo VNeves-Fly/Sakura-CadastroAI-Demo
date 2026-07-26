@@ -16,7 +16,8 @@ import { Passo2Empresa } from "@/modules/cadastro/components/steps/passo2-empres
 import { Passo5Socios } from "@/modules/cadastro/components/steps/passo5-socios";
 import { Passo6Endereco } from "@/modules/cadastro/components/steps/passo6-endereco";
 import { Passo7Banco } from "@/modules/cadastro/components/steps/passo7-banco";
-import { Passo8Revisao } from "@/modules/cadastro/components/steps/passo8-revisao";
+import { Passo8ExecutivoAssociacao } from "@/modules/cadastro/components/steps/passo8-executivo-associacao";
+import { Passo9Revisao } from "@/modules/cadastro/components/steps/passo9-revisao";
 
 interface CadastroWizardViewProps {
   origem: string | null;
@@ -162,7 +163,8 @@ export function CadastroWizardView({
                   {numero === 2 ? <Passo5Socios {...wizard} podeAvancar={podeAvancar} /> : null}
                   {numero === 3 ? <Passo6Endereco {...wizard} /> : null}
                   {numero === 4 ? <Passo7Banco {...wizard} /> : null}
-                  {numero === 5 ? <Passo8Revisao {...wizard} /> : null}
+                  {numero === 5 ? <Passo8ExecutivoAssociacao {...wizard} /> : null}
+                  {numero === 6 ? <Passo9Revisao {...wizard} /> : null}
 
                   {podeAvancar && numero !== 2 ? (
                     <button
