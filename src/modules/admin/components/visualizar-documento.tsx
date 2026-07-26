@@ -27,7 +27,7 @@ interface VisualizarDocumentoProps {
 }
 
 // Botão + modal de pré-visualização — antes "Ver anexo" abria
-// /api/painel/documentos/[id]/arquivo numa aba nova (o navegador só
+// /api/cadastros/documentos/[id]/arquivo numa aba nova (o navegador só
 // mostra o PDF/imagem cru, sem nada da tela do dossiê). A mesma rota
 // (redirect signed-URL no GCS, ou buffer direto em disco local) funciona
 // igual dentro de <iframe>/<img>, então a pré-visualização não precisa de
@@ -41,7 +41,7 @@ export function VisualizarDocumento({
   painelEsquerdo,
 }: VisualizarDocumentoProps) {
   const [aberto, setAberto] = useState(false);
-  const url = `/api/painel/documentos/${documentoId}/arquivo`;
+  const url = `/api/cadastros/documentos/${documentoId}/arquivo`;
   const ehImagem = EXTENSOES_IMAGEM.has(extensao(gcsPath));
 
   const visualizacao = (

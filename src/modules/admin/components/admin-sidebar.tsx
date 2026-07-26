@@ -43,18 +43,18 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
   {
     label: "Onboarding",
     itens: [
-      { label: "Cadastros", href: "/painel", icon: ClipboardList },
+      { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
       { label: "Atribuições", href: "/atribuicoes", icon: Users },
       { label: "Atendimento", href: "/atendimento", icon: MessageCircle },
-      { label: "Eventos", href: "/painel/eventos", icon: CalendarDays },
+      { label: "Eventos", href: "/cadastros/eventos", icon: CalendarDays },
       { label: "Arquivo", href: "/arquivo", icon: Archive },
     ],
   },
   {
     label: "Configurações",
     itens: [
-      { label: "Usuários", href: "/painel/usuarios", icon: UserCog },
-      { label: "Messenger", href: "/painel/messenger", icon: Webhook },
+      { label: "Usuários", href: "/cadastros/usuarios", icon: UserCog },
+      { label: "Messenger", href: "/cadastros/messenger", icon: Webhook },
     ],
   },
 ];
@@ -90,12 +90,12 @@ export function AdminSidebar() {
                     <SidebarMenuItem key={item.label}>
                       <SidebarMenuButton
                         isActive={
-                          // "/painel" é prefixo de toda subrota (usuários,
+                          // "/cadastros" é prefixo de toda subrota (usuários,
                           // eventos, messenger) — só marca "Cadastros" ativo
                           // na rota exata, senão os dois ficam destacados
-                          // juntos em qualquer página dentro de /painel.
-                          item.href === "/painel"
-                            ? pathname === "/painel"
+                          // juntos em qualquer página dentro de /cadastros.
+                          item.href === "/cadastros"
+                            ? pathname === "/cadastros"
                             : pathname.startsWith(item.href)
                         }
                         tooltip={item.label}

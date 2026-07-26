@@ -844,6 +844,7 @@ export function useCadastroWizardViewModel({
       !validacao.telefoneInvalido &&
       validacao.dataNascimentoStatus.valido &&
       socio.estadoCivil.length > 0 &&
+      socio.nacionalidade.trim().length > 0 &&
       socio.cep.length > 0 &&
       socio.logradouro.length > 0 &&
       socio.numero.length > 0 &&

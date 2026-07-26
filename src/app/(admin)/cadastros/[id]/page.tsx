@@ -38,6 +38,7 @@ import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
 import { CnpjCopiavel } from "./cnpj-copiavel";
+import { VoltarButton } from "./voltar-button";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
   labelOrigemContrato,
@@ -151,7 +152,7 @@ function TrilhaProgresso({
           <div key={etapa.status} className={`flex items-start ${ehUltima ? "" : "flex-1"}`}>
             {navegavel ? (
               <Link
-                href={atual ? `/painel/${agenciaId}` : `/painel/${agenciaId}?etapa=${index}`}
+                href={atual ? `/cadastros/${agenciaId}` : `/cadastros/${agenciaId}?etapa=${index}`}
                 title={atual ? "Etapa atual" : `Ver "${etapa.label}" em modo leitura`}
               >
                 {conteudoEtapa}
@@ -247,6 +248,8 @@ export default async function DossieAgenciaPage({
 
   return (
     <div className="flex flex-col gap-4">
+      <VoltarButton />
+
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-xl font-bold tracking-wide text-[#72243e]">{agencia.razaoSocial}</h1>
@@ -342,7 +345,7 @@ export default async function DossieAgenciaPage({
             já concluída. Nenhuma ação pode ser feita aqui.
           </span>
           <Link
-            href={`/painel/${agencia.id}`}
+            href={`/cadastros/${agencia.id}`}
             className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
           >
             Voltar pra etapa atual

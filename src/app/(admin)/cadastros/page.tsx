@@ -98,7 +98,7 @@ function construirHref(
     if (valor) params.set(chave, valor);
   }
   const query = params.toString();
-  return query ? `/painel?${query}` : "/painel";
+  return query ? `/cadastros?${query}` : "/cadastros";
 }
 
 function labelOrigemContrato(origem: "ia" | "humano" | null): string | null {
@@ -185,7 +185,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           querystring (GET) num form só, mesmo padrão de /atribuicoes. */}
       <form
         className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
-        action="/painel"
+        action="/cadastros"
         method="GET"
       >
         {searchParams.status ? (
@@ -316,7 +316,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <Link
-                              href={`/painel/${agencia.id}`}
+                              href={`/cadastros/${agencia.id}`}
                               className="text-foreground hover:text-primary font-medium hover:underline"
                             >
                               {agencia.razaoSocial}

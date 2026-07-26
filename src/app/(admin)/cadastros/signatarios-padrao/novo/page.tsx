@@ -7,7 +7,7 @@ export default function NovoSignatarioPadraoPage() {
     <div className="flex flex-col gap-4">
       <div>
         <Link
-          href="/painel/signatarios-padrao"
+          href="/cadastros/signatarios-padrao"
           className="text-muted-foreground hover:text-foreground text-xs"
         >
           ← Voltar

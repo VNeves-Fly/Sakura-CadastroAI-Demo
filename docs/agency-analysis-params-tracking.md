@@ -36,7 +36,7 @@ ou o resultado do contrato social.
       background (fire-and-forget), disparado pela rota.
 - [x] Veredito da IA exposto ao analista — `AgenciaDetalhe.analiseIa` →
       `dossie.adapter.ts` (`paraParecerView`) → `dossie.view-model.ts` →
-      renderizado em `dossie-campos.tsx` (`/admin/painel/[id]` e
+      renderizado em `dossie-campos.tsx` (`/admin/cadastros/[id]` e
       `/admin/arquivo/[id]`).
 - [x] Enum `ResultadoAnaliseIa` (`APROVADO`/`REPROVADO`/`FALHA_ANALISE`/
       `FALHA_CONTRATO`) distingue reprovação real de falha técnica.
@@ -63,33 +63,33 @@ ou o resultado do contrato social.
       `DocumentAnalysisResultado` precisa ganhar esses dois campos.
 
       **Confirmado no Teste 3:** `comparacao_oficial` é um array de
-                      `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
-                      shape de `AnaliseIaComparacaoCampo`**, já definido em
-                      `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
-                      esse tipo em vez de criar um novo (DRY) — só alargar
-                      `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
-                      também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
-                      lugar compartilhado entre `document-analysis-service.ts` e
-                      `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
-                      importar do outro. `parecer` usa o mesmo union já existente em
-                      `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
-                      null`.
+                              `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
+                              shape de `AnaliseIaComparacaoCampo`**, já definido em
+                              `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
+                              esse tipo em vez de criar um novo (DRY) — só alargar
+                              `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
+                              também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
+                              lugar compartilhado entre `document-analysis-service.ts` e
+                              `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
+                              importar do outro. `parecer` usa o mesmo union já existente em
+                              `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
+                              null`.
 
-                      **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
-                      só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
-                      buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
-                      não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
-                      `include_official_data: true` só faz sentido mandar quando
-                      `documentType === "contrato_social"` — nos outros casos é um no-op
-                      (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
+                              **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
+                              só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
+                              buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
+                              não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
+                              `include_official_data: true` só faz sentido mandar quando
+                              `documentType === "contrato_social"` — nos outros casos é um no-op
+                              (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
 
-                      | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
-                      | --------------------- | --------- | ------------------ | --------------------- |
-                      | `contrato_social`     | Sim       | Sim                 | Preenchido             |
-                      | `rg`                  | Não       | Não                 | `null`                 |
-                      | `cnh`                 | Não       | Não                 | `null`                 |
-                      | `doc_identificacao`   | Não       | Não                 | `null`                 |
-                      | `cpf`                 | Não       | Não                 | `null`                 |
+                              | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
+                              | --------------------- | --------- | ------------------ | --------------------- |
+                              | `contrato_social`     | Sim       | Sim                 | Preenchido             |
+                              | `rg`                  | Não       | Não                 | `null`                 |
+                              | `cnh`                 | Não       | Não                 | `null`                 |
+                              | `doc_identificacao`   | Não       | Não                 | `null`                 |
+                              | `cpf`                 | Não       | Não                 | `null`                 |
 
 - [x] **`additional_data`.** Implementado: `additionalData?: Record<string,
 unknown>` em `DocumentAnalysisInput`, mapeado pro `additional_data` do
@@ -199,7 +199,7 @@ ReactNode` (mesmo padrão do `acoes` já existente); quando presente, o
   comparação oficial (lista com ✓/✗/—), checagens estruturais (badges) e
   os campos extras/texto bruto (details); `Arquivo`/`CampoDocumento` agora
   aceitam `analise?: AnaliseIaResumo | null` e montam o `painelEsquerdo`.
-- `painel/[id]/page.tsx` e `arquivo/[id]/page.tsx` — passam `analise` pro
+- `cadastros/[id]/page.tsx` e `arquivo/[id]/page.tsx` — passam `analise` pro
   `CampoDocumento` do Contrato Social e do RG/CNH; removidas as seções
   standalone "Análise de IA" (o dado agora mora dentro do modal, não mais
   duplicado na página).

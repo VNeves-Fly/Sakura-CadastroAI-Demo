@@ -39,24 +39,24 @@ function parseFormData(formData: FormData) {
 export async function criarSignatarioPadraoAction(formData: FormData) {
   const dados = parseFormData(formData);
   await cadastroAdminController.criarSignatarioPadrao(dados);
-  revalidatePath("/painel/signatarios-padrao");
-  redirect("/painel/signatarios-padrao");
+  revalidatePath("/cadastros/signatarios-padrao");
+  redirect("/cadastros/signatarios-padrao");
 }
 
 export async function atualizarSignatarioPadraoAction(id: string, formData: FormData) {
   const dados = parseFormData(formData);
   await cadastroAdminController.atualizarSignatarioPadrao({ id, data: dados });
-  revalidatePath("/painel/signatarios-padrao");
-  revalidatePath(`/painel/signatarios-padrao/${id}`);
-  redirect("/painel/signatarios-padrao");
+  revalidatePath("/cadastros/signatarios-padrao");
+  revalidatePath(`/cadastros/signatarios-padrao/${id}`);
+  redirect("/cadastros/signatarios-padrao");
 }
 
 export async function removerSignatarioPadraoAction(id: string) {
   await cadastroAdminController.removerSignatarioPadrao(id);
-  revalidatePath("/painel/signatarios-padrao");
+  revalidatePath("/cadastros/signatarios-padrao");
 }
 
 export async function restaurarSignatarioPadraoAction(id: string) {
   await cadastroAdminController.restaurarSignatarioPadrao(id);
-  revalidatePath("/painel/signatarios-padrao");
+  revalidatePath("/cadastros/signatarios-padrao");
 }

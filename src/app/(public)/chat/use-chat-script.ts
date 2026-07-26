@@ -66,6 +66,7 @@ function socioChatVazio(nome: string): SocioChat {
     telefone: null,
     estadoCivil: "",
     estadoCivilLabel: "",
+    nacionalidade: "Brasileiro(a)",
     dataNascimento: null,
     rg: null,
     rgOrgaoEmissor: null,
@@ -728,6 +729,21 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     contextoRef.current.socios[indice]!.estadoCivil = valor;
     contextoRef.current.socios[indice]!.estadoCivilLabel = label;
 
+    await falarBot("Você é brasileiro?");
+    setPending({
+      kind: "quick-replies",
+      tag: "nacionalidade_brasileiro",
+      opcoes: [
+        { valor: "sim", label: "Sim" },
+        { valor: "nao", label: "Não" },
+      ],
+    });
+  }
+
+  // Continuação compartilhada pelos dois ramos de nacionalidade (brasileiro
+  // via um clique, ou estrangeiro via texto livre) — mesmo próximo passo
+  // (telefone → endereço) de antes dessa pergunta existir.
+  async function continuarAposNacionalidade() {
     await pedirTelefone(async (telefone) => {
       const i = contextoRef.current.socioAtualIndex!;
       contextoRef.current.socios[i]!.telefone = telefone;
@@ -739,6 +755,24 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
         campos: CAMPOS_ENDERECO,
       });
     }, "O telefone do sócio é fixo ou celular?");
+  }
+
+  async function responderNacionalidadeBrasileiro(valor: string) {
+    if (valor === "nao") {
+      await falarBot("Qual é a sua nacionalidade?");
+      setPending({ kind: "texto", tag: "nacionalidade_texto", placeholder: "Ex: Portuguesa" });
+      return;
+    }
+
+    const indice = contextoRef.current.socioAtualIndex!;
+    contextoRef.current.socios[indice]!.nacionalidade = "Brasileiro(a)";
+    await continuarAposNacionalidade();
+  }
+
+  async function receberNacionalidadeTexto(valorDigitado: string) {
+    const indice = contextoRef.current.socioAtualIndex!;
+    contextoRef.current.socios[indice]!.nacionalidade = valorDigitado.trim();
+    await continuarAposNacionalidade();
   }
 
   async function receberEnderecoSocio(valores: Record<string, string | boolean>) {
@@ -1262,9 +1296,9 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       rgOrgaoEmissor: s.rgOrgaoEmissor ?? "",
       rgUf: s.rgUf ?? "",
       rgArquivo: s.rgArquivo,
-      // O chat não pergunta nacionalidade/administrativo (SocioChat não
-      // tem esses campos) — mesmo default do wizard (/cadastro).
-      nacionalidade: "Brasileiro(a)",
+      nacionalidade: s.nacionalidade,
+      // O chat não pergunta administrativo — só o /painel do analista (via
+      // extração da IA do contrato social) decide isso, fora do wizard.
       administrativo: null,
       isRepresentante: s.isRepresentante,
       procuracaoArquivo: s.procuracaoArquivo,
@@ -1378,6 +1412,7 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     else if (tag === "telefone_fixo") await receberTelefoneNumero(valor, "fixo");
     else if (tag === "cpf") await receberCpf(valor);
     else if (tag === "email") await receberEmail(valor);
+    else if (tag === "nacionalidade_texto") await receberNacionalidadeTexto(valor);
   }
 
   async function onQuickReply(valor: string) {
@@ -1396,6 +1431,7 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
     else if (tag === "escolha_socio") await escolherSocio(Number(valor));
     else if (tag === "estado_civil")
       await escolherEstadoCivil(valor, opcaoEscolhida?.label ?? valor);
+    else if (tag === "nacionalidade_brasileiro") await responderNacionalidadeBrasileiro(valor);
     else if (tag === "confirmar_endereco_socio") await confirmarEnderecoSocio(valor);
     else if (tag === "tem_procurador") await responderTemProcurador(valor);
     else if (tag === "escolha_socio_procurador") await escolherSocioProcurador(Number(valor));

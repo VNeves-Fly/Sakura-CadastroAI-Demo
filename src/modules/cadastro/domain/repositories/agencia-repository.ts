@@ -130,7 +130,7 @@ export interface CreateAgenciaData {
   // Id da Associacao atribuída (combobox do form público ou link de
   // Evento) — null se nenhuma foi atribuída.
   associacaoId: string | null;
-  // Id do Evento (painel /eventos) de onde veio o link usado, se houver.
+  // Id do Evento (cadastros /eventos) de onde veio o link usado, se houver.
   eventoId: string | null;
   // Gravado atomicamente junto (Agencia + sócios + CadastroComplementar),
   // numa transação — não existe intervalo entre eles. Status inicial é

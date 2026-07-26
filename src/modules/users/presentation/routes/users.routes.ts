@@ -21,7 +21,7 @@ const RATE_LIMIT_RECUPERAR_SENHA = { limite: 5, janelaMs: 15 * 60 * 1000 };
 // Verificação de código: segunda camada de defesa sobre o limite de
 // tentativas por token (que já é a proteção principal).
 const RATE_LIMIT_VERIFICAR_CODIGO = { limite: 20, janelaMs: 10 * 60 * 1000 };
-// Disparo pelo admin em /painel/usuarios: sessão já autentica quem chama,
+// Disparo pelo admin em /cadastros/usuarios: sessão já autentica quem chama,
 // isto só contém spam ao usuário-alvo (inbox) em caso de clique repetido.
 const RATE_LIMIT_ADMIN_RECUPERAR_SENHA = { limite: 3, janelaMs: 15 * 60 * 1000 };
 

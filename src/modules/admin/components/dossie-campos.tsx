@@ -14,7 +14,7 @@ import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
-// (/painel/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
+// (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
 // "ficha" de Empresa/Receita/Sócios, sem nenhuma regra de negócio
 // própria de cada rota.
 

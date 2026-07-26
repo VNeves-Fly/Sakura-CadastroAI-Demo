@@ -10,37 +10,37 @@ import { cadastroAdminController } from "@/modules/cadastro/presentation/control
 // no mesmo lugar já com o novo status).
 export async function aprovarComplementarAction(id: string) {
   await cadastroAdminController.aprovarComplementar(id);
-  revalidatePath(`/painel/${id}`);
+  revalidatePath(`/cadastros/${id}`);
 }
 
 export async function marcarContratoAssinadoAction(id: string) {
   await cadastroAdminController.marcarContratoAssinado(id);
-  revalidatePath(`/painel/${id}`);
+  revalidatePath(`/cadastros/${id}`);
 }
 
 export async function validarContratoAction(id: string) {
   await cadastroAdminController.validarContrato(id);
-  revalidatePath(`/painel/${id}`);
+  revalidatePath(`/cadastros/${id}`);
 }
 
 export async function ativarClienteAction(id: string) {
   await cadastroAdminController.ativarCliente(id);
-  revalidatePath(`/painel/${id}`);
+  revalidatePath(`/cadastros/${id}`);
 }
 
 export async function recusarCadastroAction(id: string) {
   await cadastroAdminController.recusarCadastro(id);
-  revalidatePath(`/painel/${id}`);
+  revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reprocessarAnaliseAction(id: string) {
   await cadastroAdminController.reprocessarAnalise(id);
-  revalidatePath(`/painel/${id}`);
+  revalidatePath(`/cadastros/${id}`);
 }
 
 export async function aprovarDocumentoAction(agenciaId: string, documentoId: string) {
   await cadastroAdminController.aprovarDocumento(documentoId);
-  revalidatePath(`/painel/${agenciaId}`);
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function reprovarDocumentoAction(
@@ -56,13 +56,13 @@ export async function reprovarDocumentoAction(
     motivo,
     reprovadoPor: session?.user?.email ?? null,
   });
-  revalidatePath(`/painel/${agenciaId}`);
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function solicitarReenvioDocumentosAction(agenciaId: string, formData: FormData) {
   const documentoIds = formData.getAll("documentoIds").map(String);
   await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds });
-  revalidatePath(`/painel/${agenciaId}`);
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 async function analistaLogado(): Promise<string> {
@@ -77,7 +77,7 @@ export async function salvarSicaAction(agenciaId: string, formData: FormData) {
     codigo,
     salvoPor: await analistaLogado(),
   });
-  revalidatePath(`/painel/${agenciaId}`);
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function atualizarAdministrativoSocioAction(
@@ -89,7 +89,7 @@ export async function atualizarAdministrativoSocioAction(
     id: representanteLegalId,
     administrativo,
   });
-  revalidatePath(`/painel/${agenciaId}`);
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function salvarTravelLinkAction(agenciaId: string, criado: boolean) {
@@ -98,7 +98,7 @@ export async function salvarTravelLinkAction(agenciaId: string, criado: boolean)
     criado,
     salvoPor: await analistaLogado(),
   });
-  revalidatePath(`/painel/${agenciaId}`);
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 // Data de nascimento chega como ISO (YYYY-MM-DD, mesmo formato do
@@ -126,5 +126,5 @@ export async function salvarUsuarioMasterAction(agenciaId: string, formData: For
     origemRepresentanteLegalId: origemRepresentanteLegalId || null,
     salvoPor: await analistaLogado(),
   });
-  revalidatePath(`/painel/${agenciaId}`);
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
