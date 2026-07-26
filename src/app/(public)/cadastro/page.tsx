@@ -40,12 +40,12 @@ export default async function CadastroWizardPage({ searchParams }: CadastroWizar
     : null;
   const associacaoId = associacaoResolvida?.id ?? null;
 
-  // Id do Evento (painel /eventos) — Agencia.eventoId é FK real, então
-  // valida a existência aqui pra não deixar passar um id inválido até o
-  // submit (o form público não exibe nem trava nenhum campo por causa
-  // dele, só encaminha).
+  // `?evento=` é o slug (painel /eventos), não o id — Agencia.eventoId é FK
+  // real pro id de verdade, então resolve o slug aqui e usa o id resolvido
+  // daqui pra frente. O form público não exibe nem trava nenhum campo por
+  // causa dele, só encaminha.
   const eventoResolvido = searchParams.evento
-    ? await eventosAdminController.buscarEvento(searchParams.evento)
+    ? await eventosAdminController.buscarEventoPorSlug(searchParams.evento)
     : null;
   const eventoId = eventoResolvido?.id ?? null;
 

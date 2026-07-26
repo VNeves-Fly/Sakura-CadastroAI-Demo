@@ -6,6 +6,7 @@ import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
+import { SelectField } from "@/components/ui/select-field";
 import {
   STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -71,9 +72,6 @@ const KPIS = [
   { chave: "recusadas" as const, label: "Recusadas" },
 ];
 
-const selectClassName =
-  "border-input bg-background text-foreground focus:border-primary focus:ring-ring/30 rounded-full border px-4 py-2 text-sm outline-none focus:ring-2";
-
 const COLUNAS_ORDENAVEIS = [
   { chave: "razaoSocial" as const, label: "Agência" },
   { chave: "createdAt" as const, label: "Cadastro" },
@@ -119,7 +117,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
 
-  const [{ items, total, kpis }, analise, promotores, associacoesTodas, eventosComLinks] =
+  const [{ items, total, kpis }, analise, promotores, associacoesTodas, eventos] =
     await Promise.all([
       cadastroAdminController.listarCadastros({
         busca: searchParams.busca,
@@ -140,7 +138,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const associacoesOpcoes = associacoesTodas
     .filter((associacao) => associacao.ativo)
     .map((associacao) => ({ id: associacao.id, nome: associacao.nome }));
-  const eventosOpcoes = eventosComLinks.map(({ evento }) => ({ id: evento.id, nome: evento.nome }));
+  const eventosOpcoes = eventos.map((evento) => ({ id: evento.id, nome: evento.nome }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -200,40 +198,47 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           name="busca"
           defaultValue={searchParams.busca ?? ""}
           placeholder="Buscar por CNPJ, razão social ou e-mail"
-          className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 min-w-0 flex-1 rounded-full border px-4 py-2 text-sm outline-none focus:ring-2"
+          className="border-input bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 min-w-0 flex-1 rounded-full border px-4 py-2 text-sm outline-none focus:ring-2"
         />
-        <select
-          name="executivo"
-          defaultValue={searchParams.executivo ?? ""}
-          className={selectClassName}
-        >
-          <option value="">Executivo</option>
-          {executivosOpcoes.map((executivo) => (
-            <option key={executivo.id} value={executivo.id}>
-              {executivo.nome}
-            </option>
-          ))}
-        </select>
-        <select
-          name="associacao"
-          defaultValue={searchParams.associacao ?? ""}
-          className={selectClassName}
-        >
-          <option value="">Associação</option>
-          {associacoesOpcoes.map((associacao) => (
-            <option key={associacao.id} value={associacao.id}>
-              {associacao.nome}
-            </option>
-          ))}
-        </select>
-        <select name="evento" defaultValue={searchParams.evento ?? ""} className={selectClassName}>
-          <option value="">Evento</option>
-          {eventosOpcoes.map((evento) => (
-            <option key={evento.id} value={evento.id}>
-              {evento.nome}
-            </option>
-          ))}
-        </select>
+        <div className="w-full sm:w-44">
+          <SelectField
+            name="executivo"
+            defaultValue={searchParams.executivo ?? null}
+            placeholder="Executivo"
+            options={[
+              { value: "", label: "Todos" },
+              ...executivosOpcoes.map((executivo) => ({
+                value: executivo.id,
+                label: executivo.nome,
+              })),
+            ]}
+          />
+        </div>
+        <div className="w-full sm:w-44">
+          <SelectField
+            name="associacao"
+            defaultValue={searchParams.associacao ?? null}
+            placeholder="Associação"
+            options={[
+              { value: "", label: "Todas" },
+              ...associacoesOpcoes.map((associacao) => ({
+                value: associacao.id,
+                label: associacao.nome,
+              })),
+            ]}
+          />
+        </div>
+        <div className="w-full sm:w-44">
+          <SelectField
+            name="evento"
+            defaultValue={searchParams.evento ?? null}
+            placeholder="Evento"
+            options={[
+              { value: "", label: "Todos" },
+              ...eventosOpcoes.map((evento) => ({ value: evento.id, label: evento.nome })),
+            ]}
+          />
+        </div>
         <button
           type="submit"
           className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"

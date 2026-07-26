@@ -21,7 +21,6 @@ import {
   SituacaoCadastralBadge,
   CnaesDetalhe,
   CampoDocumento,
-  AnaliseIaDetalhe,
   ParecerIa,
   HistoricoDocumento,
 } from "@/modules/admin/components/dossie-campos";
@@ -242,10 +241,7 @@ export default async function ArquivoDossiePage({
                   <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
                   <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
                   <Campo label="Contrato Social">
-                    <CampoDocumento documento={contratoSocial} />
-                  </Campo>
-                  <Campo label="Análise de IA" className="sm:col-span-2">
-                    <AnaliseIaDetalhe analise={analiseIaContratoSocial} />
+                    <CampoDocumento documento={contratoSocial} analise={analiseIaContratoSocial} />
                   </Campo>
                 </CamposGrid>
               </SecaoColapsavel>
@@ -339,16 +335,16 @@ export default async function ArquivoDossiePage({
                           {formatarEndereco(socio.endereco)}
                         </Campo>
                         <Campo label="RG/CNH">
-                          <CampoDocumento documento={socio.rg} />
+                          <CampoDocumento
+                            documento={socio.rg}
+                            analise={analiseIaPorSocioId.get(socio.id) ?? null}
+                          />
                         </Campo>
                         {socio.procuracao ? (
                           <Campo label="Procuração">
                             <CampoDocumento documento={socio.procuracao} />
                           </Campo>
                         ) : null}
-                        <Campo label="Análise de IA (RG)" className="sm:col-span-2">
-                          <AnaliseIaDetalhe analise={analiseIaPorSocioId.get(socio.id) ?? null} />
-                        </Campo>
                       </CamposGrid>
                     </div>
                   ))}

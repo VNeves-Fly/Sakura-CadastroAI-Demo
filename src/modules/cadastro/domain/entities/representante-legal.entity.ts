@@ -19,6 +19,7 @@ export interface RepresentanteLegalProps {
   cargo: string | null;
   papel: PapelRepresentante;
   isRepresentanteLegal: boolean;
+  administrativo: boolean | null;
   ativo: boolean;
   origem: string | null;
   preenchidoPorIa: boolean;
@@ -100,6 +101,10 @@ export class RepresentanteLegal {
 
   get isRepresentanteLegal(): boolean {
     return this.props.isRepresentanteLegal;
+  }
+
+  get administrativo(): boolean | null {
+    return this.props.administrativo;
   }
 
   get ativo(): boolean {

@@ -63,36 +63,36 @@ ou o resultado do contrato social.
       `DocumentAnalysisResultado` precisa ganhar esses dois campos.
 
       **Confirmado no Teste 3:** `comparacao_oficial` é um array de
-                  `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
-                  shape de `AnaliseIaComparacaoCampo`**, já definido em
-                  `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
-                  esse tipo em vez de criar um novo (DRY) — só alargar
-                  `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
-                  também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
-                  lugar compartilhado entre `document-analysis-service.ts` e
-                  `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
-                  importar do outro. `parecer` usa o mesmo union já existente em
-                  `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
-                  null`.
+                      `{ campo, extraido, oficial, fornecido, confere }` — **exatamente o
+                      shape de `AnaliseIaComparacaoCampo`**, já definido em
+                      `analise-ia-service.ts` (usado hoje no parsing do `stage3`). Reusar
+                      esse tipo em vez de criar um novo (DRY) — só alargar
+                      `confere: boolean` → `boolean | null` (veio `null` quando `extraido`
+                      também é `null`, nada a comparar). Faz sentido mover esse tipo pra um
+                      lugar compartilhado entre `document-analysis-service.ts` e
+                      `analise-ia-service.ts` já que os dois vão depender dele, em vez de um
+                      importar do outro. `parecer` usa o mesmo union já existente em
+                      `FlysakuraAnaliseIaAdapter`: `"APROVADO" | "PENDENTE" | "REPROVADO" |
+                      null`.
 
-                  **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
-                  só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
-                  buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
-                  não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
-                  `include_official_data: true` só faz sentido mandar quando
-                  `documentType === "contrato_social"` — nos outros casos é um no-op
-                  (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
+                      **Confirmado pelo time do agents (2026-07-25):** `comparacao_oficial`
+                      só é preenchido pra `document_type: "contrato_social"` (tem CNPJ pra
+                      buscar). Pra `rg`/`cnh`/`doc_identificacao`/`cpf` sempre vem `null` —
+                      não existe hoje serviço de consulta oficial pra esses tipos. Ou seja:
+                      `include_official_data: true` só faz sentido mandar quando
+                      `documentType === "contrato_social"` — nos outros casos é um no-op
+                      (mas inofensivo mandar mesmo assim, já que a resposta cai em `null`).
 
-                  | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
-                  | --------------------- | --------- | ------------------ | --------------------- |
-                  | `contrato_social`     | Sim       | Sim                 | Preenchido             |
-                  | `rg`                  | Não       | Não                 | `null`                 |
-                  | `cnh`                 | Não       | Não                 | `null`                 |
-                  | `doc_identificacao`   | Não       | Não                 | `null`                 |
-                  | `cpf`                 | Não       | Não                 | `null`                 |
+                      | document_type        | Tem CNPJ? | Consulta oficial? | `comparacao_oficial` |
+                      | --------------------- | --------- | ------------------ | --------------------- |
+                      | `contrato_social`     | Sim       | Sim                 | Preenchido             |
+                      | `rg`                  | Não       | Não                 | `null`                 |
+                      | `cnh`                 | Não       | Não                 | `null`                 |
+                      | `doc_identificacao`   | Não       | Não                 | `null`                 |
+                      | `cpf`                 | Não       | Não                 | `null`                 |
 
 - [x] **`additional_data`.** Implementado: `additionalData?: Record<string,
-  unknown>` em `DocumentAnalysisInput`, mapeado pro `additional_data` do
+unknown>` em `DocumentAnalysisInput`, mapeado pro `additional_data` do
       request (omitido do body quando `undefined`, via `JSON.stringify`).
       Sem parsing de resposta novo — confirmado no Teste 2.
 - [ ] **~~Expandir o body do `/agency-analysis/sync`~~ → rebaixado.**
@@ -172,14 +172,45 @@ defaults preservam 100% do comportamento atual. Nenhum desses 3 use-cases
 foi alterado pra ligar `includeOfficialData: true` em `contrato_social`
 porque isso duplicaria a verificação oficial que `stage1` (nível agência)
 já faz em `AnalisarCadastroUseCase` — ligar isso é uma decisão de produto
-separada (custo extra de chamada), não parte deste trabalho. Da mesma
-forma, `parecer`/`comparacaoOficial` por documento **não foram expostos em
-nenhum DTO/UI** ainda — só deixaram de ser descartados silenciosamente no
-domínio/adapter. Expor ao analista é um próximo passo em aberto, não
-assumido aqui.
+separada (custo extra de chamada), não parte deste trabalho.
 
-Verificação: `tsc --noEmit`, `eslint`, `prettier --check` e suíte completa
-(465 testes) sem erros.
+**Atualização (2026-07-25) — `parecer`/`comparacaoOficial` por documento
+agora expostos ao analista.** O que era "próximo passo em aberto" acima foi
+implementado nesta mesma sessão:
+
+- Migration em `AnaliseIaDocumento` (`prisma/migrations/20260725172350_add_parecer_comparacao_oficial_documento`)
+  — colunas `parecer String?` e `comparacaoOficial Json?`.
+- `analise-ia-documento-repository.ts`/`.entity.ts`,
+  `prisma-analise-ia-documento.repository.ts`,
+  `prisma-agencia.repository.ts` (`analiseIaParaPrisma`) — os dois campos
+  passam a ser persistidos e lidos de volta, ponta a ponta.
+- `dossie.types.ts`/`dossie.adapter.ts` — `AnaliseIaResumo` ganhou
+  `parecer`, `comparacaoOficial` e também os campos que já estavam no banco
+  mas nunca chegavam à UI (`camposExtras`, `textoBruto`, `formatoValido`,
+  `camposObrigatoriosPresentes`, `referenciaCruzadaOk`,
+  `detalhesChecagem`).
+- `visualizar-documento.tsx` — novo slot genérico `painelEsquerdo?:
+ReactNode` (mesmo padrão do `acoes` já existente); quando presente, o
+  modal vira duas colunas (dados à esquerda, arquivo à direita); ausente,
+  mantém o layout de coluna única de sempre (usado no histórico de versões
+  antigas e na revisão de documentos complementares, que não têm análise
+  vinculada).
+- `dossie-campos.tsx` — `AnaliseIaDetalhe` ganhou parecer (badge),
+  comparação oficial (lista com ✓/✗/—), checagens estruturais (badges) e
+  os campos extras/texto bruto (details); `Arquivo`/`CampoDocumento` agora
+  aceitam `analise?: AnaliseIaResumo | null` e montam o `painelEsquerdo`.
+- `painel/[id]/page.tsx` e `arquivo/[id]/page.tsx` — passam `analise` pro
+  `CampoDocumento` do Contrato Social e do RG/CNH; removidas as seções
+  standalone "Análise de IA" (o dado agora mora dentro do modal, não mais
+  duplicado na página).
+
+Verificação: `tsc --noEmit`, `eslint` e suíte completa (465 testes) sem
+erros. **Não verificado num browser real** — o ambiente de dev local
+compartilhado tem um problema de seed/schema pré-existente e não
+relacionado (tabela de usuário resolvendo pro schema errado num dos
+serviços Docker do stack), que impediu logar e navegar até um dossiê real
+pra clicar no modal. Recomendo conferir visualmente antes de considerar
+esta parte 100% fechada.
 
 ## 4. Chamadas de teste — aguardando resposta real do agents
 

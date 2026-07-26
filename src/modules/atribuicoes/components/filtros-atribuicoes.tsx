@@ -53,19 +53,19 @@ export function FiltrosAtribuicoes({
             </option>
           ))}
         </select>
-        <select name="executivo" defaultValue={executivoSelecionado} className={selectClassName}>
-          <option value="">Todos os executivos</option>
-          {executivos.map((executivo) => (
-            <option key={executivo} value={executivo}>
-              {executivo}
-            </option>
-          ))}
-        </select>
         <select name="gestor" defaultValue={gestorSelecionado} className={selectClassName}>
           <option value="">Todos os gestores</option>
           {gestores.map((gestor) => (
             <option key={gestor} value={gestor}>
               {gestor}
+            </option>
+          ))}
+        </select>
+        <select name="executivo" defaultValue={executivoSelecionado} className={selectClassName}>
+          <option value="">Todos os executivos</option>
+          {executivos.map((executivo) => (
+            <option key={executivo} value={executivo}>
+              {executivo}
             </option>
           ))}
         </select>

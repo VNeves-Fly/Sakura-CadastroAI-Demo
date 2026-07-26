@@ -1,4 +1,5 @@
 import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
+import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 
 export interface CreateAnaliseIaDocumentoData {
   documentoId: string;
@@ -12,6 +13,8 @@ export interface CreateAnaliseIaDocumentoData {
   camposObrigatoriosPresentes?: boolean | null;
   referenciaCruzadaOk?: boolean | null;
   detalhesChecagem?: Record<string, unknown> | null;
+  parecer?: string | null;
+  comparacaoOficial?: AnaliseIaComparacaoCampo[] | null;
 }
 
 export interface AnaliseIaDocumentoRepository {

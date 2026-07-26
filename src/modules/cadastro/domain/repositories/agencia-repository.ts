@@ -39,6 +39,17 @@ export interface ContratoSignatarioData {
   nome: string;
   email: string;
   cpf: string;
+  // Snapshot imutável do signatário no momento em que o contrato foi
+  // gerado (ver comentário de ContratoSignatario no schema Prisma) — se
+  // faltar (representanteLegal sem esse dado), a cláusula do contrato
+  // simplesmente omite o segmento correspondente (ver
+  // formatarClausulaSocio).
+  rgNumero: string | null;
+  rgOrgaoEmissor: string | null;
+  nacionalidade: string | null;
+  estadoCivil: string | null;
+  dataNascimento: Date | null;
+  endereco: EnderecoData;
 }
 
 export interface EnderecoData {
@@ -65,6 +76,10 @@ export interface SocioData {
   telefone: string;
   dataNascimento: Date | null;
   estadoCivil: string;
+  rgNumero: string;
+  rgOrgaoEmissor: string;
+  nacionalidade: string;
+  administrativo: boolean | null;
   endereco: EnderecoData;
   isRepresentanteLegal: boolean;
   rgPath: string;
@@ -189,13 +204,15 @@ export interface RepresentanteLegalDetalhe {
   // ser null se o cliente ainda não reenviou depois de uma reprovação.
   rg: Documento | null;
   procuracao: Documento | null;
-  // Dado digitado (não o arquivo) — hoje nenhum wizard (/cadastro, /chat)
-  // pergunta isso, então vem null pra praticamente todo sócio existente.
-  // Exposto mesmo assim pra já refletir automaticamente o dia em que
-  // algum fluxo passar a coletar.
+  // Dado digitado (não o arquivo) — null só pra sócios anteriores a este
+  // campo passar a ser coletado pelo wizard.
   rgNumero: string | null;
   rgOrgaoEmissor: string | null;
+  nacionalidade: string | null;
   dataNascimento: Date | null;
+  // Sócio administrador/quem assina o contrato (ver comentário no schema
+  // Prisma) — null/true assina, false exclui da lista de signatarios.
+  administrativo: boolean | null;
 }
 
 export interface CadastroComplementarDetalhe {

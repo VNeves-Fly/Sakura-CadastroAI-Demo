@@ -43,6 +43,10 @@ export const socioMetaSchema = z.object({
   estadoCivil: z.enum(ESTADO_CIVIL_VALORES, {
     errorMap: () => ({ message: "Estado civil é obrigatório." }),
   }),
+  rgNumero: z.string(),
+  rgOrgaoEmissor: z.string(),
+  nacionalidade: z.string(),
+  administrativo: z.boolean().nullable(),
   endereco: enderecoMetaSchema,
   isRepresentante: z.boolean(),
 });

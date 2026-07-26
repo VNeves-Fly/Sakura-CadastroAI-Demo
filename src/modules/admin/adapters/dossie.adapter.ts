@@ -242,6 +242,14 @@ export function paraAnaliseIaResumo(analise: AnaliseIaDocumento | null): Analise
     alertas: analise.alertas,
     resumoAnalise: analise.resumoAnalise,
     camposExtraidos: analise.camposExtraidos,
+    camposExtras: analise.camposExtras,
+    textoBruto: analise.textoBruto,
+    formatoValido: analise.formatoValido,
+    camposObrigatoriosPresentes: analise.camposObrigatoriosPresentes,
+    referenciaCruzadaOk: analise.referenciaCruzadaOk,
+    detalhesChecagem: analise.detalhesChecagem,
+    parecer: analise.parecer,
+    comparacaoOficial: analise.comparacaoOficial,
   };
 }
 

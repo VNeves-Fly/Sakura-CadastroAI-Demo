@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type {
-  Evento,
-  CriarEventoInput,
-  CriarEventoLinkInput,
-} from "@/modules/eventos/types/evento.types";
+import type { Evento, CriarEventoInput } from "@/modules/eventos/types/evento.types";
 import { eventosApi } from "@/modules/eventos/services/eventos-api";
 
 export function useEventos() {
@@ -44,34 +40,11 @@ export function useEventos() {
     [carregarEventos],
   );
 
-  const criarEventoLink = useCallback(
-    async (input: CriarEventoLinkInput) => {
-      setIsSalvando(true);
-      try {
-        await eventosApi.criarEventoLink(input);
-        await carregarEventos();
-      } finally {
-        setIsSalvando(false);
-      }
-    },
-    [carregarEventos],
-  );
-
-  const alternarAtivoLink = useCallback(
-    async (linkId: string) => {
-      await eventosApi.alternarAtivoLink(linkId);
-      await carregarEventos();
-    },
-    [carregarEventos],
-  );
-
   return {
     eventos,
     isLoading,
     isSalvando,
     hasError,
     criarEvento,
-    criarEventoLink,
-    alternarAtivoLink,
   };
 }

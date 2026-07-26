@@ -1,9 +1,3 @@
-export interface ContratoSignatario {
-  nome: string;
-  email: string;
-  cpf: string;
-}
-
 export interface GerarContratoEndereco {
   logradouro: string;
   numero: string;
@@ -14,12 +8,23 @@ export interface GerarContratoEndereco {
   cep: string;
 }
 
+export interface ContratoSignatario {
+  nome: string;
+  email: string;
+  cpf: string;
+  // Snapshot no momento da geração — usados por formatarClausulaSocio pra
+  // montar a cláusula jurídica do template (ver clausula-contrato.formatter).
+  rgNumero: string | null;
+  rgOrgaoEmissor: string | null;
+  nacionalidade: string | null;
+  estadoCivil: string | null;
+  dataNascimento: Date | null;
+  endereco: GerarContratoEndereco;
+}
+
 export interface GerarContratoInput {
   cnpj: string;
   razaoSocial: string;
-  // Origem do cadastro (UTM/campanha) — mapeia pro token "indicacao" do
-  // template de contrato real (D4SignAdapter). Mock ignora.
-  origem: string | null;
   endereco: GerarContratoEndereco;
   signatarios: ContratoSignatario[];
 }

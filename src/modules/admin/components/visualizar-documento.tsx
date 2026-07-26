@@ -18,6 +18,12 @@ interface VisualizarDocumentoProps {
   // analista a abrir o documento antes de decidir, em vez de decidir
   // direto na linha da lista sem ver o arquivo.
   acoes?: ReactNode;
+  // Painel de dados opcional (ex: <AnaliseIaDetalhe>, ver dossie-campos.tsx)
+  // — quando presente, o modal vira duas colunas (dados à esquerda,
+  // visualização à direita); ausente, mantém o layout de coluna única de
+  // sempre. Slot genérico (igual `acoes`) pra este componente não precisar
+  // conhecer o tipo de análise de IA — só layout.
+  painelEsquerdo?: ReactNode;
 }
 
 // Botão + modal de pré-visualização — antes "Ver anexo" abria
@@ -32,10 +38,22 @@ export function VisualizarDocumento({
   label,
   children,
   acoes,
+  painelEsquerdo,
 }: VisualizarDocumentoProps) {
   const [aberto, setAberto] = useState(false);
   const url = `/api/painel/documentos/${documentoId}/arquivo`;
   const ehImagem = EXTENSOES_IMAGEM.has(extensao(gcsPath));
+
+  const visualizacao = (
+    <div className="bg-muted/30 min-h-0 flex-1">
+      {ehImagem ? (
+        // eslint-disable-next-line @next/next/no-img-element -- vem de rota autenticada própria, não é otimizável pelo next/image
+        <img src={url} alt={label} className="h-full w-full object-contain" />
+      ) : (
+        <iframe src={url} title={label} className="h-full w-full border-0" />
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -49,7 +67,9 @@ export function VisualizarDocumento({
           onClick={() => setAberto(false)}
         >
           <div
-            className="bg-card flex h-full max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl shadow-2xl"
+            className={`bg-card flex h-full max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl shadow-2xl ${
+              painelEsquerdo ? "max-w-5xl" : "max-w-3xl"
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="border-border flex items-center justify-between gap-2 border-b px-5 py-3">
@@ -77,14 +97,16 @@ export function VisualizarDocumento({
               </div>
             </div>
 
-            <div className="bg-muted/30 min-h-0 flex-1">
-              {ehImagem ? (
-                // eslint-disable-next-line @next/next/no-img-element -- vem de rota autenticada própria, não é otimizável pelo next/image
-                <img src={url} alt={label} className="h-full w-full object-contain" />
-              ) : (
-                <iframe src={url} title={label} className="h-full w-full border-0" />
-              )}
-            </div>
+            {painelEsquerdo ? (
+              <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+                <div className="border-border max-h-[40vh] overflow-y-auto border-b p-4 md:max-h-none md:w-80 md:shrink-0 md:border-r md:border-b-0">
+                  {painelEsquerdo}
+                </div>
+                {visualizacao}
+              </div>
+            ) : (
+              visualizacao
+            )}
 
             {acoes ? <div className="border-border bg-card border-t px-5 py-4">{acoes}</div> : null}
           </div>

@@ -1,9 +1,9 @@
 // Domínio da página /painel/eventos — back-end real (ver
-// eventos-admin.controller.ts): um Evento (ex.: "SUMMIT 2026 SP") agrupa
-// vários EventoLink, cada um uma combinação de Executivo e/ou Associação
-// que personaliza o cadastro público. Sem rota própria: o link é sempre
-// a rota pública /cadastro com querystring
-// (`?evento=&executivo=&associacao=`).
+// eventos-admin.controller.ts): um Evento (ex.: "SUMMIT 2026 SP") tem um
+// slug único, usado no lugar do id bruto na rota pública /cadastro
+// (`?evento=<slug>&executivo=&associacao=`). O link personalizado
+// (executivo e/ou associação) é montado na hora — não tem tabela própria,
+// nenhuma escrita no banco (ver montarUrlCadastroPersonalizado).
 
 export interface Executivo {
   id: string;
@@ -15,32 +15,15 @@ export interface AssociacaoOpcao {
   nome: string;
 }
 
-export interface EventoLink {
-  id: string;
-  eventoId: string;
-  promotorId: string | null;
-  promotorNome: string | null;
-  associacaoId: string | null;
-  associacaoNome: string | null;
-  ativo: boolean;
-  totalAgenciasCadastradas: number;
-  createdAt: string;
-}
-
 export interface Evento {
   id: string;
   nome: string;
+  slug: string | null;
   ativo: boolean;
   createdAt: string;
-  links: EventoLink[];
 }
 
 export interface CriarEventoInput {
   nome: string;
-}
-
-export interface CriarEventoLinkInput {
-  eventoId: string;
-  promotorId: string | null;
-  associacaoId: string | null;
+  slug?: string | null;
 }

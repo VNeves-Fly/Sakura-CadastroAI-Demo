@@ -7,6 +7,7 @@ import { ExecutivosTab } from "@/modules/atribuicoes/components/executivos-tab";
 import { GestoresTab } from "@/modules/atribuicoes/components/gestores-tab";
 import { CidadesTab } from "@/modules/atribuicoes/components/cidades-tab";
 import { RemanejarTab } from "@/modules/atribuicoes/components/remanejar-tab";
+import { GerarLinkAtribuicoesButton } from "@/modules/atribuicoes/components/gerar-link-atribuicoes-button";
 import {
   carregarCidades,
   filtrarCidades,
@@ -41,10 +42,15 @@ export default async function AtribuicoesPage({ searchParams }: AtribuicoesPageP
   const executivo = searchParams.executivo ?? "";
   const gestor = searchParams.gestor ?? "";
 
-  const [todasCidades, promotores] = await Promise.all([
+  const [todasCidades, promotores, associacoesTodas] = await Promise.all([
     Promise.resolve(carregarCidades()),
     atribuicoesAdminController.listarPromotores(),
+    atribuicoesAdminController.listarAssociacoes(),
   ]);
+  const executivosLink = promotores.map((promotor) => ({ id: promotor.id, nome: promotor.nome }));
+  const associacoesLink = associacoesTodas
+    .filter((associacao) => associacao.ativo)
+    .map((associacao) => ({ id: associacao.id, nome: associacao.nome }));
   const cidadesFiltradas = filtrarCidades(todasCidades, { busca, regiao, base, executivo, gestor });
 
   const regioes = agregarRegioes(cidadesFiltradas);
@@ -103,12 +109,15 @@ export default async function AtribuicoesPage({ searchParams }: AtribuicoesPageP
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-foreground text-lg font-bold">Atribuições</h1>
-        <p className="text-muted-foreground text-sm">
-          Hierarquia comercial — Agência → Executivo → Gestor → Diretor, organizada por Base e
-          Região.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-foreground text-lg font-bold">Atribuições</h1>
+          <p className="text-muted-foreground text-sm">
+            Hierarquia comercial — Agência → Executivo → Gestor → Diretor, organizada por Base e
+            Região.
+          </p>
+        </div>
+        <GerarLinkAtribuicoesButton executivos={executivosLink} associacoes={associacoesLink} />
       </div>
 
       {aba !== "remanejar" ? (

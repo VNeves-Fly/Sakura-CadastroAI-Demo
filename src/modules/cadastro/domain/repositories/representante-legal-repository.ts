@@ -18,6 +18,7 @@ export interface CreateRepresentanteLegalData {
   cargo?: string | null;
   papel?: PapelRepresentante;
   isRepresentanteLegal?: boolean;
+  administrativo?: boolean | null;
   origem?: string | null;
   preenchidoPorIa?: boolean;
 }
