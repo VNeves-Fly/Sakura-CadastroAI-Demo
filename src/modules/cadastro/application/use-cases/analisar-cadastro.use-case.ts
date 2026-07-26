@@ -196,13 +196,18 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
           nome: socio.nome,
           email: socio.email,
           cpf: socio.cpf,
+          rgNumero: socio.rgNumero,
+          rgOrgaoEmissor: socio.rgOrgaoEmissor,
+          nacionalidade: socio.nacionalidade,
+          estadoCivil: socio.estadoCivil,
+          dataNascimento: socio.dataNascimento,
+          endereco: socio.endereco,
         }));
 
       try {
         const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
           cnpj: agencia.cnpj,
           razaoSocial: agencia.razaoSocial,
-          origem: agencia.origem,
           endereco: complementar?.enderecoAgencia ?? ENDERECO_VAZIO,
           signatarios,
         });

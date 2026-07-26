@@ -97,7 +97,6 @@ export function SelectField(props: SelectFieldProps) {
     creatable = false,
     disabled,
     className,
-    multiple,
   } = props;
   // Criar opção nova exige um campo de texto pra digitar o valor — não tem
   // como oferecer isso num select fechado.

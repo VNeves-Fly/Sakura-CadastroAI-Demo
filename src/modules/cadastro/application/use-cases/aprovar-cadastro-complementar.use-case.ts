@@ -38,12 +38,17 @@ export class AprovarCadastroComplementarUseCase implements UseCase<string, Agenc
         nome: socio.nome,
         email: socio.email,
         cpf: socio.cpf,
+        rgNumero: socio.rgNumero,
+        rgOrgaoEmissor: socio.rgOrgaoEmissor,
+        nacionalidade: socio.nacionalidade,
+        estadoCivil: socio.estadoCivil,
+        dataNascimento: socio.dataNascimento,
+        endereco: socio.endereco,
       }));
 
     const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
       cnpj: detalhe.agencia.cnpj,
       razaoSocial: detalhe.agencia.razaoSocial,
-      origem: detalhe.agencia.origem,
       endereco: detalhe.complementar?.enderecoAgencia ?? {
         cep: "",
         logradouro: "",

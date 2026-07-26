@@ -77,10 +77,32 @@ function okJson(body: unknown) {
   return { ok: true, status: 200, json: async () => body };
 }
 
+const FULANO = {
+  nome: "Fulano de Tal",
+  email: "fulano@teste.com",
+  cpf: "39053344705",
+  rgNumero: "12345678",
+  rgOrgaoEmissor: "SSP/SP",
+  nacionalidade: "Brasileiro(a)",
+  estadoCivil: "solteiro",
+  dataNascimento: new Date("1990-01-01"),
+  endereco: {
+    logradouro: "Rua das Flores",
+    numero: "50",
+    complemento: "Apto 2",
+    bairro: "Centro",
+    cidade: "Campinas",
+    uf: "SP",
+    cep: "13010000",
+  },
+};
+
+const CLAUSULA_FULANO =
+  "FULANO DE TAL, BRASILEIRO(A), SOLTEIRO(A), REPRESENTANTE LEGAL, portador da Cédula de Identidade RG 12345678/SSP/SP inscrito no CPF/ME sob o n° 39053344705, residente e domiciliado na Cidade de Campinas, Estado de SP, Brasil, com residência na(o) Rua das Flores, N 50, Apto 2, Centro, CEP 13010000";
+
 const input: GerarContratoInput = {
   cnpj: "19131243000197",
   razaoSocial: "Agência Teste",
-  origem: "campanha-x",
   endereco: {
     logradouro: "Av Paulista",
     numero: "1000",
@@ -90,7 +112,7 @@ const input: GerarContratoInput = {
     uf: "SP",
     cep: "01310100",
   },
-  signatarios: [{ nome: "Fulano de Tal", email: "fulano@teste.com", cpf: "39053344705" }],
+  signatarios: [FULANO],
 };
 
 describe("D4SignAdapter", () => {
