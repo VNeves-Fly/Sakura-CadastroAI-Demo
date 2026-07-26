@@ -127,6 +127,18 @@ export function CadastroWizardView({
             const concluida = numero < wizard.secoesReveladas;
             const ehAtual = numero === wizard.secoesReveladas;
             const podeAvancar = ehAtual && numero < wizard.totalEtapas;
+            // Sócios (numero 2) valida por conta própria dentro de
+            // Passo5Socios (avança sócio a sócio antes da seção) — os
+            // demais passos travam "Continuar" até os campos obrigatórios
+            // estarem completos (mesmas regras do envio final).
+            const passoCompleto =
+              numero === 1
+                ? wizard.empresaCompleta
+                : numero === 3
+                  ? wizard.enderecoCompleto
+                  : numero === 4
+                    ? wizard.bancoCompleto
+                    : true;
 
             return (
               <div
@@ -156,7 +168,13 @@ export function CadastroWizardView({
                     <button
                       type="button"
                       onClick={wizard.avancarSecao}
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit self-end rounded-full px-5 py-2.5 text-sm font-medium transition"
+                      disabled={!passoCompleto}
+                      title={
+                        passoCompleto
+                          ? undefined
+                          : "Preencha todos os campos obrigatórios antes de continuar."
+                      }
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit self-end rounded-full px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Continuar →
                     </button>

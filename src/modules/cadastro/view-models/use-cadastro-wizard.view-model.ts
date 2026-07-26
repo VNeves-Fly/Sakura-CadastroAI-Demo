@@ -797,7 +797,67 @@ export function useCadastroWizardViewModel({
   // do upload do RG/CNH — ver socio-wizard-card.tsx.
   const cnpjCompleto = agenciaAdapter.toQsaConsultaInput(cnpj).length >= 14;
   const empresaCamposDesbloqueados = Boolean(contratoSocial) && !analisandoContratoSocial;
-  const sociosGating = socios.map((socio) => ({ rgUploadPendente: !socio.rgArquivo }));
+
+  // "Completo" = já dá pra avançar pra próxima etapa sem estourar erro no
+  // envio final (mesmas regras obrigatórias de finalizarCadastroMetaSchema/
+  // socioMetaSchema/enderecoBancoMetaSchema, replicadas aqui só como
+  // booleano de gating — a validação de verdade continua sendo a do
+  // backend). Nenhum destes bloqueia edição, só o botão "Continuar".
+  const empresaCompleta =
+    Boolean(contratoSocial) &&
+    cnpjStatus.valido &&
+    !cnpjJaCadastrado &&
+    (semTelefoneComercial || (telefoneComercial.length > 0 && !telefoneComercialInvalido)) &&
+    emailOperacional.length > 0 &&
+    !emailOperacionalInvalido &&
+    !emailComercialInvalido &&
+    !emailFinanceiroInvalido;
+
+  function socioCompleto(
+    socio: SocioWizardFormValues,
+    validacao: (typeof sociosValidacao)[number],
+  ): boolean {
+    return (
+      socio.nome.trim().length > 0 &&
+      validacao.cpfStatus.valido &&
+      socio.email.length > 0 &&
+      !validacao.emailInvalido &&
+      socio.telefone.length > 0 &&
+      !validacao.telefoneInvalido &&
+      validacao.dataNascimentoStatus.valido &&
+      socio.estadoCivil.length > 0 &&
+      socio.cep.length > 0 &&
+      socio.logradouro.length > 0 &&
+      socio.numero.length > 0 &&
+      socio.bairro.length > 0 &&
+      socio.cidade.length > 0 &&
+      socio.uf.length > 0 &&
+      Boolean(socio.rgArquivo) &&
+      (!socio.isRepresentante || Boolean(socio.procuracaoArquivo))
+    );
+  }
+  const sociosCompletos = socios.map((socio, index) =>
+    socioCompleto(socio, sociosValidacao[index]!),
+  );
+
+  const enderecoCompleto = enderecoBanco.enderecoMesmoSocio
+    ? enderecoBanco.socioEnderecoVinculado !== null &&
+      Boolean(socios[enderecoBanco.socioEnderecoVinculado]?.logradouro)
+    : enderecoBanco.cep.length > 0 &&
+      enderecoBanco.logradouro.length > 0 &&
+      enderecoBanco.numero.length > 0 &&
+      enderecoBanco.bairro.length > 0 &&
+      enderecoBanco.cidade.length > 0 &&
+      enderecoBanco.uf.length > 0;
+
+  const bancoCompleto =
+    enderecoBanco.bancoNome.length > 0 &&
+    enderecoBanco.bancoAgencia.length > 0 &&
+    enderecoBanco.bancoConta.length > 0 &&
+    enderecoBanco.tipoConta.length > 0 &&
+    enderecoBanco.favorecidoNome.length > 0 &&
+    enderecoBanco.favorecidoDoc.length > 0 &&
+    (enderecoBanco.bancoPais !== "internacional" || enderecoBanco.bancoSwift.length > 0);
 
   const documentosPendentes: string[] = [];
   if (!contratoSocial) documentosPendentes.push("Contrato Social da empresa");
@@ -911,6 +971,7 @@ export function useCadastroWizardViewModel({
     setContratoSocial,
     cnpjCompleto,
     empresaCamposDesbloqueados,
+    empresaCompleta,
 
     telefoneComercial,
     telefoneComercialPais,
@@ -933,7 +994,7 @@ export function useCadastroWizardViewModel({
     socios,
     sociosValidacao,
     sociosAnaliseIdentificacao,
-    sociosGating,
+    sociosCompletos,
     socioCepBuscando,
     addSocio,
     removeSocio,
@@ -943,6 +1004,8 @@ export function useCadastroWizardViewModel({
 
     enderecoBanco,
     enderecoBancoCepBuscando,
+    enderecoCompleto,
+    bancoCompleto,
     updateEnderecoBanco,
     buscarCepEnderecoBanco,
     bancos,
