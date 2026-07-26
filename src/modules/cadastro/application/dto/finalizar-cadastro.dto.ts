@@ -21,6 +21,10 @@ export interface SocioSubmitInput {
   telefone: string;
   dataNascimento: string; // ISO (YYYY-MM-DD)
   estadoCivil: string;
+  rgNumero: string;
+  rgOrgaoEmissor: string;
+  nacionalidade: string;
+  administrativo: boolean | null;
   endereco: EnderecoInput;
   rg: UploadedFileInput;
   isRepresentante: boolean;

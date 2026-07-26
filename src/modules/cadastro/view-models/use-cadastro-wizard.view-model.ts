@@ -304,6 +304,15 @@ export function useCadastroWizardViewModel({
       if (socioExtraido.estadoCivil) {
         atualizados[index] = { ...atualizados[index], estadoCivil: socioExtraido.estadoCivil };
       }
+      if (socioExtraido.nacionalidade) {
+        atualizados[index] = { ...atualizados[index], nacionalidade: socioExtraido.nacionalidade };
+      }
+      if (socioExtraido.administrativo !== null) {
+        atualizados[index] = {
+          ...atualizados[index],
+          administrativo: socioExtraido.administrativo,
+        };
+      }
       if (socioExtraido.rg) {
         atualizados[index] = { ...atualizados[index], rg: socioExtraido.rg };
       }

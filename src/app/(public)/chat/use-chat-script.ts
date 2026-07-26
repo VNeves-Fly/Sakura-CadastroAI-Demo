@@ -1262,6 +1262,10 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       rgOrgaoEmissor: s.rgOrgaoEmissor ?? "",
       rgUf: s.rgUf ?? "",
       rgArquivo: s.rgArquivo,
+      // O chat não pergunta nacionalidade/administrativo (SocioChat não
+      // tem esses campos) — mesmo default do wizard (/cadastro).
+      nacionalidade: "Brasileiro(a)",
+      administrativo: null,
       isRepresentante: s.isRepresentante,
       procuracaoArquivo: s.procuracaoArquivo,
     }));

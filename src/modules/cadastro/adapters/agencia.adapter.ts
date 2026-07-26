@@ -181,6 +181,10 @@ export const agenciaAdapter = {
       telefone: telefoneComDdi(socio.telefone, socio.telefonePais),
       dataNascimento: socio.dataNascimento,
       estadoCivil: socio.estadoCivil,
+      rgNumero: socio.rg,
+      rgOrgaoEmissor: socio.rgOrgaoEmissor,
+      nacionalidade: socio.nacionalidade,
+      administrativo: socio.administrativo,
       isRepresentante: socio.isRepresentante,
       endereco: {
         cep: unmaskCep(socio.cep),

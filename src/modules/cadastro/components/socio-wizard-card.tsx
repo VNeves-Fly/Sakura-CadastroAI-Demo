@@ -264,26 +264,41 @@ export function SocioWizardCard({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-foreground text-xs font-bold tracking-wide uppercase">
-              Estado Civil<span className="text-destructive"> *</span>
-            </label>
-            <Select
-              items={ESTADO_CIVIL_OPCOES_ITEMS}
-              value={socio.estadoCivil}
-              onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {ESTADO_CIVIL_OPCOES.map((opcao) => (
-                  <SelectItem key={opcao.valor} value={opcao.valor}>
-                    {opcao.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Estado Civil<span className="text-destructive"> *</span>
+              </label>
+              <Select
+                items={ESTADO_CIVIL_OPCOES_ITEMS}
+                value={socio.estadoCivil}
+                onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADO_CIVIL_OPCOES.map((opcao) => (
+                    <SelectItem key={opcao.valor} value={opcao.valor}>
+                      {opcao.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Nacionalidade<span className="text-destructive"> *</span>
+              </label>
+              <input
+                type="text"
+                autoComplete="off"
+                value={socio.nacionalidade}
+                onChange={(event) => onUpdate({ nacionalidade: event.target.value })}
+                className={INPUT_CLASSNAME}
+                placeholder="Brasileiro(a)"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1">

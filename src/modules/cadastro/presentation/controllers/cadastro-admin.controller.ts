@@ -55,6 +55,10 @@ import { ObterCadastroComplementarUseCase } from "@/modules/cadastro/application
 import { ListarRepresentantesLegaisUseCase } from "@/modules/cadastro/application/use-cases/listar-representantes-legais.use-case";
 import { ObterRepresentanteLegalUseCase } from "@/modules/cadastro/application/use-cases/obter-representante-legal.use-case";
 import {
+  AtualizarRepresentanteLegalUseCase,
+  type AtualizarRepresentanteLegalInput,
+} from "@/modules/cadastro/application/use-cases/atualizar-representante-legal.use-case";
+import {
   ObterEnderecoUseCase,
   type ObterEnderecoInput,
 } from "@/modules/cadastro/application/use-cases/obter-endereco.use-case";
@@ -236,6 +240,11 @@ export const cadastroAdminController = {
   obterRepresentanteLegal(id: string) {
     const useCase = new ObterRepresentanteLegalUseCase(representanteLegalRepository);
     return useCase.execute(id);
+  },
+
+  atualizarRepresentanteLegal(input: AtualizarRepresentanteLegalInput) {
+    const useCase = new AtualizarRepresentanteLegalUseCase(representanteLegalRepository);
+    return useCase.execute(input);
   },
 
   obterEndereco(input: ObterEnderecoInput) {

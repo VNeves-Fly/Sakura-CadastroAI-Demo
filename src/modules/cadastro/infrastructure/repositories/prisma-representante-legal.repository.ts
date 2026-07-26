@@ -63,6 +63,7 @@ export class PrismaRepresentanteLegalRepository implements RepresentanteLegalRep
       cargo: record.cargo,
       papel: record.papel,
       isRepresentanteLegal: record.isRepresentanteLegal,
+      administrativo: record.administrativo,
       ativo: record.ativo,
       origem: record.origem,
       preenchidoPorIa: record.preenchidoPorIa,

@@ -99,7 +99,9 @@ function socioFake(overrides: Partial<RepresentanteLegalDetalhe> = {}): Represen
     procuracao: null,
     rgNumero: null,
     rgOrgaoEmissor: null,
+    nacionalidade: null,
     dataNascimento: new Date("1990-01-01"),
+    administrativo: null,
     ...overrides,
   };
 }

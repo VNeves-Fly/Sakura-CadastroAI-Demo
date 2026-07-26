@@ -171,7 +171,9 @@ interface RepresentanteLegalRecord {
   endereco: EnderecoRecord | null;
   rg: string | null;
   rgOrgaoEmissor: string | null;
+  nacionalidade: string | null;
   dataNascimento: Date | null;
+  administrativo: boolean | null;
 }
 
 // `documentosDaAgencia` já vem ordenado createdAt desc (ver
@@ -209,7 +211,9 @@ function representanteToDomain(
     procuracao: documentoAtual(documentosDaAgencia, TipoDocumento.PROCURACAO, record.id),
     rgNumero: record.rg,
     rgOrgaoEmissor: record.rgOrgaoEmissor,
+    nacionalidade: record.nacionalidade,
     dataNascimento: record.dataNascimento,
+    administrativo: record.administrativo,
   };
 }
 
@@ -347,6 +351,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
               telefone: socio.telefone,
               dataNascimento: socio.dataNascimento,
               estadoCivil: socio.estadoCivil,
+              rg: socio.rgNumero || null,
+              rgOrgaoEmissor: socio.rgOrgaoEmissor || null,
+              nacionalidade: socio.nacionalidade || null,
+              administrativo: socio.administrativo,
               isRepresentanteLegal: socio.isRepresentanteLegal,
               endereco: { create: socio.endereco },
             })),
