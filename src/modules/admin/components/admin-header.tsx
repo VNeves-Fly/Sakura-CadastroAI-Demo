@@ -31,7 +31,7 @@ export function AdminHeader({ userName, userEmail }: AdminHeaderProps) {
   const pathname = usePathname();
 
   return (
-    <header className="border-border bg-card flex items-center justify-between gap-4 border-b px-6 py-3">
+    <header className="border-border bg-card flex items-center justify-between gap-4 border-b px-4 py-3">
       <div className="flex items-center gap-3">
         <SidebarTrigger />
         <Separator orientation="vertical" className="h-5" />

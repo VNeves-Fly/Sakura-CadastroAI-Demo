@@ -421,6 +421,11 @@ model RepresentanteLegal {
   // Procuração no wizard) — distinto de `papel`, que é pra um procurador
   // terceiro fora do quadro societário (roadmap, não usado hoje).
   isRepresentanteLegal Boolean            @default(false)
+  // Sócio administrador/quem assina o contrato — extraído pela IA do
+  // contrato social (SocioContratoSocialExtraido.administrativo), editável
+  // pelo analista no painel. null (ainda não avaliado) e true assinam;
+  // só false exclui o sócio da lista de signatarios do contrato.
+  administrativo       Boolean?
   ativo                Boolean            @default(true)
   origem               String?
   preenchidoPorIa      Boolean            @default(false)

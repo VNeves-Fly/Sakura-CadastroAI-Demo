@@ -30,7 +30,7 @@ export function UserMenu({ userName, userEmail }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="hover:bg-accent flex items-center gap-2 rounded-md p-1 outline-none">
+      <DropdownMenuTrigger className="hover:bg-accent flex items-center gap-2 rounded-md p-1 px-4 outline-none">
         <div className="flex flex-col items-end leading-tight">
           <span className="text-foreground text-sm font-medium">{userName ?? "Usuário"}</span>
           {userEmail ? <span className="text-muted-foreground text-xs">{userEmail}</span> : null}
