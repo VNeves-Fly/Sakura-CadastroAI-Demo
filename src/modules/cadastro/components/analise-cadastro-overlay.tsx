@@ -63,6 +63,9 @@ function ResultadoAnalise() {
       <p className="text-muted-foreground text-sm">
         Ficou com alguma dúvida? Fale com um de nossos atendentes pelo WhatsApp.
       </p>
+      <p className="text-muted-foreground text-sm">
+        Pelo WhatsApp: <strong>(11) 93623-9259</strong>, ou pelo botão abaixo.
+      </p>
       <a
         href={WHATSAPP_LINK_ATENDIMENTO}
         target="_blank"

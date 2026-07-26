@@ -245,6 +245,37 @@ function ChecagemBadge({ label, valor }: { label: string; valor: boolean | null 
   );
 }
 
+// Formata qualquer valor de `camposExtraidos` (schema livre, decidido pelo
+// agente — nunca documentado, ver comentário de CamposDetalhe abaixo) sem
+// cair em `String()` cru: objeto vira "[object Object]" e array de objeto
+// vira "[object Object],[object Object]" (ex.: `qsa`, um array de sócios);
+// array com posição vazia (ex.: `endereco` chegando como array posicional
+// em vez de objeto nomeado, num documento real) vira "a,,b" — os dois
+// achados vieram do mesmo bug. Recursivo: filtra valor vazio em vez de
+// deixar a lacuna, e desce em objeto/array até sobrar só primitivo.
+function formatarValorExtraido(valor: unknown): string {
+  if (valor === null || valor === undefined) return "—";
+  if (typeof valor === "string") return valor.trim().length > 0 ? valor : "—";
+  if (typeof valor === "number" || typeof valor === "boolean") return String(valor);
+
+  if (Array.isArray(valor)) {
+    const itens = valor.map(formatarValorExtraido).filter((item) => item !== "—");
+    return itens.length > 0 ? itens.join(" | ") : "—";
+  }
+
+  if (typeof valor === "object") {
+    const entradas = Object.entries(valor as Record<string, unknown>)
+      .map(([chave, item]) => {
+        const formatado = formatarValorExtraido(item);
+        return formatado === "—" ? null : `${chave}: ${formatado}`;
+      })
+      .filter((item): item is string => item !== null);
+    return entradas.length > 0 ? entradas.join(", ") : "—";
+  }
+
+  return String(valor);
+}
+
 // Par chave/valor genérico, mesmo tratamento usado pra `camposExtraidos` —
 // reaproveitado também por `camposExtras` e `detalhesChecagem`, que têm a
 // mesma forma (Record<string, unknown> sem schema fixo, dependem do agente).
@@ -261,7 +292,7 @@ function CamposDetalhe({ titulo, campos }: { titulo: string; campos: Record<stri
         {entradas.map(([chave, valor]) => (
           <div key={chave} className="flex flex-wrap gap-1.5">
             <dt className="text-muted-foreground shrink-0 font-mono">{chave}:</dt>
-            <dd className="text-foreground break-all">{String(valor)}</dd>
+            <dd className="text-foreground break-all">{formatarValorExtraido(valor)}</dd>
           </div>
         ))}
       </dl>
