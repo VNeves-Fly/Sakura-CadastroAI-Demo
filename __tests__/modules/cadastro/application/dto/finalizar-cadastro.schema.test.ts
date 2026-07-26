@@ -24,6 +24,10 @@ function socioValido() {
     telefone: "+55 11999999999",
     dataNascimento: "1990-04-12",
     estadoCivil: "solteiro",
+    rgNumero: "123456789",
+    rgOrgaoEmissor: "SSP/SP",
+    nacionalidade: "Brasileiro(a)",
+    administrativo: null,
     endereco: enderecoValido(),
     isRepresentante: false,
   };

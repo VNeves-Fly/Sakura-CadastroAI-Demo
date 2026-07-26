@@ -141,7 +141,7 @@ describe("D4SignAdapter", () => {
       "https://api.teste.d4sign/documents/safe-uuid/makedocumentbytemplateword?tokenAPI=token-teste&cryptKey=crypt-teste",
     );
     expect(JSON.parse(criarOpts.body)).toEqual({
-      name_document: "Contrato Sakura - Agência Teste",
+      name_document: "Contrato Sakura - Agência Teste - 19131243000197",
       templates: {
         "template-id": {
           razaosocial: "Agência Teste",
@@ -153,8 +153,8 @@ describe("D4SignAdapter", () => {
           complemento: "",
           bairro: "Bela Vista",
           cep: "01310100",
-          indicacao: "campanha-x",
-          socios: "Fulano de Tal (CPF: 39053344705)",
+          indicacao: "indicado o representante legal da empresa",
+          socios: CLAUSULA_FULANO,
         },
       },
     });
@@ -181,6 +181,61 @@ describe("D4SignAdapter", () => {
       "https://api.teste.d4sign/documents/doc-uuid-123/sendtosigner?tokenAPI=token-teste&cryptKey=crypt-teste",
     );
     expect(JSON.parse(envioOpts.body)).toEqual({ skip_email: "0", workflow: "1" });
+  });
+
+  it("pluraliza a indicação e concatena as cláusulas com 'e' quando há mais de um signatário", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(okJson({}));
+
+    const CICRANA = {
+      ...FULANO,
+      nome: "Cicrana da Silva",
+      email: "cicrana@teste.com",
+      cpf: "98765432100",
+    };
+
+    await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar({
+      ...input,
+      signatarios: [FULANO, CICRANA],
+    });
+
+    const [, criarOpts] = (global.fetch as jest.Mock).mock.calls[0];
+    const { indicacao, socios } = JSON.parse(criarOpts.body).templates["template-id"];
+    const clausulaCicrana = CLAUSULA_FULANO.replace("FULANO DE TAL", "CICRANA DA SILVA").replace(
+      "39053344705",
+      "98765432100",
+    );
+    expect(indicacao).toBe("indicados os representantes legais da empresa");
+    expect(socios).toBe(`${CLAUSULA_FULANO} e ${clausulaCicrana}`);
+  });
+
+  it("omite RG e segmentos de endereço vazios na cláusula, sem deixar vírgula sobrando", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(okJson({}));
+
+    await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar({
+      ...input,
+      signatarios: [
+        {
+          ...FULANO,
+          rgNumero: null,
+          rgOrgaoEmissor: null,
+          endereco: { ...FULANO.endereco, complemento: "" },
+        },
+      ],
+    });
+
+    const [, criarOpts] = (global.fetch as jest.Mock).mock.calls[0];
+    const { socios } = JSON.parse(criarOpts.body).templates["template-id"];
+    expect(socios).toBe(
+      "FULANO DE TAL, BRASILEIRO(A), SOLTEIRO(A), REPRESENTANTE LEGAL, inscrito no CPF/ME sob o n° 39053344705, residente e domiciliado na Cidade de Campinas, Estado de SP, Brasil, com residência na(o) Rua das Flores, N 50, Centro, CEP 13010000",
+    );
+    expect(socios).not.toContain(",,");
+    expect(socios).not.toContain("RG /");
   });
 
   it("inclui os signatários padrão ativos nos estágios seguintes, com o act correspondente ao papel", async () => {

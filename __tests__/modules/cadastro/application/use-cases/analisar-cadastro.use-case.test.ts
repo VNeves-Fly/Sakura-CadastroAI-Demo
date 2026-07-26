@@ -360,19 +360,31 @@ describe("AnalisarCadastroUseCase", () => {
 
     await useCase.execute({ agenciaId: "agencia-1" });
 
+    const signatarioEsperado = {
+      nome: "Fulano de Tal",
+      email: "fulano@example.com",
+      cpf: "12345678909",
+      rgNumero: null,
+      rgOrgaoEmissor: null,
+      nacionalidade: null,
+      estadoCivil: "solteiro",
+      dataNascimento: new Date("1990-01-01"),
+      endereco: ENDERECO,
+    };
+
     expect(contratoAssinaturaService.gerarEEnviar).toHaveBeenCalledWith(
       expect.objectContaining({
         cnpj: "12345678000195",
         razaoSocial: "Empresa Teste Ltda",
         endereco: ENDERECO,
-        signatarios: [{ nome: "Fulano de Tal", email: "fulano@example.com", cpf: "12345678909" }],
+        signatarios: [signatarioEsperado],
       }),
     );
     expect(agenciaRepository.criarContrato).toHaveBeenCalledWith("agencia-1", {
       provedorId: "d4sign-1",
       status: "aguardando_assinatura",
       origemGeracao: "ia",
-      signatarios: [{ nome: "Fulano de Tal", email: "fulano@example.com", cpf: "12345678909" }],
+      signatarios: [signatarioEsperado],
     });
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
@@ -380,6 +392,39 @@ describe("AnalisarCadastroUseCase", () => {
       STATUS_AGUARDANDO_ASSINATURA,
       "APROVADO",
     );
+  });
+
+  it("exclui da lista de signatarios o sócio marcado administrativo=false, mas inclui administrativo=null/true", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const naoAssina = socioFake({
+      id: "socio-2",
+      nome: "Nao Assina",
+      cpf: "98765432100",
+      administrativo: false,
+    });
+    const assinaPorPadrao = socioFake({
+      id: "socio-3",
+      nome: "Assina Padrao",
+      administrativo: null,
+    });
+    const { useCase, contratoAssinaturaService } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+      agenciaRepository: criarRepositorioFake({
+        obterDetalhe: jest
+          .fn()
+          .mockResolvedValue(
+            detalheFake({ representantesLegais: [socioFake(), naoAssina, assinaPorPadrao] }),
+          ),
+      }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    const [{ signatarios }] = (contratoAssinaturaService.gerarEEnviar as jest.Mock).mock.calls[0];
+    expect(signatarios.map((s: { nome: string }) => s.nome)).toEqual([
+      "Fulano de Tal",
+      "Assina Padrao",
+    ]);
   });
 
   it("usa endereço vazio pro contrato quando não há CadastroComplementar", async () => {
