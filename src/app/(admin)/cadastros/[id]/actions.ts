@@ -124,14 +124,53 @@ export async function salvarSicaAction(agenciaId: string, formData: FormData) {
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
-export async function atualizarAdministrativoSocioAction(
+function parseStringOuNull(valor: FormDataEntryValue | null): string | null {
+  const texto = String(valor ?? "").trim();
+  return texto.length > 0 ? texto : null;
+}
+
+export async function editarSocioAction(
   agenciaId: string,
   representanteLegalId: string,
-  administrativo: boolean | null,
+  formData: FormData,
 ) {
   await cadastroAdminController.atualizarRepresentanteLegal({
     id: representanteLegalId,
-    administrativo,
+    editadoPor: await analistaLogado(),
+    justificativa: String(formData.get("justificativa") ?? ""),
+    dados: {
+      nome: String(formData.get("nome") ?? "").trim(),
+      cpf: String(formData.get("cpf") ?? "").trim(),
+      email: String(formData.get("email") ?? "").trim(),
+      telefone: String(formData.get("telefone") ?? "").trim(),
+      estadoCivil: String(formData.get("estadoCivil") ?? "").trim(),
+      nacionalidade: parseStringOuNull(formData.get("nacionalidade")),
+      rg: parseStringOuNull(formData.get("rg")),
+      rgOrgaoEmissor: parseStringOuNull(formData.get("rgOrgaoEmissor")),
+      cargo: parseStringOuNull(formData.get("cargo")),
+      dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+      administrativo: formData.get("administrativo") === "true",
+    },
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function editarEmpresaAction(agenciaId: string, formData: FormData) {
+  await cadastroAdminController.editarDadosEmpresa({
+    agenciaId,
+    editadoPor: await analistaLogado(),
+    justificativa: String(formData.get("justificativa") ?? ""),
+    dadosAgencia: {
+      razaoSocial: String(formData.get("razaoSocial") ?? "").trim(),
+      emailContato: String(formData.get("emailContato") ?? "").trim(),
+      telefoneContato: String(formData.get("telefoneContato") ?? "").trim(),
+    },
+    dadosComplementar: {
+      telefoneComercial: parseStringOuNull(formData.get("telefoneComercial")),
+      emailOperacional: parseStringOuNull(formData.get("emailOperacional")),
+      emailComercial: parseStringOuNull(formData.get("emailComercial")),
+      emailFinanceiro: parseStringOuNull(formData.get("emailFinanceiro")),
+    },
   });
   revalidatePath(`/cadastros/${agenciaId}`);
 }

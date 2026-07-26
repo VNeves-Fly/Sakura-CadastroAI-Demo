@@ -24,6 +24,12 @@ interface VisualizarDocumentoProps {
   // sempre. Slot genérico (igual `acoes`) pra este componente não precisar
   // conhecer o tipo de análise de IA — só layout.
   painelEsquerdo?: ReactNode;
+  // Banner opcional logo abaixo do cabeçalho (ex: <AuditoriaDocumento>,
+  // ver dossie-campos.tsx) — quem/quando/por quê o documento foi
+  // aprovado/reprovado. Sempre visível, independente do modal ter
+  // `painelEsquerdo` (1 ou 2 colunas) ou não — auditoria não é um dado de
+  // análise, é do próprio documento.
+  infoAuditoria?: ReactNode;
 }
 
 // Botão + modal de pré-visualização — antes "Ver anexo" abria
@@ -39,6 +45,7 @@ export function VisualizarDocumento({
   children,
   acoes,
   painelEsquerdo,
+  infoAuditoria,
 }: VisualizarDocumentoProps) {
   const [aberto, setAberto] = useState(false);
   const url = `/api/cadastros/documentos/${documentoId}/arquivo`;
@@ -96,6 +103,10 @@ export function VisualizarDocumento({
                 </button>
               </div>
             </div>
+
+            {infoAuditoria ? (
+              <div className="border-border bg-muted/30 border-b px-5 py-3">{infoAuditoria}</div>
+            ) : null}
 
             {painelEsquerdo ? (
               <div className="flex min-h-0 flex-1 flex-col md:flex-row">

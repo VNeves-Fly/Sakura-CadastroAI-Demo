@@ -513,6 +513,17 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return this.toDomain(record);
   }
 
+  async atualizarDadosCadastrais(
+    id: string,
+    data: { razaoSocial?: string; emailContato?: string; telefoneContato?: string },
+  ): Promise<Agencia> {
+    const record = await this.prisma.agencia.update({
+      where: { id },
+      data,
+    });
+    return this.toDomain(record);
+  }
+
   async salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia> {
     const record = await this.prisma.agencia.update({
       where: { id },

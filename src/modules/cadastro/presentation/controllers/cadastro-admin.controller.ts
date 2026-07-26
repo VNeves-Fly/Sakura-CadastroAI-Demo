@@ -30,6 +30,8 @@ import { VincularMidiaComoDocumentoUseCase } from "@/modules/cadastro/applicatio
 import type { VincularMidiaComoDocumentoInput } from "@/modules/cadastro/application/use-cases/vincular-midia-como-documento.use-case";
 import { InserirDocumentoManualUseCase } from "@/modules/cadastro/application/use-cases/inserir-documento-manual.use-case";
 import type { InserirDocumentoManualInput } from "@/modules/cadastro/application/use-cases/inserir-documento-manual.use-case";
+import { EditarDadosEmpresaUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
+import type { EditarDadosEmpresaInput } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { ObterDadosReceitaUseCase } from "@/modules/cadastro/application/use-cases/obter-dados-receita.use-case";
@@ -250,7 +252,10 @@ export const cadastroAdminController = {
   },
 
   atualizarRepresentanteLegal(input: AtualizarRepresentanteLegalInput) {
-    const useCase = new AtualizarRepresentanteLegalUseCase(representanteLegalRepository);
+    const useCase = new AtualizarRepresentanteLegalUseCase(
+      representanteLegalRepository,
+      historicoEdicaoCadastroRepository,
+    );
     return useCase.execute(input);
   },
 
@@ -378,5 +383,14 @@ export const cadastroAdminController = {
 
   listarHistoricoEdicoes(entidadeId: string) {
     return historicoEdicaoCadastroRepository.findByEntidadeId(entidadeId);
+  },
+
+  editarDadosEmpresa(input: EditarDadosEmpresaInput) {
+    const useCase = new EditarDadosEmpresaUseCase(
+      agenciaRepository,
+      cadastroComplementarRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
   },
 };

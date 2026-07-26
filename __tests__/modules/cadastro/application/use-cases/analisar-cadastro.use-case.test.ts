@@ -80,6 +80,10 @@ function documentoFake(id: string, gcsPath: string): Documento {
     reprovadoPor: null,
     motivoReprovacao: null,
     reprovadoEm: null,
+    aprovadoPor: null,
+    motivoAprovacao: null,
+    aprovadoEm: null,
+    inseridoManualmentePor: null,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   });

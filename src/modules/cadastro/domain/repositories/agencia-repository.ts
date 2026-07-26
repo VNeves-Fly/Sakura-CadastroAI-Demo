@@ -316,6 +316,13 @@ export interface AgenciaRepository {
     resultado: ResultadoAnaliseIa,
   ): Promise<void>;
   atualizarStatus(id: string, status: string): Promise<Agencia>;
+  // Edição em lote pelo analista (ver EditarDadosEmpresaUseCase) — nunca
+  // inclui campos sourced de DadosReceita, que não é tocado por este
+  // método.
+  atualizarDadosCadastrais(
+    id: string,
+    data: { razaoSocial?: string; emailContato?: string; telefoneContato?: string },
+  ): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
   salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;
   criarContrato(

@@ -17,7 +17,7 @@ export class PrismaHistoricoEdicaoCadastroRepository implements HistoricoEdicaoC
 
   async create(data: CreateHistoricoEdicaoCadastroData): Promise<HistoricoEdicaoCadastro> {
     const record = await this.prisma.historicoEdicaoCadastro.create({
-      data: data as Prisma.HistoricoEdicaoCadastroUncheckedCreateInput,
+      data: data as unknown as Prisma.HistoricoEdicaoCadastroUncheckedCreateInput,
     });
     return this.toDomain(record);
   }
@@ -36,7 +36,7 @@ export class PrismaHistoricoEdicaoCadastroRepository implements HistoricoEdicaoC
       agenciaId: record.agenciaId,
       entidade: record.entidade,
       entidadeId: record.entidadeId,
-      alteracoes: record.alteracoes as Record<string, AlteracaoCampo>,
+      alteracoes: record.alteracoes as unknown as Record<string, AlteracaoCampo>,
       justificativa: record.justificativa,
       editadoPor: record.editadoPor,
       createdAt: record.createdAt,
