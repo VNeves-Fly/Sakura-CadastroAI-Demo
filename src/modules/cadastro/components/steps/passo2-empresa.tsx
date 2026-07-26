@@ -1,16 +1,11 @@
 "use client";
 
-import { Lock } from "lucide-react";
 import {
   PAISES_TELEFONE,
   PAISES_TELEFONE_ITEMS,
   paisTelefonePorCodigo,
 } from "@/modules/shared/utils/telefone.util";
-import type {
-  useCadastroWizardViewModel,
-  ExecutivoOption,
-  AssociacaoOption,
-} from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
+import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import {
   Select,
   SelectTrigger,
@@ -18,13 +13,6 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import {
-  Combobox,
-  ComboboxInputGroup,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxItem,
-} from "@/components/ui/combobox";
 
 type Passo2EmpresaProps = ReturnType<typeof useCadastroWizardViewModel>;
 
@@ -52,21 +40,9 @@ export function Passo2Empresa({
   setEmailComercial,
   setEmailFinanceiro,
   usarEmailOperacionalParaTodos,
-  executivos,
-  associacoes,
-  executivoIdSelecionado,
-  associacaoIdSelecionado,
-  executivoTravado,
-  associacaoTravado,
-  setExecutivoId,
-  setAssociacaoId,
 }: Passo2EmpresaProps) {
   const paisTelefone = paisTelefonePorCodigo(telefoneComercialPais);
   const bloqueado = !empresaCamposDesbloqueados;
-  const executivoSelecionado =
-    executivos.find((item) => item.id === executivoIdSelecionado) ?? null;
-  const associacaoSelecionada =
-    associacoes.find((item) => item.id === associacaoIdSelecionado) ?? null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -190,68 +166,6 @@ export function Passo2Empresa({
           {emailFinanceiroInvalido ? (
             <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
           ) : null}
-        </div>
-      </div>
-
-      <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4">
-        <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
-          Executivo e Associação
-        </span>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-foreground text-sm font-bold">Executivo</label>
-          {executivoTravado ? (
-            <div className="border-input bg-muted text-muted-foreground flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm">
-              <Lock className="size-4 shrink-0" />
-              {executivoSelecionado?.nome ?? "Executivo do link"}
-            </div>
-          ) : (
-            <Combobox<ExecutivoOption>
-              items={executivos}
-              value={executivoSelecionado}
-              onValueChange={(executivo) => setExecutivoId(executivo?.id ?? null)}
-              itemToStringLabel={(executivo) => executivo.nome}
-            >
-              <ComboboxInputGroup>
-                <ComboboxInput placeholder="Busque por nome (opcional)" autoComplete="off" />
-              </ComboboxInputGroup>
-              <ComboboxContent>
-                {(executivo: ExecutivoOption) => (
-                  <ComboboxItem key={executivo.id} value={executivo}>
-                    {executivo.nome}
-                  </ComboboxItem>
-                )}
-              </ComboboxContent>
-            </Combobox>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-foreground text-sm font-bold">Associação</label>
-          {associacaoTravado ? (
-            <div className="border-input bg-muted text-muted-foreground flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm">
-              <Lock className="size-4 shrink-0" />
-              {associacaoSelecionada?.nome ?? "Associação do link"}
-            </div>
-          ) : (
-            <Combobox<AssociacaoOption>
-              items={associacoes}
-              value={associacaoSelecionada}
-              onValueChange={(associacao) => setAssociacaoId(associacao?.id ?? null)}
-              itemToStringLabel={(associacao) => associacao.nome}
-            >
-              <ComboboxInputGroup>
-                <ComboboxInput placeholder="Busque por nome (opcional)" autoComplete="off" />
-              </ComboboxInputGroup>
-              <ComboboxContent>
-                {(associacao: AssociacaoOption) => (
-                  <ComboboxItem key={associacao.id} value={associacao}>
-                    {associacao.nome}
-                  </ComboboxItem>
-                )}
-              </ComboboxContent>
-            </Combobox>
-          )}
         </div>
       </div>
     </div>
