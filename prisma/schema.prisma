@@ -1048,7 +1048,6 @@ model Promotor {
   updatedAt DateTime @updatedAt
 
   agenciasAtribuidas Agencia[]
-  eventoLinks        EventoLink[]
 
   @@map("promotores")
 }
@@ -1067,44 +1066,32 @@ model Associacao {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agencias    Agencia[]
-  eventoLinks EventoLink[]
+  agencias Agencia[]
 
   @@map("associacoes")
 }
 
-// Campanha de captação criada no painel (/painel/eventos) — agrupa vários
-// EventoLink, cada um uma combinação de executivo e/ou associação pra
-// personalizar o cadastro público (2026-07-25). Substitui o mock
-// front-end que existia antes (sem tabela própria, link apontando pra
-// uma rota `/{slug}` que nunca existiu de verdade).
+// Campanha de captação criada no painel (/painel/eventos) — o link
+// personalizado (executivo e/ou associação) é montado na hora, client-side,
+// a partir do slug do evento + ids já existentes de Promotor/Associacao;
+// não tem tabela própria pra essa combinação (2026-07-25, decisão do
+// usuário: nada de relevante se perde não persistindo, já que os ids em si
+// já são gerenciados em outro lugar). Substitui o mock front-end que
+// existia antes (sem tabela própria, link apontando pra uma rota `/{slug}`
+// que nunca existiu de verdade) — agora o slug existe de verdade.
 model Evento {
-  id        String   @id @default(cuid())
-  nome      String
-  ativo     Boolean  @default(true)
+  id    String  @id @default(cuid())
+  nome  String
+  // Usado no link público em vez do id bruto (`/cadastro?evento=<slug>`) —
+  // nullable pra não travar a criação do evento (o admin pode definir
+  // depois); sem slug, o evento não tem link público funcional.
+  slug  String? @unique
+  ativo Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  links    EventoLink[]
   agencias Agencia[]
 
   @@map("eventos")
-}
-
-// Uma variante de link personalizado de um Evento — não tem rota própria,
-// é resolvido inteiramente por query string na rota pública /cadastro
-// (`?evento=&executivo=&associacao=`). Pelo menos um entre promotorId e
-// associacaoId é exigido na criação (validado no use-case, não aqui).
-model EventoLink {
-  id           String      @id @default(cuid())
-  eventoId     String
-  evento       Evento      @relation(fields: [eventoId], references: [id], onDelete: Cascade)
-  promotorId   String?
-  promotor     Promotor?   @relation(fields: [promotorId], references: [id])
-  associacaoId String?
-  associacao   Associacao? @relation(fields: [associacaoId], references: [id])
-  ativo        Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-
-  @@map("evento_links")
 }

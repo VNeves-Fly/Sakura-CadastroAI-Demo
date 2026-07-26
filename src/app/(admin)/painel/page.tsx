@@ -119,7 +119,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
 
-  const [{ items, total, kpis }, analise, promotores, associacoesTodas, eventosComLinks] =
+  const [{ items, total, kpis }, analise, promotores, associacoesTodas, eventos] =
     await Promise.all([
       cadastroAdminController.listarCadastros({
         busca: searchParams.busca,
@@ -140,7 +140,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const associacoesOpcoes = associacoesTodas
     .filter((associacao) => associacao.ativo)
     .map((associacao) => ({ id: associacao.id, nome: associacao.nome }));
-  const eventosOpcoes = eventosComLinks.map(({ evento }) => ({ id: evento.id, nome: evento.nome }));
+  const eventosOpcoes = eventos.map((evento) => ({ id: evento.id, nome: evento.nome }));
 
   return (
     <div className="flex flex-col gap-4">

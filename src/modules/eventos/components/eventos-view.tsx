@@ -11,15 +11,7 @@ interface EventosViewProps {
 }
 
 export function EventosView({ executivos, associacoes }: EventosViewProps) {
-  const {
-    eventos,
-    isLoading,
-    isSalvando,
-    hasError,
-    criarEvento,
-    criarEventoLink,
-    alternarAtivoLink,
-  } = useEventos();
+  const { eventos, isLoading, isSalvando, hasError, criarEvento } = useEventos();
 
   if (isLoading) {
     return (
@@ -47,7 +39,7 @@ export function EventosView({ executivos, associacoes }: EventosViewProps) {
         </p>
       </div>
 
-      <CriarEventoForm isSalvando={isSalvando} onCriar={(nome) => criarEvento({ nome })} />
+      <CriarEventoForm isSalvando={isSalvando} onCriar={criarEvento} />
 
       {eventos.length === 0 ? (
         <p className="text-muted-foreground text-sm">Nenhum evento criado ainda.</p>
@@ -59,9 +51,6 @@ export function EventosView({ executivos, associacoes }: EventosViewProps) {
               evento={evento}
               executivos={executivos}
               associacoes={associacoes}
-              isSalvando={isSalvando}
-              onCriarLink={(data) => criarEventoLink({ eventoId: evento.id, ...data })}
-              onAlternarAtivoLink={alternarAtivoLink}
             />
           ))}
         </div>

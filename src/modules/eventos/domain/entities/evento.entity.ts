@@ -1,6 +1,7 @@
 export interface EventoProps {
   id: string;
   nome: string;
+  slug: string | null;
   ativo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -19,6 +20,10 @@ export class Evento {
 
   get nome(): string {
     return this.props.nome;
+  }
+
+  get slug(): string | null {
+    return this.props.slug;
   }
 
   get ativo(): boolean {
@@ -43,6 +48,7 @@ export class Evento {
     return {
       id: this.props.id,
       nome: this.props.nome,
+      slug: this.props.slug,
       ativo: this.props.ativo,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
