@@ -147,9 +147,9 @@ export interface ListarCadastrosFiltros {
   status?: string | string[];
   sortBy?: "razaoSocial" | "createdAt";
   sortDir?: "asc" | "desc";
-  executivoId?: string;
-  associacaoId?: string;
-  eventoId?: string;
+  executivoId?: string | string[];
+  associacaoId?: string | string[];
+  eventoId?: string | string[];
 }
 
 export interface ListarCadastrosItem {

@@ -259,6 +259,17 @@ function complementarToDomain(record: CadastroComplementarRecord): CadastroCompl
   };
 }
 
+// Filtro de igualdade ou `IN`, conforme o filtro veio como valor único ou
+// lista (multiselect) — array vazio (nenhuma opção selecionada) vira
+// `undefined` pra não gerar um `IN ()` que não bate com nada.
+function condicaoFiltroIn(
+  valor: string | string[] | undefined,
+): string | { in: string[] } | undefined {
+  if (!valor) return undefined;
+  if (!Array.isArray(valor)) return valor;
+  return valor.length > 0 ? { in: valor } : undefined;
+}
+
 export class PrismaAgenciaRepository implements AgenciaRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -593,9 +604,14 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         : (filtros.status as PrismaStatusAgencia);
     }
 
-    if (filtros.executivoId) where.executivoId = filtros.executivoId;
-    if (filtros.associacaoId) where.associacaoId = filtros.associacaoId;
-    if (filtros.eventoId) where.eventoId = filtros.eventoId;
+    const executivoCondicao = condicaoFiltroIn(filtros.executivoId);
+    if (executivoCondicao !== undefined) where.executivoId = executivoCondicao;
+
+    const associacaoCondicao = condicaoFiltroIn(filtros.associacaoId);
+    if (associacaoCondicao !== undefined) where.associacaoId = associacaoCondicao;
+
+    const eventoCondicao = condicaoFiltroIn(filtros.eventoId);
+    if (eventoCondicao !== undefined) where.eventoId = eventoCondicao;
 
     const [records, total] = await Promise.all([
       this.prisma.agencia.findMany({

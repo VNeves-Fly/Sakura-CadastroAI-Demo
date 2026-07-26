@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { DomainError } from "@/modules/shared/domain/errors";
+import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
+import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 
 // Server Actions do dossiê — cada uma só dispara a ação no controller e
 // revalida a própria página do dossiê (sem redirect: o form re-renderiza
@@ -38,8 +41,19 @@ export async function reprocessarAnaliseAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
-export async function aprovarDocumentoAction(agenciaId: string, documentoId: string) {
-  await cadastroAdminController.aprovarDocumento(documentoId);
+export async function aprovarDocumentoAction(
+  agenciaId: string,
+  documentoId: string,
+  formData: FormData,
+) {
+  const session = await getServerSession(nextAuthOptions);
+  const motivo = String(formData.get("motivo") ?? "");
+
+  await cadastroAdminController.aprovarDocumento({
+    id: documentoId,
+    motivo,
+    aprovadoPor: session?.user?.email ?? null,
+  });
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
@@ -55,6 +69,36 @@ export async function reprovarDocumentoAction(
     id: documentoId,
     motivo,
     reprovadoPor: session?.user?.email ?? null,
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function inserirDocumentoManualAction(
+  agenciaId: string,
+  tipo: TipoDocumento,
+  representanteLegalId: string | null,
+  formData: FormData,
+) {
+  const session = await getServerSession(nextAuthOptions);
+  const arquivo = formData.get("arquivo");
+
+  if (!(arquivo instanceof File)) {
+    throw new DomainError("Selecione um arquivo pra enviar.");
+  }
+
+  const erroValidacao = validarArquivoUpload(arquivo, "Documento");
+  if (erroValidacao) {
+    throw new DomainError(erroValidacao);
+  }
+
+  const buffer = Buffer.from(await arquivo.arrayBuffer());
+
+  await cadastroAdminController.inserirDocumentoManual({
+    agenciaId,
+    representanteLegalId,
+    tipo,
+    arquivo: { buffer, originalName: arquivo.name, mimeType: arquivo.type },
+    inseridoPor: session?.user?.email ?? session?.user?.name ?? "analista não identificado",
   });
   revalidatePath(`/cadastros/${agenciaId}`);
 }
