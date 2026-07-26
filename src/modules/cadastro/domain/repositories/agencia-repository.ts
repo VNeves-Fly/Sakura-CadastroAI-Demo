@@ -39,6 +39,17 @@ export interface ContratoSignatarioData {
   nome: string;
   email: string;
   cpf: string;
+  // Snapshot imutável do signatário no momento em que o contrato foi
+  // gerado (ver comentário de ContratoSignatario no schema Prisma) — se
+  // faltar (representanteLegal sem esse dado), a cláusula do contrato
+  // simplesmente omite o segmento correspondente (ver
+  // formatarClausulaSocio).
+  rgNumero: string | null;
+  rgOrgaoEmissor: string | null;
+  nacionalidade: string | null;
+  estadoCivil: string | null;
+  dataNascimento: Date | null;
+  endereco: EnderecoData;
 }
 
 export interface EnderecoData {

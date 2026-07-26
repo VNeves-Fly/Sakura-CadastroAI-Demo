@@ -187,11 +187,16 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     }
 
     if (analiseIa.aprovado) {
-      const signatarios = representantesLegais.map((socio) => ({
-        nome: socio.nome,
-        email: socio.email,
-        cpf: socio.cpf,
-      }));
+      // `administrativo === false` é a única marca que exclui um sócio da
+      // lista de signatarios — null (IA não avaliou) e true assinam (ver
+      // RepresentanteLegal.administrativo no schema).
+      const signatarios = representantesLegais
+        .filter((socio) => socio.administrativo !== false)
+        .map((socio) => ({
+          nome: socio.nome,
+          email: socio.email,
+          cpf: socio.cpf,
+        }));
 
       try {
         const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({

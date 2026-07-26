@@ -29,11 +29,16 @@ export class AprovarCadastroComplementarUseCase implements UseCase<string, Agenc
       throw new ConflictError("Este cadastro não está na fila de complementar.");
     }
 
-    const signatarios = detalhe.representantesLegais.map((socio) => ({
-      nome: socio.nome,
-      email: socio.email,
-      cpf: socio.cpf,
-    }));
+    // `administrativo === false` é a única marca que exclui um sócio da
+    // lista de signatarios — null (IA não avaliou) e true assinam (ver
+    // RepresentanteLegal.administrativo no schema).
+    const signatarios = detalhe.representantesLegais
+      .filter((socio) => socio.administrativo !== false)
+      .map((socio) => ({
+        nome: socio.nome,
+        email: socio.email,
+        cpf: socio.cpf,
+      }));
 
     const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
       cnpj: detalhe.agencia.cnpj,

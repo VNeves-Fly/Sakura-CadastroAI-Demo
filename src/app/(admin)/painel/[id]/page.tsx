@@ -33,6 +33,7 @@ import {
 } from "@/modules/admin/components/consulta-amat-sofia";
 import { consultarAmat, consultarSofia } from "@/modules/admin/utils/mock-amat-sofia.util";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
+import { SocioAdministrativoToggle } from "./socio-administrativo-toggle";
 import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
@@ -75,6 +76,7 @@ import {
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
+  atualizarAdministrativoSocioAction,
 } from "./actions";
 
 function ChecklistEtapaConcluida({ label }: { label: string }) {
@@ -437,17 +439,26 @@ export default async function DossieAgenciaPage({
                 >
                   <div className="flex flex-wrap items-center justify-between gap-1.5">
                     <span className="text-foreground font-semibold">{socio.nome}</span>
-                    {socio.isRepresentanteLegal ? (
-                      <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
-                        Representante legal
-                      </span>
-                    ) : null}
+                    <div className="flex items-center gap-2">
+                      {socio.isRepresentanteLegal ? (
+                        <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
+                          Representante legal
+                        </span>
+                      ) : null}
+                      <SocioAdministrativoToggle
+                        agenciaId={agencia.id}
+                        representanteLegalId={socio.id}
+                        administrativo={socio.administrativo}
+                        atualizarAdministrativoSocioAction={atualizarAdministrativoSocioAction}
+                      />
+                    </div>
                   </div>
                   <CamposGrid>
                     <Campo label="CPF">{socio.cpf}</Campo>
                     <Campo label="E-mail">{socio.email}</Campo>
                     <Campo label="Telefone">{socio.telefone}</Campo>
                     <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
+                    <Campo label="Nacionalidade">{socio.nacionalidade || "—"}</Campo>
                     <Campo label="Endereço" className="sm:col-span-2">
                       {formatarEndereco(socio.endereco)}
                     </Campo>
@@ -457,6 +468,12 @@ export default async function DossieAgenciaPage({
                         analise={analiseIaPorSocioId.get(socio.id) ?? null}
                       />
                     </Campo>
+                    {socio.rgNumero ? (
+                      <Campo label="Número do RG">
+                        {socio.rgNumero}
+                        {socio.rgOrgaoEmissor ? ` / ${socio.rgOrgaoEmissor}` : ""}
+                      </Campo>
+                    ) : null}
                     {socio.procuracao ? (
                       <Campo label="Procuração">
                         <CampoDocumento documento={socio.procuracao} />
