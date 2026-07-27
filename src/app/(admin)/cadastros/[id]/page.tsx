@@ -87,6 +87,7 @@ import {
   marcarContratoAssinadoAction,
   recusarCadastroAction,
   reprocessarAnaliseAction,
+  reconsultarCreditoAction,
   validarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
@@ -543,8 +544,20 @@ export default async function DossieAgenciaPage({
                 <ParecerIa parecer={parecerIa} />
               </SecaoColapsavel>
 
-              <ConsultaAmatCard amat={analiseCredito.amat} rawAmat={analiseCredito.rawAmat} />
-              <ConsultaSofiaCard sofia={analiseCredito.sofia} rawSofia={analiseCredito.rawSofia} />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ConsultaAmatCard
+                  amat={analiseCredito.amat}
+                  rawAmat={analiseCredito.rawAmat}
+                  historico={analiseCredito.historicoAmat}
+                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
+                />
+                <ConsultaSofiaCard
+                  sofia={analiseCredito.sofia}
+                  rawSofia={analiseCredito.rawSofia}
+                  historico={analiseCredito.historicoSofia}
+                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
+                />
+              </div>
 
               <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
                 <div className="flex flex-col gap-3">

@@ -22,6 +22,7 @@ import {
   type RepresentanteLegalDetalhe,
   type AnaliseIaAgenciaDetalhe,
   type CadastroComplementarDetalhe,
+  type HistoricoConsultaCreditoItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import { unmaskTelefone } from "@/modules/shared/utils/telefone.util";
 import type {
@@ -32,6 +33,7 @@ import type {
   ParecerIaView,
   ParecerIaItemChecklist,
   AnaliseCreditoView,
+  HistoricoConsultaCreditoView,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -154,7 +156,7 @@ export function separarDocumentosPorStatus(documentos: DocumentoRevisao[]): {
 export const ETAPAS_PIPELINE = [
   { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
   { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
-  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
+  { status: STATUS_AGUARDANDO_VALIDACAO, label: "SICA/TL" },
   { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
   { status: STATUS_ATIVO, label: "Ativo" },
 ];
@@ -335,14 +337,33 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
 // em cadastros que já passaram pela IA mas cujo agente não populou
 // stage2/raw_data (ex.: gate de CNAE interrompeu a análise antes do
 // stage2 rodar, ver docs/agency-analysis-params-tracking.md).
+function paraHistoricoConsultaCreditoView(
+  item: HistoricoConsultaCreditoItem,
+): HistoricoConsultaCreditoView {
+  return {
+    id: item.id,
+    sucesso: item.sucesso,
+    erro: item.erro,
+    consultadoPor: item.consultadoPor,
+    consultadoEm: item.createdAt,
+  };
+}
+
 export function paraAnaliseCreditoView(
   analiseIa: AnaliseIaAgenciaDetalhe | null,
+  historicoConsultaCredito: HistoricoConsultaCreditoItem[],
 ): AnaliseCreditoView {
   return {
     amat: analiseIa?.stage2?.amat ?? null,
     sofia: analiseIa?.stage2?.sofia ?? null,
     rawAmat: analiseIa?.rawData?.amat ?? [],
     rawSofia: analiseIa?.rawData?.sofia ?? [],
+    historicoAmat: historicoConsultaCredito
+      .filter((item) => item.fonte === "AMAT")
+      .map(paraHistoricoConsultaCreditoView),
+    historicoSofia: historicoConsultaCredito
+      .filter((item) => item.fonte === "SOFIA")
+      .map(paraHistoricoConsultaCreditoView),
   };
 }
 

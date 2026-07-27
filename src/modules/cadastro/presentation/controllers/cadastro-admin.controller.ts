@@ -43,6 +43,10 @@ import {
 } from "@/modules/cadastro/application/use-cases/salvar-usuario-master.use-case";
 import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
 import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
+import {
+  ReconsultarCreditoUseCase,
+  type ReconsultarCreditoInput,
+} from "@/modules/cadastro/application/use-cases/reconsultar-credito.use-case";
 import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
 import { ObterAnaliseContratosUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-contratos.use-case";
 import {
@@ -200,6 +204,14 @@ export const cadastroAdminController = {
       dadosReceitaRepository,
     );
     return useCase.execute({ agenciaId: id });
+  },
+
+  // Reconsulta isolada de AMAT ou SOFIA (ver ConsultaAmatCard/
+  // ConsultaSofiaCard) — não usa AnalisarCadastroUseCase de propósito:
+  // não deve reanalisar documentos nem mudar Agencia.status.
+  reconsultarCredito(input: ReconsultarCreditoInput) {
+    const useCase = new ReconsultarCreditoUseCase(agenciaRepository, analiseIaService);
+    return useCase.execute(input);
   },
 
   marcarContratoAssinado(id: string) {

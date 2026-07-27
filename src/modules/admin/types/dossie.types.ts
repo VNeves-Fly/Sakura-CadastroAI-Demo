@@ -113,9 +113,22 @@ export interface SignatarioFila {
 // tool brutas (tool/args/output) que alimentam o "Ver tudo" de cada card,
 // sempre presentes (arrays vazios) mesmo quando o stage2 tipado não achou
 // nada — dão contexto de auditoria de qualquer forma.
+// Uma linha de auditoria de reconsulta (ver HistoricoConsultaCreditoItem
+// no domínio) — `fonte` não entra aqui: a lista já vem separada por card
+// (historicoAmat/historicoSofia), então dentro de cada card ela é óbvia.
+export interface HistoricoConsultaCreditoView {
+  id: string;
+  sucesso: boolean;
+  erro: string | null;
+  consultadoPor: string;
+  consultadoEm: Date;
+}
+
 export interface AnaliseCreditoView {
   amat: AnaliseIaAmat | null;
   sofia: Record<string, unknown> | null;
   rawAmat: AnaliseIaRawToolCall[];
   rawSofia: AnaliseIaRawToolCall[];
+  historicoAmat: HistoricoConsultaCreditoView[];
+  historicoSofia: HistoricoConsultaCreditoView[];
 }

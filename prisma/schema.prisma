@@ -206,6 +206,7 @@ model Agencia {
   notificacoes         Notificacao[]
   conversas            Conversa[]
   historicoEdicoes     HistoricoEdicaoCadastro[]
+  historicoConsultasCredito HistoricoConsultaCredito[]
 
   @@map("agencias")
 }
@@ -570,6 +571,33 @@ model HistoricoEdicaoCadastro {
   @@index([agenciaId])
   @@index([entidadeId])
   @@map("historico_edicoes_cadastro")
+}
+
+// Auditoria de reconsultas manuais de AMAT/SOFIA (ver ReconsultarCreditoUseCase)
+// — cada clique no botão "Reconsultar" de um dos dois cards vira uma linha
+// aqui, preservando quem consultou e quando mesmo depois que
+// AnaliseIaAgencia.stage2/rawData for sobrescrito pela consulta seguinte
+// (aquela tabela é 1:1 por agência, só o estado atual — ver comentário lá).
+// `resultado`/`rawResultado` guardam o snapshot só da fonte consultada
+// (AnaliseIaAmat ou o dict da SOFIA), não o stage2 completo.
+model HistoricoConsultaCredito {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  fonte String // "AMAT" | "SOFIA"
+
+  sucesso      Boolean
+  erro         String?
+  resultado    Json?
+  rawResultado Json?
+
+  consultadoPor String
+
+  createdAt DateTime @default(now())
+
+  @@index([agenciaId, fonte])
+  @@map("historico_consultas_credito")
 }
 
 // Classificação de por que a agência chegou no status atual — distingue

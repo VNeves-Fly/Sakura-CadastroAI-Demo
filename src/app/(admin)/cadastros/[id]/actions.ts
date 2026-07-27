@@ -70,6 +70,15 @@ export async function reprocessarAnaliseAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
+export async function reconsultarCreditoAction(agenciaId: string, fonte: "AMAT" | "SOFIA") {
+  await cadastroAdminController.reconsultarCredito({
+    agenciaId,
+    fonte,
+    consultadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function aprovarDocumentoAction(
   agenciaId: string,
   documentoId: string,

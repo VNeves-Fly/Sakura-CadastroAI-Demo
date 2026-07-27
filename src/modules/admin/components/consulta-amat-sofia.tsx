@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CircleDollarSign, ShieldAlert, X } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { CircleDollarSign, RefreshCw, ShieldAlert, X } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
   Campo,
@@ -15,6 +16,7 @@ import type {
   AnaliseIaAmatPendencias,
   AnaliseIaRawToolCall,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type { HistoricoConsultaCreditoView } from "@/modules/admin/types/dossie.types";
 
 // AMAT/SOFIA reais, lidos do stage2/raw_data que a IA persiste na análise
 // final (ver AnaliseCreditoView em dossie.types.ts) — substitui o mock
@@ -85,6 +87,50 @@ function BotaoVerTudo({ onClick }: { onClick: () => void }) {
     >
       Ver tudo
     </button>
+  );
+}
+
+// Botão de submit dentro do <form action={reconsultar}> — useFormStatus só
+// funciona dentro do form que ele referencia, por isso é um componente
+// separado (mesmo padrão recomendado pela doc do React) em vez de um
+// `useState` de loading controlado manualmente.
+function BotaoReconsultar() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="border-input text-foreground hover:bg-accent flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <RefreshCw className={pending ? "size-3 animate-spin" : "size-3"} />
+      {pending ? "Reconsultando..." : "Reconsultar"}
+    </button>
+  );
+}
+
+// Auditoria de quem reconsultou e quando (ver HistoricoConsultaCredito) —
+// mesma lista pros dois cards, só os dados mudam. Mais recente primeiro
+// (já vem ordenado do repositório).
+function HistoricoConsultas({ historico }: { historico: HistoricoConsultaCreditoView[] }) {
+  if (historico.length === 0) return null;
+
+  return (
+    <details className="border-border bg-muted/20 rounded-lg border border-dashed px-2.5 py-1.5 text-xs">
+      <summary className="text-muted-foreground cursor-pointer font-semibold">
+        Histórico de consultas ({historico.length})
+      </summary>
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {historico.map((item) => (
+          <li key={item.id} className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-foreground">{item.consultadoPor}</span>
+            <span className={item.sucesso ? "text-muted-foreground" : "text-destructive-text"}>
+              {formatarData(item.consultadoEm)}
+              {!item.sucesso ? " — falhou" : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -219,9 +265,13 @@ function ChamadasBrutas({ chamadas }: { chamadas: AnaliseIaRawToolCall[] }) {
 export function ConsultaAmatCard({
   amat,
   rawAmat,
+  historico,
+  reconsultar,
 }: {
   amat: AnaliseIaAmat | null;
   rawAmat: AnaliseIaRawToolCall[];
+  historico: HistoricoConsultaCreditoView[];
+  reconsultar?: () => Promise<void>;
 }) {
   const [modalAberto, setModalAberto] = useState(false);
   const dados = amat?.consultado ? amat : null;
@@ -268,7 +318,18 @@ export function ConsultaAmatCard({
           </>
         )}
 
-        <BotaoVerTudo onClick={() => setModalAberto(true)} />
+        <HistoricoConsultas historico={historico} />
+
+        <div className="flex items-center justify-between gap-2">
+          {reconsultar ? (
+            <form action={reconsultar}>
+              <BotaoReconsultar />
+            </form>
+          ) : (
+            <span />
+          )}
+          <BotaoVerTudo onClick={() => setModalAberto(true)} />
+        </div>
       </div>
 
       <ModalVerTudo
@@ -306,9 +367,13 @@ export function ConsultaAmatCard({
 export function ConsultaSofiaCard({
   sofia,
   rawSofia,
+  historico,
+  reconsultar,
 }: {
   sofia: Record<string, unknown> | null;
   rawSofia: AnaliseIaRawToolCall[];
+  historico: HistoricoConsultaCreditoView[];
+  reconsultar?: () => Promise<void>;
 }) {
   const [modalAberto, setModalAberto] = useState(false);
   const entradas = sofia ? Object.entries(sofia) : [];
@@ -333,7 +398,18 @@ export function ConsultaSofiaCard({
           </div>
         )}
 
-        <BotaoVerTudo onClick={() => setModalAberto(true)} />
+        <HistoricoConsultas historico={historico} />
+
+        <div className="flex items-center justify-between gap-2">
+          {reconsultar ? (
+            <form action={reconsultar}>
+              <BotaoReconsultar />
+            </form>
+          ) : (
+            <span />
+          )}
+          <BotaoVerTudo onClick={() => setModalAberto(true)} />
+        </div>
       </div>
 
       <ModalVerTudo
