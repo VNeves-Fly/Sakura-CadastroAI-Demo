@@ -25,8 +25,8 @@ export class PrismaRepresentanteLegalRepository implements RepresentanteLegalRep
   }
 
   async findByAgenciaIdAndCpf(agenciaId: string, cpf: string): Promise<RepresentanteLegal | null> {
-    const record = await this.prisma.representanteLegal.findUnique({
-      where: { agenciaId_cpf: { agenciaId, cpf } },
+    const record = await this.prisma.representanteLegal.findFirst({
+      where: { agenciaId, cpf },
     });
     return record ? this.toDomain(record) : null;
   }

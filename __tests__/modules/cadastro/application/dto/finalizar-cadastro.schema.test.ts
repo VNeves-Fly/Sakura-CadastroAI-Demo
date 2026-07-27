@@ -141,6 +141,61 @@ describe("finalizarCadastroMetaSchema — sócios", () => {
     const resultado = finalizarCadastroMetaSchema.safeParse({ ...payloadValido(), socios: [] });
     expect(resultado.success).toBe(false);
   });
+
+  it("rejeita dois sócios com o mesmo CPF", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      socios: [socioValido(), { ...socioValido(), nome: "Outro Nome", email: "outro@empresa.com" }],
+    });
+    expect(resultado.success).toBe(false);
+    if (!resultado.success) {
+      expect(resultado.error.issues.some((i) => i.path.includes("cpf"))).toBe(true);
+    }
+  });
+
+  it("rejeita dois sócios com CPF formatado de forma diferente mas equivalente", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      socios: [
+        { ...socioValido(), cpf: "111.444.777-35" },
+        { ...socioValido(), cpf: "11144477735", nome: "Outro Nome", email: "outro@empresa.com" },
+      ],
+    });
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rejeita dois sócios com o mesmo e-mail", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      socios: [socioValido(), { ...socioValido(), nome: "Outro Nome", cpf: "52998224725" }],
+    });
+    expect(resultado.success).toBe(false);
+    if (!resultado.success) {
+      expect(resultado.error.issues.some((i) => i.path.includes("email"))).toBe(true);
+    }
+  });
+
+  it("rejeita e-mail duplicado com capitalização diferente", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      socios: [
+        { ...socioValido(), email: "Fulano@Empresa.com" },
+        { ...socioValido(), cpf: "52998224725", nome: "Outro Nome", email: "fulano@empresa.com" },
+      ],
+    });
+    expect(resultado.success).toBe(false);
+  });
+
+  it("aceita sócios distintos com CPF e e-mail únicos", () => {
+    const resultado = finalizarCadastroMetaSchema.safeParse({
+      ...payloadValido(),
+      socios: [
+        socioValido(),
+        { ...socioValido(), nome: "Outro Nome", cpf: "52998224725", email: "outro@empresa.com" },
+      ],
+    });
+    expect(resultado.success).toBe(true);
+  });
 });
 
 describe("socioMetaSchema", () => {

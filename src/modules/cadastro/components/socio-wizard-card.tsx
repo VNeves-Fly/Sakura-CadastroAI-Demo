@@ -63,6 +63,7 @@ export function SocioWizardCard({
     cpfStatus,
     dataNascimentoStatus,
     emailInvalido,
+    emailErro,
     telefoneInvalido,
     rgErro,
     procuracaoErro,
@@ -179,8 +180,8 @@ export function SocioWizardCard({
                 className={INPUT_CLASSNAME}
                 placeholder="socio@email.com"
               />
-              {emailInvalido ? (
-                <span className="text-destructive text-xs font-medium">E-mail inválido.</span>
+              {emailInvalido && emailErro ? (
+                <span className="text-destructive text-xs font-medium">{emailErro}</span>
               ) : null}
             </div>
 

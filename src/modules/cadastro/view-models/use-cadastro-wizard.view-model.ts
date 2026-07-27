@@ -16,7 +16,7 @@ import {
 } from "@/modules/cadastro/utils/cnpj.util";
 import { maskTelefone, validarTelefone } from "@/modules/shared/utils/telefone.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
-import { maskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
+import { maskCpf, unmaskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
 import { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
 import { maskCep } from "@/modules/cadastro/utils/cep.util";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
@@ -799,15 +799,47 @@ export function useCadastroWizardViewModel({
   const emailComercialInvalido = emailComercial.length > 0 && !validarEmail(emailComercial);
   const emailFinanceiroInvalido = emailFinanceiro.length > 0 && !validarEmail(emailFinanceiro);
 
-  const sociosValidacao = socios.map((socio, index) => ({
-    cpfStatus: validarCpfComMensagem(socio.cpf),
-    dataNascimentoStatus: validarDataNascimentoComMensagem(socio.dataNascimento),
-    emailInvalido: socio.email.length > 0 && !validarEmail(socio.email),
-    telefoneInvalido:
-      socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais),
-    rgErro: sociosArquivoErros[index]?.rg ?? null,
-    procuracaoErro: sociosArquivoErros[index]?.procuracao ?? null,
-  }));
+  // CPF/e-mail duplicados entre sócios: mesma regra do backend
+  // (finalizarCadastroMetaSchema), replicada aqui só pra bloquear o
+  // "Continuar" do passo de sócios antes do submit — o banco não garante
+  // mais isso (RepresentanteLegal não tem @@unique de cpf: a mesma
+  // pessoa pode ser sócia em agências diferentes).
+  function contarOcorrencias(valores: string[]): Map<string, number> {
+    const contagem = new Map<string, number>();
+    valores.forEach((valor) => {
+      if (!valor) return;
+      contagem.set(valor, (contagem.get(valor) ?? 0) + 1);
+    });
+    return contagem;
+  }
+
+  const cpfsNormalizados = socios.map((socio) => unmaskCpf(socio.cpf));
+  const emailsNormalizados = socios.map((socio) => socio.email.trim().toLowerCase());
+  const contagemCpf = contarOcorrencias(cpfsNormalizados);
+  const contagemEmail = contarOcorrencias(emailsNormalizados);
+
+  const sociosValidacao = socios.map((socio, index) => {
+    const cpfDuplicado = (contagemCpf.get(cpfsNormalizados[index]!) ?? 0) > 1;
+    const emailDuplicado = (contagemEmail.get(emailsNormalizados[index]!) ?? 0) > 1;
+    const emailFormatoInvalido = socio.email.length > 0 && !validarEmail(socio.email);
+
+    return {
+      cpfStatus: cpfDuplicado
+        ? { valido: false, mensagem: "CPF já usado por outro sócio nesta lista." }
+        : validarCpfComMensagem(socio.cpf),
+      dataNascimentoStatus: validarDataNascimentoComMensagem(socio.dataNascimento),
+      emailInvalido: emailFormatoInvalido || emailDuplicado,
+      emailErro: emailDuplicado
+        ? "E-mail já usado por outro sócio nesta lista."
+        : emailFormatoInvalido
+          ? "E-mail inválido."
+          : null,
+      telefoneInvalido:
+        socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais),
+      rgErro: sociosArquivoErros[index]?.rg ?? null,
+      procuracaoErro: sociosArquivoErros[index]?.procuracao ?? null,
+    };
+  });
 
   // Gating: contrato social só libera upload depois do CNPJ completo (14
   // dígitos); telefone/e-mails da empresa só liberam depois da análise do
