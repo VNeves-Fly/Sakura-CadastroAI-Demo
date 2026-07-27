@@ -16,22 +16,23 @@ import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
   Campo,
   CamposGrid,
-  formatarData,
-  formatarDataCurta,
-  formatarMoedaBrl,
-  formatarEnderecoReceita,
   SubsecaoLabel,
   SituacaoCadastralBadge,
   CnaesDetalhe,
   CampoDocumento,
   ParecerIa,
 } from "@/modules/admin/components/dossie-campos";
+import {
+  formatarData,
+  formatarDataCurta,
+  formatarMoedaBrl,
+  formatarEnderecoReceita,
+} from "@/modules/admin/utils/dossie-campos.util";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
 import {
   ConsultaAmatCard,
   ConsultaSofiaCard,
 } from "@/modules/admin/components/consulta-amat-sofia";
-import { consultarAmat, consultarSofia } from "@/modules/admin/utils/mock-amat-sofia.util";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { EditarSocioForm } from "./editar-socio-form";
 import { EditarEmpresaForm } from "./editar-empresa-form";
@@ -206,6 +207,7 @@ export default async function DossieAgenciaPage({
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     parecerIa,
+    analiseCredito,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,
@@ -218,16 +220,6 @@ export default async function DossieAgenciaPage({
   // repassar `reenviado` pro CampoDocumento de cada slot (Empresa/Sócios),
   // que mostra o badge inline em vez de só no aviso global.
   const idsDocumentosReenviados = new Set(reenviosAguardandoRevisao.map((doc) => doc.id));
-
-  const sociosParaConsulta = representantesLegais.map((socio) => ({
-    id: socio.id,
-    nome: socio.nome,
-    cpf: socio.cpf,
-  }));
-  const [amat, sofia] = await Promise.all([
-    consultarAmat(sociosParaConsulta),
-    consultarSofia(agencia.cnpj, sociosParaConsulta),
-  ]);
 
   // Etapas concluídas ficam navegáveis em modo leitura (?etapa=N na URL) —
   // etapas futuras (index > indiceTrilha) são ignoradas e caem no fallback
@@ -465,8 +457,8 @@ export default async function DossieAgenciaPage({
             <ParecerIa parecer={parecerIa} />
           </SecaoColapsavel>
 
-          <ConsultaAmatCard amat={amat} />
-          <ConsultaSofiaCard sofia={sofia} />
+          <ConsultaAmatCard amat={analiseCredito.amat} rawAmat={analiseCredito.rawAmat} />
+          <ConsultaSofiaCard sofia={analiseCredito.sofia} rawSofia={analiseCredito.rawSofia} />
 
           <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
             <div className="flex flex-col gap-3">

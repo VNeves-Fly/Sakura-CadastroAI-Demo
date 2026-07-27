@@ -6,7 +6,7 @@ import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity"
 import type { CadastroComplementarDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type { HistoricoEdicaoCadastro } from "@/modules/cadastro/domain/entities/historico-edicao-cadastro.entity";
-import { formatarData } from "@/modules/admin/components/dossie-campos";
+import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
 
 interface EditarEmpresaFormProps {
   agenciaId: string;

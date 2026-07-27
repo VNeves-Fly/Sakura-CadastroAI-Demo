@@ -3,6 +3,8 @@ import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/servic
 import type {
   AnaliseIaResultado,
   AnaliseIaDetalhamento,
+  AnaliseIaRawData,
+  AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import {
   Prisma,
@@ -116,6 +118,12 @@ function analiseIaFinalParaPrisma(
     detalhamento: avaliacao.detalhamento
       ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    stage2: avaliacao.stage2
+      ? (avaliacao.stage2 as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
+    rawData: avaliacao.rawData
+      ? (avaliacao.rawData as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
     // Explícito (não só o @default(now()) do create): a linha já existe
     // desde a persistência do cadastro (resultado=EM_ANALISE), então sem
     // isso um upsert de update manteria o avaliadoEm original (hora da
@@ -130,6 +138,8 @@ interface AnaliseIaAgenciaRecord {
   motivo: string | null;
   flagsRisco: string[];
   detalhamento: Prisma.JsonValue | null;
+  stage2: Prisma.JsonValue | null;
+  rawData: Prisma.JsonValue | null;
   avaliadoEm: Date;
 }
 
@@ -143,6 +153,8 @@ function analiseIaAgenciaToDomain(
     motivo: record.motivo,
     flagsRisco: record.flagsRisco,
     detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
+    stage2: record.stage2 as unknown as AnaliseIaStage2 | null,
+    rawData: record.rawData as unknown as AnaliseIaRawData | null,
     avaliadoEm: record.avaliadoEm,
   };
 }

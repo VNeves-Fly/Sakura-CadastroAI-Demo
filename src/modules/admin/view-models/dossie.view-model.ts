@@ -7,6 +7,7 @@ import {
   montarFilaAssinatura,
   paraAnaliseIaResumo,
   paraParecerView,
+  paraAnaliseCreditoView,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -31,6 +32,7 @@ export async function obterDossieView(id: string) {
   } = detalhe;
   const contratoAtual = contratos[0] ?? null;
   const parecerIa = paraParecerView(analiseIa);
+  const analiseCredito = paraAnaliseCreditoView(analiseIa);
 
   // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
   // por e-mail, cobre tanto os sócios quanto os signatários fixos da
@@ -40,6 +42,7 @@ export async function obterDossieView(id: string) {
   // mostrar no dossiê, algo que nenhum use-case fazia até agora.
   const [
     emailsFalhaEntrega,
+    assinaturasContrato,
     signatariosPadraoAtivos,
     analiseContratoSocialRaw,
     analisesSociosRaw,
@@ -52,6 +55,12 @@ export async function obterDossieView(id: string) {
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
+      : Promise.resolve([]),
+    // Log real de quem assinou e quando (ContratoAssinatura, gravado
+    // pelo webhook type_post=4 do D4Sign) — alimenta a Fila de
+    // Assinatura com timestamp por linha.
+    contratoAtual
+      ? cadastroAdminController.listarAssinaturasContrato(contratoAtual.id)
       : Promise.resolve([]),
     contratoAtual ? cadastroAdminController.listarSignatariosPadraoAtivos() : Promise.resolve([]),
     contratoSocial
@@ -84,6 +93,9 @@ export async function obterDossieView(id: string) {
       : Promise.resolve([]),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
+  const assinaturasPorEmail = new Map(
+    assinaturasContrato.map((assinatura) => [assinatura.email, assinatura.assinadoEm]),
+  );
   const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
   const analiseIaPorSocioId = new Map(
     representantesLegais.map((socio, index) => [
@@ -137,6 +149,7 @@ export async function obterDossieView(id: string) {
     signatariosPadraoAtivos,
     contratoAtual?.status ?? null,
     emailsNaoEntregues,
+    assinaturasPorEmail,
   );
 
   return {
@@ -158,6 +171,7 @@ export async function obterDossieView(id: string) {
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     parecerIa,
+    analiseCredito,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,

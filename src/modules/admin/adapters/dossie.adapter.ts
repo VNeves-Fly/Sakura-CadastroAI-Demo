@@ -29,6 +29,7 @@ import type {
   AnaliseIaResumo,
   ParecerIaView,
   ParecerIaItemChecklist,
+  AnaliseCreditoView,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -178,40 +179,49 @@ export function calcularProgressoTrilha(
 // não tem linha em SignatarioPadrao, são dinâmicos por cadastro) com os 4
 // signatários fixos da Sakura (estágio 1 = aprovador, estágio 2 =
 // testemunhas — ver seeds/signatarios-padrao.ts e
-// processar-webhook-d4sign.use-case.ts). `assinado` por linha é
-// derivado do status agregado do Contrato (único dado real que temos),
-// seguindo a ordem de fila do D4Sign documentada no use-case do webhook:
-// - aguardando_assinatura: ninguém assinou ainda.
-// - assinado_agencia: o aprovador só assina depois dos sócios (estágio 0
-//   vem antes do 1 na fila do D4Sign), então os sócios já assinaram.
-// - assinado: documento fechado, todo mundo (incluindo testemunhas)
-//   assinou.
-// Não existe timestamp nem status individual por pessoa no schema hoje —
-// isso é uma inferência sobre o status agregado, não um dado inventado.
+// processar-webhook-d4sign.use-case.ts). Status por linha:
+// - `assinaturasPorEmail` (ContratoAssinatura, gravado pelo webhook
+//   type_post=4) é o dado real — quem tem registro assinou naquela data.
+// - Sem registro, cai no fallback inferido do status agregado do
+//   Contrato (contratos anteriores ao log existir, ou fechados direto
+//   pelo type_post=1, que não traz e-mail individual), seguindo a ordem
+//   de fila do D4Sign documentada no use-case do webhook:
+//   - aguardando_assinatura: ninguém assinou ainda.
+//   - assinado_agencia: o aprovador só assina depois dos sócios (estágio
+//     0 vem antes do 1 na fila do D4Sign), então os sócios já assinaram.
+//   - assinado: documento fechado, todo mundo assinou.
 export function montarFilaAssinatura(
   representantesLegais: RepresentanteLegalDetalhe[],
   signatariosPadraoAtivos: SignatarioPadrao[],
   statusContrato: string | null,
   emailsNaoEntregues: Set<string>,
+  assinaturasPorEmail: Map<string, Date>,
 ): SignatarioFila[] {
-  const socioAssinado =
+  const socioAssinadoInferido =
     statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
     statusContrato === CONTRATO_STATUS_ASSINADO;
 
-  const filaSocios: SignatarioFila[] = representantesLegais.map((socio, index) => ({
-    id: socio.id,
-    nome: socio.nome,
-    email: socio.email,
-    grupo: "Agência",
-    ordem: index + 1,
-    assinado: socioAssinado,
-    emailNaoEntregue: emailsNaoEntregues.has(socio.email),
-  }));
+  const filaSocios: SignatarioFila[] = representantesLegais.map((socio, index) => {
+    const assinadoEm = assinaturasPorEmail.get(socio.email) ?? null;
+    return {
+      id: socio.id,
+      nome: socio.nome,
+      email: socio.email,
+      grupo: "Agência",
+      ordem: index + 1,
+      assinado: assinadoEm !== null || socioAssinadoInferido,
+      assinadoEm,
+      emailNaoEntregue: emailsNaoEntregues.has(socio.email),
+    };
+  });
 
   const filaSakura: SignatarioFila[] = [...signatariosPadraoAtivos]
     .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
     .map((signatario) => {
-      const assinado =
+      const assinadoEm = signatario.email
+        ? (assinaturasPorEmail.get(signatario.email) ?? null)
+        : null;
+      const assinadoInferido =
         statusContrato === CONTRATO_STATUS_ASSINADO ||
         (statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA && signatario.papel === "APROVAR");
       return {
@@ -220,7 +230,8 @@ export function montarFilaAssinatura(
         email: signatario.email,
         grupo: "Sakura" as const,
         ordem: filaSocios.length + (signatario.ordem ?? 0),
-        assinado,
+        assinado: assinadoEm !== null || assinadoInferido,
+        assinadoEm,
         emailNaoEntregue: signatario.email ? emailsNaoEntregues.has(signatario.email) : false,
       };
     });
@@ -314,6 +325,22 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
     pontosDeAlerta: analiseIa.flagsRisco,
     itensParaChecar,
     avaliadoEm: analiseIa.avaliadoEm,
+  };
+}
+
+// AMAT/SOFIA reais pro dossiê (ver ConsultaAmatCard/ConsultaSofiaCard) —
+// null/vazio tanto em cadastros anteriores a esta funcionalidade quanto
+// em cadastros que já passaram pela IA mas cujo agente não populou
+// stage2/raw_data (ex.: gate de CNAE interrompeu a análise antes do
+// stage2 rodar, ver docs/agency-analysis-params-tracking.md).
+export function paraAnaliseCreditoView(
+  analiseIa: AnaliseIaAgenciaDetalhe | null,
+): AnaliseCreditoView {
+  return {
+    amat: analiseIa?.stage2?.amat ?? null,
+    sofia: analiseIa?.stage2?.sofia ?? null,
+    rawAmat: analiseIa?.rawData?.amat ?? [],
+    rawSofia: analiseIa?.rawData?.sofia ?? [],
   };
 }
 

@@ -1,19 +1,27 @@
 import type {
+  AnaliseIaAmat,
+  AnaliseIaAmatPendencias,
+  AnaliseIaAmatPendenciaItem,
   AnaliseIaCnaePrincipal,
   AnaliseIaDetalhamento,
   AnaliseIaDocumentoDetalhe,
   AnaliseIaInput,
+  AnaliseIaRawData,
   AnaliseIaResultado,
   AnaliseIaService,
   AnaliseIaStage1,
+  AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 
 // Integração real com o agente de análise da Sakura
 // (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/sync
 // (renomeado de /agency-analysis/json na padronização sync/async/stream do
 // agents-service — mesmo body, mesma resposta tipada, só o path mudou).
-// Todos os dados de negócio vão dentro de `analysis_data` — não no nível
-// raiz do body, que só carrega cnpj/channel/language/session_id.
+// Todos os dados de negócio vão dentro de `analysis_data` — o nível raiz do
+// body só carrega cnpj/channel/language/session_id e flags que controlam a
+// resposta como um todo (ex.: `include_raw_data`, confirmado em
+// AgencyAnalysisRequest do /openapi.json deles — não é um campo de
+// `analysis_data`).
 //
 // Decisão (2026-07-20, debatida com o usuário): em vez de mandar só a
 // referência do arquivo e deixar a etapa 4 reprocessar do zero (o que batia
@@ -69,14 +77,27 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
         channel: "api",
         language: "pt-br",
         session_id: input.cnpj,
+        // Traz o payload bruto de cada tool chamada (search_amat_debts,
+        // sofia_agency_lookup etc.), antes de qualquer sumarização —
+        // exposto ao analista no dossiê como complemento ao stage2
+        // resumido (ver AnaliseIaRawData). Campo raiz do request, não de
+        // `analysis_data` (confirmado no /openapi.json deles).
+        include_raw_data: true,
         analysis_data: {
           cnpj: input.cnpj,
           focus: "completo",
           verificar_processos: false,
-          verificar_amat: false,
+          // Ligado (2026-07-27): decisão do usuário de trazer dívida
+          // AMAT de verdade pro dossiê em vez do mock front-end (ver
+          // mock-amat-sofia.util.ts, que este trabalho substitui).
+          // `amat_cpfs_socios` é quem diz pro agente quais CPFs consultar
+          // — sem isso, `verificar_amat: true` sozinho só cobriria a
+          // pessoa jurídica, não os sócios.
+          verificar_amat: true,
           razao_social: input.razaoSocial,
           email: input.email,
           socios,
+          amat_cpfs_socios: input.socios.map((socio) => socio.cpf),
           // Documentos de nível empresa (cadastur/iata) ficam de fora
           // enquanto o array estiver vazio — o wizard não coleta esses
           // documentos ainda. Reaparece aqui quando houver item real.
@@ -93,10 +114,12 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       justificativa: string;
       flags_risco: string[];
       stage1?: RawStage1 | null;
+      stage2?: RawStage2 | null;
       stage3?: {
         documentos_empresa?: RawDocumentoDetalhe[];
         socios?: RawSocioDetalhe[];
       };
+      raw_data?: AnaliseIaRawData | null;
     };
 
     return {
@@ -106,6 +129,8 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       flagsRisco: resultado.flags_risco,
       detalhamento: resultado.stage3 ? mapDetalhamento(resultado.stage3) : null,
       stage1: resultado.stage1 ? mapStage1(resultado.stage1) : null,
+      stage2: resultado.stage2 ? mapStage2(resultado.stage2) : null,
+      rawData: resultado.raw_data ?? null,
     };
   }
 }
@@ -177,6 +202,86 @@ function mapStage1(raw: RawStage1): AnaliseIaStage1 {
     processos: raw.processos
       ? { verificado: raw.processos.verificado, resumo: raw.processos.resumo }
       : null,
+  };
+}
+
+interface RawAmatPendenciaItem {
+  qtde?: number;
+  total?: number;
+  itens?: Record<string, unknown>[];
+}
+
+interface RawAmatPendencias {
+  pefin?: RawAmatPendenciaItem;
+  refin?: RawAmatPendenciaItem;
+  protestos?: RawAmatPendenciaItem;
+  cheques_sem_fundo?: RawAmatPendenciaItem;
+  dividas_vencidas?: RawAmatPendenciaItem;
+  total_pendencias?: number;
+}
+
+interface RawAmatSocioRestricao {
+  nome: string;
+  cpf: string;
+  perc_participacao: number | null;
+  cargo: string | null;
+  pendencias?: RawAmatPendencias;
+}
+
+interface RawAmat {
+  consultado?: boolean;
+  ultima_consulta: string | null;
+  empresa: RawAmatPendencias | null;
+  socios_com_restricao?: RawAmatSocioRestricao[];
+  total_geral?: number;
+}
+
+interface RawStage2 {
+  sofia: Record<string, unknown> | null;
+  processos_judiciais: Record<string, unknown> | null;
+  reclamacoes: Record<string, unknown> | null;
+  amat: RawAmat | null;
+  debt_total: number | null;
+}
+
+function mapAmatPendenciaItem(raw: RawAmatPendenciaItem | undefined): AnaliseIaAmatPendenciaItem {
+  return { qtde: raw?.qtde ?? 0, total: raw?.total ?? 0, itens: raw?.itens ?? [] };
+}
+
+function mapAmatPendencias(raw: RawAmatPendencias | null | undefined): AnaliseIaAmatPendencias {
+  return {
+    pefin: mapAmatPendenciaItem(raw?.pefin),
+    refin: mapAmatPendenciaItem(raw?.refin),
+    protestos: mapAmatPendenciaItem(raw?.protestos),
+    chequesSemFundo: mapAmatPendenciaItem(raw?.cheques_sem_fundo),
+    dividasVencidas: mapAmatPendenciaItem(raw?.dividas_vencidas),
+    totalPendencias: raw?.total_pendencias ?? 0,
+  };
+}
+
+function mapAmat(raw: RawAmat): AnaliseIaAmat {
+  return {
+    consultado: raw.consultado ?? false,
+    ultimaConsulta: raw.ultima_consulta,
+    empresa: raw.empresa ? mapAmatPendencias(raw.empresa) : null,
+    sociosComRestricao: (raw.socios_com_restricao ?? []).map((socio) => ({
+      nome: socio.nome,
+      cpf: socio.cpf,
+      percParticipacao: socio.perc_participacao,
+      cargo: socio.cargo,
+      pendencias: mapAmatPendencias(socio.pendencias),
+    })),
+    totalGeral: raw.total_geral ?? 0,
+  };
+}
+
+function mapStage2(raw: RawStage2): AnaliseIaStage2 {
+  return {
+    amat: raw.amat ? mapAmat(raw.amat) : null,
+    sofia: raw.sofia,
+    processosJudiciais: raw.processos_judiciais,
+    reclamacoes: raw.reclamacoes,
+    debtTotal: raw.debt_total,
   };
 }
 
