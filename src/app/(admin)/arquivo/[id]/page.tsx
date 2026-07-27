@@ -17,7 +17,6 @@ import {
   SituacaoCadastralBadge,
   CnaesDetalhe,
   CampoDocumento,
-  corFundoDocumento,
   ParecerIa,
   HistoricoDocumento,
   VerificacaoCadastral,
@@ -27,6 +26,7 @@ import {
   formatarDataCurta,
   formatarMoedaBrl,
   formatarEnderecoReceita,
+  corFundoDocumento,
 } from "@/modules/admin/utils/dossie-campos.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import {

@@ -48,7 +48,8 @@ export function Campo({
   // Prop separada da `className` de propósito: um `bg-*` dentro de
   // `className` colidiria com o `bg-card` fixo (duas classes de mesma
   // propriedade, quem ganha depende da ordem no CSS gerado pelo
-  // Tailwind, não da ordem na string) — ver corFundoDocumento abaixo.
+  // Tailwind, não da ordem na string) — ver corFundoDocumento em
+  // dossie-campos.util.ts.
   corFundo?: string;
 }) {
   return (
@@ -90,18 +91,6 @@ export function CamposGrid({ children, className }: { children: ReactNode; class
       {itensAjustados}
     </dl>
   );
-}
-
-// Fundo do Campo de Contrato Social/RG-CNH/Procuração conforme a decisão
-// do analista — verde aprovado, vermelho reprovado, amarelo enquanto
-// ainda pendente (documento enviado, aguardando revisão em Complementar,
-// ver PENDENTE em Arquivo) — decisão do usuário, 2026-07-27. `null`
-// (nenhum arquivo enviado ainda) mantém o fundo neutro de sempre.
-export function corFundoDocumento(documento: Documento | null): string {
-  if (!documento) return "bg-card";
-  if (documento.status === "APROVADO") return "bg-success-bg";
-  if (documento.status === "REPROVADO") return "bg-destructive-bg";
-  return "bg-warning-bg";
 }
 
 // Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
