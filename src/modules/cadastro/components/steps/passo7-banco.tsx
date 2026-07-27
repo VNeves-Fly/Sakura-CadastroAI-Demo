@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import {
   BANCO_PAIS_OPCOES,
   TIPO_CONTA_OPCOES,
@@ -30,6 +31,8 @@ export function Passo7Banco({
   enderecoBanco,
   bancos,
   bancosCarregando,
+  camposFaltantesBanco,
+  secoesTentativaFalhou,
   updateEnderecoBanco,
 }: Passo7BancoProps) {
   const bancoInternacional = enderecoBanco.bancoPais === "internacional";
@@ -38,6 +41,9 @@ export function Passo7Banco({
   const tipoContaItems: Record<string, string> = Object.fromEntries(
     TIPO_CONTA_OPCOES.map((opcao) => [opcao.valor, opcao.label]),
   );
+  const tentativaFalhou = secoesTentativaFalhou.has(4);
+  const comErro = (campo: string) =>
+    tentativaFalhou && camposFaltantesBanco.some((item) => item.campo === campo);
 
   return (
     <div className="flex flex-col gap-5">
@@ -69,9 +75,10 @@ export function Passo7Banco({
           <input
             type="text"
             autoComplete="off"
+            data-campo="bancoNome"
             value={enderecoBanco.bancoNome}
             onChange={(event) => updateEnderecoBanco({ bancoNome: event.target.value })}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("bancoNome") && "campo-erro-pulsante")}
             placeholder="Nome do banco"
           />
         ) : (
@@ -86,7 +93,10 @@ export function Passo7Banco({
             }
             itemToStringLabel={(banco) => `${banco.codigo} - ${banco.nome}`}
           >
-            <ComboboxInputGroup>
+            <ComboboxInputGroup
+              data-campo="bancoNome"
+              className={cn(comErro("bancoNome") && "campo-erro-pulsante")}
+            >
               <ComboboxInput
                 placeholder={
                   bancosCarregando ? "Carregando bancos..." : "Busque por nome ou código"
@@ -115,9 +125,10 @@ export function Passo7Banco({
           <input
             type="text"
             autoComplete="off"
+            data-campo="bancoAgencia"
             value={enderecoBanco.bancoAgencia}
             onChange={(event) => updateEnderecoBanco({ bancoAgencia: event.target.value })}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("bancoAgencia") && "campo-erro-pulsante")}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -128,9 +139,10 @@ export function Passo7Banco({
           <input
             type="text"
             autoComplete="off"
+            data-campo="bancoConta"
             value={enderecoBanco.bancoConta}
             onChange={(event) => updateEnderecoBanco({ bancoConta: event.target.value })}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("bancoConta") && "campo-erro-pulsante")}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -142,7 +154,10 @@ export function Passo7Banco({
             value={enderecoBanco.tipoConta}
             onValueChange={(valor) => updateEnderecoBanco({ tipoConta: valor ?? "" })}
           >
-            <SelectTrigger>
+            <SelectTrigger
+              data-campo="tipoConta"
+              className={cn(comErro("tipoConta") && "campo-erro-pulsante")}
+            >
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
@@ -164,11 +179,12 @@ export function Passo7Banco({
           <input
             type="text"
             autoComplete="off"
+            data-campo="bancoSwift"
             value={enderecoBanco.bancoSwift}
             onChange={(event) =>
               updateEnderecoBanco({ bancoSwift: event.target.value.toUpperCase() })
             }
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("bancoSwift") && "campo-erro-pulsante")}
             placeholder="Ex: BOFAUS3N"
           />
         </div>
@@ -191,10 +207,11 @@ export function Passo7Banco({
           <input
             type="text"
             autoComplete="off"
+            data-campo="favorecidoNome"
             value={enderecoBanco.favorecidoNome}
             disabled={enderecoBanco.favorecidoEhEmpresa}
             onChange={(event) => updateEnderecoBanco({ favorecidoNome: event.target.value })}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("favorecidoNome") && "campo-erro-pulsante")}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -204,10 +221,11 @@ export function Passo7Banco({
           <input
             type="text"
             autoComplete="off"
+            data-campo="favorecidoDoc"
             value={enderecoBanco.favorecidoDoc}
             disabled={enderecoBanco.favorecidoEhEmpresa}
             onChange={(event) => updateEnderecoBanco({ favorecidoDoc: event.target.value })}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("favorecidoDoc") && "campo-erro-pulsante")}
           />
         </div>
       </div>

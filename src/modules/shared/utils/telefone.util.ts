@@ -152,6 +152,41 @@ function localSemDdi(digitos: string): string {
   return digitos.startsWith("55") ? digitos.slice(2) : digitos;
 }
 
+// Deduplica uma lista de opções de telefone por dígito (ignora
+// formatação) — um mesmo número não aparece duas vezes mesmo vindo de
+// fontes diferentes (ex.: Agencia.telefoneContato repetindo
+// CadastroComplementar.telefoneComercial). Reaproveitado tanto por
+// montarOpcoesAtendimento (dossiê) quanto por PrismaAgenciaContatoRepository
+// (lista de Contatos do /atendimento) — mesma regra, um lugar só.
+export function deduplicarOpcoesTelefone<T extends { telefone: string }>(opcoes: T[]): T[] {
+  const vistos = new Set<string>();
+  return opcoes.filter((opcao) => {
+    const digitos = unmaskTelefone(opcao.telefone);
+    if (digitos.length === 0 || vistos.has(digitos)) return false;
+    vistos.add(digitos);
+    return true;
+  });
+}
+
+// Constrói o wa_id (E.164 sem "+") a partir de um telefone local salvo no
+// cadastro (Agencia.telefoneContato, RepresentanteLegal.telefone etc, sem
+// DDI armazenado) — usado só na criação de uma Conversa nova a partir da
+// lista de Contatos (ver IniciarConversaUseCase), nunca em conversas que
+// já vieram de mensagem inbound (essas já têm o wa_id real da Meta).
+// Mesma suposição que telefonesEquivalentes já faz em todo o módulo
+// atendimento (DDI 55 como default) — números de outro país cadastrados
+// via "Outro país" no wizard não são cobertos por este heurístico.
+export function paraWhatsappId(telefoneLocal: string): string {
+  const digitos = unmaskTelefone(telefoneLocal);
+  if (digitos.startsWith("55") && (digitos.length === 12 || digitos.length === 13)) {
+    return digitos;
+  }
+  if (digitos.length === 10 || digitos.length === 11) {
+    return `55${digitos}`;
+  }
+  return digitos;
+}
+
 // Compara dois telefones em formatos livres (mascarado do formulário,
 // wa_id cru da Meta etc.) tolerando a ambiguidade do 9º dígito — mesma
 // lógica usada tanto por WhatsAppContactMatcherAdapter (casar mensagem

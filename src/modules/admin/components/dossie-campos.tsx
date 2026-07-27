@@ -20,7 +20,7 @@ import type {
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
-import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
+import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
 // (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
@@ -296,8 +296,9 @@ function AcoesAprovacaoDocumento({
           <textarea
             name="motivo"
             required
+            minLength={20}
             rows={2}
-            placeholder="Motivo da aprovação (obrigatório)"
+            placeholder="Motivo da aprovação (mínimo 20 caracteres)"
             className={TEXTAREA_MOTIVO_DECISAO}
           />
           <div className="flex gap-2">
@@ -710,7 +711,7 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
           </span>
         ) : null}
         <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
-          Confiança: {analise.confiancaExtracao}
+          Confiança: {formatarPercentual(analise.confiancaExtracao)}
         </span>
         {alertas.length > 0 ? (
           <span className="bg-warning/15 text-warning rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
@@ -851,20 +852,30 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
         </div>
       ) : null}
 
-      {parecer.itensParaChecar.length > 0 ? (
-        <div className="flex flex-col gap-1.5">
+      {parecer.gruposParaChecar.length > 0 ? (
+        <div className="flex flex-col gap-3">
           <SubsecaoLabel>O que o analista precisa checar</SubsecaoLabel>
-          <ul className="flex flex-col gap-1.5">
-            {parecer.itensParaChecar.map((item, index) => (
-              <li
-                key={index}
-                className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs"
-              >
-                <span className="text-foreground font-semibold">{item.origem}: </span>
-                <span className="text-muted-foreground">{item.mensagem}</span>
-              </li>
-            ))}
-          </ul>
+          {parecer.gruposParaChecar.map((grupo) => (
+            <div key={grupo.entidadeLabel} className="flex flex-col gap-1.5">
+              <span className="text-foreground text-xs font-bold">{grupo.entidadeLabel}</span>
+              <span className="text-muted-foreground text-[11px] font-bold tracking-wide uppercase">
+                Inconsistências
+              </span>
+              {grupo.documentos.map((documento) => (
+                <div
+                  key={documento.tipoLabel}
+                  className="border-border bg-muted/30 rounded-lg border px-3 py-2 text-xs"
+                >
+                  <span className="text-foreground font-semibold">{documento.tipoLabel}</span>
+                  <ol className="text-muted-foreground mt-1 list-inside list-decimal">
+                    {documento.mensagens.map((mensagem, index) => (
+                      <li key={index}>{mensagem}</li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

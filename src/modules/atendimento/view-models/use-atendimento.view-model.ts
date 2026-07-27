@@ -4,9 +4,18 @@ import type {
   TextoPronto,
   TemplateAprovado,
   EnviarMensagemInput,
+  ContatoAgencia,
+  NumeroContato,
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
-import { telefonesEquivalentes } from "@/modules/shared/utils/telefone.util";
+import { paraWhatsappId, telefonesEquivalentes } from "@/modules/shared/utils/telefone.util";
+
+export type AbaListaLateral = "conversas" | "contatos";
+
+export interface ModalEscolhaContato {
+  agenciaNome: string;
+  numeros: NumeroContato[];
+}
 
 // Rede de segurança bem espaçada — cobre o caso raro da conexão SSE cair
 // silenciosamente sem disparar "onerror" (o EventSource já reconecta
@@ -20,7 +29,11 @@ const INTERVALO_POLLING_SEGURANCA_MS = 60_000;
 // expõe ações que chamam esse mesmo service, guarda loading/erro. Troque
 // o service internamente quando o back-end existir; este hook e os
 // componentes que o consomem não precisam mudar.
-export function useAtendimento(analistaAtual: string, telefoneInicial?: string) {
+export function useAtendimento(
+  analistaAtual: string,
+  telefoneInicial?: string,
+  agenciaIdInicial?: string,
+) {
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [conversaSelecionadaId, setConversaSelecionadaId] = useState<string | null>(null);
   // `?telefone=` do dossiê (ver AtendimentoButton) — seleciona a conversa
@@ -33,6 +46,18 @@ export function useAtendimento(analistaAtual: string, telefoneInicial?: string) 
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  // Aba "Contatos" — todas as agências, tenham conversa iniciada ou não
+  // (ver ListaContatos/ModalEscolhaContato). Estado próprio, não persiste
+  // no Zustand: mesmo padrão do resto do módulo (hook local).
+  const [abaListaLateral, setAbaListaLateral] = useState<AbaListaLateral>("conversas");
+  const [contatos, setContatos] = useState<ContatoAgencia[]>([]);
+  const [buscaContatos, setBuscaContatos] = useState("");
+  const [carregandoContatos, setCarregandoContatos] = useState(false);
+  const [modalEscolha, setModalEscolha] = useState<ModalEscolhaContato | null>(null);
+  // `?agenciaId=` do dossiê (ver AtendimentoButton, agora simplificado) —
+  // mesmo padrão do `telefoneInicialConsumidoRef` acima, só consumido uma vez.
+  const agenciaIdInicialConsumidoRef = useRef(false);
   // Evita que o polling em segundo plano sobrescreva uma ação que o
   // próprio analista acabou de disparar (ex: mandar mensagem) antes da
   // resposta chegar — só reflete o servidor quando nada está em voo.
@@ -148,6 +173,101 @@ export function useAtendimento(analistaAtual: string, telefoneInicial?: string) 
     [analistaAtual],
   );
 
+  // Insere ou substitui — diferente do `.map` usado pelas outras ações
+  // acima, que assumem a conversa já está em `conversas`. Uma conversa
+  // recém-criada pela lista de Contatos ainda não está na lista local.
+  const upsertConversa = useCallback((conversa: Conversa) => {
+    setConversas((atual) => {
+      const existe = atual.some((item) => item.id === conversa.id);
+      return existe
+        ? atual.map((item) => (item.id === conversa.id ? conversa : item))
+        : [conversa, ...atual];
+    });
+  }, []);
+
+  // Fluxo único pros dois casos (ver plano): número já com Conversa
+  // materializada ou número que nunca trocou mensagem. Em ambos, termina
+  // chamando assumirAtendimento — mesma trava de 2h de sempre, e a mesma
+  // regra de "assumir já marca como lida".
+  const selecionarNumeroContato = useCallback(
+    async (numero: NumeroContato) => {
+      setModalEscolha(null);
+      acaoEmAndamentoRef.current = true;
+      try {
+        let conversaId = numero.conversaId;
+        if (!conversaId) {
+          const criada = await atendimentoApi.iniciarConversa({
+            agenciaId: numero.agenciaId,
+            telefoneWhatsapp: paraWhatsappId(numero.telefone),
+            representanteLegalId: numero.representanteLegalId,
+            membroNome: numero.label,
+            membroPapel: numero.papel,
+          });
+          conversaId = criada.id;
+        }
+        await atendimentoApi.assumirAtendimento(conversaId, { analistaNome: analistaAtual });
+        const conversaLida = await atendimentoApi.marcarComoLida(conversaId);
+        upsertConversa(conversaLida);
+        setConversaSelecionadaId(conversaLida.id);
+        setAbaListaLateral("conversas");
+      } finally {
+        acaoEmAndamentoRef.current = false;
+      }
+    },
+    [analistaAtual, upsertConversa],
+  );
+
+  // Só 1 número → escolhe direto, sem incomodar com modal (mesmo critério
+  // que o AtendimentoButton do dossiê já usava antes de simplificar).
+  const abrirEscolhaContato = useCallback(
+    (contato: ContatoAgencia) => {
+      const [unico] = contato.numeros;
+      if (!unico) return;
+      if (contato.numeros.length === 1) {
+        void selecionarNumeroContato(unico);
+        return;
+      }
+      setModalEscolha({ agenciaNome: contato.agenciaNome, numeros: contato.numeros });
+    },
+    [selecionarNumeroContato],
+  );
+
+  const fecharModalEscolha = useCallback(() => setModalEscolha(null), []);
+
+  const buscarContatos = useCallback(async (busca: string) => {
+    setBuscaContatos(busca);
+    setCarregandoContatos(true);
+    try {
+      setContatos(await atendimentoApi.listarContatos(busca || undefined));
+    } catch {
+      setContatos([]);
+    } finally {
+      setCarregandoContatos(false);
+    }
+  }, []);
+
+  const selecionarAba = useCallback((aba: AbaListaLateral) => setAbaListaLateral(aba), []);
+
+  // Carrega a lista completa (busca vazia) sempre que a aba "Contatos" é
+  // aberta — mais simples e previsível que persistir a última busca entre
+  // idas e vindas.
+  useEffect(() => {
+    if (abaListaLateral !== "contatos") return;
+    void buscarContatos("");
+  }, [abaListaLateral, buscarContatos]);
+
+  // `?agenciaId=` do dossiê — mesma ideia do `telefoneInicial`, mas
+  // decide entre auto-selecionar (1 número) ou abrir o modal de escolha
+  // (mais de 1), em vez de só selecionar uma conversa existente.
+  useEffect(() => {
+    if (!agenciaIdInicial || agenciaIdInicialConsumidoRef.current) return;
+    agenciaIdInicialConsumidoRef.current = true;
+    void atendimentoApi
+      .obterContatoAgencia(agenciaIdInicial)
+      .then(abrirEscolhaContato)
+      .catch(() => setHasError(true));
+  }, [agenciaIdInicial, abrirEscolhaContato]);
+
   const encerrarAtendimento = useCallback(async (conversaId: string) => {
     const conversaAtualizada = await atendimentoApi.encerrarAtendimento(conversaId);
     setConversas((atual) =>
@@ -215,5 +335,15 @@ export function useAtendimento(analistaAtual: string, telefoneInicial?: string) 
     criarTextoPronto,
     atualizarTextoPronto,
     removerTextoPronto,
+    abaListaLateral,
+    selecionarAba,
+    contatos,
+    buscaContatos,
+    carregandoContatos,
+    buscarContatos,
+    modalEscolha,
+    fecharModalEscolha,
+    abrirEscolhaContato,
+    selecionarNumeroContato,
   };
 }

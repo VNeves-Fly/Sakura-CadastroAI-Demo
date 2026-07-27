@@ -11,6 +11,25 @@ import type {
 
 export type { OrigemGeracaoContrato, ResultadoAnaliseIa };
 
+// Única fonte de crédito reconsultável isoladamente pelo analista (ver
+// ReconsultarCreditoUseCase) — as duas seções do stage2 que têm card
+// próprio no dossiê (ConsultaAmatCard/ConsultaSofiaCard). Processos
+// judiciais/reclamações não têm botão de reconsulta hoje.
+export type FonteConsultaCredito = "AMAT" | "SOFIA";
+
+// Uma linha de auditoria por clique em "Reconsultar" — quem consultou e
+// quando (ver HistoricoConsultaCredito no schema). `resultado`/
+// `rawResultado` não entram aqui: a lista serve só pra render do
+// histórico (quem/quando/sucesso), o snapshot completo fica só no banco.
+export interface HistoricoConsultaCreditoItem {
+  id: string;
+  fonte: FonteConsultaCredito;
+  sucesso: boolean;
+  erro: string | null;
+  consultadoPor: string;
+  createdAt: Date;
+}
+
 // Ciclo de vida completo da agência (decisão do usuário, 2026-07-16;
 // "em_analise" adicionado em 2026-07-24 quando o envio do cadastro passou
 // a persistir antes da IA rodar — ver AnalisarCadastroUseCase):
@@ -278,6 +297,8 @@ export interface AgenciaDetalhe {
   contratos: ContratoDetalhe[];
   // null = agência anterior a essa avaliação existir.
   analiseIa: AnaliseIaAgenciaDetalhe | null;
+  // Auditoria das reconsultas manuais de AMAT/SOFIA, mais recente primeiro.
+  historicoConsultaCredito: HistoricoConsultaCreditoItem[];
   // Origem da agência, já resolvida — mesma lógica de ListarCadastrosItem
   // (ver comentário lá), exposta aqui pro dossiê mostrar as 3 badges.
   executivoNome: string | null;
@@ -332,6 +353,22 @@ export interface AgenciaRepository {
     resultado: ResultadoAnaliseIa,
   ): Promise<void>;
   atualizarStatus(id: string, status: string): Promise<Agencia>;
+  // Grava uma linha de auditoria da reconsulta (quem/quando/sucesso) e,
+  // só quando `sucesso`, sobrescreve o stage2/rawData "atuais" da
+  // AnaliseIaAgencia (ver ReconsultarCreditoUseCase) — nunca toca em
+  // Agencia.status, parecer, motivo ou flagsRisco (diferente de
+  // registrarAnaliseFinal, que é o veredito do pipeline completo).
+  registrarConsultaCredito(
+    agenciaId: string,
+    data: {
+      fonte: FonteConsultaCredito;
+      sucesso: boolean;
+      erro: string | null;
+      stage2: AnaliseIaStage2 | null;
+      rawData: AnaliseIaRawData | null;
+      consultadoPor: string;
+    },
+  ): Promise<void>;
   // Edição em lote pelo analista (ver EditarDadosEmpresaUseCase) — nunca
   // inclui campos sourced de DadosReceita, que não é tocado por este
   // método.

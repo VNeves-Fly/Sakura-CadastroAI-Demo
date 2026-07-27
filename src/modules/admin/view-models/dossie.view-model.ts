@@ -26,13 +26,14 @@ export async function obterDossieView(id: string) {
     contratoSocial,
     contratos,
     analiseIa,
+    historicoConsultaCredito,
     executivoNome,
     associacaoNome,
     eventoNome,
   } = detalhe;
   const contratoAtual = contratos[0] ?? null;
   const parecerIa = paraParecerView(analiseIa);
-  const analiseCredito = paraAnaliseCreditoView(analiseIa);
+  const analiseCredito = paraAnaliseCreditoView(analiseIa, historicoConsultaCredito);
 
   // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
   // por e-mail, cobre tanto os sócios quanto os signatários fixos da

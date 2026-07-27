@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type DragEvent } from "react";
+import { cn } from "@/lib/utils";
 
 interface FileDropInputProps {
   label: string;
@@ -14,6 +15,12 @@ interface FileDropInputProps {
   helperText?: string;
   disabled?: boolean;
   disabledHelperText?: string;
+  // Chave estável do campo (ver CampoFaltante no view-model do wizard) —
+  // usada só pra scroll/destaque de "campo obrigatório faltando depois de
+  // tentar avançar", nada a ver com `erro` (mensagem de validação do
+  // próprio arquivo).
+  campo?: string;
+  destaqueErro?: boolean;
 }
 
 function UploadIcon() {
@@ -49,6 +56,8 @@ export function FileDropInput({
   helperText,
   disabled = false,
   disabledHelperText,
+  campo,
+  destaqueErro = false,
 }: FileDropInputProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -79,11 +88,15 @@ export function FileDropInput({
         onDrop={handleDrop}
         onClick={() => !disabled && inputRef.current?.click()}
         aria-disabled={disabled}
-        className={`group flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-6 text-center text-sm transition ${
+        data-campo={campo}
+        className={cn(
+          "group flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-6 text-center text-sm transition",
           disabled
             ? "border-input bg-muted/30 cursor-not-allowed opacity-60"
-            : "hover:border-primary hover:bg-accent cursor-pointer"
-        } ${isDraggingOver ? "border-primary bg-accent" : "border-input bg-background"}`}
+            : "hover:border-primary hover:bg-accent cursor-pointer",
+          isDraggingOver ? "border-primary bg-accent" : "border-input bg-background",
+          destaqueErro && !disabled && "campo-erro-pulsante",
+        )}
       >
         <span
           className={`transition ${

@@ -304,8 +304,18 @@ export default async function ArquivoDossiePage({
                 )}
               </SecaoColapsavel>
 
-              <ConsultaAmatCard amat={analiseCredito.amat} rawAmat={analiseCredito.rawAmat} />
-              <ConsultaSofiaCard sofia={analiseCredito.sofia} rawSofia={analiseCredito.rawSofia} />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ConsultaAmatCard
+                  amat={analiseCredito.amat}
+                  rawAmat={analiseCredito.rawAmat}
+                  historico={analiseCredito.historicoAmat}
+                />
+                <ConsultaSofiaCard
+                  sofia={analiseCredito.sofia}
+                  rawSofia={analiseCredito.rawSofia}
+                  historico={analiseCredito.historicoSofia}
+                />
+              </div>
 
               <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
                 <div className="flex flex-col gap-3">

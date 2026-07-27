@@ -212,6 +212,34 @@ export interface VincularMidiaComoDocumentoInput {
   documentoId: string;
 }
 
+// Aba "Contatos" — todas as agências cadastradas (não só as com conversa
+// já iniciada), com os números de WhatsApp candidatos de cada uma
+// (Comercial + sócios). `conversaId` null = número nunca trocou mensagem;
+// nesse caso iniciarConversa cria a Conversa na hora que o analista escolhe.
+export interface NumeroContato {
+  label: string;
+  telefone: string;
+  papel: PapelMembro;
+  representanteLegalId: string | null;
+  agenciaId: string;
+  conversaId: string | null;
+}
+
+export interface ContatoAgencia {
+  agenciaId: string;
+  agenciaNome: string;
+  cnpj: string;
+  numeros: NumeroContato[];
+}
+
+export interface IniciarConversaInput {
+  agenciaId: string;
+  telefoneWhatsapp: string;
+  representanteLegalId: string | null;
+  membroNome: string | null;
+  membroPapel: PapelMembro;
+}
+
 export interface ResultadoTesteConexao {
   sucesso: boolean;
   mensagem: string;

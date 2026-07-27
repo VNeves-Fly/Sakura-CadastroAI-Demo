@@ -297,6 +297,7 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
                     }
                     podeRemover={false}
                     cepBuscando={socioCepBuscando === index}
+                    camposFaltantes={[]}
                     onUpdate={(patch) => updateSocio(index, patch)}
                     onRemove={() => {}}
                     onToggleRepresentante={() => toggleRepresentante(index)}

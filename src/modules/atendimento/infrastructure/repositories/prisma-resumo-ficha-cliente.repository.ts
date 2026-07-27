@@ -46,11 +46,22 @@ export class PrismaResumoFichaClienteRepository implements ResumoFichaClienteRep
       this.documentosAtuaisParaRevisar(agenciaId),
     ]);
 
+    const statusAgencia = agencia ? statusAgenciaToResumo(agencia.status) : "em_andamento";
+    // Uma agência "ativo" já passou por toda revisão que precisava —
+    // linhas de Documento esquecidas em PENDENTE (ex.: cadastro aprovado
+    // direto pela IA, sem revisão manual documento a documento via
+    // AprovarDocumentoUseCase) não são uma pendência real: `status` do
+    // Prisma default é PENDENTE, então uma linha nunca tocada por um
+    // analista fica assim pra sempre, mesmo o cadastro estando resolvido.
+    // Sem isso, o painel do /atendimento mostrava "2 pendente(s)" e o
+    // bloco de reenvio de documento numa agência já aprovada e ativa.
+    const agenciaAtiva = statusAgencia === "ativo";
+
     return {
-      statusAgencia: agencia ? statusAgenciaToResumo(agencia.status) : "em_andamento",
+      statusAgencia,
       documentosAprovados,
-      documentosPendentes,
-      documentosParaRevisar,
+      documentosPendentes: agenciaAtiva ? 0 : documentosPendentes,
+      documentosParaRevisar: agenciaAtiva ? [] : documentosParaRevisar,
       situacaoCadastralReceita: dadosReceita?.situacaoCadastral ?? null,
       contratoStatus: contratoRecente?.status ?? null,
       amatSofiaConsultado: false,

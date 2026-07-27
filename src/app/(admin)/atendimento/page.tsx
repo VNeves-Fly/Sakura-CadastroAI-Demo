@@ -5,7 +5,7 @@ import { AtendimentoView } from "@/modules/atendimento/components/atendimento-vi
 export default async function AtendimentoPage({
   searchParams,
 }: {
-  searchParams: { telefone?: string };
+  searchParams: { telefone?: string; agenciaId?: string };
 }) {
   const session = await getServerSession(nextAuthOptions);
   const analistaAtual = session?.user?.name ?? session?.user?.email ?? "Analista";
@@ -25,7 +25,11 @@ export default async function AtendimentoPage({
         </p>
       </div>
 
-      <AtendimentoView analistaAtual={analistaAtual} telefoneInicial={searchParams.telefone} />
+      <AtendimentoView
+        analistaAtual={analistaAtual}
+        telefoneInicial={searchParams.telefone}
+        agenciaIdInicial={searchParams.agenciaId}
+      />
     </div>
   );
 }

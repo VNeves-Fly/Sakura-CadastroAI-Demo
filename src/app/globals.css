@@ -170,4 +170,22 @@
     -webkit-background-clip: text;
     color: transparent;
   }
+
+  /* Campo obrigatório vazio depois de uma tentativa de avançar o wizard
+     (ver tentarAvancarSecao no view-model) — borda vermelha pulsante,
+     definida uma única vez aqui pra nenhum passo do wizard duplicar a
+     animação. */
+  @keyframes pulso-erro {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--destructive) / 0.35);
+    }
+    50% {
+      box-shadow: 0 0 0 5px hsl(var(--destructive) / 0.12);
+    }
+  }
+  .campo-erro-pulsante {
+    border-color: hsl(var(--destructive)) !important;
+    animation: pulso-erro 1.4s ease-in-out infinite;
+  }
 }

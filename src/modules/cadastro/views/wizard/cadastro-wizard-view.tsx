@@ -3,10 +3,12 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { animate } from "animejs";
+import { cn } from "@/lib/utils";
 import {
   useCadastroWizardViewModel,
   type ExecutivoOption,
   type AssociacaoOption,
+  type CampoFaltante,
 } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import { AnaliseCadastroOverlay } from "@/modules/cadastro/components/analise-cadastro-overlay";
 import { WizardStepper } from "@/modules/cadastro/components/wizard-stepper";
@@ -49,10 +51,39 @@ export function CadastroWizardView({
   });
   const secaoRefs = useRef<Array<HTMLDivElement | null>>([]);
   const primeiraRenderizacao = useRef(true);
+  const secoesTentativaFalhouAnteriorRef = useRef<Set<number>>(new Set());
 
   function scrollParaSecao(secao: number) {
     secaoRefs.current[secao - 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+
+  // Seções 1 (Empresa)/3 (Endereço)/4 (Banco) têm um botão genérico só
+  // (ver mapa abaixo) — Sócios (2) já resolve isso por conta própria
+  // dentro de Passo5Socios (pula pro sócio incompleto, não pro campo).
+  function camposFaltantesDaSecao(numero: number): CampoFaltante[] {
+    if (numero === 1) return wizard.camposFaltantesEmpresa;
+    if (numero === 3) return wizard.camposFaltantesEndereco;
+    if (numero === 4) return wizard.camposFaltantesBanco;
+    return [];
+  }
+
+  // Rola até o primeiro campo com erro só quando uma seção ACABOU de
+  // falhar uma tentativa (não a cada render enquanto a mensagem já
+  // estiver visível, nem quando ela some por ter sido corrigida).
+  useEffect(() => {
+    const anterior = secoesTentativaFalhouAnteriorRef.current;
+    const novasFalhas = [...wizard.secoesTentativaFalhou].filter((numero) => !anterior.has(numero));
+    secoesTentativaFalhouAnteriorRef.current = wizard.secoesTentativaFalhou;
+    if (novasFalhas.length === 0) return;
+
+    const primeiroCampo = camposFaltantesDaSecao(novasFalhas[0]!)[0]?.campo;
+    if (!primeiroCampo) return;
+
+    const el = document.querySelector(`[data-campo="${primeiroCampo}"]`);
+    const reduzMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el?.scrollIntoView({ behavior: reduzMovimento ? "auto" : "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizard.secoesTentativaFalhou]);
 
   // Anima a entrada de cada seção nova revelada (fade + leve deslocamento
   // vertical) e rola até ela — só pula a animação (não o scroll) se o
@@ -140,6 +171,9 @@ export function CadastroWizardView({
                   : numero === 4
                     ? wizard.bancoCompleto
                     : true;
+            const camposFaltantes = camposFaltantesDaSecao(numero);
+            const mostrarErro =
+              wizard.secoesTentativaFalhou.has(numero) && camposFaltantes.length > 0;
 
             return (
               <div
@@ -167,19 +201,32 @@ export function CadastroWizardView({
                   {numero === 6 ? <Passo9Revisao {...wizard} /> : null}
 
                   {podeAvancar && numero !== 2 ? (
-                    <button
-                      type="button"
-                      onClick={wizard.avancarSecao}
-                      disabled={!passoCompleto}
-                      title={
-                        passoCompleto
-                          ? undefined
-                          : "Preencha todos os campos obrigatórios antes de continuar."
-                      }
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit self-end rounded-full px-5 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Continuar →
-                    </button>
+                    <div className="flex flex-col items-end gap-2">
+                      {mostrarErro ? (
+                        <div className="border-destructive bg-destructive-bg text-destructive-text w-full rounded-xl border px-4 py-2.5 text-sm">
+                          Preencha antes de continuar:{" "}
+                          {camposFaltantes.map((campo) => campo.label).join(", ")}.
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => wizard.tentarAvancarSecao(numero, passoCompleto)}
+                        aria-disabled={!passoCompleto}
+                        title={
+                          passoCompleto
+                            ? undefined
+                            : "Preencha todos os campos obrigatórios antes de continuar."
+                        }
+                        className={cn(
+                          "w-fit rounded-full px-5 py-2.5 text-sm font-medium transition",
+                          passoCompleto
+                            ? "bg-primary text-primary-foreground hover:bg-sakura-600"
+                            : "bg-primary text-primary-foreground cursor-not-allowed opacity-50",
+                        )}
+                      >
+                        Continuar →
+                      </button>
+                    </div>
                   ) : null}
                 </SecaoCard>
               </div>

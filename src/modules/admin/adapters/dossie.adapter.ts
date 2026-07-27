@@ -21,17 +21,18 @@ import {
   CONTRATO_STATUS_ASSINADO,
   type RepresentanteLegalDetalhe,
   type AnaliseIaAgenciaDetalhe,
-  type CadastroComplementarDetalhe,
+  type HistoricoConsultaCreditoItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
-import { unmaskTelefone } from "@/modules/shared/utils/telefone.util";
 import type {
   DocumentoRevisao,
   DocumentoHistoricoItem,
   SignatarioFila,
   AnaliseIaResumo,
   ParecerIaView,
-  ParecerIaItemChecklist,
+  ParecerIaChecklistDocumento,
+  ParecerIaChecklistGrupo,
   AnaliseCreditoView,
+  HistoricoConsultaCreditoView,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -154,7 +155,7 @@ export function separarDocumentosPorStatus(documentos: DocumentoRevisao[]): {
 export const ETAPAS_PIPELINE = [
   { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
   { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
-  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
+  { status: STATUS_AGUARDANDO_VALIDACAO, label: "SICA/TL" },
   { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
   { status: STATUS_ATIVO, label: "Ativo" },
 ];
@@ -268,33 +269,54 @@ export function paraAnaliseIaResumo(analise: AnaliseIaDocumento | null): Analise
   };
 }
 
+// Rótulo do tipo de documento como aparece pra IA no cruzamento
+// documental (stage3) — nomenclatura própria da resposta do agente
+// (snake_case), diferente do enum TipoDocumento do Prisma (RG_CNPJ etc);
+// tipo desconhecido cai no próprio valor bruto, mesmo padrão de
+// labelOrigemContrato/RESULTADO_ANALISE_LABELS acima.
+const LABEL_TIPO_DOCUMENTO_IA: Record<string, string> = {
+  contrato_social: "Contrato Social",
+  doc_identificacao: "RG/CNH",
+};
+
+function labelTipoDocumentoIa(tipo: string): string {
+  return LABEL_TIPO_DOCUMENTO_IA[tipo] ?? tipo;
+}
+
 // Extrai só os pontos que o analista precisa checar de um documento do
 // stage3: campos onde o extraído/oficial diverge do que foi fornecido
 // (confere: false) e alertas de extração — nunca os campos que
 // conferem, isso é ruído pro analista, não uma pendência.
-function itensDoDocumento(
-  detalhe: AnaliseIaDocumentoDetalhe,
-  origem: string,
-): ParecerIaItemChecklist[] {
-  const itens: ParecerIaItemChecklist[] = [];
+function mensagensDoDocumento(detalhe: AnaliseIaDocumentoDetalhe): string[] {
+  const mensagens: string[] = [];
 
   for (const campo of detalhe.campos) {
     if (campo.confere) continue;
-    itens.push({
-      origem,
-      mensagem: `${campo.campo}: informado "${campo.fornecido ?? "—"}", extraído "${campo.extraido ?? "—"}"${campo.oficial ? `, oficial "${campo.oficial}"` : ""}`,
-    });
+    mensagens.push(
+      `${campo.campo}: informado "${campo.fornecido ?? "—"}", extraído "${campo.extraido ?? "—"}"${campo.oficial ? `, oficial "${campo.oficial}"` : ""}`,
+    );
   }
 
-  for (const alerta of detalhe.alertasExtracao) {
-    itens.push({ origem, mensagem: alerta });
-  }
+  mensagens.push(...detalhe.alertasExtracao);
 
   if (!detalhe.valido && detalhe.campos.length === 0 && detalhe.alertasExtracao.length === 0) {
-    itens.push({ origem, mensagem: "Documento não pôde ser validado." });
+    mensagens.push("Documento não pôde ser validado.");
   }
 
-  return itens;
+  return mensagens;
+}
+
+// Um item por documento com pendência — documentos sem nenhuma mensagem
+// (tudo conferiu) não entram, pra não poluir o grupo da entidade.
+function documentosComPendencia(
+  documentos: AnaliseIaDocumentoDetalhe[],
+): ParecerIaChecklistDocumento[] {
+  return documentos
+    .map((documento) => ({
+      tipoLabel: labelTipoDocumentoIa(documento.tipo),
+      mensagens: mensagensDoDocumento(documento),
+    }))
+    .filter((documento) => documento.mensagens.length > 0);
 }
 
 // Consolida o parecer da IA (veredito, motivo, pontos de alerta e
@@ -309,23 +331,29 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
   if (!analiseIa) return null;
 
   const detalhamento = analiseIa.detalhamento;
-  const itensParaChecar: ParecerIaItemChecklist[] = detalhamento
-    ? [
-        ...detalhamento.documentosEmpresa.flatMap((documento) =>
-          itensDoDocumento(documento, documento.tipo),
-        ),
-        ...detalhamento.socios.flatMap((socio) =>
-          socio.documentos.flatMap((documento) => itensDoDocumento(documento, socio.nome)),
-        ),
-      ]
+  const documentosAgencia = detalhamento
+    ? documentosComPendencia(detalhamento.documentosEmpresa)
     : [];
+  const gruposParaChecar: ParecerIaChecklistGrupo[] = [
+    ...(documentosAgencia.length > 0
+      ? [{ entidadeLabel: "Agência", documentos: documentosAgencia }]
+      : []),
+    ...(detalhamento
+      ? detalhamento.socios
+          .map((socio, index) => ({
+            entidadeLabel: `Sócio ${index + 1} — ${socio.nome}`,
+            documentos: documentosComPendencia(socio.documentos),
+          }))
+          .filter((grupo) => grupo.documentos.length > 0)
+      : []),
+  ];
 
   return {
     resultado: analiseIa.resultado,
     parecer: analiseIa.parecer,
     motivo: analiseIa.motivo,
     pontosDeAlerta: analiseIa.flagsRisco,
-    itensParaChecar,
+    gruposParaChecar,
     avaliadoEm: analiseIa.avaliadoEm,
   };
 }
@@ -335,49 +363,34 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
 // em cadastros que já passaram pela IA mas cujo agente não populou
 // stage2/raw_data (ex.: gate de CNAE interrompeu a análise antes do
 // stage2 rodar, ver docs/agency-analysis-params-tracking.md).
+function paraHistoricoConsultaCreditoView(
+  item: HistoricoConsultaCreditoItem,
+): HistoricoConsultaCreditoView {
+  return {
+    id: item.id,
+    sucesso: item.sucesso,
+    erro: item.erro,
+    consultadoPor: item.consultadoPor,
+    consultadoEm: item.createdAt,
+  };
+}
+
 export function paraAnaliseCreditoView(
   analiseIa: AnaliseIaAgenciaDetalhe | null,
+  historicoConsultaCredito: HistoricoConsultaCreditoItem[],
 ): AnaliseCreditoView {
   return {
     amat: analiseIa?.stage2?.amat ?? null,
     sofia: analiseIa?.stage2?.sofia ?? null,
     rawAmat: analiseIa?.rawData?.amat ?? [],
     rawSofia: analiseIa?.rawData?.sofia ?? [],
+    historicoAmat: historicoConsultaCredito
+      .filter((item) => item.fonte === "AMAT")
+      .map(paraHistoricoConsultaCreditoView),
+    historicoSofia: historicoConsultaCredito
+      .filter((item) => item.fonte === "SOFIA")
+      .map(paraHistoricoConsultaCreditoView),
   };
-}
-
-export interface OpcaoTelefoneAtendimento {
-  label: string;
-  telefone: string;
-}
-
-// Telefones de quem pode ser contatado pra essa agência via Atendimento
-// (WhatsApp) — mesmas 3 fontes que WhatsAppContactMatcherAdapter usa pra
-// resolver uma mensagem recebida: telefoneContato/telefoneComercial (ambos
-// rotulados "Comercial", igual ao `membroPapel: "comercial"` de lá) e o
-// telefone de cada sócio (rotulado pelo próprio nome). Deduplicado por
-// dígito — um mesmo número não aparece duas vezes (ex.: telefoneComercial
-// repetindo o telefoneContato).
-export function montarOpcoesAtendimento(
-  agencia: { telefoneContato: string },
-  complementar: CadastroComplementarDetalhe | null,
-  representantesLegais: RepresentanteLegalDetalhe[],
-): OpcaoTelefoneAtendimento[] {
-  const candidatos: OpcaoTelefoneAtendimento[] = [
-    { label: "Comercial", telefone: agencia.telefoneContato },
-    ...(complementar?.telefoneComercial
-      ? [{ label: "Comercial", telefone: complementar.telefoneComercial }]
-      : []),
-    ...representantesLegais.map((socio) => ({ label: socio.nome, telefone: socio.telefone })),
-  ];
-
-  const vistos = new Set<string>();
-  return candidatos.filter((opcao) => {
-    const digitos = unmaskTelefone(opcao.telefone);
-    if (digitos.length === 0 || vistos.has(digitos)) return false;
-    vistos.add(digitos);
-    return true;
-  });
 }
 
 // Recorte plano do Usuário Master — a entidade de domínio (classe com

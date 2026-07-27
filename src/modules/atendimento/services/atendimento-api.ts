@@ -15,6 +15,8 @@ import type {
   ResultadoTesteConexao,
   DocumentosPendentesOutput,
   VincularMidiaComoDocumentoInput,
+  ContatoAgencia,
+  IniciarConversaInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import {
   HORAS_LIMITE_ASSUMIR,
@@ -64,6 +66,26 @@ export function podeAssumirAtendimento(atendimentoAtual: Conversa["atendimentoAt
 export const atendimentoApi = {
   async listarConversas(): Promise<Conversa[]> {
     return fetchJson<Conversa[]>("/api/atendimento/conversas");
+  },
+
+  // Aba "Contatos" — todas as agências, tenham conversa iniciada ou não.
+  async listarContatos(busca?: string): Promise<ContatoAgencia[]> {
+    const query = busca ? `?busca=${encodeURIComponent(busca)}` : "";
+    return fetchJson<ContatoAgencia[]>(`/api/atendimento/contatos${query}`);
+  },
+
+  // Modal "com quem você quer falar" ao chegar de /atendimento?agenciaId=X.
+  async obterContatoAgencia(agenciaId: string): Promise<ContatoAgencia> {
+    return fetchJson<ContatoAgencia>(`/api/atendimento/contatos/${agenciaId}`);
+  },
+
+  // Cria a Conversa (ou devolve a já existente, idempotente) pra um
+  // número que o analista escolheu na lista de Contatos/modal.
+  async iniciarConversa(input: IniciarConversaInput): Promise<Conversa> {
+    return fetchJson<Conversa>("/api/atendimento/conversas/iniciar", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
 
   // Só os aprovados — é o que pode ser usado de verdade pra iniciar
