@@ -604,6 +604,13 @@ model AnaliseIaAgencia {
   motivo       String?
   flagsRisco   String[]
   detalhamento Json?
+  // Stage2 (crédito — AMAT tipado + sofia/processos/reclamações como dict
+  // livre) e as chamadas de tool brutas (raw_data, quando
+  // `include_raw_data: true`) — ver AnaliseIaStage2/AnaliseIaRawData em
+  // analise-ia-service.ts. Adicionados em 2026-07-27 junto da integração
+  // real de AMAT/SOFIA (substitui mock-amat-sofia.util.ts).
+  stage2  Json?
+  rawData Json?
 
   avaliadoEm DateTime @default(now())
 

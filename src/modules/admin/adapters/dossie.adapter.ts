@@ -29,6 +29,7 @@ import type {
   AnaliseIaResumo,
   ParecerIaView,
   ParecerIaItemChecklist,
+  AnaliseCreditoView,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -324,6 +325,22 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
     pontosDeAlerta: analiseIa.flagsRisco,
     itensParaChecar,
     avaliadoEm: analiseIa.avaliadoEm,
+  };
+}
+
+// AMAT/SOFIA reais pro dossiê (ver ConsultaAmatCard/ConsultaSofiaCard) —
+// null/vazio tanto em cadastros anteriores a esta funcionalidade quanto
+// em cadastros que já passaram pela IA mas cujo agente não populou
+// stage2/raw_data (ex.: gate de CNAE interrompeu a análise antes do
+// stage2 rodar, ver docs/agency-analysis-params-tracking.md).
+export function paraAnaliseCreditoView(
+  analiseIa: AnaliseIaAgenciaDetalhe | null,
+): AnaliseCreditoView {
+  return {
+    amat: analiseIa?.stage2?.amat ?? null,
+    sofia: analiseIa?.stage2?.sofia ?? null,
+    rawAmat: analiseIa?.rawData?.amat ?? [],
+    rawSofia: analiseIa?.rawData?.sofia ?? [],
   };
 }
 

@@ -571,7 +571,7 @@ function ChecagemBadge({ label, valor }: { label: string; valor: boolean | null 
 // em vez de objeto nomeado, num documento real) vira "a,,b" — os dois
 // achados vieram do mesmo bug. Recursivo: filtra valor vazio em vez de
 // deixar a lacuna, e desce em objeto/array até sobrar só primitivo.
-function formatarValorExtraido(valor: unknown): string {
+export function formatarValorExtraido(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
   if (typeof valor === "string") return valor.trim().length > 0 ? valor : "—";
   if (typeof valor === "number" || typeof valor === "boolean") return String(valor);
@@ -597,7 +597,13 @@ function formatarValorExtraido(valor: unknown): string {
 // Par chave/valor genérico, mesmo tratamento usado pra `camposExtraidos` —
 // reaproveitado também por `camposExtras` e `detalhesChecagem`, que têm a
 // mesma forma (Record<string, unknown> sem schema fixo, dependem do agente).
-function CamposDetalhe({ titulo, campos }: { titulo: string; campos: Record<string, unknown> }) {
+export function CamposDetalhe({
+  titulo,
+  campos,
+}: {
+  titulo: string;
+  campos: Record<string, unknown>;
+}) {
   const entradas = Object.entries(campos);
   if (entradas.length === 0) return null;
 

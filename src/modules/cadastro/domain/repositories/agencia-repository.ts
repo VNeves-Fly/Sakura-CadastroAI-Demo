@@ -5,6 +5,8 @@ import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/servic
 import type {
   AnaliseIaResultado,
   AnaliseIaDetalhamento,
+  AnaliseIaRawData,
+  AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 
 export type { OrigemGeracaoContrato, ResultadoAnaliseIa };
@@ -250,6 +252,11 @@ export interface AnaliseIaAgenciaDetalhe {
   motivo: string | null;
   flagsRisco: string[];
   detalhamento: AnaliseIaDetalhamento | null;
+  // AMAT/SOFIA (ver ConsultaAmatCard/ConsultaSofiaCard) — null em
+  // cadastros analisados antes desta funcionalidade existir, ou quando o
+  // agente não executou o stage2/não trouxe raw_data.
+  stage2: AnaliseIaStage2 | null;
+  rawData: AnaliseIaRawData | null;
   avaliadoEm: Date;
 }
 

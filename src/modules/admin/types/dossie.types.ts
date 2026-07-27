@@ -1,5 +1,9 @@
 import type { StatusDocumento } from "@/modules/cadastro/domain/enums";
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type {
+  AnaliseIaAmat,
+  AnaliseIaRawToolCall,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 
 // Versão antiga (já substituída) de um documento — reprovada ou não,
 // preservada só pra auditoria/histórico. Nunca é "a atual" do slot (ver
@@ -97,4 +101,21 @@ export interface SignatarioFila {
   assinado: boolean;
   assinadoEm: Date | null;
   emailNaoEntregue: boolean;
+}
+
+// AMAT/SOFIA reais (ver ConsultaAmatCard/ConsultaSofiaCard), lidos do
+// stage2/raw_data persistidos em AnaliseIaAgencia (ver
+// FlysakuraAnaliseIaAdapter, `verificar_amat`/`include_raw_data`) —
+// substitui o mock front-end que existia antes (mock-amat-sofia.util.ts).
+// `amat` já vem com schema tipado do agente (AnaliseIaAmat); `sofia`
+// continua dict livre dos dois lados (sem contrato, ver AnaliseIaStage2) —
+// exibido genericamente na UI. `rawAmat`/`rawSofia` são as chamadas de
+// tool brutas (tool/args/output) que alimentam o "Ver tudo" de cada card,
+// sempre presentes (arrays vazios) mesmo quando o stage2 tipado não achou
+// nada — dão contexto de auditoria de qualquer forma.
+export interface AnaliseCreditoView {
+  amat: AnaliseIaAmat | null;
+  sofia: Record<string, unknown> | null;
+  rawAmat: AnaliseIaRawToolCall[];
+  rawSofia: AnaliseIaRawToolCall[];
 }
