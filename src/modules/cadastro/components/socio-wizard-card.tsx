@@ -72,6 +72,7 @@ export function SocioWizardCard({
     emailInvalido,
     emailErro,
     telefoneInvalido,
+    telefoneErro,
     rgErro,
     procuracaoErro,
   } = validacao;
@@ -232,7 +233,7 @@ export function SocioWizardCard({
               </div>
               {telefoneInvalido ? (
                 <span className="text-destructive text-xs font-medium">
-                  Telefone incompleto para {paisTelefone.nome}.
+                  {telefoneErro ?? `Telefone incompleto para ${paisTelefone.nome}.`}
                 </span>
               ) : null}
             </div>

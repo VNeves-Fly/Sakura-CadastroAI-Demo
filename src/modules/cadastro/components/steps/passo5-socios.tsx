@@ -21,6 +21,7 @@ const VALIDACAO_VAZIA: SocioWizardValidacao = {
   emailInvalido: false,
   emailErro: null,
   telefoneInvalido: false,
+  telefoneErro: null,
   rgErro: null,
   procuracaoErro: null,
 };
