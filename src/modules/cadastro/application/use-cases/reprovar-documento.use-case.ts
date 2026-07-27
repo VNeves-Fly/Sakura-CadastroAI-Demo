@@ -35,6 +35,13 @@ export class ReprovarDocumentoUseCase implements UseCase<ReprovarDocumentoInput,
       reprovadoPor: input.reprovadoPor,
       motivoReprovacao: input.motivo.trim(),
       reprovadoEm: new Date(),
+      // Simetria com AprovarDocumentoUseCase (que zera reprovadoPor/
+      // motivoReprovacao/reprovadoEm ao aprovar): sem isso, reverter um
+      // documento já APROVADO de volta pra REPROVADO deixava
+      // aprovadoPor/motivoAprovacao/aprovadoEm obsoletos na mesma linha.
+      aprovadoPor: null,
+      motivoAprovacao: null,
+      aprovadoEm: null,
     });
   }
 }

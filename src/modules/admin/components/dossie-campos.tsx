@@ -296,8 +296,9 @@ function AcoesAprovacaoDocumento({
           <textarea
             name="motivo"
             required
+            minLength={20}
             rows={2}
-            placeholder="Motivo da aprovação (obrigatório)"
+            placeholder="Motivo da aprovação (mínimo 20 caracteres)"
             className={TEXTAREA_MOTIVO_DECISAO}
           />
           <div className="flex gap-2">
