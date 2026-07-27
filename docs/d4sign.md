@@ -217,6 +217,23 @@ O adapter agora monta a lista com **todos** os signatários de uma vez (sócios 
 
 **Confirmado no teste (ao vivo, ainda na versão `workflow: "0"`):** e-mail de convite pra assinar foi enviado de verdade pro signatário de teste (2 vezes, com pessoas/e-mails diferentes) — documento passou pro status "Aguardando Assinaturas" (visto na chamada 3 acima). **A versão com `workflow: "1"` + estágios ainda não foi testada contra a conta real** — só unitário, pra não dar sinal de assinatura pros 4 signatários fixos (Jean/Vivi/Wagner/Jennifer) de verdade num teste.
 
+## 6.1 Baixar o PDF pra pré-visualização — `POST /documents/{uuid}/download`
+
+Usado por `D4SignAdapter.visualizarDocumento` (botão "Visualizar Documento" do contrato no dossiê, `VisualizarDocumento` com prop `url`).
+
+**⚠️ Bug encontrado (não pela doc oficial do D4Sign, que não documenta o schema da resposta — só pelo SDK PHP oficial, `d4sign/d4sign-php`, método `getfileurl`/README "Realizar o DOWNLOAD de um documento"):** esse endpoint **não devolve os bytes do PDF**. A resposta é `application/json` com um link temporário pro arquivo real:
+
+```php
+$url_final = $client->documents->getfileurl('{UUID-DOCUMENT}', 'zip');
+$arquivo = file_get_contents($url_final->url); // segundo request, arquivo de verdade
+```
+
+A implementação original tratava a resposta como bytes crus (`response.arrayBuffer()` direto), então o "PDF" servido pro `<iframe>` era o texto do JSON (`{"url":"...","name":"..."}`) com `Content-Type: application/pdf` — daí o modal abrir vazio/quebrado. Corrigido pra fazer os dois fetches: `POST /download` pra pegar `{ url }`, depois `GET` nesse `url` pra pegar o PDF de verdade.
+
+`encoding: false` no corpo pede o PDF cru (a doc oficial, `docapi.d4sign.com.br/reference/download-de-um-documento`, documenta `encoding` como boolean — `true` devolveria um link pra um `.txt` em base64 em vez do PDF).
+
+**Ainda não exercido contra a conta real após o fix** — corrigido só a partir da doc oficial + SDK, não confirmado ao vivo ainda.
+
 ## 7. Cancelar documento de teste — `POST /documents/{uuid}/cancel`
 
 Usado só pra limpar os testes acima (não faz parte do fluxo do adapter).

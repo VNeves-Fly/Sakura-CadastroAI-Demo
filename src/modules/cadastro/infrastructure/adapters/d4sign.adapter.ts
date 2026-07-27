@@ -123,24 +123,32 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     return { registrado: true };
   }
 
-  // Baixa os bytes crus do PDF (`encoding: "0"`) em vez do modo base64 —
-  // evita depender do nome do campo que o D4Sign usaria pra embrulhar o
-  // base64 numa resposta JSON, formato não documentado publicamente (ver
-  // docs/d4sign.md). Resposta binária, por isso não usa o helper
-  // `request()` (que sempre faz `.json()`).
+  // `/download` não devolve os bytes do PDF direto — devolve um JSON com
+  // um link temporário pro arquivo real (confirmado no SDK oficial:
+  // `getfileurl()` retorna um objeto e o exemplo do README busca o PDF
+  // com `file_get_contents($url_final->url)`). Por isso precisa dos dois
+  // fetches: um pro link assinado, outro pro arquivo em si. `encoding:
+  // false` pede o PDF cru (não base64) — confirmado na doc oficial
+  // (`docapi.d4sign.com.br/reference/download-de-um-documento`).
   async visualizarDocumento(provedorId: string): Promise<ArquivoContrato> {
     const url = `${baseUrl()}/documents/${provedorId}/download?tokenAPI=${requireEnv("D4SIGN_TOKEN_API")}&cryptKey=${requireEnv("D4SIGN_CRYPT_KEY")}`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "pdf", language: "pt", encoding: "0" }),
+      body: JSON.stringify({ type: "pdf", language: "pt", encoding: false }),
     });
 
     if (!response.ok) {
       throw new Error(`D4Sign /documents/${provedorId}/download respondeu ${response.status}`);
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
+    const { url: signedUrl } = (await response.json()) as { url: string };
+    const arquivo = await fetch(signedUrl);
+    if (!arquivo.ok) {
+      throw new Error(`D4Sign download (signed-URL) respondeu ${arquivo.status}`);
+    }
+
+    const buffer = Buffer.from(await arquivo.arrayBuffer());
     return { buffer, mimeType: "application/pdf" };
   }
 
