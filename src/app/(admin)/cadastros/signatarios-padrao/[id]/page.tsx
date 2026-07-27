@@ -20,7 +20,7 @@ export default async function EditarSignatarioPadraoPage({ params }: { params: {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link
-            href="/painel/signatarios-padrao"
+            href="/cadastros/signatarios-padrao"
             className="text-muted-foreground hover:text-foreground text-xs"
           >
             ← Voltar

@@ -9,7 +9,7 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 // Arquivo = destino final das agências depois que saem do funil de
-// onboarding (ver /painel) — só 2 abas, sem fila intermediária: Ativas e
+// onboarding (ver /cadastros) — só 2 abas, sem fila intermediária: Ativas e
 // Reprovadas. Nenhum outro status entra aqui.
 const ABAS = [
   { chave: "ativas", label: "Ativas", status: STATUS_ATIVO },
@@ -75,7 +75,7 @@ export default async function ArquivoPage({ searchParams }: ArquivoPageProps) {
         </p>
       </div>
 
-      {/* Abas — só 2, sem fila intermediária (diferente do /painel). */}
+      {/* Abas — só 2, sem fila intermediária (diferente do /cadastros). */}
       <div className="flex gap-2">
         {ABAS.map((aba) => {
           const ativa = aba.chave === abaAtual.chave;

@@ -32,6 +32,7 @@ export interface SocioChat {
   telefone: TelefoneChat | null;
   estadoCivil: string;
   estadoCivilLabel: string;
+  nacionalidade: string;
   // Extraídos da análise real do RG/CNH (analisarDocumentoIdentificacao) —
   // nunca perguntados diretamente, mesmo padrão de autopreenchimento do
   // /cadastro. Divergência com o que o sócio já digitou não é mostrada.
@@ -124,6 +125,8 @@ export type PendingTag =
   | "cpf"
   | "email"
   | "estado_civil"
+  | "nacionalidade_brasileiro"
+  | "nacionalidade_texto"
   | "endereco_socio"
   | "confirmar_endereco_socio"
   | "documento_socio"

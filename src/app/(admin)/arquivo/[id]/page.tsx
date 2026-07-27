@@ -13,10 +13,6 @@ import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
   Campo,
   CamposGrid,
-  formatarData,
-  formatarDataCurta,
-  formatarMoedaBrl,
-  formatarEnderecoReceita,
   SubsecaoLabel,
   SituacaoCadastralBadge,
   CnaesDetalhe,
@@ -24,12 +20,17 @@ import {
   ParecerIa,
   HistoricoDocumento,
 } from "@/modules/admin/components/dossie-campos";
+import {
+  formatarData,
+  formatarDataCurta,
+  formatarMoedaBrl,
+  formatarEnderecoReceita,
+} from "@/modules/admin/utils/dossie-campos.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import {
   ConsultaAmatCard,
   ConsultaSofiaCard,
 } from "@/modules/admin/components/consulta-amat-sofia";
-import { consultarAmat, consultarSofia } from "@/modules/admin/utils/mock-amat-sofia.util";
 import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
@@ -55,7 +56,7 @@ const ABAS = [
 ] as const;
 
 // Aba Documentação do arquivo é só consulta — os documentos aqui já
-// foram aprovados no funil (ver /painel/[id]); não faz sentido reabrir
+// foram aprovados no funil (ver /cadastros/[id]); não faz sentido reabrir
 // aprovar/reprovar por uma agência já finalizada (Ativa ou Reprovada).
 // Um botão "Atualizar" (analista sobe uma versão nova, com log de quem/
 // quando) ficou de fora por enquanto — exigiria uma coluna nova no
@@ -130,27 +131,18 @@ export default async function ArquivoDossiePage({
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     parecerIa,
+    analiseCredito,
     dadosReceita,
   } = view;
 
   // Arquivo só existe pra estados finais — qualquer outro status ainda
-  // está em andamento no funil normal (ver /painel/[id]).
+  // está em andamento no funil normal (ver /cadastros/[id]).
   if (agencia.status !== STATUS_ATIVO && agencia.status !== STATUS_RECUSADO) {
-    redirect(`/painel/${agencia.id}`);
+    redirect(`/cadastros/${agencia.id}`);
   }
 
   const abaAtual = ABAS.find((aba) => aba.chave === searchParams.aba) ?? ABAS[0];
   const reprovada = agencia.status === STATUS_RECUSADO;
-
-  const sociosParaConsulta = representantesLegais.map((socio) => ({
-    id: socio.id,
-    nome: socio.nome,
-    cpf: socio.cpf,
-  }));
-  const [amat, sofia] = await Promise.all([
-    consultarAmat(sociosParaConsulta),
-    consultarSofia(agencia.cnpj, sociosParaConsulta),
-  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -241,7 +233,11 @@ export default async function ArquivoDossiePage({
                   <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
                   <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
                   <Campo label="Contrato Social">
-                    <CampoDocumento documento={contratoSocial} analise={analiseIaContratoSocial} />
+                    <CampoDocumento
+                      documento={contratoSocial}
+                      analise={analiseIaContratoSocial}
+                      somenteLeitura
+                    />
                   </Campo>
                 </CamposGrid>
               </SecaoColapsavel>
@@ -308,8 +304,8 @@ export default async function ArquivoDossiePage({
                 )}
               </SecaoColapsavel>
 
-              <ConsultaAmatCard amat={amat} />
-              <ConsultaSofiaCard sofia={sofia} />
+              <ConsultaAmatCard amat={analiseCredito.amat} rawAmat={analiseCredito.rawAmat} />
+              <ConsultaSofiaCard sofia={analiseCredito.sofia} rawSofia={analiseCredito.rawSofia} />
 
               <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
                 <div className="flex flex-col gap-3">
@@ -338,11 +334,12 @@ export default async function ArquivoDossiePage({
                           <CampoDocumento
                             documento={socio.rg}
                             analise={analiseIaPorSocioId.get(socio.id) ?? null}
+                            somenteLeitura
                           />
                         </Campo>
                         {socio.procuracao ? (
                           <Campo label="Procuração">
-                            <CampoDocumento documento={socio.procuracao} />
+                            <CampoDocumento documento={socio.procuracao} somenteLeitura />
                           </Campo>
                         ) : null}
                       </CamposGrid>

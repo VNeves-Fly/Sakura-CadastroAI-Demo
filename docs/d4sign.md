@@ -283,7 +283,7 @@ uuid=doc-uuid-123, type_post=2, email=socio@agencia.com, message=Caixa de entrad
 → { "processado": true }
 ```
 
-A tela `/painel/[id]` (seção "Contrato") mostra um badge **"E-mail não entregue"** ao lado do nome de quem está na lista, tanto na Fase 1 (sócios) quanto na Fase 2 (Sakura — que passou a listar os signatários fixos ativos de verdade, em vez do texto fixo "Sakura Consolidadora").
+A tela `/cadastros/[id]` (seção "Contrato") mostra um badge **"E-mail não entregue"** ao lado do nome de quem está na lista, tanto na Fase 1 (sócios) quanto na Fase 2 (Sakura — que passou a listar os signatários fixos ativos de verdade, em vez do texto fixo "Sakura Consolidadora").
 
 **⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário, mesma limitação do 8.1 (sem `D4SIGN_WEBHOOK_URL` pública em dev).
 

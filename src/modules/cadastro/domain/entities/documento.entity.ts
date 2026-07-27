@@ -19,6 +19,10 @@ export interface DocumentoProps {
   reprovadoPor: string | null;
   motivoReprovacao: string | null;
   reprovadoEm: Date | null;
+  aprovadoPor: string | null;
+  motivoAprovacao: string | null;
+  aprovadoEm: Date | null;
+  inseridoManualmentePor: string | null;
 
   createdAt: Date;
   updatedAt: Date;
@@ -91,6 +95,22 @@ export class Documento {
     return this.props.reprovadoEm;
   }
 
+  get aprovadoPor(): string | null {
+    return this.props.aprovadoPor;
+  }
+
+  get motivoAprovacao(): string | null {
+    return this.props.motivoAprovacao;
+  }
+
+  get aprovadoEm(): Date | null {
+    return this.props.aprovadoEm;
+  }
+
+  get inseridoManualmentePor(): string | null {
+    return this.props.inseridoManualmentePor;
+  }
+
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -99,14 +119,16 @@ export class Documento {
     return this.props.updatedAt;
   }
 
-  toJSON(): Omit<DocumentoProps, "reprovadoEm" | "createdAt" | "updatedAt"> & {
+  toJSON(): Omit<DocumentoProps, "reprovadoEm" | "aprovadoEm" | "createdAt" | "updatedAt"> & {
     reprovadoEm: string | null;
+    aprovadoEm: string | null;
     createdAt: string;
     updatedAt: string;
   } {
     return {
       ...this.props,
       reprovadoEm: this.props.reprovadoEm?.toISOString() ?? null,
+      aprovadoEm: this.props.aprovadoEm?.toISOString() ?? null,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
     };

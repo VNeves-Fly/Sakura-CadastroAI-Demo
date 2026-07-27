@@ -1,4 +1,4 @@
-// Domínio da página /painel/eventos — back-end real (ver
+// Domínio da página /cadastros/eventos — back-end real (ver
 // eventos-admin.controller.ts): um Evento (ex.: "SUMMIT 2026 SP") tem um
 // slug único, usado no lugar do id bruto na rota pública /cadastro
 // (`?evento=<slug>&executivo=&associacao=`). O link personalizado

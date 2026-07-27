@@ -11,6 +11,8 @@ import { PrismaContratoRepository } from "@/modules/cadastro/infrastructure/repo
 import { PrismaContratoSignatarioRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-signatario.repository";
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
 import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
+import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
+import { PrismaHistoricoEdicaoCadastroRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-historico-edicao-cadastro.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
@@ -27,6 +29,10 @@ import { PrismaMensagemRepository } from "@/modules/atendimento/infrastructure/r
 import { ListarDocumentosPendentesUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos-pendentes.use-case";
 import { VincularMidiaComoDocumentoUseCase } from "@/modules/cadastro/application/use-cases/vincular-midia-como-documento.use-case";
 import type { VincularMidiaComoDocumentoInput } from "@/modules/cadastro/application/use-cases/vincular-midia-como-documento.use-case";
+import { InserirDocumentoManualUseCase } from "@/modules/cadastro/application/use-cases/inserir-documento-manual.use-case";
+import type { InserirDocumentoManualInput } from "@/modules/cadastro/application/use-cases/inserir-documento-manual.use-case";
+import { EditarDadosEmpresaUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
+import type { EditarDadosEmpresaInput } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { ObterDadosReceitaUseCase } from "@/modules/cadastro/application/use-cases/obter-dados-receita.use-case";
@@ -65,7 +71,10 @@ import {
 import { ListarDocumentosUseCase } from "@/modules/cadastro/application/use-cases/listar-documentos.use-case";
 import { ObterDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-documento.use-case";
 import { ObterAnaliseIaDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-ia-documento.use-case";
-import { AprovarDocumentoUseCase } from "@/modules/cadastro/application/use-cases/aprovar-documento.use-case";
+import {
+  AprovarDocumentoUseCase,
+  type AprovarDocumentoInput,
+} from "@/modules/cadastro/application/use-cases/aprovar-documento.use-case";
 import {
   ReprovarDocumentoUseCase,
   type ReprovarDocumentoInput,
@@ -83,6 +92,7 @@ import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
+import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-assinaturas-contrato.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
 import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
 import { ObterSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/obter-signatario-padrao.use-case";
@@ -115,6 +125,8 @@ const contratoRepository = new PrismaContratoRepository(prisma);
 const contratoSignatarioRepository = new PrismaContratoSignatarioRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaRepository(prisma);
+const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
+const historicoEdicaoCadastroRepository = new PrismaHistoricoEdicaoCadastroRepository(prisma);
 // Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
 // configurada, senão lê do disco local (uploads/).
 const documentoArquivoService = process.env.GCS_BUCKET_NAME
@@ -243,7 +255,10 @@ export const cadastroAdminController = {
   },
 
   atualizarRepresentanteLegal(input: AtualizarRepresentanteLegalInput) {
-    const useCase = new AtualizarRepresentanteLegalUseCase(representanteLegalRepository);
+    const useCase = new AtualizarRepresentanteLegalUseCase(
+      representanteLegalRepository,
+      historicoEdicaoCadastroRepository,
+    );
     return useCase.execute(input);
   },
 
@@ -267,9 +282,9 @@ export const cadastroAdminController = {
     return useCase.execute(documentoId);
   },
 
-  aprovarDocumento(id: string) {
+  aprovarDocumento(input: AprovarDocumentoInput) {
     const useCase = new AprovarDocumentoUseCase(documentoRepository);
-    return useCase.execute(id);
+    return useCase.execute(input);
   },
 
   reprovarDocumento(input: ReprovarDocumentoInput) {
@@ -298,6 +313,15 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
+  inserirDocumentoManual(input: InserirDocumentoManualInput) {
+    const useCase = new InserirDocumentoManualUseCase(
+      documentoRepository,
+      agenciaRepository,
+      fileStorage,
+    );
+    return useCase.execute(input);
+  },
+
   solicitarReenvioDocumentos(input: SolicitarReenvioDocumentosInput) {
     const useCase = new SolicitarReenvioDocumentosUseCase(agenciaRepository, emailSender);
     return useCase.execute(input);
@@ -322,6 +346,11 @@ export const cadastroAdminController = {
     const useCase = new ListarEmailsFalhaEntregaContratoUseCase(
       contratoEmailFalhaEntregaRepository,
     );
+    return useCase.execute(contratoId);
+  },
+
+  listarAssinaturasContrato(contratoId: string) {
+    const useCase = new ListarAssinaturasContratoUseCase(contratoAssinaturaRepository);
     return useCase.execute(contratoId);
   },
 
@@ -358,5 +387,18 @@ export const cadastroAdminController = {
   restaurarSignatarioPadrao(id: string) {
     const useCase = new RestaurarSignatarioPadraoUseCase(signatarioPadraoRepository);
     return useCase.execute(id);
+  },
+
+  listarHistoricoEdicoes(entidadeId: string) {
+    return historicoEdicaoCadastroRepository.findByEntidadeId(entidadeId);
+  },
+
+  editarDadosEmpresa(input: EditarDadosEmpresaInput) {
+    const useCase = new EditarDadosEmpresaUseCase(
+      agenciaRepository,
+      cadastroComplementarRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
   },
 };

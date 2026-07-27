@@ -27,6 +27,10 @@ export function documentoRecordToDomain(record: DocumentoRecord): Documento {
     reprovadoPor: record.reprovadoPor,
     motivoReprovacao: record.motivoReprovacao,
     reprovadoEm: record.reprovadoEm,
+    aprovadoPor: record.aprovadoPor,
+    motivoAprovacao: record.motivoAprovacao,
+    aprovadoEm: record.aprovadoEm,
+    inseridoManualmentePor: record.inseridoManualmentePor,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   });

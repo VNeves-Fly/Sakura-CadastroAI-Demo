@@ -56,6 +56,8 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       flagsRisco: [],
       detalhamento: null,
       stage1: null,
+      stage2: null,
+      rawData: null,
     });
 
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
@@ -66,11 +68,12 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       channel: "api",
       language: "pt-br",
       session_id: "19131243000197",
+      include_raw_data: true,
       analysis_data: {
         cnpj: "19131243000197",
         focus: "completo",
         verificar_processos: false,
-        verificar_amat: false,
+        verificar_amat: true,
         razao_social: "Agência Teste",
         email: "contato@agenciateste.com",
         socios: [
@@ -88,6 +91,7 @@ describe("FlysakuraAnaliseIaAdapter", () => {
             ],
           },
         ],
+        amat_cpfs_socios: ["39053344705"],
       },
     });
   });
@@ -112,6 +116,8 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       flagsRisco: ["cnae_incompativel"],
       detalhamento: null,
       stage1: null,
+      stage2: null,
+      rawData: null,
     });
   });
 
@@ -302,6 +308,139 @@ describe("FlysakuraAnaliseIaAdapter", () => {
           ],
         },
       ],
+    });
+  });
+
+  it("manda amat_cpfs_socios com os CPFs de todos os sócios", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ parecer: "APROVADO", justificativa: "", flags_risco: [] }),
+    });
+
+    await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    const [, opts] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(JSON.parse(opts.body).analysis_data.amat_cpfs_socios).toEqual(["39053344705"]);
+  });
+
+  it("mapeia o stage2 (AMAT tipado + sofia/processos/reclamações como dict livre)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parecer: "APROVADO",
+        justificativa: "",
+        flags_risco: [],
+        stage2: {
+          sofia: { status: "CONSTA", motivo: "restrição cadastral" },
+          processos_judiciais: null,
+          reclamacoes: null,
+          amat: {
+            consultado: true,
+            ultima_consulta: "2026-07-27T10:00:00Z",
+            empresa: {
+              pefin: { qtde: 1, total: 500.5, itens: [{ credor: "Banco X" }] },
+              refin: { qtde: 0, total: 0, itens: [] },
+              protestos: { qtde: 0, total: 0, itens: [] },
+              cheques_sem_fundo: { qtde: 0, total: 0, itens: [] },
+              dividas_vencidas: { qtde: 0, total: 0, itens: [] },
+              total_pendencias: 500.5,
+            },
+            socios_com_restricao: [
+              {
+                nome: "Fulano de Tal",
+                cpf: "39053344705",
+                perc_participacao: 50,
+                cargo: "Sócio-administrador",
+                pendencias: {
+                  pefin: { qtde: 2, total: 1200, itens: [] },
+                  refin: { qtde: 0, total: 0, itens: [] },
+                  protestos: { qtde: 0, total: 0, itens: [] },
+                  cheques_sem_fundo: { qtde: 0, total: 0, itens: [] },
+                  dividas_vencidas: { qtde: 0, total: 0, itens: [] },
+                  total_pendencias: 1200,
+                },
+              },
+            ],
+            total_geral: 1700.5,
+          },
+          debt_total: 1700.5,
+        },
+      }),
+    });
+
+    const resultado = await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    expect(resultado.stage2).toEqual({
+      sofia: { status: "CONSTA", motivo: "restrição cadastral" },
+      processosJudiciais: null,
+      reclamacoes: null,
+      amat: {
+        consultado: true,
+        ultimaConsulta: "2026-07-27T10:00:00Z",
+        empresa: {
+          pefin: { qtde: 1, total: 500.5, itens: [{ credor: "Banco X" }] },
+          refin: { qtde: 0, total: 0, itens: [] },
+          protestos: { qtde: 0, total: 0, itens: [] },
+          chequesSemFundo: { qtde: 0, total: 0, itens: [] },
+          dividasVencidas: { qtde: 0, total: 0, itens: [] },
+          totalPendencias: 500.5,
+        },
+        sociosComRestricao: [
+          {
+            nome: "Fulano de Tal",
+            cpf: "39053344705",
+            percParticipacao: 50,
+            cargo: "Sócio-administrador",
+            pendencias: {
+              pefin: { qtde: 2, total: 1200, itens: [] },
+              refin: { qtde: 0, total: 0, itens: [] },
+              protestos: { qtde: 0, total: 0, itens: [] },
+              chequesSemFundo: { qtde: 0, total: 0, itens: [] },
+              dividasVencidas: { qtde: 0, total: 0, itens: [] },
+              totalPendencias: 1200,
+            },
+          },
+        ],
+        totalGeral: 1700.5,
+      },
+      debtTotal: 1700.5,
+    });
+  });
+
+  it("repassa raw_data como veio, agrupado por fonte (tool/args/output)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parecer: "APROVADO",
+        justificativa: "",
+        flags_risco: [],
+        raw_data: {
+          amat: [
+            {
+              tool: "search_amat_debts",
+              args: { documento: "39053344705" },
+              output: { encontrado: true, total: 1200 },
+            },
+          ],
+          sofia: [{ tool: "sofia_agency_lookup", args: { cnpj: "19131243000197" }, output: null }],
+        },
+      }),
+    });
+
+    const resultado = await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    expect(resultado.rawData).toEqual({
+      amat: [
+        {
+          tool: "search_amat_debts",
+          args: { documento: "39053344705" },
+          output: { encontrado: true, total: 1200 },
+        },
+      ],
+      sofia: [{ tool: "sofia_agency_lookup", args: { cnpj: "19131243000197" }, output: null }],
     });
   });
 

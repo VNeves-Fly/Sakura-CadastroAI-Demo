@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { ToastViewport } from "@/components/ui/toast-viewport";
 import { AdminSidebar } from "@/modules/admin/components/admin-sidebar";
 import { AdminHeader } from "@/modules/admin/components/admin-header";
 
@@ -15,6 +16,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <SidebarProvider>
+      <ToastViewport />
       <AdminSidebar />
       <SidebarInset>
         <AdminHeader

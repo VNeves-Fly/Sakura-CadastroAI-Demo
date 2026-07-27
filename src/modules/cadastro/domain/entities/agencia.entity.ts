@@ -57,6 +57,10 @@ export class Agencia {
     return this.props.emailContato;
   }
 
+  get telefoneContato(): string {
+    return this.props.telefoneContato;
+  }
+
   get origem(): string | null {
     return this.props.origem;
   }

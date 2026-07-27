@@ -3,6 +3,8 @@ import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/servic
 import type {
   AnaliseIaResultado,
   AnaliseIaDetalhamento,
+  AnaliseIaRawData,
+  AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import {
   Prisma,
@@ -116,6 +118,12 @@ function analiseIaFinalParaPrisma(
     detalhamento: avaliacao.detalhamento
       ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    stage2: avaliacao.stage2
+      ? (avaliacao.stage2 as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
+    rawData: avaliacao.rawData
+      ? (avaliacao.rawData as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
     // Explícito (não só o @default(now()) do create): a linha já existe
     // desde a persistência do cadastro (resultado=EM_ANALISE), então sem
     // isso um upsert de update manteria o avaliadoEm original (hora da
@@ -130,6 +138,8 @@ interface AnaliseIaAgenciaRecord {
   motivo: string | null;
   flagsRisco: string[];
   detalhamento: Prisma.JsonValue | null;
+  stage2: Prisma.JsonValue | null;
+  rawData: Prisma.JsonValue | null;
   avaliadoEm: Date;
 }
 
@@ -143,6 +153,8 @@ function analiseIaAgenciaToDomain(
     motivo: record.motivo,
     flagsRisco: record.flagsRisco,
     detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
+    stage2: record.stage2 as unknown as AnaliseIaStage2 | null,
+    rawData: record.rawData as unknown as AnaliseIaRawData | null,
     avaliadoEm: record.avaliadoEm,
   };
 }
@@ -218,6 +230,7 @@ function representanteToDomain(
 }
 
 interface CadastroComplementarRecord {
+  id: string;
   telefoneComercial: string | null;
   emailOperacional: string | null;
   emailComercial: string | null;
@@ -239,6 +252,7 @@ interface CadastroComplementarRecord {
 
 function complementarToDomain(record: CadastroComplementarRecord): CadastroComplementarDetalhe {
   return {
+    id: record.id,
     telefoneComercial: record.telefoneComercial,
     emailOperacional: record.emailOperacional,
     emailComercial: record.emailComercial,
@@ -257,6 +271,17 @@ function complementarToDomain(record: CadastroComplementarRecord): CadastroCompl
     favorecidoNome: record.favorecidoNome,
     favorecidoDoc: record.favorecidoDoc,
   };
+}
+
+// Filtro de igualdade ou `IN`, conforme o filtro veio como valor único ou
+// lista (multiselect) — array vazio (nenhuma opção selecionada) vira
+// `undefined` pra não gerar um `IN ()` que não bate com nada.
+function condicaoFiltroIn(
+  valor: string | string[] | undefined,
+): string | { in: string[] } | undefined {
+  if (!valor) return undefined;
+  if (!Array.isArray(valor)) return valor;
+  return valor.length > 0 ? { in: valor } : undefined;
 }
 
 export class PrismaAgenciaRepository implements AgenciaRepository {
@@ -502,6 +527,17 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return this.toDomain(record);
   }
 
+  async atualizarDadosCadastrais(
+    id: string,
+    data: { razaoSocial?: string; emailContato?: string; telefoneContato?: string },
+  ): Promise<Agencia> {
+    const record = await this.prisma.agencia.update({
+      where: { id },
+      data,
+    });
+    return this.toDomain(record);
+  }
+
   async salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia> {
     const record = await this.prisma.agencia.update({
       where: { id },
@@ -593,9 +629,14 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         : (filtros.status as PrismaStatusAgencia);
     }
 
-    if (filtros.executivoId) where.executivoId = filtros.executivoId;
-    if (filtros.associacaoId) where.associacaoId = filtros.associacaoId;
-    if (filtros.eventoId) where.eventoId = filtros.eventoId;
+    const executivoCondicao = condicaoFiltroIn(filtros.executivoId);
+    if (executivoCondicao !== undefined) where.executivoId = executivoCondicao;
+
+    const associacaoCondicao = condicaoFiltroIn(filtros.associacaoId);
+    if (associacaoCondicao !== undefined) where.associacaoId = associacaoCondicao;
+
+    const eventoCondicao = condicaoFiltroIn(filtros.eventoId);
+    if (eventoCondicao !== undefined) where.eventoId = eventoCondicao;
 
     const [records, total] = await Promise.all([
       this.prisma.agencia.findMany({

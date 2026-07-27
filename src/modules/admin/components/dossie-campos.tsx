@@ -1,9 +1,16 @@
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
+"use client";
+
+import {
+  useState,
+  Children,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
-import type {
-  DadosReceitaEndereco,
-  DadosReceitaCnae,
-} from "@/modules/cadastro/domain/entities/dados-receita.entity";
+import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
+import type { DadosReceitaCnae } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
   AnaliseIaResumo,
   DocumentoRevisao,
@@ -12,9 +19,10 @@ import type {
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
+import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
-// (/painel/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
+// (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
 // "ficha" de Empresa/Receita/Sócios, sem nenhuma regra de negócio
 // própria de cada rota.
 
@@ -70,29 +78,6 @@ export function CamposGrid({ children, className }: { children: ReactNode; class
       {itensAjustados}
     </dl>
   );
-}
-
-export function formatarData(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
-}
-
-export function formatarDataCurta(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
-}
-
-export function formatarMoedaBrl(valor: number | null): string {
-  if (valor === null) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
-}
-
-// Endereço de Dados da Receita tem campos todos opcionais (a Receita nem
-// sempre devolve tudo) — formatação própria, diferente de formatarEndereco
-// (que espera os campos sempre preenchidos, vindos do que o próprio
-// usuário digitou no wizard).
-export function formatarEnderecoReceita(endereco: DadosReceitaEndereco | null): string {
-  if (!endereco || !endereco.logradouro) return "—";
-  const complemento = endereco.complemento ? `, ${endereco.complemento}` : "";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro ?? "—"}, ${endereco.cidade ?? "—"}/${endereco.uf ?? "—"}`;
 }
 
 // Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
@@ -165,11 +150,254 @@ export function CnaesDetalhe({ cnaes }: { cnaes: DadosReceitaCnae[] }) {
   );
 }
 
+type AprovarDocumentoActionFn = (
+  agenciaId: string,
+  documentoId: string,
+  formData: FormData,
+) => Promise<void>;
+type ReprovarDocumentoActionFn = AprovarDocumentoActionFn;
+type InserirDocumentoManualActionFn = (
+  agenciaId: string,
+  tipo: TipoDocumento,
+  representanteLegalId: string | null,
+  formData: FormData,
+) => Promise<void>;
+
+// Quem/quando/por quê o documento chegou no status atual — sempre visível
+// (ver infoAuditoria em VisualizarDocumento), não só no `title` de um
+// badge. Aprovação manual passou a exigir motivo igual à reprovação
+// (decisão do usuário, 2026-07-26: se um analista decidiu manualmente em
+// vez de deixar a IA seguir sozinha, algo levou a essa exceção). PENDENTE
+// sem decisão nenhuma não tem nada a mostrar aqui, exceto quando foi
+// inserido manualmente pelo analista (ver Documento.inseridoManualmentePor)
+// ou reenviado pelo cliente depois de uma reprovação (`reenviado`, ver
+// documentosAguardandoRevisaoPosReenvio em dossie.adapter.ts) — aí mostra
+// só o contexto de por que está aguardando, já que a decisão em si ainda
+// não aconteceu.
+function AuditoriaDocumento({
+  documento,
+  reenviado = false,
+}: {
+  documento: Documento;
+  reenviado?: boolean;
+}) {
+  if (documento.status === "APROVADO") {
+    return (
+      <p className="text-success text-xs font-medium">
+        Aprovado por {documento.aprovadoPor ?? "—"}
+        {documento.aprovadoEm ? ` em ${formatarData(documento.aprovadoEm)}` : ""}
+        {documento.motivoAprovacao ? ` — motivo: ${documento.motivoAprovacao}` : ""}
+      </p>
+    );
+  }
+
+  if (documento.status === "REPROVADO") {
+    return (
+      <p className="text-destructive text-xs font-medium">
+        Reprovado por {documento.reprovadoPor ?? "—"}
+        {documento.reprovadoEm ? ` em ${formatarData(documento.reprovadoEm)}` : ""}
+        {documento.motivoReprovacao ? ` — motivo: ${documento.motivoReprovacao}` : ""}
+      </p>
+    );
+  }
+
+  if (documento.inseridoManualmentePor) {
+    return (
+      <p className="text-muted-foreground text-xs font-medium">
+        Enviado manualmente por {documento.inseridoManualmentePor} em{" "}
+        {formatarData(documento.createdAt)}, aguardando decisão.
+      </p>
+    );
+  }
+
+  if (reenviado) {
+    return (
+      <span className="bg-warning/15 text-warning w-fit rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
+        Reenviado — aguardando revisão
+      </span>
+    );
+  }
+
+  return null;
+}
+
+const BOTAO_DECISAO_DOCUMENTO =
+  "rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
+const TEXTAREA_MOTIVO_DECISAO =
+  "border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2";
+
+// Aprovar/Reprovar do documento — sempre dentro do modal de
+// pré-visualização (ver acoes em VisualizarDocumento), nunca decidido só
+// olhando a linha/rótulo. As duas ações abrem uma textarea de motivo
+// obrigatória antes de confirmar — aprovar deixou de ser 1 clique
+// (decisão do usuário, 2026-07-26): aprovação manual é exceção (a IA
+// aprovaria sozinha se estivesse tudo certo), então precisa do mesmo
+// "por quê" que a reprovação já exige.
+function AcoesAprovacaoDocumento({
+  agenciaId,
+  documentoId,
+  status,
+  aprovarDocumentoAction,
+  reprovarDocumentoAction,
+  somenteLeitura = false,
+}: {
+  agenciaId: string;
+  documentoId: string;
+  status: Documento["status"];
+  aprovarDocumentoAction: AprovarDocumentoActionFn;
+  reprovarDocumentoAction: ReprovarDocumentoActionFn;
+  somenteLeitura?: boolean;
+}) {
+  const [modo, setModo] = useState<"aprovar" | "reprovar" | null>(null);
+
+  if (somenteLeitura) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setModo(modo === "aprovar" ? null : "aprovar")}
+          className={`${BOTAO_DECISAO_DOCUMENTO} ${
+            status === "APROVADO"
+              ? "border-success bg-success text-success-foreground"
+              : "border-input text-foreground hover:bg-accent"
+          }`}
+        >
+          Aprovar
+        </button>
+        <button
+          type="button"
+          onClick={() => setModo(modo === "reprovar" ? null : "reprovar")}
+          className={`${BOTAO_DECISAO_DOCUMENTO} border-input text-foreground hover:bg-accent`}
+        >
+          Reprovar
+        </button>
+      </div>
+
+      {modo === "aprovar" ? (
+        <form
+          action={async (formData) => {
+            await aprovarDocumentoAction(agenciaId, documentoId, formData);
+            setModo(null);
+          }}
+          className="flex flex-col gap-2 border-t border-dashed pt-2"
+        >
+          <textarea
+            name="motivo"
+            required
+            rows={2}
+            placeholder="Motivo da aprovação (obrigatório)"
+            className={TEXTAREA_MOTIVO_DECISAO}
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="border-success bg-success text-success-foreground rounded-full border px-3 py-1 text-xs font-semibold transition"
+            >
+              Confirmar aprovação
+            </button>
+            <button
+              type="button"
+              onClick={() => setModo(null)}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1 text-xs font-medium transition"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {modo === "reprovar" ? (
+        <form
+          action={async (formData) => {
+            await reprovarDocumentoAction(agenciaId, documentoId, formData);
+            setModo(null);
+          }}
+          className="flex flex-col gap-2 border-t border-dashed pt-2"
+        >
+          <textarea
+            name="motivo"
+            required
+            rows={2}
+            placeholder="Motivo da reprovação (obrigatório — o cliente vê isso na página de reenvio)"
+            className={TEXTAREA_MOTIVO_DECISAO}
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="border-destructive bg-destructive text-destructive-foreground rounded-full border px-3 py-1 text-xs font-semibold transition"
+            >
+              Confirmar reprovação
+            </button>
+            <button
+              type="button"
+              onClick={() => setModo(null)}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1 text-xs font-medium transition"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+// Upload manual do analista pra um slot vazio ou reprovado (ver
+// InserirDocumentoManualUseCase) — entra PENDENTE, segue o mesmo
+// Aprovar/Reprovar de sempre. Só aparece quando `!somenteLeitura` (chamado
+// pelo pai, ver CampoDocumento).
+function InserirDocumentoManual({
+  agenciaId,
+  tipo,
+  representanteLegalId,
+  inserirDocumentoManualAction,
+}: {
+  agenciaId: string;
+  tipo: TipoDocumento;
+  representanteLegalId: string | null;
+  inserirDocumentoManualAction: InserirDocumentoManualActionFn;
+}) {
+  const [enviando, setEnviando] = useState(false);
+
+  return (
+    <form
+      action={async (formData) => {
+        setEnviando(true);
+        try {
+          await inserirDocumentoManualAction(agenciaId, tipo, representanteLegalId, formData);
+        } finally {
+          setEnviando(false);
+        }
+      }}
+      className="flex flex-wrap items-center gap-2"
+    >
+      <input
+        type="file"
+        name="arquivo"
+        required
+        accept="application/pdf,image/jpeg,image/png"
+        className="text-muted-foreground max-w-56 text-xs"
+      />
+      <button
+        type="submit"
+        disabled={enviando}
+        className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1 text-xs font-semibold transition disabled:opacity-50"
+      >
+        {enviando ? "Enviando..." : "Inserir documento"}
+      </button>
+    </form>
+  );
+}
+
 // Referência de arquivo (contrato social, RG, procuração) em destaque —
 // mesmo tratamento de "código"/citação usado no mapa-redesign-sakura.html
 // (fundo tintado + cor de marca + monoespaçada). Clicável: abre a
-// pré-visualização em modal (ver VisualizarDocumento) em vez de só
-// mostrar o nome do arquivo sem nenhuma ação.
+// pré-visualização em modal (ver VisualizarDocumento), agora sempre com
+// aprovar/reprovar + auditoria embutidos — antes só a lista da seção
+// "Documentação" tinha isso, e o mesmo documento aparecia sem ação aqui
+// (decisão do usuário, 2026-07-26: centralizar num modal só).
 //
 // `analise` é opcional e distingue dois casos: omitido (não passado) mantém
 // o modal em coluna única de sempre (usado no histórico de versões
@@ -178,17 +406,54 @@ export function CnaesDetalhe({ cnaes }: { cnaes: DadosReceitaCnae[] }) {
 export function Arquivo({
   documento,
   analise,
+  agenciaId,
+  aprovarDocumentoAction,
+  reprovarDocumentoAction,
+  somenteLeitura = false,
+  reenviado = false,
 }: {
   documento: Documento;
   analise?: AnaliseIaResumo | null;
+  // Opcionais: /arquivo/[id] mostra o mesmo dossiê já finalizado, sempre
+  // somente leitura, sem action de aprovar/reprovar disponível — ver
+  // guarda abaixo (só monta AcoesAprovacaoDocumento quando os três estão
+  // presentes).
+  agenciaId?: string;
+  aprovarDocumentoAction?: AprovarDocumentoActionFn;
+  reprovarDocumentoAction?: ReprovarDocumentoActionFn;
+  somenteLeitura?: boolean;
+  reenviado?: boolean;
 }) {
   const nomeArquivo = documento.gcsPath.split("/").pop() ?? documento.gcsPath;
+  const temAuditoria =
+    documento.status === "APROVADO" ||
+    documento.status === "REPROVADO" ||
+    documento.inseridoManualmentePor !== null ||
+    reenviado;
+
   return (
     <VisualizarDocumento
       documentoId={documento.id}
       gcsPath={documento.gcsPath}
       label={nomeArquivo}
       painelEsquerdo={analise !== undefined ? <AnaliseIaDetalhe analise={analise} /> : undefined}
+      infoAuditoria={
+        temAuditoria ? (
+          <AuditoriaDocumento documento={documento} reenviado={reenviado} />
+        ) : undefined
+      }
+      acoes={
+        agenciaId && aprovarDocumentoAction && reprovarDocumentoAction ? (
+          <AcoesAprovacaoDocumento
+            agenciaId={agenciaId}
+            documentoId={documento.id}
+            status={documento.status}
+            aprovarDocumentoAction={aprovarDocumentoAction}
+            reprovarDocumentoAction={reprovarDocumentoAction}
+            somenteLeitura={somenteLeitura}
+          />
+        ) : undefined
+      }
     >
       <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
         {nomeArquivo}
@@ -200,27 +465,80 @@ export function Arquivo({
 // Documento reprovado sai do rol "oficial" da ficha (Empresa/Sócios) —
 // mostra que está faltando reenvio em vez do arquivo que foi rejeitado,
 // já que o soft-delete só marca o status, não apaga a linha do banco.
+// Slot vazio ou reprovado ganham o upload manual (ver
+// InserirDocumentoManual) — os únicos dois estados em que inserir
+// manualmente é permitido (ver InserirDocumentoManualUseCase).
 export function CampoDocumento({
   documento,
   analise,
+  agenciaId,
+  tipo,
+  representanteLegalId = null,
+  aprovarDocumentoAction,
+  reprovarDocumentoAction,
+  inserirDocumentoManualAction,
+  somenteLeitura = false,
+  reenviado = false,
 }: {
   documento: Documento | null;
   analise?: AnaliseIaResumo | null;
+  // Opcionais pela mesma razão de Arquivo acima: /arquivo/[id] usa este
+  // componente só pra exibição, sem nenhuma action de escrita disponível.
+  agenciaId?: string;
+  tipo?: TipoDocumento;
+  representanteLegalId?: string | null;
+  aprovarDocumentoAction?: AprovarDocumentoActionFn;
+  reprovarDocumentoAction?: ReprovarDocumentoActionFn;
+  inserirDocumentoManualAction?: InserirDocumentoManualActionFn;
+  somenteLeitura?: boolean;
+  reenviado?: boolean;
 }) {
-  if (!documento) return <span className="text-muted-foreground">—</span>;
-
-  if (documento.status === "REPROVADO") {
+  if (!documento) {
     return (
-      <span
-        className="bg-warning-bg text-warning-text rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
-        title={documento.motivoReprovacao ?? undefined}
-      >
-        Aguardando reenvio
-      </span>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-muted-foreground">—</span>
+        {!somenteLeitura && agenciaId && tipo && inserirDocumentoManualAction ? (
+          <InserirDocumentoManual
+            agenciaId={agenciaId}
+            tipo={tipo}
+            representanteLegalId={representanteLegalId}
+            inserirDocumentoManualAction={inserirDocumentoManualAction}
+          />
+        ) : null}
+      </div>
     );
   }
 
-  return <Arquivo documento={documento} analise={analise} />;
+  if (documento.status === "REPROVADO") {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <span className="bg-warning-bg text-warning-text w-fit rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
+          Aguardando reenvio
+        </span>
+        <AuditoriaDocumento documento={documento} />
+        {!somenteLeitura && agenciaId && tipo && inserirDocumentoManualAction ? (
+          <InserirDocumentoManual
+            agenciaId={agenciaId}
+            tipo={tipo}
+            representanteLegalId={representanteLegalId}
+            inserirDocumentoManualAction={inserirDocumentoManualAction}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <Arquivo
+      documento={documento}
+      analise={analise}
+      agenciaId={agenciaId}
+      aprovarDocumentoAction={aprovarDocumentoAction}
+      reprovarDocumentoAction={reprovarDocumentoAction}
+      somenteLeitura={somenteLeitura}
+      reenviado={reenviado}
+    />
+  );
 }
 
 const PARECER_DOCUMENTO_CLASSES: Record<string, string> = {
@@ -253,7 +571,7 @@ function ChecagemBadge({ label, valor }: { label: string; valor: boolean | null 
 // em vez de objeto nomeado, num documento real) vira "a,,b" — os dois
 // achados vieram do mesmo bug. Recursivo: filtra valor vazio em vez de
 // deixar a lacuna, e desce em objeto/array até sobrar só primitivo.
-function formatarValorExtraido(valor: unknown): string {
+export function formatarValorExtraido(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
   if (typeof valor === "string") return valor.trim().length > 0 ? valor : "—";
   if (typeof valor === "number" || typeof valor === "boolean") return String(valor);
@@ -279,7 +597,13 @@ function formatarValorExtraido(valor: unknown): string {
 // Par chave/valor genérico, mesmo tratamento usado pra `camposExtraidos` —
 // reaproveitado também por `camposExtras` e `detalhesChecagem`, que têm a
 // mesma forma (Record<string, unknown> sem schema fixo, dependem do agente).
-function CamposDetalhe({ titulo, campos }: { titulo: string; campos: Record<string, unknown> }) {
+export function CamposDetalhe({
+  titulo,
+  campos,
+}: {
+  titulo: string;
+  campos: Record<string, unknown>;
+}) {
   const entradas = Object.entries(campos);
   if (entradas.length === 0) return null;
 

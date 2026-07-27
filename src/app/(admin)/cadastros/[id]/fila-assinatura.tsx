@@ -1,6 +1,7 @@
 import { ListOrdered } from "lucide-react";
 import type { SignatarioFila } from "@/modules/admin/types/dossie.types";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
+import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
 
 // D4Sign avisou (webhook type_post=2) que o convite pra assinar nunca
 // chegou nesse e-mail — sem isso, o signatário fica esperando pra sempre
@@ -28,24 +29,35 @@ function BadgeGrupo({ grupo }: { grupo: SignatarioFila["grupo"] }) {
   );
 }
 
-function BadgeStatusSignatario({ assinado }: { assinado: boolean }) {
+// `assinadoEm` presente = registro real do webhook do D4Sign; assinado
+// sem data = fallback inferido do status agregado do contrato (ver
+// montarFilaAssinatura no dossie.adapter.ts).
+function BadgeStatusSignatario({
+  assinado,
+  assinadoEm,
+}: {
+  assinado: boolean;
+  assinadoEm: Date | null;
+}) {
   return (
-    <span
-      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-        assinado ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
-      }`}
-    >
-      {assinado ? "Assinado" : "Aguardando"}
-    </span>
+    <div className="flex shrink-0 flex-col items-end gap-0.5">
+      <span
+        className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+          assinado ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {assinado ? "Assinado" : "Aguardando"}
+      </span>
+      {assinadoEm ? (
+        <span className="text-muted-foreground text-[10px]">{formatarData(assinadoEm)}</span>
+      ) : null}
+    </div>
   );
 }
 
 // Fila numerada de quem precisa assinar o contrato (sócios da agência +
 // signatários fixos da Sakura) — ver montarFilaAssinatura no
-// dossie.adapter.ts pra origem de cada campo. Não existe timestamp nem
-// ordem real de assinatura por pessoa no schema hoje, só o status
-// agregado do Contrato: o "Assinado"/"Aguardando" por linha é uma
-// inferência sobre esse status, não um dado individual gravado.
+// dossie.adapter.ts pra origem de cada campo.
 export function FilaAssinatura({ fila }: { fila: SignatarioFila[] }) {
   const totalAssinados = fila.filter((item) => item.assinado).length;
 
@@ -79,17 +91,10 @@ export function FilaAssinatura({ fila }: { fila: SignatarioFila[] }) {
                 <span className="text-muted-foreground text-xs break-all">{item.email}</span>
               ) : null}
             </div>
-            <BadgeStatusSignatario assinado={item.assinado} />
+            <BadgeStatusSignatario assinado={item.assinado} assinadoEm={item.assinadoEm} />
           </li>
         ))}
       </ol>
-
-      <div className="border-border bg-muted/40 text-muted-foreground mt-3 rounded-xl border border-dashed px-4 py-3 text-xs">
-        <strong className="text-foreground">Status por pessoa é inferido, não gravado:</strong> o
-        schema hoje só guarda o status agregado do contrato (D4Sign não expõe timestamp nem ordem de
-        assinatura por signatário pra esse fluxo) — quando esses campos existirem, cada linha passa
-        a mostrar o dado real.
-      </div>
     </SecaoColapsavel>
   );
 }

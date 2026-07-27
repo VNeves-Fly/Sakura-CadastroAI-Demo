@@ -18,7 +18,7 @@ import {
 } from "@/modules/atendimento/utils/atendimento-formato.util";
 
 // Ativo/Reprovado é dossiê do Arquivo (/arquivo/[id]); qualquer outro
-// status ainda está em andamento no funil (/painel/[id]) — mesmo
+// status ainda está em andamento no funil (/cadastros/[id]) — mesmo
 // critério já usado nessas duas páginas reais. Como o /atendimento hoje
 // é 100% mock (ver atendimento.types.ts), o agenciaId aqui não bate com
 // nenhuma Agencia real do banco ainda — o link já sai certo, só passa a
@@ -27,7 +27,7 @@ function linkFichaCliente(conversa: Conversa): string {
   const { statusAgencia } = conversa.resumoFicha;
   return statusAgencia === "ativo" || statusAgencia === "recusado"
     ? `/arquivo/${conversa.agenciaId}`
-    : `/painel/${conversa.agenciaId}`;
+    : `/cadastros/${conversa.agenciaId}`;
 }
 
 const LABEL_STATUS_AGENCIA: Record<Conversa["resumoFicha"]["statusAgencia"], string> = {

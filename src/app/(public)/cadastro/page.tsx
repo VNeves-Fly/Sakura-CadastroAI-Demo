@@ -40,7 +40,7 @@ export default async function CadastroWizardPage({ searchParams }: CadastroWizar
     : null;
   const associacaoId = associacaoResolvida?.id ?? null;
 
-  // `?evento=` é o slug (painel /eventos), não o id — Agencia.eventoId é FK
+  // `?evento=` é o slug (cadastros /eventos), não o id — Agencia.eventoId é FK
   // real pro id de verdade, então resolve o slug aqui e usa o id resolvido
   // daqui pra frente. O form público não exibe nem trava nenhum campo por
   // causa dele, só encaminha.

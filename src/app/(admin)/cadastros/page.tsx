@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CadastrosLive } from "./cadastros-live";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { eventosAdminController } from "@/modules/eventos/presentation/controllers/eventos-admin.controller";
@@ -21,10 +22,15 @@ interface CadastrosPageProps {
     status?: string;
     sort?: string;
     dir?: string;
-    executivo?: string;
-    associacao?: string;
-    evento?: string;
+    executivo?: string | string[];
+    associacao?: string | string[];
+    evento?: string | string[];
   };
+}
+
+function paraArray(valor: string | string[] | undefined): string[] {
+  if (!valor) return [];
+  return Array.isArray(valor) ? valor : [valor];
 }
 
 // Filas clicáveis — ciclo completo de estados (decisão do usuário,
@@ -93,12 +99,15 @@ function construirHref(
   patch: Record<string, string | undefined>,
 ): string {
   const params = new URLSearchParams();
-  const combinado = { ...searchParams, ...patch };
+  const combinado: Record<string, string | string[] | undefined> = { ...searchParams, ...patch };
   for (const [chave, valor] of Object.entries(combinado)) {
-    if (valor) params.set(chave, valor);
+    if (!valor) continue;
+    for (const item of Array.isArray(valor) ? valor : [valor]) {
+      params.append(chave, item);
+    }
   }
   const query = params.toString();
-  return query ? `/painel?${query}` : "/painel";
+  return query ? `/cadastros?${query}` : "/cadastros";
 }
 
 function labelOrigemContrato(origem: "ia" | "humano" | null): string | null {
@@ -142,6 +151,8 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
 
   return (
     <div className="flex flex-col gap-4">
+      <CadastrosLive />
+
       {/* Banner de boas-vindas — tom suave da marca (fundo claro + texto
           rosa escuro) em vez de fundo sólido saturado, pra não competir
           com os badges de status semânticos (revisão de tokens visuais). */}
@@ -185,7 +196,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           querystring (GET) num form só, mesmo padrão de /atribuicoes. */}
       <form
         className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
-        action="/painel"
+        action="/cadastros"
         method="GET"
       >
         {searchParams.status ? (
@@ -200,43 +211,40 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           placeholder="Buscar por CNPJ, razão social ou e-mail"
           className="border-input bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 min-w-0 flex-1 rounded-full border px-4 py-2 text-sm outline-none focus:ring-2"
         />
-        <div className="w-full sm:w-44">
+        <div className="w-full sm:w-56">
           <SelectField
+            multiple
+            searchable
             name="executivo"
-            defaultValue={searchParams.executivo ?? null}
+            defaultValue={paraArray(searchParams.executivo)}
             placeholder="Executivo"
-            options={[
-              { value: "", label: "Todos" },
-              ...executivosOpcoes.map((executivo) => ({
-                value: executivo.id,
-                label: executivo.nome,
-              })),
-            ]}
+            options={executivosOpcoes.map((executivo) => ({
+              value: executivo.id,
+              label: executivo.nome,
+            }))}
           />
         </div>
-        <div className="w-full sm:w-44">
+        <div className="w-full sm:w-56">
           <SelectField
+            multiple
+            searchable
             name="associacao"
-            defaultValue={searchParams.associacao ?? null}
+            defaultValue={paraArray(searchParams.associacao)}
             placeholder="Associação"
-            options={[
-              { value: "", label: "Todas" },
-              ...associacoesOpcoes.map((associacao) => ({
-                value: associacao.id,
-                label: associacao.nome,
-              })),
-            ]}
+            options={associacoesOpcoes.map((associacao) => ({
+              value: associacao.id,
+              label: associacao.nome,
+            }))}
           />
         </div>
-        <div className="w-full sm:w-44">
+        <div className="w-full sm:w-56">
           <SelectField
+            multiple
+            searchable
             name="evento"
-            defaultValue={searchParams.evento ?? null}
+            defaultValue={paraArray(searchParams.evento)}
             placeholder="Evento"
-            options={[
-              { value: "", label: "Todos" },
-              ...eventosOpcoes.map((evento) => ({ value: evento.id, label: evento.nome })),
-            ]}
+            options={eventosOpcoes.map((evento) => ({ value: evento.id, label: evento.nome }))}
           />
         </div>
         <button
@@ -316,7 +324,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <Link
-                              href={`/painel/${agencia.id}`}
+                              href={`/cadastros/${agencia.id}`}
                               className="text-foreground hover:text-primary font-medium hover:underline"
                             >
                               {agencia.razaoSocial}

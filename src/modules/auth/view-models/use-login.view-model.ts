@@ -31,7 +31,7 @@ export function useLoginViewModel() {
       return;
     }
 
-    router.push("/painel");
+    router.push("/cadastros");
     router.refresh();
   }
 
