@@ -18,6 +18,19 @@ import type {
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import type { HistoricoConsultaCreditoView } from "@/modules/admin/types/dossie.types";
 
+// SOFIA é um dict livre sem schema fixo (não documentado nem do lado do
+// provedor) — `status` é o único campo com convenção conhecida hoje
+// (decisão do usuário, 2026-07-27). "NAO_CONSTA" (ou nenhum status, com
+// o dict vazio) é o caso limpo; qualquer outro valor de status (ex.:
+// "CONSTA") é tratado como restrição encontrada. Sem `status` nenhum
+// (dict não vazio mas sem essa chave) fica neutro — não dá pra afirmar.
+function varianteSofia(sofia: Record<string, unknown> | null): "neutro" | "positivo" | "negativo" {
+  if (!sofia || Object.keys(sofia).length === 0) return "positivo";
+  const status = typeof sofia.status === "string" ? sofia.status.toUpperCase() : null;
+  if (status === null) return "neutro";
+  return status === "NAO_CONSTA" ? "positivo" : "negativo";
+}
+
 // AMAT/SOFIA reais, lidos do stage2/raw_data que a IA persiste na análise
 // final (ver AnaliseCreditoView em dossie.types.ts) — substitui o mock
 // front-end que existia antes (mock-amat-sofia.util.ts, removido). `null`
@@ -275,9 +288,17 @@ export function ConsultaAmatCard({
 }) {
   const [modalAberto, setModalAberto] = useState(false);
   const dados = amat?.consultado ? amat : null;
+  // Vermelho quando há dívida de verdade (empresa ou algum sócio),
+  // verde quando consultado e limpo — sem consulta ainda, fica neutro
+  // (não dá pra afirmar nada).
+  const variante = !dados ? "neutro" : dados.totalGeral > 0 ? "negativo" : "positivo";
 
   return (
-    <SecaoColapsavel titulo="AMAT — Dívidas" icon={<CircleDollarSign className="size-4" />}>
+    <SecaoColapsavel
+      titulo="AMAT — Dívidas"
+      icon={<CircleDollarSign className="size-4" />}
+      variante={variante}
+    >
       <div className="flex flex-col gap-3">
         {!dados ? (
           <AvisoNaoConsultado />
@@ -379,7 +400,11 @@ export function ConsultaSofiaCard({
   const entradas = sofia ? Object.entries(sofia) : [];
 
   return (
-    <SecaoColapsavel titulo="SOFIA — Reputação" icon={<ShieldAlert className="size-4" />}>
+    <SecaoColapsavel
+      titulo="SOFIA — Reputação"
+      icon={<ShieldAlert className="size-4" />}
+      variante={varianteSofia(sofia)}
+    >
       <div className="flex flex-col gap-3">
         {!sofia ? (
           <AvisoNaoConsultado />

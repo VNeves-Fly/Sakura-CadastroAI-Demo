@@ -57,14 +57,21 @@ export interface AnaliseIaResumo {
   comparacaoOficial: AnaliseIaComparacaoCampo[] | null;
 }
 
-// Um item do "o que o analista precisa checar" — sempre um ponto
-// concreto de divergência ou alerta de extração encontrado no
-// cruzamento documental (stage3), nunca um resumo genérico. `origem` é
-// o rótulo de onde veio (tipo do documento da empresa, como retornado
-// pela IA, ou nome do sócio).
-export interface ParecerIaItemChecklist {
-  origem: string;
-  mensagem: string;
+// "O que o analista precisa checar", agrupado por documento (dentro de
+// uma entidade — Agência ou um Sócio) — cada mensagem é um ponto
+// concreto de divergência ou alerta de extração do cruzamento
+// documental (stage3), nunca um resumo genérico.
+export interface ParecerIaChecklistDocumento {
+  tipoLabel: string;
+  mensagens: string[];
+}
+
+// Uma entidade (Agência ou "Sócio N — Nome") com os documentos que têm
+// pendência — entidades/documentos sem nenhuma mensagem não entram na
+// lista (ver paraParecerView).
+export interface ParecerIaChecklistGrupo {
+  entidadeLabel: string;
+  documentos: ParecerIaChecklistDocumento[];
 }
 
 // Consolidação do parecer da IA sobre a agência (ver
@@ -82,7 +89,7 @@ export interface ParecerIaView {
   parecer: string | null;
   motivo: string | null;
   pontosDeAlerta: string[];
-  itensParaChecar: ParecerIaItemChecklist[];
+  gruposParaChecar: ParecerIaChecklistGrupo[];
   avaliadoEm: Date;
 }
 

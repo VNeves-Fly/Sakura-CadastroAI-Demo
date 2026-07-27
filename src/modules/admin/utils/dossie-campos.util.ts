@@ -20,6 +20,12 @@ export function formatarMoedaBrl(valor: number | null): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 }
 
+// Confiança de extração da IA vem de 0 a 1 (ex.: 0.98) — o analista
+// precisa ver isso como percentual (98%), não como fração.
+export function formatarPercentual(valorFracao: number): string {
+  return `${Math.round(valorFracao * 100)}%`;
+}
+
 // Endereço de Dados da Receita tem campos todos opcionais (a Receita nem
 // sempre devolve tudo) — formatação própria, diferente de formatarEndereco
 // (que espera os campos sempre preenchidos, vindos do que o próprio

@@ -91,7 +91,7 @@ import {
 
 // `concluida` default true — Contrato/SICA continuam decorativos (chegar
 // na etapa Ativação já implica que passaram), só Travel Link passou a
-// checar de verdade (agencia.travelLinkCriado, ver TravelLinkModal).
+// checar de verdade (agencia.travelLinkCriado, ver TravelLinkSecao).
 function ChecklistEtapaConcluida({
   label,
   concluida = true,
@@ -270,7 +270,7 @@ export default async function DossieAgenciaPage({
   );
   const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
 
-  // Dados pro formulário de leitura do Travel Link (ver TravelLinkModal)
+  // Dados pro formulário de leitura do Travel Link (ver TravelLinkSecao)
   // — cópia dos mesmos dados já coletados na ficha, sem campo novo.
   // "Nome de contato"/"E-mail" usam o sócio representante legal (nenhuma
   // tela grava `cargo` hoje, então não tem "cargo" pra copiar junto).
@@ -411,6 +411,21 @@ export default async function DossieAgenciaPage({
             </div>
           ) : (
             <>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ConsultaAmatCard
+                  amat={analiseCredito.amat}
+                  rawAmat={analiseCredito.rawAmat}
+                  historico={analiseCredito.historicoAmat}
+                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
+                />
+                <ConsultaSofiaCard
+                  sofia={analiseCredito.sofia}
+                  rawSofia={analiseCredito.rawSofia}
+                  historico={analiseCredito.historicoSofia}
+                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
+                />
+              </div>
+
               <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
                 <div className="mb-3 flex justify-end">
                   <EditarEmpresaForm
@@ -509,21 +524,6 @@ export default async function DossieAgenciaPage({
               <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
                 <ParecerIa parecer={parecerIa} />
               </SecaoColapsavel>
-
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <ConsultaAmatCard
-                  amat={analiseCredito.amat}
-                  rawAmat={analiseCredito.rawAmat}
-                  historico={analiseCredito.historicoAmat}
-                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
-                />
-                <ConsultaSofiaCard
-                  sofia={analiseCredito.sofia}
-                  rawSofia={analiseCredito.rawSofia}
-                  historico={analiseCredito.historicoSofia}
-                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
-                />
-              </div>
 
               <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
                 <div className="flex flex-col gap-3">
@@ -840,6 +840,14 @@ export default async function DossieAgenciaPage({
                 validarContratoAction={validarContratoAction}
                 recusarCadastroAction={recusarCadastroAction}
                 somenteLeitura={!mostrandoEtapaAtual}
+                amat={analiseCredito.amat}
+                rawAmat={analiseCredito.rawAmat}
+                historicoAmat={analiseCredito.historicoAmat}
+                sofia={analiseCredito.sofia}
+                rawSofia={analiseCredito.rawSofia}
+                historicoSofia={analiseCredito.historicoSofia}
+                reconsultarAmat={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
+                reconsultarSofia={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
               />
             ) : null}
 

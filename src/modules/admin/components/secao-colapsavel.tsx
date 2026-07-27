@@ -12,6 +12,19 @@ function prefereMovimentoReduzido(): boolean {
   );
 }
 
+// Tinta o bloco inteiro (borda esquerda + fundo bem leve) conforme um
+// veredito — usado por AMAT/SOFIA pra sinalizar "tem pendência"
+// (negativo) vs "limpo" (positivo) sem precisar abrir o card (ver
+// ConsultaAmatCard/ConsultaSofiaCard). "neutro" (default) preserva o
+// visual padrão do resto do dossiê.
+type VarianteSecaoColapsavel = "neutro" | "positivo" | "negativo";
+
+const CLASSES_VARIANTE: Record<VarianteSecaoColapsavel, string> = {
+  neutro: "border-l-primary/60 bg-card",
+  positivo: "border-l-success bg-success/5",
+  negativo: "border-l-destructive bg-destructive/5",
+};
+
 interface SecaoColapsavelProps {
   titulo: string;
   // Elemento já renderizado (ex: <Building2 className="size-4" />), não o
@@ -19,6 +32,7 @@ interface SecaoColapsavelProps {
   // Server → Client Component como prop.
   icon: ReactNode;
   defaultAberta?: boolean;
+  variante?: VarianteSecaoColapsavel;
   children: ReactNode;
 }
 
@@ -29,6 +43,7 @@ export function SecaoColapsavel({
   titulo,
   icon,
   defaultAberta = true,
+  variante = "neutro",
   children,
 }: SecaoColapsavelProps) {
   const [aberta, setAberta] = useState(defaultAberta);
@@ -78,7 +93,9 @@ export function SecaoColapsavel({
   }
 
   return (
-    <section className="border-border bg-card border-l-primary/60 overflow-hidden rounded-2xl border border-l-4">
+    <section
+      className={`border-border overflow-hidden rounded-2xl border border-l-4 ${CLASSES_VARIANTE[variante]}`}
+    >
       <button
         type="button"
         onClick={alternar}
