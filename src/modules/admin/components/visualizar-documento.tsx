@@ -9,9 +9,7 @@ function extensao(path: string): string {
   return path.split(".").pop()?.toLowerCase() ?? "";
 }
 
-interface VisualizarDocumentoProps {
-  documentoId: string;
-  gcsPath: string;
+interface VisualizarDocumentoBaseProps {
   label: string;
   children: ReactNode;
   // Rodapé opcional do modal (ex: botões Aprovar/Reprovar) — força o
@@ -39,6 +37,16 @@ interface VisualizarDocumentoProps {
   statusDecisao?: "PENDENTE" | "APROVADO" | "REPROVADO";
 }
 
+// Duas formas de apontar a visualização: um `Documento` do banco (deriva
+// a rota padrão de arquivo a partir do id, e decide imagem-vs-iframe pela
+// extensão do gcsPath) ou uma `url` explícita já pronta (ex.: contrato do
+// D4Sign, que não é um Documento — sempre iframe/PDF, sem extensão pra
+// checar).
+type VisualizarDocumentoProps = VisualizarDocumentoBaseProps &
+  (
+    | { documentoId: string; gcsPath: string; url?: never }
+    | { documentoId?: never; gcsPath?: never; url: string }
+  );
 const CLASSES_HEADER_DECISAO: Record<string, string> = {
   APROVADO: "bg-success text-success-foreground",
   REPROVADO: "bg-destructive text-destructive-foreground",
@@ -56,8 +64,6 @@ const CLASSES_FOOTER_DECISAO: Record<string, string> = {
 // igual dentro de <iframe>/<img>, então a pré-visualização não precisa de
 // nenhum endpoint novo.
 export function VisualizarDocumento({
-  documentoId,
-  gcsPath,
   label,
   children,
   acoes,

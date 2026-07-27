@@ -13,8 +13,10 @@ import {
   FolderCheck,
   Bell,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
+import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import {
   Campo,
   CamposGrid,
@@ -670,12 +672,23 @@ export default async function DossieAgenciaPage({
               <FilaAssinatura fila={filaAssinatura} />
 
               <div className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
-                <span className="text-primary mb-3 flex items-center gap-2">
-                  <FileCheck2 className="size-4" />
-                  <span className="text-xs font-bold tracking-wide uppercase">
-                    Contratos D4Sign
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-primary flex items-center gap-2">
+                    <FileCheck2 className="size-4" />
+                    <span className="text-xs font-bold tracking-wide uppercase">
+                      Contratos D4Sign
+                    </span>
                   </span>
-                </span>
+                  <VisualizarDocumento
+                    url={`/api/cadastros/contratos/${contratoAtual.id}/arquivo`}
+                    label="Contrato D4Sign"
+                  >
+                    <span className="border-input text-foreground hover:bg-accent flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition">
+                      <Eye className="size-3.5" />
+                      Visualizar Documento
+                    </span>
+                  </VisualizarDocumento>
+                </div>
 
                 <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <Campo label="Status">
@@ -694,7 +707,10 @@ export default async function DossieAgenciaPage({
                   <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
                   <Campo label="ID do Contrato" className="sm:col-span-2">
                     <ContratoIdManual
+                      agenciaId={agencia.id}
+                      contratoId={contratoAtual.id}
                       provedorId={contratoAtual.provedorId}
+                      origemExterno={contratoAtual.origemGeracao === "externo"}
                       somenteLeitura={!mostrandoEtapaAtual}
                     />
                   </Campo>
@@ -707,9 +723,7 @@ export default async function DossieAgenciaPage({
                   </strong>{" "}
                   o histórico de auditoria (quem gerou, quem revisou e quem enviou o contrato, com
                   data/hora) não existe no schema hoje — sinalizando aqui em vez de simular um log
-                  falso. O ID de contrato assinado por fora também não persiste ainda (só nesta
-                  tela, some se recarregar a página) — falta um campo novo no banco pra guardar isso
-                  de verdade.
+                  falso.
                 </div>
 
                 {mostrandoEtapaAtual && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (

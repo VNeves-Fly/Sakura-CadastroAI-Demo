@@ -335,4 +335,129 @@ describe("D4SignAdapter", () => {
       ).rejects.toThrow(`${envVar} não configurada`);
     },
   );
+
+  describe("registrarWebhook (chamada avulsa, fora de gerarEEnviar)", () => {
+    it("registra e retorna registrado:true quando D4SIGN_WEBHOOK_URL está configurada", async () => {
+      setEnv({ D4SIGN_WEBHOOK_URL: "https://meusite.com/api/webhooks/d4sign" });
+      (global.fetch as jest.Mock).mockResolvedValueOnce(okJson({}));
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).registrarWebhook(
+        "doc-uuid-999",
+      );
+
+      expect(resultado).toEqual({ registrado: true });
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://api.teste.d4sign/documents/doc-uuid-999/webhooks?tokenAPI=token-teste&cryptKey=crypt-teste",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("retorna registrado:false sem chamar a API quando D4SIGN_WEBHOOK_URL não está configurada", async () => {
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).registrarWebhook(
+        "doc-uuid-999",
+      );
+
+      expect(resultado).toEqual({ registrado: false });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("visualizarDocumento", () => {
+    it("baixa o PDF em bytes crus (encoding: 0) e retorna buffer + mimeType", async () => {
+      const bytes = new TextEncoder().encode("%PDF-fake");
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => bytes.buffer,
+      });
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).visualizarDocumento("doc-uuid-1");
+
+      expect(resultado.mimeType).toBe("application/pdf");
+      expect(Buffer.from(resultado.buffer).toString()).toBe("%PDF-fake");
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe(
+        "https://api.teste.d4sign/documents/doc-uuid-1/download?tokenAPI=token-teste&cryptKey=crypt-teste",
+      );
+      expect(JSON.parse(opts.body)).toEqual({ type: "pdf", language: "pt", encoding: "0" });
+    });
+
+    it("lança erro descritivo se o download falhar", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).visualizarDocumento("doc-inexistente"),
+      ).rejects.toThrow("D4Sign /documents/doc-inexistente/download respondeu 404");
+    });
+  });
+
+  describe("obterDocumento", () => {
+    it("retorna existe:true com nome e status quando o D4Sign devolve o documento (formato array, docs/d4sign.md §3)", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([{ uuidDoc: "doc-uuid-1", nameDoc: "Contrato Teste", statusName: "Finalizado" }]),
+      );
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).obterDocumento(
+        "doc-uuid-1",
+      );
+
+      expect(resultado).toEqual({
+        existe: true,
+        nomeDocumento: "Contrato Teste",
+        statusName: "Finalizado",
+      });
+    });
+
+    it("retorna existe:false quando o D4Sign devolve array vazio", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(okJson([]));
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).obterDocumento(
+        "doc-inexistente",
+      );
+
+      expect(resultado).toEqual({ existe: false, nomeDocumento: null, statusName: null });
+    });
+
+    it("retorna existe:false quando a chamada falha (HTTP ou rede)", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ message: "não encontrado" }),
+      });
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).obterDocumento(
+        "doc-invalido",
+      );
+
+      expect(resultado).toEqual({ existe: false, nomeDocumento: null, statusName: null });
+    });
+  });
+
+  describe("obterDestinatarios", () => {
+    it("extrai os e-mails da lista de signatários (formato array)", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([{ email: "socio@agencia.com" }, { email: "cadastro@sakuratur.com.br" }]),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual(["socio@agencia.com", "cadastro@sakuratur.com.br"]);
+    });
+
+    it("ignora entradas sem e-mail", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([{ email: "socio@agencia.com" }, { nome: "sem e-mail" }]),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual(["socio@agencia.com"]);
+    });
+  });
 });

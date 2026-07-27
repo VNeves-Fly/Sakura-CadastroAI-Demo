@@ -39,9 +39,10 @@ import type {
 // a View do dossiê consome — nenhum desses cálculos deve viver dentro do
 // componente de página ou dos componentes de apresentação.
 
-export function labelOrigemContrato(origem: "ia" | "humano" | null): string {
+export function labelOrigemContrato(origem: "ia" | "humano" | "externo" | null): string {
   if (origem === "ia") return "gerado pela IA";
   if (origem === "humano") return "gerado pelo analista";
+  if (origem === "externo") return "registrado manualmente (assinado por fora)";
   return "origem desconhecida";
 }
 

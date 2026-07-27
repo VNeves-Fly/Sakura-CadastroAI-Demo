@@ -13,7 +13,7 @@ export type StatusAgencia =
 
 export type StatusContrato = "aguardando_assinatura" | "assinado_agencia" | "assinado";
 
-export type OrigemGeracaoContrato = "ia" | "humano";
+export type OrigemGeracaoContrato = "ia" | "humano" | "externo";
 
 export type TipoDocumento =
   | "CONTRATO_SOCIAL"

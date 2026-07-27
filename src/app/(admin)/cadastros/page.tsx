@@ -165,9 +165,10 @@ function ThOrdenavel({
   );
 }
 
-function labelOrigemContrato(origem: "ia" | "humano" | null): string | null {
+function labelOrigemContrato(origem: "ia" | "humano" | "externo" | null): string | null {
   if (origem === "ia") return "Contrato gerado pela IA";
   if (origem === "humano") return "Contrato gerado pelo analista";
+  if (origem === "externo") return "Contrato registrado manualmente";
   return null;
 }
 
