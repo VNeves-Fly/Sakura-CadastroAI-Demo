@@ -30,7 +30,24 @@ interface VisualizarDocumentoProps {
   // `painelEsquerdo` (1 ou 2 colunas) ou não — auditoria não é um dado de
   // análise, é do próprio documento.
   infoAuditoria?: ReactNode;
+  // Decisão atual do documento — tinta cabeçalho e rodapé do modal por
+  // completo (verde/vermelho sistêmico), não só os botões dentro de
+  // `acoes` (ver AcoesAprovacaoDocumento) — decisão do usuário,
+  // 2026-07-27: o veredito precisa ficar óbvio no modal inteiro, não só
+  // numa caixinha no rodapé. `undefined`/"PENDENTE" mantém o visual
+  // neutro de sempre.
+  statusDecisao?: "PENDENTE" | "APROVADO" | "REPROVADO";
 }
+
+const CLASSES_HEADER_DECISAO: Record<string, string> = {
+  APROVADO: "bg-success text-success-foreground",
+  REPROVADO: "bg-destructive text-destructive-foreground",
+};
+
+const CLASSES_FOOTER_DECISAO: Record<string, string> = {
+  APROVADO: "bg-success",
+  REPROVADO: "bg-destructive",
+};
 
 // Botão + modal de pré-visualização — antes "Ver anexo" abria
 // /api/cadastros/documentos/[id]/arquivo numa aba nova (o navegador só
@@ -46,10 +63,13 @@ export function VisualizarDocumento({
   acoes,
   painelEsquerdo,
   infoAuditoria,
+  statusDecisao,
 }: VisualizarDocumentoProps) {
   const [aberto, setAberto] = useState(false);
   const url = `/api/cadastros/documentos/${documentoId}/arquivo`;
   const ehImagem = EXTENSOES_IMAGEM.has(extensao(gcsPath));
+  const classesHeader = statusDecisao ? CLASSES_HEADER_DECISAO[statusDecisao] : undefined;
+  const classesFooter = statusDecisao ? CLASSES_FOOTER_DECISAO[statusDecisao] : undefined;
 
   const visualizacao = (
     <div className="bg-muted/30 min-h-0 flex-1">
@@ -79,8 +99,16 @@ export function VisualizarDocumento({
             }`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-border flex items-center justify-between gap-2 border-b px-5 py-3">
-              <span className="text-foreground min-w-0 truncate text-sm font-semibold">
+            <div
+              className={`flex items-center justify-between gap-2 border-b px-5 py-3 ${
+                classesHeader ? `${classesHeader} border-white/20` : "border-border"
+              }`}
+            >
+              <span
+                className={`min-w-0 truncate text-sm font-semibold ${
+                  classesHeader ? "" : "text-foreground"
+                }`}
+              >
                 {label}
               </span>
               <div className="flex shrink-0 items-center gap-3">
@@ -88,7 +116,9 @@ export function VisualizarDocumento({
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary flex items-center gap-1 text-xs font-semibold hover:underline"
+                  className={`flex items-center gap-1 text-xs font-semibold hover:underline ${
+                    classesHeader ? "" : "text-primary"
+                  }`}
                 >
                   <ExternalLink className="size-3.5" />
                   Abrir em nova aba
@@ -97,7 +127,11 @@ export function VisualizarDocumento({
                   type="button"
                   onClick={() => setAberto(false)}
                   aria-label="Fechar"
-                  className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full p-1 transition"
+                  className={`rounded-full p-1 transition ${
+                    classesHeader
+                      ? "hover:bg-black/10"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
                 >
                   <X className="size-4" />
                 </button>
@@ -119,7 +153,15 @@ export function VisualizarDocumento({
               visualizacao
             )}
 
-            {acoes ? <div className="border-border bg-card border-t px-5 py-4">{acoes}</div> : null}
+            {acoes ? (
+              <div
+                className={`border-t px-5 py-4 ${
+                  classesFooter ? `${classesFooter} border-white/20` : "border-border bg-card"
+                }`}
+              >
+                {acoes}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
