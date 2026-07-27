@@ -172,8 +172,8 @@ export interface ListarCadastrosFiltros {
   executivoId?: string | string[];
   associacaoId?: string | string[];
   eventoId?: string | string[];
-  // Base/gestor do executivo (Promotor.base/Promotor.gestor) — texto
-  // livre, sem FK própria, filtrado via relação com Agencia.executivo.
+  // Base/gestor do executivo (PromotorBase.baseSigla/Promotor.gestor) —
+  // filtrado via relação com Agencia.executivo.
   base?: string | string[];
   gestor?: string | string[];
 }
@@ -192,8 +192,9 @@ export interface ListarCadastrosItem {
   // associacaoNome. Null quando não há atribuição.
   executivoNome: string | null;
   eventoNome: string | null;
-  // Base e gestor do executivo (Promotor.base/Promotor.gestor) — campos
-  // texto livre da planilha de origem, sem FK própria.
+  // Base(s) e gestor do executivo (PromotorBase.baseSigla/Promotor.gestor)
+  // — um executivo pode atender várias bases; exibido já concatenado
+  // ("SAO, FOR, MAO") quando houver mais de uma.
   executivoBase: string | null;
   executivoGestor: string | null;
 }

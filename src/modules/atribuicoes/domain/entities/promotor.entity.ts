@@ -1,13 +1,13 @@
 export interface PromotorProps {
   id: string;
-  sica: number;
+  sica: number | null;
   nome: string;
   gestor: string;
   email: string;
   telefone: string | null;
-  link: string;
+  link: string | null;
   linkExecutivoId: string[];
-  base: string | null;
+  bases: string[];
 }
 
 export class Promotor {
@@ -21,7 +21,7 @@ export class Promotor {
     return this.props.id;
   }
 
-  get sica(): number {
+  get sica(): number | null {
     return this.props.sica;
   }
 
@@ -41,7 +41,7 @@ export class Promotor {
     return this.props.telefone;
   }
 
-  get link(): string {
+  get link(): string | null {
     return this.props.link;
   }
 
@@ -49,8 +49,8 @@ export class Promotor {
     return this.props.linkExecutivoId;
   }
 
-  get base(): string | null {
-    return this.props.base;
+  get bases(): string[] {
+    return this.props.bases;
   }
 
   toJSON(): PromotorProps {
