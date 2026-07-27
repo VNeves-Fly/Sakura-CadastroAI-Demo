@@ -13,7 +13,7 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 // no mesmo lugar já com o novo status).
 
 export async function aprovarComplementarAction(id: string) {
-  await cadastroAdminController.aprovarComplementar(id);
+  await cadastroAdminController.aprovarComplementar({ id, analistaEmail: await analistaLogado() });
   revalidatePath(`/cadastros/${id}`);
 }
 

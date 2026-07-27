@@ -13,6 +13,7 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaHistoricoEdicaoCadastroRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-historico-edicao-cadastro.repository";
+import { PrismaDecisaoHumanaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-decisao-humana.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
@@ -41,7 +42,10 @@ import {
   SalvarUsuarioMasterUseCase,
   type SalvarUsuarioMasterInput,
 } from "@/modules/cadastro/application/use-cases/salvar-usuario-master.use-case";
-import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
+import {
+  AprovarCadastroComplementarUseCase,
+  type AprovarCadastroComplementarInput,
+} from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
 import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
 import {
   ReconsultarCreditoUseCase,
@@ -134,6 +138,7 @@ const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaRepository(prisma);
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const historicoEdicaoCadastroRepository = new PrismaHistoricoEdicaoCadastroRepository(prisma);
+const decisaoHumanaRepository = new PrismaDecisaoHumanaRepository(prisma);
 // Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
 // configurada, senão lê do disco local (uploads/).
 const documentoArquivoService = process.env.GCS_BUCKET_NAME
@@ -186,12 +191,19 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  aprovarComplementar(id: string) {
+  aprovarComplementar(input: AprovarCadastroComplementarInput) {
     const useCase = new AprovarCadastroComplementarUseCase(
       agenciaRepository,
       contratoAssinaturaService,
+      decisaoHumanaRepository,
     );
-    return useCase.execute(id);
+    return useCase.execute(input);
+  },
+
+  // Auditoria das decisões manuais (ver AprovarCadastroComplementarUseCase)
+  // — mais recente primeiro (ver PrismaDecisaoHumanaRepository).
+  listarDecisoesHumanas(agenciaId: string) {
+    return decisaoHumanaRepository.findByAgenciaId(agenciaId);
   },
 
   // Reprocessa a análise de IA de um cadastro travado em "em_analise"
