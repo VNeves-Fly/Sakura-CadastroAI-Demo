@@ -769,9 +769,29 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
           <p className="text-muted-foreground mt-2 whitespace-pre-wrap">{analise.textoBruto}</p>
         </details>
       ) : null}
+
+      {/* Marca d'água decorativa no espaço vazio abaixo do parecer —
+          reforça visualmente o veredito sem competir com o conteúdo
+          (65% de opacidade, decisão do usuário, 2026-07-27). */}
+      {IMAGEM_PARECER[analise.parecer ?? ""] ? (
+        <div className="flex w-full items-center justify-center py-8">
+          {/* eslint-disable-next-line @next/next/no-img-element -- ícone decorativo estático em public/, next/image seria overhead sem ganho aqui */}
+          <img
+            src={IMAGEM_PARECER[analise.parecer ?? ""]}
+            alt=""
+            aria-hidden="true"
+            className="h-40 w-40 object-contain opacity-65"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
+
+const IMAGEM_PARECER: Record<string, string> = {
+  APROVADO: "/parecer/aprovado.png",
+  REPROVADO: "/parecer/reprovado.svg",
+};
 
 const RESULTADO_ANALISE_LABELS: Record<string, string> = {
   EM_ANALISE: "Em análise",
