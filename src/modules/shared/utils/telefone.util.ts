@@ -134,3 +134,31 @@ export function validarTelefone(valorMascarado: string, codigoPais: string): boo
 
   return digitos.length === pais.digitosEsperados;
 }
+
+// Candidatos de variação do número local — cobre o 9º dígito do celular
+// brasileiro, que a Meta às vezes inclui/omite de forma inconsistente
+// dependendo da operadora/registro legado.
+function variantesLocais(localDigits: string): string[] {
+  if (localDigits.length === 11) {
+    return [localDigits, localDigits.slice(0, 2) + localDigits.slice(3)];
+  }
+  if (localDigits.length === 10) {
+    return [localDigits, `${localDigits.slice(0, 2)}9${localDigits.slice(2)}`];
+  }
+  return [localDigits];
+}
+
+function localSemDdi(digitos: string): string {
+  return digitos.startsWith("55") ? digitos.slice(2) : digitos;
+}
+
+// Compara dois telefones em formatos livres (mascarado do formulário,
+// wa_id cru da Meta etc.) tolerando a ambiguidade do 9º dígito — mesma
+// lógica usada tanto por WhatsAppContactMatcherAdapter (casar mensagem
+// recebida a um contato conhecido) quanto pelo dossiê (abrir a conversa
+// certa de Atendimento a partir do telefone da agência/sócio).
+export function telefonesEquivalentes(a: string, b: string): boolean {
+  const variantesA = variantesLocais(localSemDdi(unmaskTelefone(a)));
+  const variantesB = new Set(variantesLocais(localSemDdi(unmaskTelefone(b))));
+  return variantesA.some((variante) => variantesB.has(variante));
+}

@@ -2,7 +2,11 @@ import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { AtendimentoView } from "@/modules/atendimento/components/atendimento-view";
 
-export default async function AtendimentoPage() {
+export default async function AtendimentoPage({
+  searchParams,
+}: {
+  searchParams: { telefone?: string };
+}) {
   const session = await getServerSession(nextAuthOptions);
   const analistaAtual = session?.user?.name ?? session?.user?.email ?? "Analista";
 
@@ -21,7 +25,7 @@ export default async function AtendimentoPage() {
         </p>
       </div>
 
-      <AtendimentoView analistaAtual={analistaAtual} />
+      <AtendimentoView analistaAtual={analistaAtual} telefoneInicial={searchParams.telefone} />
     </div>
   );
 }

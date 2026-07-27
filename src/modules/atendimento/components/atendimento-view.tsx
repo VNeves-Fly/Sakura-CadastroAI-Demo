@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAtendimento } from "@/modules/atendimento/view-models/use-atendimento.view-model";
 import { ListaConversas } from "@/modules/atendimento/components/lista-conversas";
 import { ThreadConversa } from "@/modules/atendimento/components/thread-conversa";
@@ -8,6 +8,9 @@ import { PainelInformacoes } from "@/modules/atendimento/components/painel-infor
 
 interface AtendimentoViewProps {
   analistaAtual: string;
+  // "?telefone=" (ver AtendimentoButton, no dossiê da agência) — seleciona
+  // de cara a conversa daquele contato ao entrar na página, se já existir.
+  telefoneInicial?: string;
 }
 
 // Abaixo de lg, só 1 coluna por vez (lista | thread | info) — acima de
@@ -15,7 +18,7 @@ interface AtendimentoViewProps {
 // cada wrapper abaixo). `mobileView` só importa nas telas pequenas.
 type MobileView = "lista" | "thread" | "info";
 
-export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
+export function AtendimentoView({ analistaAtual, telefoneInicial }: AtendimentoViewProps) {
   const {
     conversas,
     conversaSelecionadaId,
@@ -34,9 +37,16 @@ export function AtendimentoView({ analistaAtual }: AtendimentoViewProps) {
     criarTextoPronto,
     atualizarTextoPronto,
     removerTextoPronto,
-  } = useAtendimento(analistaAtual);
+  } = useAtendimento(analistaAtual, telefoneInicial);
 
   const [mobileView, setMobileView] = useState<MobileView>("lista");
+
+  // Seleção automática por "?telefone=" pula direto pra thread no mobile
+  // também — sem isso o analista chegaria numa lista vazia de contexto,
+  // tendo que abrir a conversa de novo manualmente.
+  useEffect(() => {
+    if (telefoneInicial && conversaSelecionadaId) setMobileView("thread");
+  }, [telefoneInicial, conversaSelecionadaId]);
 
   const conversaSelecionada =
     conversas.find((conversa) => conversa.id === conversaSelecionadaId) ?? null;

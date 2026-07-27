@@ -41,6 +41,7 @@ import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
 import { CnpjCopiavel } from "./cnpj-copiavel";
 import { VoltarButton } from "./voltar-button";
+import { AtendimentoButton } from "./atendimento-button";
 import { CadastroDetalheLive } from "./cadastro-detalhe-live";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
@@ -54,6 +55,7 @@ import {
   paraUsuarioMasterView,
   usuarioMasterEstaCompleto,
   documentosAguardandoRevisaoPosReenvio,
+  montarOpcoesAtendimento,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import {
@@ -215,6 +217,7 @@ export default async function DossieAgenciaPage({
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
+  const opcoesAtendimento = montarOpcoesAtendimento(agencia, complementar, representantesLegais);
   const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
   // Mesmo conjunto do banner acima, só que como lookup por id — usado pra
   // repassar `reenviado` pro CampoDocumento de cada slot (Empresa/Sócios),
@@ -251,7 +254,10 @@ export default async function DossieAgenciaPage({
   return (
     <div className="flex flex-col gap-4">
       <CadastroDetalheLive agenciaId={params.id} />
-      <VoltarButton />
+      <div className="flex items-center justify-between gap-3">
+        <VoltarButton />
+        <AtendimentoButton opcoes={opcoesAtendimento} />
+      </div>
 
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
