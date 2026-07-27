@@ -84,7 +84,10 @@ export interface ParecerIaView {
 
 // Linha da fila de assinatura do contrato (sócio da agência ou
 // signatário fixo da Sakura) — ver montarFilaAssinatura em
-// dossie.adapter.ts pra como `assinado` é derivado.
+// dossie.adapter.ts pra como `assinado` é derivado. `assinadoEm` é o
+// registro real de ContratoAssinatura (webhook type_post=4 do D4Sign);
+// null quando a assinatura só foi inferida do status agregado (contratos
+// anteriores ao log existir ou fechados de uma vez pelo type_post=1).
 export interface SignatarioFila {
   id: string;
   nome: string;
@@ -92,5 +95,6 @@ export interface SignatarioFila {
   grupo: "Agência" | "Sakura";
   ordem: number;
   assinado: boolean;
+  assinadoEm: Date | null;
   emailNaoEntregue: boolean;
 }

@@ -634,9 +634,26 @@ model Contrato {
 
   signatarios        ContratoSignatario[]
   emailsFalhaEntrega ContratoEmailFalhaEntrega[]
+  assinaturas        ContratoAssinatura[]
 
   @@index([agenciaId])
   @@map("contratos")
+}
+
+// Log de assinatura individual (D4Sign webhook, type_post=4) — por
+// e-mail, mesmo racional do ContratoEmailFalhaEntrega: cobre sócios e
+// signatários fixos da Sakura sem depender de CPF. @@unique pra upsert
+// idempotente em retries do D4Sign — mas aqui o assinadoEm ORIGINAL é
+// preservado (retry não reescreve a data da assinatura).
+model ContratoAssinatura {
+  id         String   @id @default(cuid())
+  contratoId String
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  email      String
+  assinadoEm DateTime @default(now())
+
+  @@unique([contratoId, email])
+  @@map("contrato_assinaturas")
 }
 
 // Registro de "e-mail não entregue" (D4Sign webhook, type_post=2) — por
