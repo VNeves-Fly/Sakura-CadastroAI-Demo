@@ -53,6 +53,7 @@ export async function obterDossieView(id: string) {
     historicosSociosRaw,
     historicoAgencia,
     historicoComplementar,
+    decisoesHumanas,
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
@@ -92,6 +93,9 @@ export async function obterDossieView(id: string) {
     complementar
       ? cadastroAdminController.listarHistoricoEdicoes(complementar.id)
       : Promise.resolve([]),
+    // Quem aprovou manualmente um cadastro que a IA reprovou/falhou (ver
+    // AprovarCadastroComplementarUseCase) — mais recente primeiro.
+    cadastroAdminController.listarDecisoesHumanas(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   const assinaturasPorEmail = new Map(
@@ -139,11 +143,22 @@ export async function obterDossieView(id: string) {
   ];
   const { ativos: documentosAtivos, pendentes: documentosPendentes } =
     separarDocumentosPorStatus(documentosParaRevisao);
+  // Mesmo conjunto (contrato social + RG/procuração de cada sócio) que
+  // AprovarCadastroComplementarUseCase valida antes de aprovar — usado
+  // aqui só pra desabilitar o botão e mostrar ao analista o que falta
+  // revisar, sem esperar o erro do backend.
+  const documentosNaoAprovados = documentosParaRevisao.filter((doc) => doc.status !== "APROVADO");
 
   const { indiceAtual: indiceTrilha, recusado } = calcularProgressoTrilha(
     agencia.status,
     contratoAtual !== null,
   );
+
+  // decisoesHumanas já vem ordenado createdAt desc (ver
+  // PrismaDecisaoHumanaRepository) — a primeira da etapa COMPLEMENTAR é
+  // sempre a aprovação manual mais recente.
+  const decisaoComplementar =
+    decisoesHumanas.find((decisao) => decisao.etapa === "COMPLEMENTAR") ?? null;
 
   const filaAssinatura = montarFilaAssinatura(
     representantesLegais,
@@ -167,6 +182,7 @@ export async function obterDossieView(id: string) {
     filaAssinatura,
     documentosAtivos,
     documentosPendentes,
+    documentosNaoAprovados,
     indiceTrilha,
     trilhaRecusada: recusado,
     analiseIaContratoSocial,
@@ -177,5 +193,6 @@ export async function obterDossieView(id: string) {
     usuarioMaster,
     historicoEdicoesPorSocioId,
     historicoEdicoesEmpresa,
+    decisaoComplementar,
   };
 }

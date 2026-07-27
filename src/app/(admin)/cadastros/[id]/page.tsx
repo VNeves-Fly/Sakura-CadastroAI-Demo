@@ -226,6 +226,7 @@ export default async function DossieAgenciaPage({
     filaAssinatura,
     documentosAtivos,
     documentosPendentes,
+    documentosNaoAprovados,
     indiceTrilha,
     trilhaRecusada,
     analiseIaContratoSocial,
@@ -236,6 +237,7 @@ export default async function DossieAgenciaPage({
     usuarioMaster,
     historicoEdicoesPorSocioId,
     historicoEdicoesEmpresa,
+    decisaoComplementar,
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
@@ -715,6 +717,12 @@ export default async function DossieAgenciaPage({
                     />
                   </Campo>
                   <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
+                  {contratoAtual.origemGeracao === "humano" && decisaoComplementar ? (
+                    <Campo label="Aprovado por" className="sm:col-span-2">
+                      {decisaoComplementar.usuarioEmail ?? "analista não identificado"} em{" "}
+                      {formatarData(decisaoComplementar.createdAt)}
+                    </Campo>
+                  ) : null}
                 </dl>
 
                 <div className="border-border bg-muted/40 text-muted-foreground mt-4 rounded-xl border border-dashed px-4 py-3 text-xs">
@@ -756,12 +764,21 @@ export default async function DossieAgenciaPage({
                 contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
               </p>
 
+              {documentosNaoAprovados.length > 0 ? (
+                <div className="border-warning/30 bg-warning/5 text-warning rounded-xl border px-4 py-3 text-sm">
+                  <strong>Documentos ainda não aprovados:</strong>{" "}
+                  {documentosNaoAprovados.map((doc) => doc.label).join(", ")} — revise-os na seção
+                  de documentos antes de aprovar.
+                </div>
+              ) : null}
+
               {mostrandoEtapaAtual ? (
                 <div className="flex flex-wrap gap-2">
                   <form action={aprovarComplementarAction.bind(null, agencia.id)}>
                     <button
                       type="submit"
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                      disabled={documentosNaoAprovados.length > 0}
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Aprovar e Enviar Contrato
                     </button>
