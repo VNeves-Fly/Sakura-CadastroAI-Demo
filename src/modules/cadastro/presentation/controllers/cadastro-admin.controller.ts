@@ -205,6 +205,7 @@ export const cadastroAdminController = {
       analiseIaService,
       documentAnalysisService,
       dadosReceitaRepository,
+      documentoRepository,
     );
     return useCase.execute({ agenciaId: id });
   },

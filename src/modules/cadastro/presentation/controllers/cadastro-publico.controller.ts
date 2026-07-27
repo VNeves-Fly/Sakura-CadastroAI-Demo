@@ -82,6 +82,7 @@ export const cadastroPublicoController = {
       analiseIaService,
       documentAnalysisService,
       dadosReceitaRepository,
+      documentoRepository,
     );
     return useCase.execute({ agenciaId });
   },

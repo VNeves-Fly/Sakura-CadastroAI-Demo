@@ -20,6 +20,15 @@ import type {
   DocumentAnalysisResultado,
   DocumentAnalysisService,
 } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
+
+// Mesma convenção de "quem" usada em AuditoriaDocumento (dossie-campos.tsx)
+// pra distinguir aprovação humana de automática — quem consultou tem
+// mais contexto do que um valor nulo silencioso.
+const APROVACAO_AUTOMATICA_IA = "IA (aprovação automática)";
+const MOTIVO_APROVACAO_AUTOMATICA_IA =
+  "Aprovado automaticamente: a IA aprovou o cadastro por completo, sem passar por revisão manual documento a documento.";
 
 export interface AnalisarCadastroInput {
   agenciaId: string;
@@ -129,7 +138,39 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     private readonly analiseIaService: AnaliseIaService,
     private readonly documentAnalysisService: DocumentAnalysisService,
     private readonly dadosReceitaRepository: DadosReceitaRepository,
+    private readonly documentoRepository: DocumentoRepository,
   ) {}
+
+  // A IA aprovando o cadastro inteiro (fast-track, sem passar por
+  // em_complementar) não passa por AprovarDocumentoUseCase documento a
+  // documento — sem isso, Documento.status ficava PENDENTE pra sempre
+  // (default do schema), mesmo com o cadastro já aguardando assinatura/
+  // ativo, fazendo o dossiê e o /atendimento mostrarem pendência que não
+  // existe de verdade (decisão do usuário, 2026-07-27).
+  private async aprovarDocumentosAutomaticamente(
+    contratoSocial: Documento,
+    representantesLegais: { rg: Documento | null }[],
+  ): Promise<void> {
+    const documentos = [
+      contratoSocial,
+      ...representantesLegais.map((socio) => socio.rg).filter((rg): rg is Documento => rg !== null),
+    ];
+
+    await Promise.all(
+      documentos.map((documento) =>
+        this.documentoRepository.atualizarStatus(documento.id, {
+          status: "APROVADO",
+          verificado: true,
+          aprovadoPor: APROVACAO_AUTOMATICA_IA,
+          motivoAprovacao: MOTIVO_APROVACAO_AUTOMATICA_IA,
+          aprovadoEm: new Date(),
+          reprovadoPor: null,
+          motivoReprovacao: null,
+          reprovadoEm: null,
+        }),
+      ),
+    );
+  }
 
   async execute({ agenciaId }: AnalisarCadastroInput): Promise<void> {
     const detalhe = await this.agenciaRepository.obterDetalhe(agenciaId);
@@ -208,7 +249,22 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
       return;
     }
 
-    if (analiseIa.aprovado) {
+    // Gate adicional ao veredito agregado do agente (`analiseIa.aprovado`):
+    // só segue pra geração de contrato quando TODOS os documentos também
+    // foram aprovados individualmente (Contrato Social + RG de cada
+    // sócio) — decisão do usuário, 2026-07-27: o agente já teve casos de
+    // aprovar o cadastro no geral enquanto reprova um documento
+    // específico na checagem por documento, uma contradição que não pode
+    // silenciosamente seguir pra assinatura. Qualquer divergência cai
+    // pra revisão manual (em_complementar), mesmo destino de uma
+    // reprovação de verdade.
+    const todosDocumentosAprovados =
+      analiseIaContratoSocial.parecer === "APROVADO" &&
+      representantesLegais.every(
+        (socio) => analisesPorSocioId.get(socio.id)?.parecer === "APROVADO",
+      );
+
+    if (analiseIa.aprovado && todosDocumentosAprovados) {
       // `administrativo === false` é a única marca que exclui um sócio da
       // lista de signatarios — null (IA não avaliou) e true assinam (ver
       // RepresentanteLegal.administrativo no schema).
@@ -246,6 +302,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
           STATUS_AGUARDANDO_ASSINATURA,
           "APROVADO",
         );
+        await this.aprovarDocumentosAutomaticamente(contratoSocial, representantesLegais);
       } catch (error) {
         // IA aprovou, mas o contrato não pôde ser gerado/enviado (D4Sign
         // fora do ar etc.) — não perde o veredito da IA, só cai pra fila
@@ -267,7 +324,14 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     } else {
       await this.agenciaRepository.registrarAnaliseFinal(
         agenciaId,
-        analiseIa,
+        analiseIa.aprovado && !todosDocumentosAprovados
+          ? {
+              ...analiseIa,
+              motivo:
+                "A IA aprovou o cadastro no geral, mas reprovou (ou não avaliou) ao menos um documento na checagem individual (Contrato Social ou RG de sócio) — revisão manual necessária." +
+                (analiseIa.motivo ? ` — ${analiseIa.motivo}` : ""),
+            }
+          : analiseIa,
         STATUS_EM_COMPLEMENTAR,
         "REPROVADO",
       );
