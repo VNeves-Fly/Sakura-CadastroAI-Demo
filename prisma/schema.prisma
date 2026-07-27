@@ -205,6 +205,7 @@ model Agencia {
   decisoesHumanas      DecisaoHumana[]
   notificacoes         Notificacao[]
   conversas            Conversa[]
+  historicoEdicoes     HistoricoEdicaoCadastro[]
 
   @@map("agencias")
 }
@@ -483,6 +484,18 @@ model Documento {
   reprovadoPor     String?
   motivoReprovacao String?
   reprovadoEm      DateTime?
+  // Simétrico ao trio de reprovação acima — aprovação manual (analista)
+  // passou a exigir justificativa igual à reprovação: se um humano decidiu
+  // aprovar em vez de deixar a IA seguir sozinha, algo levou a essa
+  // exceção, então quem/quando/por quê ficam registrados do mesmo jeito
+  // (decisão do usuário, 2026-07-26).
+  aprovadoPor      String?
+  motivoAprovacao  String?
+  aprovadoEm       DateTime?
+  // Quem fez upload manual pelo dossiê (painel admin), preenchendo um slot
+  // vazio ou reprovado — null quando o arquivo veio do wizard público ou
+  // do reenvio do próprio cliente.
+  inseridoManualmentePor String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -525,6 +538,34 @@ model AnaliseIaDocumento {
   processadoEm DateTime @default(now())
 
   @@map("analises_ia_documentos")
+}
+
+// Log de edição em lote dos dados de cadastro pelo analista (sócio ou
+// empresa) — exige justificativa (ver EditarRepresentanteLegalUseCase/
+// EditarDadosEmpresaUseCase), então cobre tanto "o que" quanto "por quê"
+// mudou, não só o antes/depois. `entidade`/`entidadeId` são referência
+// solta (string livre, sem FK formal — mesmo padrão de
+// KanbanHistorico.origem/Alerta.tipo), já que uma linha aqui pode apontar
+// pra RepresentanteLegal, Agencia ou CadastroComplementar. `alteracoes` é
+// Json porque o conjunto de campos editados varia por chamada (mesma
+// razão de AnaliseIaDocumento.detalhesChecagem ser Json).
+model HistoricoEdicaoCadastro {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  entidade   String // "RepresentanteLegal" | "Agencia" | "CadastroComplementar"
+  entidadeId String
+
+  alteracoes    Json // { campo: { de: string|null, para: string|null } }
+  justificativa String @db.Text
+  editadoPor    String
+
+  createdAt DateTime @default(now())
+
+  @@index([agenciaId])
+  @@index([entidadeId])
+  @@map("historico_edicoes_cadastro")
 }
 
 // Classificação de por que a agência chegou no status atual — distingue

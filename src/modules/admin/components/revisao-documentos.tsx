@@ -2,30 +2,19 @@
 
 import { useEffect, useState } from "react";
 import type { DocumentoRevisao } from "@/modules/admin/types/dossie.types";
-import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import { HistoricoDocumento } from "@/modules/admin/components/dossie-campos";
 
 interface RevisaoDocumentosComplementarProps {
   agenciaId: string;
   // Já vêm separados de quem prepara os dados da página (page.tsx) — a
-  // View só renderiza, não decide o que é "ativo" ou "pendente".
-  documentosAtivos: DocumentoRevisao[];
+  // View só renderiza, não decide o que é "pendente".
   documentosPendentes: DocumentoRevisao[];
-  aprovarDocumentoAction: (agenciaId: string, documentoId: string) => Promise<void>;
-  reprovarDocumentoAction: (
-    agenciaId: string,
-    documentoId: string,
-    formData: FormData,
-  ) => Promise<void>;
   solicitarReenvioDocumentosAction: (agenciaId: string, formData: FormData) => Promise<void>;
   // true quando o analista está revendo esta etapa a partir de uma etapa
-  // posterior (ver `etapaExibida` na page) — trava aprovar/reprovar/
-  // solicitar reenvio, só sobra a leitura (ver anexo/copiar link).
+  // posterior (ver `etapaExibida` na page) — trava solicitar reenvio, só
+  // sobra a leitura (ver histórico/copiar link).
   somenteLeitura?: boolean;
 }
-
-const BOTAO_DECISAO =
-  "rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
 
 function CopiarLinkButton({ link }: { link: string }) {
   const [copiado, setCopiado] = useState(false);
@@ -45,22 +34,19 @@ function CopiarLinkButton({ link }: { link: string }) {
   );
 }
 
-// Revisão de documentos do cadastro em "em_complementar" — agora com
-// dado real: aprovar/reprovar chamam server actions que gravam no
-// Documento (ver ReprovarDocumentoUseCase/AprovarDocumentoUseCase).
-// Reprovar é soft-delete: some do rol "ativo" aqui (e da ficha, ver
-// CampoDocumento em page.tsx) sem apagar do banco — reaparece quando o
-// cliente reenvia pela página pública (link mostrado embaixo).
+// Painel de reenvio de documentos reprovados — o ver/aprovar/reprovar dos
+// documentos "ativos" agora vive embutido onde cada documento normalmente
+// aparece na ficha (Empresa/Sócios, ver CampoDocumento em page.tsx e
+// Arquivo/AcoesAprovacaoDocumento em dossie-campos.tsx), então não duplica
+// mais a lista aqui (decisão do usuário, 2026-07-26: centralizar num modal
+// só). Sobra só a capacidade que não existe em nenhum outro lugar: pedir
+// reenvio de quem está REPROVADO (por e-mail, ou copiando o link).
 export function RevisaoDocumentosComplementar({
   agenciaId,
-  documentosAtivos,
   documentosPendentes,
-  aprovarDocumentoAction,
-  reprovarDocumentoAction,
   solicitarReenvioDocumentosAction,
   somenteLeitura = false,
 }: RevisaoDocumentosComplementarProps) {
-  const [reprovandoId, setReprovandoId] = useState<string | null>(null);
   // Calculado só depois de montar (client-only) — se calculasse direto no
   // corpo do componente, o servidor renderiza sem `window` (link relativo)
   // e o cliente hidrata com origin completo, gerando mismatch de
@@ -71,127 +57,41 @@ export function RevisaoDocumentosComplementar({
     setLinkReenvio(`${window.location.origin}/cadastro/documentos-pendentes/${agenciaId}`);
   }, [agenciaId]);
 
+  if (documentosPendentes.length === 0) return null;
+
   return (
-    <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-5">
-      <span className="text-primary text-xs font-bold tracking-wide uppercase">
-        Revisão de documentos
+    <div className="border-warning/30 bg-warning/5 flex flex-col gap-3 rounded-xl border p-4 text-sm">
+      <span className="text-warning text-xs font-bold tracking-wide uppercase">
+        Documentos pendentes de reenvio
       </span>
 
-      <div className="flex flex-col gap-2">
-        {documentosAtivos.map((doc) => {
-          // Aprovar/Reprovar vivem DENTRO do modal de pré-visualização
-          // (ver acoes) — o analista é obrigado a abrir o documento antes
-          // de decidir, nunca decide só olhando o rótulo da linha. O
-          // status (badge) continua fora, na própria linha.
-          const acoesAprovacao = !somenteLeitura ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                <form action={aprovarDocumentoAction.bind(null, agenciaId, doc.id)}>
-                  <button
-                    type="submit"
-                    className={`${BOTAO_DECISAO} ${
-                      doc.status === "APROVADO"
-                        ? "border-success bg-success text-success-foreground"
-                        : "border-input text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    Aprovar
-                  </button>
-                </form>
-                <button
-                  type="button"
-                  onClick={() => setReprovandoId(reprovandoId === doc.id ? null : doc.id)}
-                  className={`${BOTAO_DECISAO} border-input text-foreground hover:bg-accent`}
-                >
-                  Reprovar
-                </button>
-              </div>
-
-              {reprovandoId === doc.id ? (
-                <form
-                  action={async (formData) => {
-                    await reprovarDocumentoAction(agenciaId, doc.id, formData);
-                    setReprovandoId(null);
-                  }}
-                  className="flex flex-col gap-2 border-t border-dashed pt-2"
-                >
-                  <textarea
-                    name="motivo"
-                    required
-                    rows={2}
-                    placeholder="Motivo da reprovação (obrigatório — o cliente vê isso na página de reenvio)"
-                    className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      className="border-destructive bg-destructive text-destructive-foreground rounded-full border px-3 py-1 text-xs font-semibold transition"
-                    >
-                      Confirmar reprovação
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReprovandoId(null)}
-                      className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1 text-xs font-medium transition"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-            </div>
-          ) : null;
-
-          return (
-            <div
-              key={doc.id}
-              className="border-border bg-muted/30 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-foreground font-medium">{doc.label}</span>
-                  {doc.status === "APROVADO" ? (
-                    <span className="bg-success/15 text-success rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
-                      Aprovado
-                    </span>
-                  ) : null}
-                  {doc.status === "PENDENTE" &&
-                  doc.historico.some((item) => item.status === "REPROVADO") ? (
-                    <span className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
-                      Reenviado — aguardando revisão
-                    </span>
-                  ) : null}
-                </div>
-
-                <VisualizarDocumento
-                  documentoId={doc.id}
-                  gcsPath={doc.gcsPath}
-                  label={doc.label}
-                  acoes={acoesAprovacao}
-                >
-                  <span className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-semibold">
-                    Ver documento
+      {somenteLeitura ? (
+        <div className="flex flex-col gap-2">
+          {documentosPendentes.map((doc) => (
+            <div key={doc.id} className="flex flex-col gap-1.5">
+              <span className="text-foreground">
+                {doc.label}
+                {doc.motivoReprovacao ? (
+                  <span className="text-muted-foreground mt-0.5 block text-xs">
+                    {doc.motivoReprovacao}
                   </span>
-                </VisualizarDocumento>
-              </div>
-
+                ) : null}
+              </span>
               <HistoricoDocumento historico={doc.historico} />
             </div>
-          );
-        })}
-      </div>
-
-      {documentosPendentes.length > 0 ? (
-        <div className="border-warning/30 bg-warning/5 flex flex-col gap-3 rounded-xl border p-4 text-sm">
-          <span className="text-warning text-xs font-bold tracking-wide uppercase">
-            Documentos pendentes de reenvio
-          </span>
-
-          {somenteLeitura ? (
-            <div className="flex flex-col gap-2">
-              {documentosPendentes.map((doc) => (
-                <div key={doc.id} className="flex flex-col gap-1.5">
-                  <span className="text-foreground">
+          ))}
+        </div>
+      ) : (
+        <form
+          action={solicitarReenvioDocumentosAction.bind(null, agenciaId)}
+          className="flex flex-col gap-3"
+        >
+          <div className="flex flex-col gap-2">
+            {documentosPendentes.map((doc) => (
+              <div key={doc.id} className="flex flex-col gap-1.5">
+                <label className="text-foreground flex items-start gap-2">
+                  <input type="checkbox" name="documentoIds" value={doc.id} className="mt-0.5" />
+                  <span>
                     {doc.label}
                     {doc.motivoReprovacao ? (
                       <span className="text-muted-foreground mt-0.5 block text-xs">
@@ -199,56 +99,27 @@ export function RevisaoDocumentosComplementar({
                       </span>
                     ) : null}
                   </span>
-                  <HistoricoDocumento historico={doc.historico} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <form
-              action={solicitarReenvioDocumentosAction.bind(null, agenciaId)}
-              className="flex flex-col gap-3"
-            >
-              <div className="flex flex-col gap-2">
-                {documentosPendentes.map((doc) => (
-                  <div key={doc.id} className="flex flex-col gap-1.5">
-                    <label className="text-foreground flex items-start gap-2">
-                      <input
-                        type="checkbox"
-                        name="documentoIds"
-                        value={doc.id}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        {doc.label}
-                        {doc.motivoReprovacao ? (
-                          <span className="text-muted-foreground mt-0.5 block text-xs">
-                            {doc.motivoReprovacao}
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                    <HistoricoDocumento historico={doc.historico} />
-                  </div>
-                ))}
+                </label>
+                <HistoricoDocumento historico={doc.historico} />
               </div>
-              <button
-                type="submit"
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition"
-              >
-                Solicitar documentos por e-mail
-              </button>
-            </form>
-          )}
-
-          <div className="border-border bg-background flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
-            <span className="text-muted-foreground shrink-0">Link pra o cliente reenviar:</span>
-            <code className="text-foreground min-w-0 flex-1 break-all">
-              {linkReenvio ?? "carregando..."}
-            </code>
-            {linkReenvio ? <CopiarLinkButton link={linkReenvio} /> : null}
+            ))}
           </div>
-        </div>
-      ) : null}
+          <button
+            type="submit"
+            className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition"
+          >
+            Solicitar documentos por e-mail
+          </button>
+        </form>
+      )}
+
+      <div className="border-border bg-background flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
+        <span className="text-muted-foreground shrink-0">Link pra o cliente reenviar:</span>
+        <code className="text-foreground min-w-0 flex-1 break-all">
+          {linkReenvio ?? "carregando..."}
+        </code>
+        {linkReenvio ? <CopiarLinkButton link={linkReenvio} /> : null}
+      </div>
     </div>
   );
 }

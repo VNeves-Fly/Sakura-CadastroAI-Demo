@@ -21,7 +21,7 @@ export default async function SignatariosPadraoPage() {
           </div>
         </div>
         <Link
-          href="/painel/signatarios-padrao/novo"
+          href="/cadastros/signatarios-padrao/novo"
           className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
         >
           + Novo signatário
@@ -78,7 +78,7 @@ export default async function SignatariosPadraoPage() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-3">
                         <Link
-                          href={`/painel/signatarios-padrao/${signatario.id}`}
+                          href={`/cadastros/signatarios-padrao/${signatario.id}`}
                           className="text-primary text-xs font-semibold hover:underline"
                         >
                           Editar

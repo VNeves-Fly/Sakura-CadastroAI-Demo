@@ -56,12 +56,14 @@ export function labelBancoPais(valor: string): string {
 export function formatarEndereco(endereco: {
   logradouro: string;
   numero: string;
+  complemento: string;
   bairro: string;
   cidade: string;
   uf: string;
 }): string {
   if (!endereco.logradouro) return "—";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
+  const complemento = endereco.complemento ? `, ${endereco.complemento}` : "";
+  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
 }
 
 // Documento real do banco (ou null, se a agência é anterior a essa

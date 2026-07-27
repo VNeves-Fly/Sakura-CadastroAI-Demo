@@ -11,6 +11,7 @@ export interface CreateDocumentoData {
   gcsBucket?: string | null;
   gcsSize?: number | null;
   gcsMd5?: string | null;
+  inseridoManualmentePor?: string | null;
 }
 
 export interface AtualizarStatusDocumentoData {
@@ -19,6 +20,9 @@ export interface AtualizarStatusDocumentoData {
   reprovadoPor?: string | null;
   motivoReprovacao?: string | null;
   reprovadoEm?: Date | null;
+  aprovadoPor?: string | null;
+  motivoAprovacao?: string | null;
+  aprovadoEm?: Date | null;
 }
 
 export interface DocumentoRepository {

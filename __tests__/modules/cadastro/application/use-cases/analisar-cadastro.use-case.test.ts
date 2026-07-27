@@ -80,6 +80,10 @@ function documentoFake(id: string, gcsPath: string): Documento {
     reprovadoPor: null,
     motivoReprovacao: null,
     reprovadoEm: null,
+    aprovadoPor: null,
+    motivoAprovacao: null,
+    aprovadoEm: null,
+    inseridoManualmentePor: null,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   });
@@ -110,6 +114,7 @@ function detalheFake(overrides: Partial<AgenciaDetalhe> = {}): AgenciaDetalhe {
   return {
     agencia: agenciaFake(STATUS_EM_ANALISE),
     complementar: {
+      id: "complementar-1",
       telefoneComercial: "11988887777",
       emailOperacional: "operacional@example.com",
       emailComercial: "comercial@example.com",

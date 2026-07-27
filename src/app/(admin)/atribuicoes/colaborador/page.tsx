@@ -29,7 +29,7 @@ function NaoEncontrado({ tipo }: { tipo: "executivo" | "gestor" }) {
   );
 }
 
-// Mesmo banner rosa da ficha da agência (/painel/[id]) — nome em
+// Mesmo banner rosa da ficha da agência (/cadastros/[id]) — nome em
 // destaque + cargo/contato num relance, pra manter a mesma linguagem
 // visual entre as duas "fichas" do admin.
 function Banner({
@@ -108,7 +108,7 @@ function ListaAgencias({ agencias }: { agencias: AgenciaResumoPromotor[] }) {
       {agencias.map((agencia) => (
         <li key={agencia.id} className="py-2 first:pt-0 last:pb-0">
           <Link
-            href={`/painel/${agencia.id}?leitura=1`}
+            href={`/cadastros/${agencia.id}?leitura=1`}
             className="flex items-center justify-between gap-2 text-sm"
           >
             <span className="text-primary font-medium hover:underline">{agencia.razaoSocial}</span>

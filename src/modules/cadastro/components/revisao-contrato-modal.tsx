@@ -341,6 +341,10 @@ export function RevisaoContratoModal(props: RevisaoContratoModalProps) {
                         {labelEstadoCivil(socio.estadoCivil)}
                       </dd>
                     </div>
+                    <div>
+                      <dt className="text-muted-foreground">Nacionalidade</dt>
+                      <dd className="text-foreground break-words">{socio.nacionalidade || "—"}</dd>
+                    </div>
                     <div className="sm:col-span-2">
                       <dt className="text-muted-foreground">Endereço</dt>
                       <dd className="text-foreground break-words">

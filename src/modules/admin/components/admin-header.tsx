@@ -13,10 +13,10 @@ interface AdminHeaderProps {
 // Rótulos das páginas do Admin pro breadcrumb "Sakura · {Página}" — cada
 // página nova entra aqui conforme for sendo construída.
 const ROTULOS_PAGINA: Record<string, string> = {
-  "/painel/usuarios": "Usuários",
-  "/painel/messenger": "Messenger",
-  "/painel/eventos": "Eventos",
-  "/painel": "Cadastros",
+  "/cadastros/usuarios": "Usuários",
+  "/cadastros/messenger": "Messenger",
+  "/cadastros/eventos": "Eventos",
+  "/cadastros": "Cadastros",
   "/arquivo": "Arquivo",
   "/atendimento": "Atendimento",
   "/atribuicoes": "Atribuições",

@@ -130,7 +130,7 @@ export interface CreateAgenciaData {
   // Id da Associacao atribuída (combobox do form público ou link de
   // Evento) — null se nenhuma foi atribuída.
   associacaoId: string | null;
-  // Id do Evento (painel /eventos) de onde veio o link usado, se houver.
+  // Id do Evento (cadastros /eventos) de onde veio o link usado, se houver.
   eventoId: string | null;
   // Gravado atomicamente junto (Agencia + sócios + CadastroComplementar),
   // numa transação — não existe intervalo entre eles. Status inicial é
@@ -147,9 +147,9 @@ export interface ListarCadastrosFiltros {
   status?: string | string[];
   sortBy?: "razaoSocial" | "createdAt";
   sortDir?: "asc" | "desc";
-  executivoId?: string;
-  associacaoId?: string;
-  eventoId?: string;
+  executivoId?: string | string[];
+  associacaoId?: string | string[];
+  eventoId?: string | string[];
 }
 
 export interface ListarCadastrosItem {
@@ -216,6 +216,7 @@ export interface RepresentanteLegalDetalhe {
 }
 
 export interface CadastroComplementarDetalhe {
+  id: string;
   telefoneComercial: string | null;
   emailOperacional: string | null;
   emailComercial: string | null;
@@ -316,6 +317,13 @@ export interface AgenciaRepository {
     resultado: ResultadoAnaliseIa,
   ): Promise<void>;
   atualizarStatus(id: string, status: string): Promise<Agencia>;
+  // Edição em lote pelo analista (ver EditarDadosEmpresaUseCase) — nunca
+  // inclui campos sourced de DadosReceita, que não é tocado por este
+  // método.
+  atualizarDadosCadastrais(
+    id: string,
+    data: { razaoSocial?: string; emailContato?: string; telefoneContato?: string },
+  ): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
   salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;
   criarContrato(
