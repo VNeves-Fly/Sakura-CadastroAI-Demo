@@ -20,6 +20,7 @@ import type {
   DocumentAnalysisService,
 } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
+import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -31,6 +32,10 @@ const ENDERECO = {
   uf: "SP",
 };
 
+// `parecer: "APROVADO"` — fixture representa o caminho feliz (documento
+// aprovado na checagem individual); testes do gate de divergência (ver
+// "todosDocumentosAprovados" em AnalisarCadastroUseCase) sobrescrevem
+// isso explicitamente.
 const ANALISE_VAZIA: DocumentAnalysisResultado = {
   camposExtraidos: {},
   camposExtras: {},
@@ -39,6 +44,8 @@ const ANALISE_VAZIA: DocumentAnalysisResultado = {
   resumoAnalise: null,
   textoBruto: null,
   checagens: null,
+  parecer: "APROVADO",
+  comparacaoOficial: null,
 };
 
 function agenciaFake(status: string): Agencia {
@@ -216,6 +223,20 @@ interface Deps {
   analiseIaService: AnaliseIaService;
   documentAnalysisService: DocumentAnalysisService;
   dadosReceitaRepository: DadosReceitaRepository;
+  documentoRepository: DocumentoRepository;
+}
+
+function criarDocumentoRepositoryFake(
+  overrides: Partial<DocumentoRepository> = {},
+): DocumentoRepository {
+  return {
+    findById: jest.fn(),
+    findByAgenciaId: jest.fn(),
+    findByRepresentanteLegalId: jest.fn(),
+    create: jest.fn(),
+    atualizarStatus: jest.fn(),
+    ...overrides,
+  };
 }
 
 function criarUseCase(overrides: Partial<Deps> = {}) {
@@ -225,6 +246,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     analiseIaService: criarAnaliseIaFake(),
     documentAnalysisService: criarDocumentAnalysisFake(),
     dadosReceitaRepository: criarDadosReceitaFake(),
+    documentoRepository: criarDocumentoRepositoryFake(),
     ...overrides,
   };
 
@@ -234,6 +256,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.analiseIaService,
     deps.documentAnalysisService,
     deps.dadosReceitaRepository,
+    deps.documentoRepository,
   );
 
   return { useCase, ...deps };
@@ -402,6 +425,49 @@ describe("AnalisarCadastroUseCase", () => {
       analiseIa,
       STATUS_AGUARDANDO_ASSINATURA,
       "APROVADO",
+    );
+  });
+
+  it("quando a IA aprova o cadastro no geral mas reprova o contrato social na checagem individual, vai pra em_complementar (não gera contrato)", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, agenciaRepository, contratoAssinaturaService, documentoRepository } =
+      criarUseCase({
+        analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+        documentAnalysisService: criarDocumentAnalysisFake({
+          analisar: jest.fn().mockResolvedValue({ ...ANALISE_VAZIA, parecer: "REPROVADO" }),
+        }),
+      });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
+    expect(agenciaRepository.criarContrato).not.toHaveBeenCalled();
+    expect(documentoRepository.atualizarStatus).not.toHaveBeenCalled();
+    expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
+      "agencia-1",
+      expect.objectContaining({
+        motivo: expect.stringContaining("reprovou (ou não avaliou) ao menos um documento"),
+      }),
+      STATUS_EM_COMPLEMENTAR,
+      "REPROVADO",
+    );
+  });
+
+  it("quando a IA aprova o cadastro e todos os documentos são aprovados na checagem individual, aprova cada documento automaticamente", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, documentoRepository } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    expect(documentoRepository.atualizarStatus).toHaveBeenCalledWith(
+      "doc-contrato-1",
+      expect.objectContaining({ status: "APROVADO", aprovadoPor: "IA (aprovação automática)" }),
+    );
+    expect(documentoRepository.atualizarStatus).toHaveBeenCalledWith(
+      "doc-rg-1",
+      expect.objectContaining({ status: "APROVADO", aprovadoPor: "IA (aprovação automática)" }),
     );
   });
 
