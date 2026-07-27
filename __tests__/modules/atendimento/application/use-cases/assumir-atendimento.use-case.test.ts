@@ -111,6 +111,7 @@ describe("AssumirAtendimentoUseCase", () => {
       statusAgencia: "em_andamento",
       documentosAprovados: 0,
       documentosPendentes: 0,
+      documentosParaRevisar: [],
       situacaoCadastralReceita: null,
       contratoStatus: null,
       amatSofiaConsultado: false,

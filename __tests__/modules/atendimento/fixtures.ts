@@ -29,6 +29,7 @@ export function fakeConversa(overrides: Partial<ConversaEntity> = {}): ConversaE
       statusAgencia: "em_andamento",
       documentosAprovados: 0,
       documentosPendentes: 0,
+      documentosParaRevisar: [],
       situacaoCadastralReceita: null,
       contratoStatus: null,
       amatSofiaConsultado: false,
@@ -51,6 +52,7 @@ export function fakeAssumirAtendimentoRepository(
       liberadoEm: null,
     }),
     liberar: jest.fn(),
+    listarAtivosPorAgencias: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -62,6 +64,7 @@ export function fakeConversaRepository(
     findAll: jest.fn().mockResolvedValue([]),
     findById: jest.fn().mockResolvedValue(fakeConversa()),
     findByTelefoneWhatsapp: jest.fn().mockResolvedValue(null),
+    findAllByAgenciaId: jest.fn().mockResolvedValue([]),
     create: jest.fn(),
     touchLastMessage: jest.fn(),
     ...overrides,

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
 import { DomainError } from "@/modules/shared/domain/errors";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
@@ -11,6 +12,34 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 // Server Actions do dossiê — cada uma só dispara a ação no controller e
 // revalida a própria página do dossiê (sem redirect: o form re-renderiza
 // no mesmo lugar já com o novo status).
+// Chama a MESMA use-case que /atendimento usa pra assumir uma conversa —
+// é isso que impede um analista no dossiê e outro em /atendimento de
+// pegarem a mesma pessoa ao mesmo tempo (o lock de 2h do
+// AssumirAtendimentoUseCase vale pros dois lugares). Devolve um resultado
+// serializável em vez de deixar o erro estourar: não existe hoje nenhum
+// error boundary/toast tratando DomainError no client.
+export async function assumirAtendimentoDossieAction(
+  agenciaId: string,
+  conversaId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const session = await getServerSession(nextAuthOptions);
+  const analistaId = session?.user?.id;
+  if (!analistaId) {
+    return { ok: false, message: "Sessão expirada, recarregue a página." };
+  }
+
+  try {
+    await atendimentoController.assumirAtendimento({ conversaId, analistaId });
+    revalidatePath(`/cadastros/${agenciaId}`);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { ok: false, message: error.message };
+    }
+    throw error;
+  }
+}
+
 export async function aprovarComplementarAction(id: string) {
   await cadastroAdminController.aprovarComplementar(id);
   revalidatePath(`/cadastros/${id}`);

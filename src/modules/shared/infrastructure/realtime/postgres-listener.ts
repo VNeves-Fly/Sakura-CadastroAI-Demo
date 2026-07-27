@@ -3,6 +3,10 @@ import { Client, type Notification } from "pg";
 export interface CadastroEvento {
   tabela: string;
   agenciaId: string;
+  // Id da linha que disparou o evento — sem isso não dá pra saber qual
+  // linha exatamente mudou quando várias são inseridas quase juntas na
+  // mesma tabela (ex.: documentos do wizard, todos na mesma transação).
+  id: string;
   tipo: "INSERT" | "UPDATE";
 }
 

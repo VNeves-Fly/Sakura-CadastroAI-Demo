@@ -8,6 +8,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { Eye } from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 import type { DadosReceitaCnae } from "@/modules/cadastro/domain/entities/dados-receita.entity";
@@ -252,8 +253,13 @@ function AcoesAprovacaoDocumento({
 
   if (somenteLeitura) return null;
 
+  // Rodapé tintado conforme a decisão atual — verde quando aprovado,
+  // vermelho quando reprovado, neutro enquanto pendente.
+  const corRodape =
+    status === "APROVADO" ? "bg-success/10" : status === "REPROVADO" ? "bg-destructive/10" : "";
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className={`flex flex-col gap-2 rounded-xl p-2 ${corRodape}`}>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -269,7 +275,11 @@ function AcoesAprovacaoDocumento({
         <button
           type="button"
           onClick={() => setModo(modo === "reprovar" ? null : "reprovar")}
-          className={`${BOTAO_DECISAO_DOCUMENTO} border-input text-foreground hover:bg-accent`}
+          className={`${BOTAO_DECISAO_DOCUMENTO} ${
+            status === "REPROVADO"
+              ? "border-destructive bg-destructive text-destructive-foreground"
+              : "border-input text-foreground hover:bg-accent"
+          }`}
         >
           Reprovar
         </button>
@@ -319,8 +329,9 @@ function AcoesAprovacaoDocumento({
           <textarea
             name="motivo"
             required
+            minLength={20}
             rows={2}
-            placeholder="Motivo da reprovação (obrigatório — o cliente vê isso na página de reenvio)"
+            placeholder="Motivo da reprovação (mínimo 20 caracteres — o cliente vê isso na página de reenvio)"
             className={TEXTAREA_MOTIVO_DECISAO}
           />
           <div className="flex gap-2">
@@ -455,8 +466,12 @@ export function Arquivo({
         ) : undefined
       }
     >
-      <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-mono text-xs font-semibold break-all">
-        {nomeArquivo}
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="border-input hover:bg-accent inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition">
+          <Eye className="size-3.5" />
+          Visualizar
+        </span>
+        <span className="text-muted-foreground font-mono text-xs break-all">{nomeArquivo}</span>
       </span>
     </VisualizarDocumento>
   );
@@ -707,7 +722,12 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
         <ChecagemBadge label="Ref. cruzada" valor={analise.referenciaCruzadaOk} />
       </div>
 
-      {analise.resumoAnalise ? (
+      {analise.parecer === "REPROVADO" ? (
+        <p className="text-destructive font-medium">
+          IA reprovou — motivo:{" "}
+          {analise.resumoAnalise ?? alertas[0]?.mensagem ?? "sem detalhamento registrado."}
+        </p>
+      ) : analise.resumoAnalise ? (
         <p className="text-muted-foreground">{analise.resumoAnalise}</p>
       ) : null}
 

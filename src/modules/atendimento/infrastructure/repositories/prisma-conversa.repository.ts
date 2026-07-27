@@ -88,6 +88,7 @@ function toDomain(record: ConversaComRelacoes): ConversaEntity {
       statusAgencia: "em_andamento",
       documentosAprovados: 0,
       documentosPendentes: 0,
+      documentosParaRevisar: [],
       situacaoCadastralReceita: null,
       contratoStatus: null,
       amatSofiaConsultado: false,
@@ -123,6 +124,14 @@ export class PrismaConversaRepository implements ConversaRepository {
       include: CONVERSA_INCLUDE,
     });
     return record ? toDomain(record) : null;
+  }
+
+  async findAllByAgenciaId(agenciaId: string): Promise<ConversaEntity[]> {
+    const records = await this.prisma.conversa.findMany({
+      where: { agenciaId },
+      include: CONVERSA_INCLUDE,
+    });
+    return records.map(toDomain);
   }
 
   async create(data: CriarConversaData): Promise<ConversaEntity> {

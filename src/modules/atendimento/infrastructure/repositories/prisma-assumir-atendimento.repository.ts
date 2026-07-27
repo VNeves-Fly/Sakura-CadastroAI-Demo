@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
   AssumirAtendimentoRepository,
+  RegistroAtendimentoAtivoPorAgencia,
   RegistroAtendimentoAtual,
 } from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
 import type { AssumirAtendimentoRegistroEntity } from "@/modules/atendimento/domain/entities/conversa.entity";
@@ -34,5 +35,26 @@ export class PrismaAssumirAtendimentoRepository implements AssumirAtendimentoRep
       where: { id: registroId },
       data: { liberadoEm: new Date() },
     });
+  }
+
+  async listarAtivosPorAgencias(
+    agenciaIds: string[],
+  ): Promise<RegistroAtendimentoAtivoPorAgencia[]> {
+    if (agenciaIds.length === 0) return [];
+
+    const registros = await this.prisma.assumirAtendimentoRegistro.findMany({
+      where: { liberadoEm: null, conversa: { agenciaId: { in: agenciaIds } } },
+      include: { analista: { select: { name: true } }, conversa: { select: { agenciaId: true } } },
+      orderBy: { assumidoEm: "desc" },
+    });
+
+    return registros
+      .filter((registro) => registro.conversa.agenciaId !== null)
+      .map((registro) => ({
+        agenciaId: registro.conversa.agenciaId as string,
+        conversaId: registro.conversaId,
+        analistaNome: registro.analista.name,
+        assumidoEm: registro.assumidoEm,
+      }));
   }
 }
