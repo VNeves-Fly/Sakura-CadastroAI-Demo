@@ -779,7 +779,7 @@ export default async function DossieAgenciaPage({
                 Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
                 {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
                 assinado antes de seguir pra ativação — SICA e Travel Link ficam no bloco
-                &ldquo;Credenciais de Usuário&rdquo;, abaixo.
+                &ldquo;SICA/Travel Link&rdquo;, abaixo.
               </p>
             </div>
           ) : null}
@@ -807,7 +807,7 @@ export default async function DossieAgenciaPage({
           não tem nada pra mostrar aqui. */}
       {etapaExibida === indiceValidacao || etapaExibida === indiceAtivacao ? (
         <SecaoColapsavel
-          titulo="Credenciais de Usuário"
+          titulo="SICA/Travel Link"
           icon={<KeyRound className="size-4" />}
           defaultAberta
         >
