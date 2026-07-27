@@ -15,7 +15,11 @@ import { assumirAtendimentoDossieAction } from "./actions";
 const BOTAO_CLASSES =
   "border-input text-foreground hover:bg-accent flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60";
 
-export interface OpcaoAtendimentoDossie extends OpcaoTelefoneAtendimento {
+// Não exportada — usada só dentro deste arquivo (quem monta as opções em
+// page.tsx não precisa importar o tipo, tipagem estrutural já garante o
+// formato); se algum dia outro arquivo precisar dela de verdade, mover
+// pra src/modules/admin/types/, mesmo padrão de filtro-cadastros.types.ts.
+interface OpcaoAtendimentoDossie extends OpcaoTelefoneAtendimento {
   // null quando nunca houve troca de mensagem pra esse telefone — nesse
   // caso não existe Conversa pra assumir, o clique só navega, como sempre
   // fez.

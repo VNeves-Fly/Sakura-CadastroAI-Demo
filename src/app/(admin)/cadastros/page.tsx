@@ -12,10 +12,8 @@ import {
 } from "@/modules/admin/utils/status-cadastro.util";
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
-import {
-  FiltroCadastrosField,
-  type OpcaoFiltroCadastros,
-} from "@/modules/admin/components/filtro-cadastros-field";
+import { FiltroCadastrosField } from "@/modules/admin/components/filtro-cadastros-field";
+import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
 import {
   STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,

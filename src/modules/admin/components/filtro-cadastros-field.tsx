@@ -14,15 +14,7 @@ import {
   ComboboxChip,
   ComboboxChipRemove,
 } from "@/components/ui/combobox";
-
-export interface OpcaoFiltroCadastros {
-  // Prefixado por categoria (ex.: "base:SP", "executivo:<id>") — é assim
-  // que a categoria sobrevive ao roundtrip de um <form method="GET">
-  // nativo, que só serializa o value mesmo.
-  value: string;
-  label: string;
-  categoria: string;
-}
+import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
 
 const campoClassName =
   "bg-card border-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 w-full rounded-full border py-2 text-sm outline-none focus:ring-2";
