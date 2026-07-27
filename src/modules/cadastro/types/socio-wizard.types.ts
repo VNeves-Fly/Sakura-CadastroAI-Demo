@@ -61,6 +61,7 @@ export interface SocioWizardValidacao {
   emailInvalido: boolean;
   emailErro: string | null;
   telefoneInvalido: boolean;
+  telefoneErro: string | null;
   rgErro: string | null;
   procuracaoErro: string | null;
 }

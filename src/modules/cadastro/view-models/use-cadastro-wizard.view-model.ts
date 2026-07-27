@@ -14,7 +14,12 @@ import {
   unmaskCnpj,
   validarCnpjComMensagem,
 } from "@/modules/cadastro/utils/cnpj.util";
-import { maskTelefone, validarTelefone } from "@/modules/shared/utils/telefone.util";
+import {
+  maskTelefone,
+  paisTelefonePorCodigo,
+  unmaskTelefone,
+  validarTelefone,
+} from "@/modules/shared/utils/telefone.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
 import { maskCpf, unmaskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
 import { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
@@ -824,13 +829,22 @@ export function useCadastroWizardViewModel({
 
   const cpfsNormalizados = socios.map((socio) => unmaskCpf(socio.cpf));
   const emailsNormalizados = socios.map((socio) => socio.email.trim().toLowerCase());
+  const telefonesNormalizados = socios.map((socio) => unmaskTelefone(socio.telefone));
   const contagemCpf = contarOcorrencias(cpfsNormalizados);
   const contagemEmail = contarOcorrencias(emailsNormalizados);
+  const contagemTelefone = contarOcorrencias(
+    telefonesNormalizados.filter((telefone) => telefone.length > 0),
+  );
 
   const sociosValidacao = socios.map((socio, index) => {
     const cpfDuplicado = (contagemCpf.get(cpfsNormalizados[index]!) ?? 0) > 1;
     const emailDuplicado = (contagemEmail.get(emailsNormalizados[index]!) ?? 0) > 1;
     const emailFormatoInvalido = socio.email.length > 0 && !validarEmail(socio.email);
+    const telefoneFormatoInvalido =
+      socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais);
+    const telefoneDuplicado =
+      telefonesNormalizados[index]!.length > 0 &&
+      (contagemTelefone.get(telefonesNormalizados[index]!) ?? 0) > 1;
 
     return {
       cpfStatus: cpfDuplicado
@@ -843,8 +857,12 @@ export function useCadastroWizardViewModel({
         : emailFormatoInvalido
           ? "E-mail inválido."
           : null,
-      telefoneInvalido:
-        socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais),
+      telefoneInvalido: telefoneFormatoInvalido || telefoneDuplicado,
+      telefoneErro: telefoneDuplicado
+        ? "Telefone já usado por outro sócio nesta lista."
+        : telefoneFormatoInvalido
+          ? `Telefone incompleto para ${paisTelefonePorCodigo(socio.telefonePais).nome}.`
+          : null,
       rgErro: sociosArquivoErros[index]?.rg ?? null,
       procuracaoErro: sociosArquivoErros[index]?.procuracao ?? null,
     };

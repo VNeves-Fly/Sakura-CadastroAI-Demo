@@ -253,21 +253,21 @@ function AcoesAprovacaoDocumento({
 
   if (somenteLeitura) return null;
 
-  // Rodapé tintado conforme a decisão atual — verde quando aprovado,
-  // vermelho quando reprovado, neutro enquanto pendente.
-  const corRodape =
-    status === "APROVADO" ? "bg-success/10" : status === "REPROVADO" ? "bg-destructive/10" : "";
-
+  // Header/rodapé do modal (ver VisualizarDocumento) já ficam com o
+  // fundo sistêmico verde/vermelho conforme a decisão — aqui só o botão
+  // já confirmado usa o tom claro (contraste sobre esse fundo sólido); o
+  // botão que não foi clicado permanece branco, decisão do usuário
+  // (2026-07-27).
   return (
-    <div className={`flex flex-col gap-2 rounded-xl p-2 ${corRodape}`}>
+    <div className="flex flex-col gap-2 p-2">
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setModo(modo === "aprovar" ? null : "aprovar")}
           className={`${BOTAO_DECISAO_DOCUMENTO} ${
             status === "APROVADO"
-              ? "border-success bg-success text-success-foreground"
-              : "border-input text-foreground hover:bg-accent"
+              ? "border-success-bg bg-success-bg text-success-text"
+              : "border-input bg-card text-foreground hover:bg-accent"
           }`}
         >
           Aprovar
@@ -277,8 +277,8 @@ function AcoesAprovacaoDocumento({
           onClick={() => setModo(modo === "reprovar" ? null : "reprovar")}
           className={`${BOTAO_DECISAO_DOCUMENTO} ${
             status === "REPROVADO"
-              ? "border-destructive bg-destructive text-destructive-foreground"
-              : "border-input text-foreground hover:bg-accent"
+              ? "border-destructive-bg bg-destructive-bg text-destructive-text"
+              : "border-input bg-card text-foreground hover:bg-accent"
           }`}
         >
           Reprovar
@@ -448,6 +448,7 @@ export function Arquivo({
       documentoId={documento.id}
       gcsPath={documento.gcsPath}
       label={nomeArquivo}
+      statusDecisao={documento.status}
       painelEsquerdo={analise !== undefined ? <AnaliseIaDetalhe analise={analise} /> : undefined}
       infoAuditoria={
         temAuditoria ? (
