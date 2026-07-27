@@ -1,9 +1,12 @@
 # deps — install dependencies (husky's prepare script needs HUSKY=0, sem .git no build)
-# nota: a variante "-slim" corrompe a extração de tarball do bun install sob
-# emulação QEMU (--platform linux/amd64 em host arm64); a imagem completa não tem esse bug
+# nota: bug do bun 1.3.13/1.3.14 (oven-sh/bun#34821, fix pendente em bun PR #34827) —
+# download de tarball grande (>=2MB, caso do "next") que é cortado no meio não é
+# re-tentado no path de streaming, e falha com "Fail extracting tarball for X".
+# a flag abaixo desativa esse path como workaround; remover quando o fix for lançado.
 FROM oven/bun:latest AS deps
 WORKDIR /app
 ENV HUSKY=0
+ENV BUN_FEATURE_FLAG_DISABLE_STREAMING_INSTALL=1
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
