@@ -40,13 +40,19 @@ export function Campo({
   label,
   children,
   className,
+  corFundo = "bg-card",
 }: {
   label: string;
   children: ReactNode;
   className?: string;
+  // Prop separada da `className` de propósito: um `bg-*` dentro de
+  // `className` colidiria com o `bg-card` fixo (duas classes de mesma
+  // propriedade, quem ganha depende da ordem no CSS gerado pelo
+  // Tailwind, não da ordem na string) — ver corFundoDocumento abaixo.
+  corFundo?: string;
 }) {
   return (
-    <div className={`bg-card px-3 py-2.5 ${className ?? ""}`}>
+    <div className={`${corFundo} px-3 py-2.5 ${className ?? ""}`}>
       <dt className="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">{label}</dt>
       <dd className="text-foreground mt-0.5 text-sm font-medium break-words">{children}</dd>
     </div>
@@ -84,6 +90,18 @@ export function CamposGrid({ children, className }: { children: ReactNode; class
       {itensAjustados}
     </dl>
   );
+}
+
+// Fundo do Campo de Contrato Social/RG-CNH/Procuração conforme a decisão
+// do analista — verde aprovado, vermelho reprovado, amarelo enquanto
+// ainda pendente (documento enviado, aguardando revisão em Complementar,
+// ver PENDENTE em Arquivo) — decisão do usuário, 2026-07-27. `null`
+// (nenhum arquivo enviado ainda) mantém o fundo neutro de sempre.
+export function corFundoDocumento(documento: Documento | null): string {
+  if (!documento) return "bg-card";
+  if (documento.status === "APROVADO") return "bg-success-bg";
+  if (documento.status === "REPROVADO") return "bg-destructive-bg";
+  return "bg-warning-bg";
 }
 
 // Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
@@ -610,38 +628,45 @@ export function Arquivo({
     reenviado;
 
   return (
-    <VisualizarDocumento
-      documentoId={documento.id}
-      gcsPath={documento.gcsPath}
-      label={nomeArquivo}
-      statusDecisao={documento.status}
-      painelEsquerdo={analise !== undefined ? <AnaliseIaDetalhe analise={analise} /> : undefined}
-      infoAuditoria={
-        temAuditoria ? (
-          <AuditoriaDocumento documento={documento} reenviado={reenviado} />
-        ) : undefined
-      }
-      acoes={
-        agenciaId && aprovarDocumentoAction && reprovarDocumentoAction ? (
-          <AcoesAprovacaoDocumento
-            agenciaId={agenciaId}
-            documentoId={documento.id}
-            status={documento.status}
-            aprovarDocumentoAction={aprovarDocumentoAction}
-            reprovarDocumentoAction={reprovarDocumentoAction}
-            somenteLeitura={somenteLeitura}
-          />
-        ) : undefined
-      }
-    >
-      <span className="flex flex-wrap items-center gap-2">
-        <span className="border-input hover:bg-accent inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition">
-          <Eye className="size-3.5" />
-          Visualizar
+    <div className="flex flex-col gap-1.5">
+      <VisualizarDocumento
+        documentoId={documento.id}
+        gcsPath={documento.gcsPath}
+        label={nomeArquivo}
+        statusDecisao={documento.status}
+        painelEsquerdo={analise !== undefined ? <AnaliseIaDetalhe analise={analise} /> : undefined}
+        infoAuditoria={
+          temAuditoria ? (
+            <AuditoriaDocumento documento={documento} reenviado={reenviado} />
+          ) : undefined
+        }
+        acoes={
+          agenciaId && aprovarDocumentoAction && reprovarDocumentoAction ? (
+            <AcoesAprovacaoDocumento
+              agenciaId={agenciaId}
+              documentoId={documento.id}
+              status={documento.status}
+              aprovarDocumentoAction={aprovarDocumentoAction}
+              reprovarDocumentoAction={reprovarDocumentoAction}
+              somenteLeitura={somenteLeitura}
+            />
+          ) : undefined
+        }
+      >
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="border-input hover:bg-accent inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition">
+            <Eye className="size-3.5" />
+            Visualizar
+          </span>
+          <span className="text-muted-foreground font-mono text-xs break-all">{nomeArquivo}</span>
         </span>
-        <span className="text-muted-foreground font-mono text-xs break-all">{nomeArquivo}</span>
-      </span>
-    </VisualizarDocumento>
+      </VisualizarDocumento>
+      {documento.status === "PENDENTE" ? (
+        <span className="bg-warning-bg text-warning-text w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
+          Pendente
+        </span>
+      ) : null}
+    </div>
   );
 }
 
