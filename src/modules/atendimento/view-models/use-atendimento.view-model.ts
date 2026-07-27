@@ -6,6 +6,7 @@ import type {
   EnviarMensagemInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
+import { telefonesEquivalentes } from "@/modules/shared/utils/telefone.util";
 
 // Rede de segurança bem espaçada — cobre o caso raro da conexão SSE cair
 // silenciosamente sem disparar "onerror" (o EventSource já reconecta
@@ -19,9 +20,14 @@ const INTERVALO_POLLING_SEGURANCA_MS = 60_000;
 // expõe ações que chamam esse mesmo service, guarda loading/erro. Troque
 // o service internamente quando o back-end existir; este hook e os
 // componentes que o consomem não precisam mudar.
-export function useAtendimento(analistaAtual: string) {
+export function useAtendimento(analistaAtual: string, telefoneInicial?: string) {
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [conversaSelecionadaId, setConversaSelecionadaId] = useState<string | null>(null);
+  // `?telefone=` do dossiê (ver AtendimentoButton) — seleciona a conversa
+  // correspondente assim que a lista carrega, uma única vez (não deve
+  // "puxar" o analista de volta pra essa conversa depois que ele troca de
+  // conversa manualmente ou quando o polling/SSE atualiza a lista).
+  const telefoneInicialConsumidoRef = useRef(false);
   const [textosProntos, setTextosProntos] = useState<TextoPronto[]>([]);
   const [templatesAprovados, setTemplatesAprovados] = useState<TemplateAprovado[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,12 +50,20 @@ export function useAtendimento(analistaAtual: string) {
       setConversas(conversasCarregadas);
       setTextosProntos(textos);
       setTemplatesAprovados(templates);
+
+      if (telefoneInicial && !telefoneInicialConsumidoRef.current) {
+        telefoneInicialConsumidoRef.current = true;
+        const conversaAlvo = conversasCarregadas.find((conversa) =>
+          telefonesEquivalentes(conversa.membro.telefone, telefoneInicial),
+        );
+        if (conversaAlvo) setConversaSelecionadaId(conversaAlvo.id);
+      }
     } catch {
       setHasError(true);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [telefoneInicial]);
 
   useEffect(() => {
     void carregarTudo();

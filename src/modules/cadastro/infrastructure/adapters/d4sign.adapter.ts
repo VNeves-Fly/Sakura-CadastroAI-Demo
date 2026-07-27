@@ -131,6 +131,8 @@ export class D4SignAdapter implements ContratoAssinaturaService {
       certificadoicpbr: "0", // sem certificado ICP-Brasil
       assinatura_presencial: "0", // assinatura remota
       after_position: String(ESTAGIO_SOCIOS),
+      docauthandselfie: "1", // exige selfie com documento
+      videoselfie: "1", // exige vídeo selfie
     }));
 
     const fixos = signatariosPadrao
