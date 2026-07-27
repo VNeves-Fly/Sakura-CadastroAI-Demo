@@ -1,5 +1,7 @@
 import type { UseCase } from "@/modules/shared/application/use-case";
 import {
+  STATUS_EM_ANALISE,
+  STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
@@ -26,15 +28,21 @@ export class ListarCadastrosUseCase implements UseCase<
 
   async execute(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosOutput> {
     // Sem filtro de status explícito (clique num card de fila), a
-    // listagem mostra as filas que ainda precisam de ação do analista —
-    // "em_complementar", "aguardando_validacao" e "aguardando_ativacao".
-    // "aguardando_assinatura" fica de fora do default porque é só
-    // informativo (nada a fazer até o sócio assinar); "ativo"/"recusado"
-    // são estados finais.
+    // listagem mostra todo cadastro em andamento — só exclui os dois
+    // estados finais (ativo/recusado, ver Ciclo de vida completo da
+    // agência no topo de agencia-repository.ts). Decisão do usuário
+    // (2026-07-27): antes o default era uma lista fechada de 3-4 filas
+    // "que precisam de ação", o que escondia silenciosamente qualquer
+    // status fora dessa lista (ex.: aguardando_assinatura, depois
+    // em_analise) sem nenhum aviso — nenhum card de fila aparece "ativo"
+    // quando não há status na URL, então parecia estar mostrando tudo sem
+    // realmente mostrar.
     const filtrosEfetivos: ListarCadastrosFiltros = {
       ...filtros,
       status: filtros.status ?? [
+        STATUS_EM_ANALISE,
         STATUS_EM_COMPLEMENTAR,
+        STATUS_AGUARDANDO_ASSINATURA,
         STATUS_AGUARDANDO_VALIDACAO,
         STATUS_AGUARDANDO_ATIVACAO,
       ],

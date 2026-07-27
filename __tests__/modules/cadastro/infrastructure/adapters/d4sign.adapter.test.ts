@@ -172,6 +172,8 @@ describe("D4SignAdapter", () => {
           certificadoicpbr: "0",
           assinatura_presencial: "0",
           after_position: "0",
+          docauthandselfie: "1",
+          videoselfie: "1",
         },
       ],
     });
@@ -256,6 +258,8 @@ describe("D4SignAdapter", () => {
           certificadoicpbr: "0",
           assinatura_presencial: "0",
           after_position: "0",
+          docauthandselfie: "1",
+          videoselfie: "1",
         },
         {
           email: "cadastro@sakuratur.com.br",

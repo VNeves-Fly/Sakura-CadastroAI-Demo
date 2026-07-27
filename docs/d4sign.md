@@ -133,6 +133,15 @@ Só roda se `D4SIGN_WEBHOOK_URL` estiver configurada — hoje está vazia (sem d
 }
 ```
 
+### 5.0 Evidência extra dos sócios — selfie com documento + vídeo selfie
+
+Requisito de negócio: quando o documento vai pros sócios (estágio 0), exigir **2 evidências** de identidade além da assinatura em si — confirmado nos campos documentados oficialmente pra `createlist` (`docs/endpoints-1`):
+
+- `docauthandselfie: "1"` — exige selfie segurando o documento.
+- `videoselfie: "1"` — exige vídeo selfie.
+
+Só os sócios (`ESTAGIO_SOCIOS`) recebem esses dois campos — os 4 signatários fixos da Sakura (Jean/Vivi/Wagner/Jennifer) não. **Ainda não exercido contra a conta real** — só coberto por teste unitário; falta confirmar ao vivo como o D4Sign expõe essas evidências pro analista revisar depois (painel deles, ou algum campo retornado no `GET /documents/{uuid}`/webhook).
+
 **Response:** `200 OK` (corpo não logado pelo adapter — só `response.ok` é checado; a doc oficial mostra um retorno com `key_signer`, `status: "created"`, etc.)
 
 ### 5.1 Estágios de assinatura (`after_position`) — não testado ao vivo ainda

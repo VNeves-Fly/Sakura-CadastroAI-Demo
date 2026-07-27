@@ -1,6 +1,7 @@
 import {
   maskTelefone,
   paisTelefonePorCodigo,
+  telefonesEquivalentes,
   unmaskTelefone,
   validarTelefone,
 } from "@/modules/shared/utils/telefone.util";
@@ -58,5 +59,24 @@ describe("validarTelefone", () => {
   it("país 'Outro' aceita qualquer coisa com 6+ dígitos", () => {
     expect(validarTelefone("123456", "OUTRO")).toBe(true);
     expect(validarTelefone("12345", "OUTRO")).toBe(false);
+  });
+});
+
+describe("telefonesEquivalentes", () => {
+  it("bate o mesmo número em formatos diferentes (mascarado x wa_id cru)", () => {
+    expect(telefonesEquivalentes("(11) 98765-4321", "5511987654321")).toBe(true);
+  });
+
+  it("tolera o 9º dígito do celular ausente de um dos lados", () => {
+    expect(telefonesEquivalentes("(11) 98765-4321", "551187654321")).toBe(true);
+    expect(telefonesEquivalentes("11987654321", "1187654321")).toBe(true);
+  });
+
+  it("não bate números realmente diferentes", () => {
+    expect(telefonesEquivalentes("(11) 98765-4321", "(21) 98765-4321")).toBe(false);
+  });
+
+  it("ignora o DDI 55 de qualquer um dos lados", () => {
+    expect(telefonesEquivalentes("+55 11 98765-4321", "11987654321")).toBe(true);
   });
 });
