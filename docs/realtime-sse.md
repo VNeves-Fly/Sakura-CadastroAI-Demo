@@ -38,7 +38,7 @@ cada mutação manualmente.
    `src/modules/shared/presentation/sse/criar-resposta-sse.ts`. Monta o
    `ReadableStream`/`text/event-stream` comum às 3 rotas: heartbeat a cada
    20s (mantém proxy/load balancer de fechar por inatividade), encerra o
-   stream sozinho a cada 4 minutos (o `EventSource` do browser reconecta
+   stream sozinho a cada 10 minutos (o `EventSource` do browser reconecta
    nativamente) e faz cleanup tanto no auto-encerramento quanto no abort do
    cliente (aba fechada).
 
@@ -62,17 +62,33 @@ Cloud Run ou GKE; não há necessidade de um pub/sub intermediário (Redis
 etc.) pra sincronizar entre réplicas.
 
 Custo por instância: **+1 conexão persistente** no Postgres, fora do pool
-do Prisma. Vale olhar o limite de conexões do tier do banco se o número de
-instâncias crescer bastante.
+do Prisma. `c2f-postgres-prod` (`db-custom-2-4096`) não tem `databaseFlags`
+customizado pra `max_connections` — usa o default do tier, com folga de
+sobra pro número de instâncias atual (ver abaixo).
 
-## Hoje (Cloud Run) — ajustes de config já considerados no código
+## Hoje (Cloud Run `cadastro-ai-prod`) — configuração real confirmada
 
-- Timeout de request do Cloud Run costuma ser 5min por padrão — por isso o
-  auto-encerramento do stream em `criar-resposta-sse.ts` está em 4min
-  (`DURACAO_MAXIMA_MS`), sempre um pouco antes do corte da plataforma.
-- `min-instances ≥ 1` reduz o atraso de cold-start antes da conexão
-  `LISTEN` ficar pronta na primeira conexão SSE do dia — não é obrigatório,
-  só melhora a latência inicial.
+Valores confirmados via `gcloud run services describe cadastro-ai-prod
+--region=us-east4` em 2026-07-27, não estimados:
+
+- `timeoutSeconds: 700` (~11.6min) — por isso o auto-encerramento do stream
+  em `criar-resposta-sse.ts` está em 10min (`DURACAO_MAXIMA_MS`), com
+  margem de ~100s antes do corte da plataforma.
+- `autoscaling.knative.dev/minScale: 2`, `maxScale: 10` — sempre ao menos 2
+  instâncias de pé (sem cold-start pra primeira conexão SSE do dia), até 10
+  em pico (= até 10 conexões `LISTEN` extras simultâneas no Postgres).
+- `run.googleapis.com/cpu-throttling: 'false'` — CPU sempre alocada, mesmo
+  sem request em andamento na instância. Isso elimina a preocupação comum
+  de Cloud Run "congelar" trabalho em background (como o processamento da
+  conexão `LISTEN`) em instância ociosa — aqui não se aplica.
+- `sessionAffinity: 'false'` — não afeta o SSE: uma conexão já aberta fica
+  naturalmente presa à mesma instância pela própria conexão HTTP, session
+  affinity só importa pra rotear requests _separadas_ pra mesma instância.
+
+Existe também `c2f-postgres-homolog` (staging, `db-g1-small`) — não foi
+usado pra esta feature (migração testada local + aplicada direto em prod,
+por decisão do usuário), mas fica registrado como opção pra próxima vez que
+fizer sentido testar uma migração antes de produção.
 
 ## Quando migrar pra GKE
 
@@ -88,19 +104,26 @@ pod. O que precisa de atenção na hora da migração:
   `nginx.ingress.kubernetes.io/proxy-buffering: "off"` (e configurar
   `proxy-read-timeout`/`proxy-send-timeout` generosos o bastante pra não
   cortar a conexão antes do nosso auto-encerramento de 4min).
-- **Timeout do backend/Service**: equivalente ao timeout de request do
-  Cloud Run — confira o timeout configurado no load balancer/BackendConfig
-  (se GKE com GCLB) ou no Ingress controller, e ajuste `DURACAO_MAXIMA_MS`
-  em `criar-resposta-sse.ts` se quiser aproveitar um timeout maior (menos
-  reconexões do `EventSource`, sem ganho funcional — só menos overhead).
-- **Réplicas mínimas**: o equivalente a `min-instances` do Cloud Run vira
+- **Timeout do backend/Service**: equivalente ao `timeoutSeconds: 700` do
+  Cloud Run hoje — confira o timeout configurado no load balancer/
+  BackendConfig (se GKE com GCLB) ou no Ingress controller, e ajuste
+  `DURACAO_MAXIMA_MS` em `criar-resposta-sse.ts` (hoje 10min, com margem
+  pro timeout atual de 700s) se o novo timeout for diferente — menos
+  reconexões do `EventSource`, sem ganho funcional, só menos overhead.
+- **`cpu-throttling: false`**: confirme que os pods GKE não têm o
+  equivalente de "CPU só durante request" (não é um conceito nativo do
+  GKE — pods sempre têm CPU alocada pela própria natureza do
+  Kubernetes —, mas vale checar `resources.requests.cpu` no Deployment pra
+  não sub-provisionar e deixar o processamento do `LISTEN` competindo por
+  CPU com o resto do pod).
+- **Réplicas mínimas**: o equivalente ao `minScale: 2` do Cloud Run vira
   `replicas`/HPA `minReplicas` do Deployment — mesma recomendação de manter
-  pelo menos 1-2 sempre de pé.
+  pelo menos 2 sempre de pé.
 - **Conexões do Postgres**: GKE tende a manter réplicas "sempre quentes"
   (sem scale-to-zero), então o número de conexões `LISTEN` extras fica mais
   previsível (= número de pods), mas também mais constante — vale checar o
   limite de conexões do Cloud SQL/tier do banco antes de aumentar o
-  `minReplicas`.
+  `minReplicas` além do `maxScale: 10` atual do Cloud Run.
 - Fora isso, nenhuma mudança de código é esperada — o listener, as rotas e
   o client-side continuam iguais.
 

@@ -1,10 +1,12 @@
 type Unsubscribe = () => void;
 
 const HEARTBEAT_MS = 20_000;
-// Cloud Run corta requests longas (default de 5min) — encerramos sozinhos
-// antes disso; o EventSource do browser reconecta automaticamente (retry
-// nativo), então o ciclo fica invisível pra quem está vendo a tela.
-const DURACAO_MAXIMA_MS = 4 * 60 * 1000;
+// O serviço cadastro-ai-prod no Cloud Run está configurado com
+// timeoutSeconds: 700 (~11.6min) — encerramos sozinhos um pouco antes disso
+// (10min, margem de ~100s); o EventSource do browser reconecta
+// automaticamente (retry nativo), então o ciclo fica invisível pra quem
+// está vendo a tela. Se o timeout do serviço mudar, ajustar aqui junto.
+const DURACAO_MAXIMA_MS = 10 * 60 * 1000;
 
 // Monta a Response streaming (text/event-stream) comum às rotas SSE:
 // heartbeat pra manter proxies/load balancer sem fechar por inatividade,
