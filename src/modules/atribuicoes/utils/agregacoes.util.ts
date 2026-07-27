@@ -1,7 +1,6 @@
-import { obterCidades } from "@/modules/atribuicoes/services/atribuicoes-store";
 import type { Promotor } from "@/modules/atribuicoes/domain/entities/promotor.entity";
+import type { CidadeComercial } from "@/modules/atribuicoes/domain/entities/cidade-comercial.entity";
 import type {
-  Cidade,
   FiltrosAtribuicoes,
   ResumoBase,
   ResumoExecutivo,
@@ -11,12 +10,6 @@ import type {
 
 const NAO_ATRIBUIDO = "Não atribuído";
 
-// Delega pro store em memória (ver atribuicoes-store.ts) — mantido aqui
-// só pra não quebrar quem já importava `carregarCidades` daqui.
-export function carregarCidades(): Cidade[] {
-  return obterCidades();
-}
-
 function normalizar(valor: string): string {
   return valor
     .normalize("NFD")
@@ -24,7 +17,10 @@ function normalizar(valor: string): string {
     .toLowerCase();
 }
 
-export function filtrarCidades(cidades: Cidade[], filtros: FiltrosAtribuicoes): Cidade[] {
+export function filtrarCidades(
+  cidades: CidadeComercial[],
+  filtros: FiltrosAtribuicoes,
+): CidadeComercial[] {
   const busca = filtros.busca?.trim() ? normalizar(filtros.busca.trim()) : null;
 
   return cidades.filter((cidade) => {
@@ -55,7 +51,7 @@ export function mockTotalAgencias(nomeExecutivo: string): number {
   return 3 + (hash % 18);
 }
 
-export function agregarRegioes(cidades: Cidade[]): ResumoRegiao[] {
+export function agregarRegioes(cidades: CidadeComercial[]): ResumoRegiao[] {
   const mapa = new Map<
     string,
     { totalCidades: number; bases: Set<string>; executivos: Set<string> }
@@ -84,7 +80,7 @@ export function agregarRegioes(cidades: Cidade[]): ResumoRegiao[] {
     .sort((a, b) => b.totalCidades - a.totalCidades);
 }
 
-export function agregarBases(cidades: Cidade[]): ResumoBase[] {
+export function agregarBases(cidades: CidadeComercial[]): ResumoBase[] {
   const mapa = new Map<
     string,
     { gestores: Set<string>; executivos: Set<string>; totalCidades: number; regioes: Set<string> }
@@ -119,11 +115,11 @@ export function agregarBases(cidades: Cidade[]): ResumoBase[] {
 // Agregação pura do mock de cidades (nomes abreviados/apelidos,
 // "MAPA COMERCIAL GESTORES") — usada só pelos filtros, pelo Remanejar e
 // pela tela de Substituir, que mexem exatamente nesses valores brutos
-// (Cidade.executivo/gestor). A identidade real de cada pessoa (nome
+// (CidadeComercial.executivo/gestor). A identidade real de cada pessoa (nome
 // completo, contato, SICA) vive na tabela Promotor — ver
 // paraExecutivosView/paraGestoresView, usadas pelas abas Executivos/
 // Gestores e pela ficha do colaborador.
-export function agregarExecutivos(cidades: Cidade[]): ResumoExecutivo[] {
+export function agregarExecutivos(cidades: CidadeComercial[]): ResumoExecutivo[] {
   const mapa = new Map<
     string,
     { bases: Set<string>; gestores: Set<string>; totalCidades: number }
@@ -157,7 +153,7 @@ export function agregarExecutivos(cidades: Cidade[]): ResumoExecutivo[] {
     .sort((a, b) => a.executivo.localeCompare(b.executivo));
 }
 
-export function agregarGestores(cidades: Cidade[]): ResumoGestor[] {
+export function agregarGestores(cidades: CidadeComercial[]): ResumoGestor[] {
   const mapa = new Map<
     string,
     { bases: Set<string>; executivos: Set<string>; totalCidades: number }
@@ -201,7 +197,7 @@ export function agregarGestores(cidades: Cidade[]): ResumoGestor[] {
 // usa muito apelido/primeiro nome, então a maioria não bate — isso é
 // esperado (mostra 0 cidades/sem base em vez de adivinhar por
 // aproximação, que arriscaria juntar pessoas diferentes).
-function estatisticasPorNome(cidades: Cidade[], campo: "executivo" | "gestor") {
+function estatisticasPorNome(cidades: CidadeComercial[], campo: "executivo" | "gestor") {
   const mapa = new Map<string, { bases: Set<string>; totalCidades: number }>();
   for (const cidade of cidades) {
     const nome = cidade[campo];
@@ -218,7 +214,10 @@ function estatisticasPorNome(cidades: Cidade[], campo: "executivo" | "gestor") {
 // Promotor) pra aba Executivos — todo promotor tem SICA, sem apelido.
 // Cruza com o mock de cidades só pra estatística de bases/cidades
 // atendidas (ver estatisticasPorNome).
-export function paraExecutivosView(promotores: Promotor[], cidades: Cidade[]): ResumoExecutivo[] {
+export function paraExecutivosView(
+  promotores: Promotor[],
+  cidades: CidadeComercial[],
+): ResumoExecutivo[] {
   const stats = estatisticasPorNome(cidades, "executivo");
 
   return promotores
@@ -243,7 +242,10 @@ export function paraExecutivosView(promotores: Promotor[], cidades: Cidade[]): R
 // coluna Gestor de pelo menos um promotor; o contato (SICA/e-mail/tel)
 // só existe se esse gestor também tiver sua própria linha de promotor
 // (ex.: gestores que atendem cidades diretamente).
-export function paraGestoresView(promotores: Promotor[], cidades: Cidade[]): ResumoGestor[] {
+export function paraGestoresView(
+  promotores: Promotor[],
+  cidades: CidadeComercial[],
+): ResumoGestor[] {
   const stats = estatisticasPorNome(cidades, "gestor");
   const promotorPorNome = new Map(promotores.map((promotor) => [promotor.nome, promotor]));
   const nomesGestores = [...new Set(promotores.map((promotor) => promotor.gestor))].sort((a, b) =>

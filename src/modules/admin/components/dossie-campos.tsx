@@ -770,7 +770,15 @@ function ChecagemBadge({ label, valor }: { label: string; valor: boolean | null 
 // deixar a lacuna, e desce em objeto/array até sobrar só primitivo.
 export function formatarValorExtraido(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
-  if (typeof valor === "string") return valor.trim().length > 0 ? valor : "—";
+  if (typeof valor === "string") {
+    const texto = valor.trim();
+    if (texto.length === 0) return "—";
+    // "NAO_CONSTA" é o valor de status "limpo" da SOFIA (ver varianteSofia
+    // em consulta-amat-sofia.tsx) — só o rótulo muda pro analista, o dado
+    // gravado no banco continua o token original.
+    if (texto.toUpperCase() === "NAO_CONSTA") return "Nada consta";
+    return texto;
+  }
   if (typeof valor === "number" || typeof valor === "boolean") return String(valor);
 
   if (Array.isArray(valor)) {

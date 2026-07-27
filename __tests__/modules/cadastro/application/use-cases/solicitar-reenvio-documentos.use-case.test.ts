@@ -8,6 +8,8 @@ import type { EmailSender } from "@/modules/shared/domain/services/email-sender"
 import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 
+const BASE_URL = "https://painel.sakuraclick.com.br";
+
 function agenciaFake(): Agencia {
   return Agencia.create({
     id: "agencia-1",
@@ -92,9 +94,9 @@ describe("SolicitarReenvioDocumentosUseCase", () => {
       criarEmailSenderFake(),
     );
 
-    await expect(useCase.execute({ agenciaId: "agencia-1", documentoIds: [] })).rejects.toThrow(
-      DomainError,
-    );
+    await expect(
+      useCase.execute({ agenciaId: "agencia-1", documentoIds: [], baseUrl: BASE_URL }),
+    ).rejects.toThrow(DomainError);
   });
 
   it("lança NotFoundError quando a agência não existe", async () => {
@@ -104,7 +106,11 @@ describe("SolicitarReenvioDocumentosUseCase", () => {
     );
 
     await expect(
-      useCase.execute({ agenciaId: "agencia-1", documentoIds: ["doc-contrato-1"] }),
+      useCase.execute({
+        agenciaId: "agencia-1",
+        documentoIds: ["doc-contrato-1"],
+        baseUrl: BASE_URL,
+      }),
     ).rejects.toThrow(NotFoundError);
   });
 
@@ -115,7 +121,11 @@ describe("SolicitarReenvioDocumentosUseCase", () => {
       emailSender,
     );
 
-    await useCase.execute({ agenciaId: "agencia-1", documentoIds: ["doc-contrato-1"] });
+    await useCase.execute({
+      agenciaId: "agencia-1",
+      documentoIds: ["doc-contrato-1"],
+      baseUrl: BASE_URL,
+    });
 
     expect(emailSender.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -140,7 +150,11 @@ describe("SolicitarReenvioDocumentosUseCase", () => {
     );
 
     await expect(
-      useCase.execute({ agenciaId: "agencia-1", documentoIds: ["doc-contrato-1"] }),
+      useCase.execute({
+        agenciaId: "agencia-1",
+        documentoIds: ["doc-contrato-1"],
+        baseUrl: BASE_URL,
+      }),
     ).resolves.toBeUndefined();
   });
 });

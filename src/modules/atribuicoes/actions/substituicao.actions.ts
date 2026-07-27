@@ -2,11 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import {
-  substituirExecutivo,
-  substituirGestor,
-  substituirBase,
-} from "@/modules/atribuicoes/services/atribuicoes-store";
+import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 
 const ABA_POR_TIPO: Record<"executivo" | "gestor" | "base", string> = {
   executivo: "executivos",
@@ -39,13 +35,7 @@ export async function substituirAction(formData: FormData) {
     );
   }
 
-  if (tipo === "gestor") {
-    substituirGestor(nomeAntigo, nomeNovo);
-  } else if (tipo === "base") {
-    substituirBase(nomeAntigo, nomeNovo);
-  } else {
-    substituirExecutivo(nomeAntigo, nomeNovo);
-  }
+  await atribuicoesAdminController.substituirAtribuicao({ tipo, nomeAntigo, nomeNovo });
 
   revalidatePath("/atribuicoes");
   redirect(`/atribuicoes?aba=${ABA_POR_TIPO[tipo]}`);

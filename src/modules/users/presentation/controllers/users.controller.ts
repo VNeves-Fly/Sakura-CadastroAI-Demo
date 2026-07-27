@@ -74,7 +74,7 @@ export const usersController = {
     return useCase.execute(input);
   },
 
-  async requestPasswordResetForUser(userId: string) {
+  async requestPasswordResetForUser(userId: string, baseUrl: string) {
     const user = await userRepository.findById(userId);
 
     if (!user) {
@@ -87,7 +87,7 @@ export const usersController = {
       passwordResetCodeGenerator,
       emailSender,
     );
-    return useCase.execute({ email: user.email });
+    return useCase.execute({ email: user.email, baseUrl });
   },
 
   verifyPasswordResetCode(input: VerifyPasswordResetCodeInput) {

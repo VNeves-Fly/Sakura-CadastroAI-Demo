@@ -6,6 +6,8 @@ import type { PasswordResetRepository } from "@/modules/users/domain/repositorie
 import type { PasswordResetCodeGenerator } from "@/modules/users/domain/services/password-reset-code-generator";
 import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
 
+const BASE_URL = "https://painel.sakuraclick.com.br";
+
 function fakeUser(): User {
   return User.create({
     id: "user-1",
@@ -58,7 +60,7 @@ describe("RequestPasswordResetUseCase", () => {
       emailSender,
     );
 
-    await useCase.execute({ email: "naoexiste@example.com" });
+    await useCase.execute({ email: "naoexiste@example.com", baseUrl: BASE_URL });
 
     expect(passwordResetRepository.create).not.toHaveBeenCalled();
     expect(emailSender.send).not.toHaveBeenCalled();
@@ -75,7 +77,7 @@ describe("RequestPasswordResetUseCase", () => {
       emailSender,
     );
 
-    await useCase.execute({ email: user.email });
+    await useCase.execute({ email: user.email, baseUrl: BASE_URL });
 
     expect(passwordResetRepository.deleteActiveByUserId).toHaveBeenCalledWith("user-1");
     expect(passwordResetRepository.create).toHaveBeenCalledWith(
@@ -104,6 +106,8 @@ describe("RequestPasswordResetUseCase", () => {
       emailSender,
     );
 
-    await expect(useCase.execute({ email: user.email })).resolves.toBeUndefined();
+    await expect(
+      useCase.execute({ email: user.email, baseUrl: BASE_URL }),
+    ).resolves.toBeUndefined();
   });
 });

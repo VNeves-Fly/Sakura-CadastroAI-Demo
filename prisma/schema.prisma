@@ -1164,6 +1164,49 @@ model Promotor {
   @@map("promotores")
 }
 
+// Hierarquia comercial (Agência → Executivo → Gestor, por Base/Região) —
+// fonte real da planilha "MAPA COMERCIAL GESTORES" (aba MAPA_COMERCIAL_
+// FINAL), antes carregada como mock em memória (ver git history do módulo
+// atribuições). `executivo`/`gestor` aqui são os apelidos/nomes abreviados
+// da planilha original, que não batem por string com `Promotor.nome`
+// (nome completo) — cruzamento por nome, quando feito, é best-effort.
+model CidadeComercial {
+  id          String   @id @default(cuid())
+  regiao      String?
+  estado      String?
+  cidade      String
+  ddd         String?
+  base        String?
+  executivo   String?
+  gestor      String?
+  subregiaoSp String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([base])
+  @@index([executivo])
+  @@index([gestor])
+  @@index([regiao])
+  @@map("cidades_comerciais")
+}
+
+// Log de reatribuições feitas na tela Remanejar → Substituir do módulo
+// atribuições (fundir/renomear um executivo, gestor ou base em todas as
+// cidades atendidas por ele) — antes vivia só em memória, perdido a cada
+// restart.
+model SubstituicaoAtribuicao {
+  id                   String   @id @default(cuid())
+  tipo                 String // "executivo" | "gestor" | "base"
+  nomeAntigo           String
+  nomeNovo             String
+  totalCidadesAfetadas Int
+
+  createdAt DateTime @default(now())
+
+  @@map("substituicoes_atribuicoes")
+}
+
 // Grupo que recebe um percentual por indicar agências (decisão do
 // usuário, 2026-07-24) — uma associação tem várias agências, mas cada
 // agência pertence a no máximo uma (1:N, ver Agencia.associacaoId).

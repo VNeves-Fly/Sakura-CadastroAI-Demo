@@ -9,7 +9,6 @@ import { CidadesTab } from "@/modules/atribuicoes/components/cidades-tab";
 import { RemanejarTab } from "@/modules/atribuicoes/components/remanejar-tab";
 import { GerarLinkAtribuicoesButton } from "@/modules/atribuicoes/components/gerar-link-atribuicoes-button";
 import {
-  carregarCidades,
   filtrarCidades,
   agregarRegioes,
   agregarBases,
@@ -43,7 +42,7 @@ export default async function AtribuicoesPage({ searchParams }: AtribuicoesPageP
   const gestor = searchParams.gestor ?? "";
 
   const [todasCidades, promotores, associacoesTodas] = await Promise.all([
-    Promise.resolve(carregarCidades()),
+    atribuicoesAdminController.listarCidades(),
     atribuicoesAdminController.listarPromotores(),
     atribuicoesAdminController.listarAssociacoes(),
   ]);

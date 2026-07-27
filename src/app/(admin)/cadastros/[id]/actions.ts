@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { DomainError } from "@/modules/shared/domain/errors";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
+import { obterUrlBase } from "@/modules/shared/utils/url-base.util";
 import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 
 // Server Actions do dossiê — cada uma só dispara a ação no controller e
@@ -141,7 +143,8 @@ export async function inserirDocumentoManualAction(
 
 export async function solicitarReenvioDocumentosAction(agenciaId: string, formData: FormData) {
   const documentoIds = formData.getAll("documentoIds").map(String);
-  await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds });
+  const baseUrl = obterUrlBase(headers());
+  await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds, baseUrl });
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
