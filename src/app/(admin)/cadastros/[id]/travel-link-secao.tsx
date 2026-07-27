@@ -5,8 +5,10 @@ import { Copy, Check, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 
-function formatarDataHora(data: Date): string {
-  return data.toLocaleString("pt-BR");
+// `data` chega como string (não Date) quando vem de uma entidade de
+// domínio com toJSON — ver formatarData em dossie-campos.util.ts.
+function formatarDataHora(data: Date | string): string {
+  return (data instanceof Date ? data : new Date(data)).toLocaleString("pt-BR");
 }
 
 interface CampoTravelLink {

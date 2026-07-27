@@ -47,13 +47,22 @@ type VisualizarDocumentoProps = VisualizarDocumentoBaseProps &
     | { documentoId: string; gcsPath: string; url?: never }
     | { documentoId?: never; gcsPath?: never; url: string }
   );
+// Verde igual ao da marca d'água de "Aprovado" (public/parecer/aprovado.png,
+// tom do anel externo do selo, #109138) — decisão do usuário, 2026-07-27:
+// a tarja do header/footer precisa combinar com a mesma cor do ícone, não
+// com o tom (mais oliva) do token --success do tema. Classe Tailwind
+// escrita por extenso (não interpolada) de propósito — o compilador só
+// gera a cor pra classes que aparecem literalmente no código-fonte.
+// Vermelho já é o mesmo --destructive do tema, e a marca d'água de
+// "Reprovado" foi pintada com esse mesmo tom (ver public/parecer/reprovado.svg)
+// — só o verde precisa de um valor à parte.
 const CLASSES_HEADER_DECISAO: Record<string, string> = {
-  APROVADO: "bg-success text-success-foreground",
+  APROVADO: "bg-[#109138] text-white",
   REPROVADO: "bg-destructive text-destructive-foreground",
 };
 
 const CLASSES_FOOTER_DECISAO: Record<string, string> = {
-  APROVADO: "bg-success",
+  APROVADO: "bg-[#109138]",
   REPROVADO: "bg-destructive",
 };
 
@@ -154,12 +163,17 @@ export function VisualizarDocumento(props: VisualizarDocumentoProps) {
               visualizacao
             )}
 
-            {acoes ? (
+            {acoes || statusDecisao ? (
               <div
-                className={`border-t px-5 py-4 ${
+                className={`flex flex-col gap-2 border-t px-5 py-4 ${
                   classesFooter ? `${classesFooter} border-white/20` : "border-border bg-card"
                 }`}
               >
+                {statusDecisao === "APROVADO" || statusDecisao === "REPROVADO" ? (
+                  <p className="text-center text-lg font-bold tracking-widest text-white uppercase">
+                    {statusDecisao}
+                  </p>
+                ) : null}
                 {acoes}
               </div>
             ) : null}
