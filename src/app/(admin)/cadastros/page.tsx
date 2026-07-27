@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CadastrosLive } from "./cadastros-live";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { eventosAdminController } from "@/modules/eventos/presentation/controllers/eventos-admin.controller";
@@ -150,6 +151,8 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
 
   return (
     <div className="flex flex-col gap-4">
+      <CadastrosLive />
+
       {/* Banner de boas-vindas — tom suave da marca (fundo claro + texto
           rosa escuro) em vez de fundo sólido saturado, pra não competir
           com os badges de status semânticos (revisão de tokens visuais). */}

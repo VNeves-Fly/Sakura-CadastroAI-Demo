@@ -7,7 +7,12 @@ import type {
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
 
-const INTERVALO_POLLING_MS = 4_000;
+// Rede de segurança bem espaçada — cobre o caso raro da conexão SSE cair
+// silenciosamente sem disparar "onerror" (o EventSource já reconecta
+// sozinho em erro; isso aqui é só um fallback). Também é o que garante que
+// uma transferência expirada "preguiçosamente" (sem nenhum evento novo no
+// banco) apareça na tela mesmo sem push nenhum.
+const INTERVALO_POLLING_SEGURANCA_MS = 60_000;
 
 // Hook central do módulo — mesmo formato de useChatSession.ts (trazido
 // pelo usuário como referência): carrega estado via um "api" service,
@@ -50,15 +55,24 @@ export function useAtendimento(analistaAtual: string) {
     void carregarTudo();
   }, [carregarTudo]);
 
-  // Polling leve — só assim uma expiração de transferência (resolvida
-  // sozinha dentro do service depois de 60s) ou uma resposta de outro
-  // analista aparecem na tela sem precisar recarregar a página. Troque
-  // por push real (websocket/SSE) quando o back-end existir.
+  // Push real via SSE — o servidor avisa (mensagem nova, atendimento
+  // assumido/liberado, transferência solicitada/respondida) e aqui só
+  // refazemos listarConversas() por completo, igual o polling que isso
+  // substituiu. O EventSource reconecta sozinho em erro/timeout.
+  useEffect(() => {
+    const eventSource = new EventSource("/api/atendimento/eventos");
+    eventSource.onmessage = () => {
+      if (acaoEmAndamentoRef.current) return;
+      void atendimentoApi.listarConversas().then(setConversas);
+    };
+    return () => eventSource.close();
+  }, []);
+
   useEffect(() => {
     const intervalo = setInterval(() => {
       if (acaoEmAndamentoRef.current) return;
       void atendimentoApi.listarConversas().then(setConversas);
-    }, INTERVALO_POLLING_MS);
+    }, INTERVALO_POLLING_SEGURANCA_MS);
     return () => clearInterval(intervalo);
   }, []);
 

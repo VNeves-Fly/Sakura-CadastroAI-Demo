@@ -40,6 +40,7 @@ import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
 import { CnpjCopiavel } from "./cnpj-copiavel";
 import { VoltarButton } from "./voltar-button";
+import { CadastroDetalheLive } from "./cadastro-detalhe-live";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
   labelOrigemContrato,
@@ -257,6 +258,7 @@ export default async function DossieAgenciaPage({
 
   return (
     <div className="flex flex-col gap-4">
+      <CadastroDetalheLive agenciaId={params.id} />
       <VoltarButton />
 
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
