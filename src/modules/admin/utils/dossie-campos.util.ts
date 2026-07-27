@@ -7,17 +7,35 @@ import type { DadosReceitaEndereco } from "@/modules/cadastro/domain/entities/da
 // Component — chamável só como componente, nunca como função — então
 // precisam morar num módulo sem a diretiva.
 
-export function formatarData(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
+// Aceita string além de Date de propósito: entidades de domínio com
+// `toJSON()` (ex.: Documento, ver documento.entity.ts) cruzam a fronteira
+// Server → Client Component já convertidas pra ISO string pelo React —
+// mesmo o tipo declarado dizendo `Date`, o valor real em runtime pode
+// chegar como string, e `Intl.DateTimeFormat.format()` quebra com
+// "RangeError: Invalid time value" se não normalizar antes.
+function paraDate(data: Date | string): Date {
+  return data instanceof Date ? data : new Date(data);
 }
 
-export function formatarDataCurta(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
+export function formatarData(data: Date | string): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+    paraDate(data),
+  );
+}
+
+export function formatarDataCurta(data: Date | string): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(paraDate(data));
 }
 
 export function formatarMoedaBrl(valor: number | null): string {
   if (valor === null) return "—";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+}
+
+// Confiança de extração da IA vem de 0 a 1 (ex.: 0.98) — o analista
+// precisa ver isso como percentual (98%), não como fração.
+export function formatarPercentual(valorFracao: number): string {
+  return `${Math.round(valorFracao * 100)}%`;
 }
 
 // Endereço de Dados da Receita tem campos todos opcionais (a Receita nem

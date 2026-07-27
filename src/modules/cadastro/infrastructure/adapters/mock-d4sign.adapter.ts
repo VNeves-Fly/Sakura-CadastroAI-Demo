@@ -1,8 +1,18 @@
 import type {
+  ArquivoContrato,
   ContratoAssinaturaService,
+  DocumentoD4SignInfo,
   GerarContratoInput,
   GerarContratoResult,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
+
+// PDF válido mínimo (1 página em branco), hardcoded — só pra o botão
+// "Visualizar Documento" ter algo real pra renderizar em dev sem
+// credenciais do D4Sign.
+const PDF_PLACEHOLDER = Buffer.from(
+  "JVBERi0xLjEKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAyMDAgMjAwXSA+PgplbmRvYmoKeHJlZgowIDQKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDQgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjE5MAolJUVPRg==",
+  "base64",
+);
 
 // Simula a geração + envio do contrato pra assinatura dos sócios — usado
 // quando D4SIGN_TOKEN_API não está configurada. A integração real
@@ -12,5 +22,25 @@ export class MockD4SignService implements ContratoAssinaturaService {
   async gerarEEnviar(input: GerarContratoInput): Promise<GerarContratoResult> {
     const provedorId = `mock-d4sign-${input.cnpj}`;
     return { provedorId, status: "aguardando_assinatura" };
+  }
+
+  async visualizarDocumento(): Promise<ArquivoContrato> {
+    return { buffer: PDF_PLACEHOLDER, mimeType: "application/pdf" };
+  }
+
+  async obterDocumento(provedorId: string): Promise<DocumentoD4SignInfo> {
+    return {
+      existe: true,
+      nomeDocumento: `Documento mock (${provedorId})`,
+      statusName: "Aguardando Assinaturas",
+    };
+  }
+
+  async obterDestinatarios(): Promise<string[]> {
+    return [];
+  }
+
+  async registrarWebhook(): Promise<{ registrado: boolean }> {
+    return { registrado: true };
   }
 }

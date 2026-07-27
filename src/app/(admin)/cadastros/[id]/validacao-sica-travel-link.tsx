@@ -1,14 +1,25 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
-import { TravelLinkModal } from "./travel-link-modal";
+import { TravelLinkSecao } from "./travel-link-secao";
 import { AlertaTravelLinkModal } from "./alerta-travel-link-modal";
+import {
+  ConsultaAmatCard,
+  ConsultaSofiaCard,
+} from "@/modules/admin/components/consulta-amat-sofia";
+import type {
+  AnaliseIaAmat,
+  AnaliseIaRawToolCall,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
+import type { HistoricoConsultaCreditoView } from "@/modules/admin/types/dossie.types";
 
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
-function formatarDataHora(data: Date): string {
-  return data.toLocaleString("pt-BR");
+// `data` chega como string (não Date) quando vem de uma entidade de
+// domínio com toJSON — ver formatarData em dossie-campos.util.ts.
+function formatarDataHora(data: Date | string): string {
+  return (data instanceof Date ? data : new Date(data)).toLocaleString("pt-BR");
 }
 
 interface ValidacaoSicaTravelLinkProps {
@@ -41,6 +52,18 @@ interface ValidacaoSicaTravelLinkProps {
   // posterior (ver `etapaExibida` na page) — some com os botões de ação,
   // só sobra a leitura do que foi preenchido.
   somenteLeitura?: boolean;
+  // AMAT/SOFIA repetidos aqui (mesmos dados/ações da seção Complementar,
+  // ver page.tsx) — decisão do usuário, 2026-07-27: o analista que já
+  // está validando SICA/Travel Link não devia precisar voltar pra etapa
+  // anterior só pra reconferir crédito.
+  amat: AnaliseIaAmat | null;
+  rawAmat: AnaliseIaRawToolCall[];
+  historicoAmat: HistoricoConsultaCreditoView[];
+  sofia: Record<string, unknown> | null;
+  rawSofia: AnaliseIaRawToolCall[];
+  historicoSofia: HistoricoConsultaCreditoView[];
+  reconsultarAmat?: () => Promise<void>;
+  reconsultarSofia?: () => Promise<void>;
 }
 
 // SICA e Travel Link salvos de verdade em Agencia (sicaCodigo/
@@ -75,6 +98,14 @@ export function ValidacaoSicaTravelLink({
   validarContratoAction,
   recusarCadastroAction,
   somenteLeitura = false,
+  amat,
+  rawAmat,
+  historicoAmat,
+  sofia,
+  rawSofia,
+  historicoSofia,
+  reconsultarAmat,
+  reconsultarSofia,
 }: ValidacaoSicaTravelLinkProps) {
   const [editandoSica, setEditandoSica] = useState(false);
   const [rascunhoSica, setRascunhoSica] = useState(sicaCodigo ?? "");
@@ -104,6 +135,21 @@ export function ValidacaoSicaTravelLink({
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ConsultaAmatCard
+          amat={amat}
+          rawAmat={rawAmat}
+          historico={historicoAmat}
+          reconsultar={somenteLeitura ? undefined : reconsultarAmat}
+        />
+        <ConsultaSofiaCard
+          sofia={sofia}
+          rawSofia={rawSofia}
+          historico={historicoSofia}
+          reconsultar={somenteLeitura ? undefined : reconsultarSofia}
+        />
+      </div>
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="sica" className="text-foreground text-sm font-bold">
           Código SICA
@@ -166,34 +212,28 @@ export function ValidacaoSicaTravelLink({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-foreground text-sm font-bold">Travel Link</span>
-        <TravelLinkModal
-          agenciaId={agenciaId}
-          razaoSocial={razaoSocial}
-          cnpj={cnpj}
-          enderecoFormatado={enderecoFormatado}
-          telefoneContato={telefoneContato}
-          telefoneComercial={telefoneComercial}
-          associacaoNome={associacaoNome}
-          promotorNome={promotorNome}
-          nomeContato={nomeContato}
-          emailContato={emailContato}
-          bancoLabel={bancoLabel}
-          bancoAgencia={bancoAgencia}
-          bancoConta={bancoConta}
-          favorecidoNome={favorecidoNome}
-          favorecidoDoc={favorecidoDoc}
-          travelLinkCriado={travelLinkCriado}
-          travelLinkSalvoPor={travelLinkSalvoPor}
-          travelLinkSalvoEm={travelLinkSalvoEm}
-          salvarTravelLinkAction={salvarTravelLinkAction}
-          somenteLeitura={somenteLeitura}
-          onFechar={() => {
-            if (!travelLinkCriado) setAlertaTravelLinkAberto(true);
-          }}
-        />
-      </div>
+      <TravelLinkSecao
+        agenciaId={agenciaId}
+        razaoSocial={razaoSocial}
+        cnpj={cnpj}
+        enderecoFormatado={enderecoFormatado}
+        telefoneContato={telefoneContato}
+        telefoneComercial={telefoneComercial}
+        associacaoNome={associacaoNome}
+        promotorNome={promotorNome}
+        nomeContato={nomeContato}
+        emailContato={emailContato}
+        bancoLabel={bancoLabel}
+        bancoAgencia={bancoAgencia}
+        bancoConta={bancoConta}
+        favorecidoNome={favorecidoNome}
+        favorecidoDoc={favorecidoDoc}
+        travelLinkCriado={travelLinkCriado}
+        travelLinkSalvoPor={travelLinkSalvoPor}
+        travelLinkSalvoEm={travelLinkSalvoEm}
+        salvarTravelLinkAction={salvarTravelLinkAction}
+        somenteLeitura={somenteLeitura}
+      />
 
       {!somenteLeitura ? (
         <div className="flex flex-wrap gap-2">

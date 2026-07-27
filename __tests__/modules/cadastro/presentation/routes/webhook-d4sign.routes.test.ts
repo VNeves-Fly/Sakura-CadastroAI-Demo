@@ -27,9 +27,21 @@ function buildFormDataRequest(
   });
 }
 
+function buildJsonRequest(
+  body: Record<string, string>,
+  headers: Record<string, string> = {},
+): Request {
+  return new Request("http://localhost/api/webhooks/d4sign", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "content-type": "application/json", ...headers },
+  });
+}
+
 describe("processarWebhookD4SignRoute", () => {
   afterEach(() => {
     process.env = originalEnv;
+    mockProcessar.mockClear();
   });
 
   it("retorna 422 se uuid ou type_post estiverem ausentes do form-data", async () => {
@@ -145,6 +157,33 @@ describe("processarWebhookD4SignRoute", () => {
       email: "socio@agencia.com",
       message: "Caixa de entrada cheia",
     });
+  });
+
+  it("processa um payload JSON (content-type: application/json) do mesmo jeito que form-data — incidente em prod, 2026-07-27: request.formData() lançava ERR_FORMDATA_PARSE_ERROR pra esse content-type", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    const request = buildJsonRequest({ uuid: "doc-1", type_post: "1" });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
+  });
+
+  it("retorna 422 (não 500) quando o corpo não é decodificável no content-type declarado, em vez de derrubar a rota", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+
+    const request = new Request("http://localhost/api/webhooks/d4sign", {
+      method: "POST",
+      body: "isso não é form-data nem json válido",
+      headers: { "content-type": "multipart/form-data" },
+    });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(422);
+    expect(mockProcessar).not.toHaveBeenCalled();
   });
 
   it("sempre responde 200 mesmo quando o use-case não reconhece o evento (evita retry do D4Sign)", async () => {

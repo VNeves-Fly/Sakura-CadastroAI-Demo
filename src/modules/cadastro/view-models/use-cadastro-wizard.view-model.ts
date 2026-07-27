@@ -14,7 +14,12 @@ import {
   unmaskCnpj,
   validarCnpjComMensagem,
 } from "@/modules/cadastro/utils/cnpj.util";
-import { maskTelefone, validarTelefone } from "@/modules/shared/utils/telefone.util";
+import {
+  maskTelefone,
+  paisTelefonePorCodigo,
+  unmaskTelefone,
+  validarTelefone,
+} from "@/modules/shared/utils/telefone.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
 import { maskCpf, unmaskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
 import { validarDataNascimentoComMensagem } from "@/modules/cadastro/utils/data-nascimento.util";
@@ -29,6 +34,15 @@ import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types
 interface SocioAnaliseIdentificacaoState {
   analisando: boolean;
   analise: DocumentoIdentificacaoAnaliseView | null;
+}
+
+// Campo obrigatório vazio/inválido de uma seção — `campo` é a mesma
+// chave usada pelo setter/updater daquele valor (ex.: "emailOperacional",
+// "cep"), reaproveitada como identificador em vez de inventar um
+// dicionário novo (ver data-campo nos componentes de passo).
+export interface CampoFaltante {
+  campo: string;
+  label: string;
 }
 
 // Documentos + Empresa (antigos Passo 1 e 2) viraram uma seção só. A
@@ -815,13 +829,22 @@ export function useCadastroWizardViewModel({
 
   const cpfsNormalizados = socios.map((socio) => unmaskCpf(socio.cpf));
   const emailsNormalizados = socios.map((socio) => socio.email.trim().toLowerCase());
+  const telefonesNormalizados = socios.map((socio) => unmaskTelefone(socio.telefone));
   const contagemCpf = contarOcorrencias(cpfsNormalizados);
   const contagemEmail = contarOcorrencias(emailsNormalizados);
+  const contagemTelefone = contarOcorrencias(
+    telefonesNormalizados.filter((telefone) => telefone.length > 0),
+  );
 
   const sociosValidacao = socios.map((socio, index) => {
     const cpfDuplicado = (contagemCpf.get(cpfsNormalizados[index]!) ?? 0) > 1;
     const emailDuplicado = (contagemEmail.get(emailsNormalizados[index]!) ?? 0) > 1;
     const emailFormatoInvalido = socio.email.length > 0 && !validarEmail(socio.email);
+    const telefoneFormatoInvalido =
+      socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais);
+    const telefoneDuplicado =
+      telefonesNormalizados[index]!.length > 0 &&
+      (contagemTelefone.get(telefonesNormalizados[index]!) ?? 0) > 1;
 
     return {
       cpfStatus: cpfDuplicado
@@ -834,8 +857,12 @@ export function useCadastroWizardViewModel({
         : emailFormatoInvalido
           ? "E-mail inválido."
           : null,
-      telefoneInvalido:
-        socio.telefone.length > 0 && !validarTelefone(socio.telefone, socio.telefonePais),
+      telefoneInvalido: telefoneFormatoInvalido || telefoneDuplicado,
+      telefoneErro: telefoneDuplicado
+        ? "Telefone já usado por outro sócio nesta lista."
+        : telefoneFormatoInvalido
+          ? `Telefone incompleto para ${paisTelefonePorCodigo(socio.telefonePais).nome}.`
+          : null,
       rgErro: sociosArquivoErros[index]?.rg ?? null,
       procuracaoErro: sociosArquivoErros[index]?.procuracao ?? null,
     };
@@ -851,65 +878,159 @@ export function useCadastroWizardViewModel({
 
   // "Completo" = já dá pra avançar pra próxima etapa sem estourar erro no
   // envio final (mesmas regras obrigatórias de finalizarCadastroMetaSchema/
-  // socioMetaSchema/enderecoBancoMetaSchema, replicadas aqui só como
-  // booleano de gating — a validação de verdade continua sendo a do
-  // backend). Nenhum destes bloqueia edição, só o botão "Continuar".
-  const empresaCompleta =
-    Boolean(contratoSocial) &&
-    cnpjStatus.valido &&
-    !cnpjJaCadastrado &&
-    (semTelefoneComercial || (telefoneComercial.length > 0 && !telefoneComercialInvalido)) &&
-    emailOperacional.length > 0 &&
-    !emailOperacionalInvalido &&
-    !emailComercialInvalido &&
-    !emailFinanceiroInvalido;
+  // socioMetaSchema/enderecoBancoMetaSchema). Fonte única: cada seção
+  // deriva sua lista de "campos faltantes" primeiro (usada pra mostrar
+  // qual campo falta + destacar ele, ver tentarAvancarSecao), e o
+  // booleano "completo" é só `lista.length === 0` — evita duas
+  // implementações da mesma regra podendo divergir. Nenhum destes
+  // bloqueia edição, só o botão "Continuar".
+  const camposFaltantesEmpresa: CampoFaltante[] = [];
+  if (!contratoSocial) {
+    camposFaltantesEmpresa.push({ campo: "contratoSocial", label: "Contrato Social" });
+  }
+  if (!cnpjStatus.valido) {
+    camposFaltantesEmpresa.push({ campo: "cnpj", label: "CNPJ" });
+  } else if (cnpjJaCadastrado) {
+    camposFaltantesEmpresa.push({ campo: "cnpj", label: "CNPJ (já cadastrado)" });
+  }
+  if (!semTelefoneComercial && (telefoneComercial.length === 0 || telefoneComercialInvalido)) {
+    camposFaltantesEmpresa.push({ campo: "telefoneComercial", label: "Telefone Comercial" });
+  }
+  if (emailOperacional.length === 0 || emailOperacionalInvalido) {
+    camposFaltantesEmpresa.push({
+      campo: "emailOperacional",
+      label: "E-mail responsável operacional",
+    });
+  }
+  if (emailComercialInvalido) {
+    camposFaltantesEmpresa.push({
+      campo: "emailComercial",
+      label: "E-mail setor comercial (inválido)",
+    });
+  }
+  if (emailFinanceiroInvalido) {
+    camposFaltantesEmpresa.push({
+      campo: "emailFinanceiro",
+      label: "E-mail setor financeiro (inválido)",
+    });
+  }
+  const empresaCompleta = camposFaltantesEmpresa.length === 0;
 
-  function socioCompleto(
+  function camposFaltantesSocio(
     socio: SocioWizardFormValues,
     validacao: (typeof sociosValidacao)[number],
-  ): boolean {
-    return (
-      socio.nome.trim().length > 0 &&
-      validacao.cpfStatus.valido &&
-      socio.email.length > 0 &&
-      !validacao.emailInvalido &&
-      socio.telefone.length > 0 &&
-      !validacao.telefoneInvalido &&
-      validacao.dataNascimentoStatus.valido &&
-      socio.estadoCivil.length > 0 &&
-      socio.nacionalidade.trim().length > 0 &&
-      socio.cep.length > 0 &&
-      socio.logradouro.length > 0 &&
-      socio.numero.length > 0 &&
-      socio.bairro.length > 0 &&
-      socio.cidade.length > 0 &&
-      socio.uf.length > 0 &&
-      Boolean(socio.rgArquivo) &&
-      (!socio.isRepresentante || Boolean(socio.procuracaoArquivo))
-    );
+  ): CampoFaltante[] {
+    const faltantes: CampoFaltante[] = [];
+    if (socio.nome.trim().length === 0) faltantes.push({ campo: "nome", label: "Nome completo" });
+    if (!validacao.cpfStatus.valido) faltantes.push({ campo: "cpf", label: "CPF" });
+    if (socio.email.length === 0 || validacao.emailInvalido) {
+      faltantes.push({ campo: "email", label: "E-mail" });
+    }
+    if (socio.telefone.length === 0 || validacao.telefoneInvalido) {
+      faltantes.push({ campo: "telefone", label: "Telefone" });
+    }
+    if (!validacao.dataNascimentoStatus.valido) {
+      faltantes.push({ campo: "dataNascimento", label: "Data de Nascimento" });
+    }
+    if (socio.estadoCivil.length === 0) {
+      faltantes.push({ campo: "estadoCivil", label: "Estado Civil" });
+    }
+    if (socio.nacionalidade.trim().length === 0) {
+      faltantes.push({ campo: "nacionalidade", label: "Nacionalidade" });
+    }
+    if (socio.cep.length === 0) faltantes.push({ campo: "socioCep", label: "CEP" });
+    if (socio.logradouro.length === 0) {
+      faltantes.push({ campo: "socioLogradouro", label: "Logradouro" });
+    }
+    if (socio.numero.length === 0) faltantes.push({ campo: "socioNumero", label: "Número" });
+    if (socio.bairro.length === 0) faltantes.push({ campo: "socioBairro", label: "Bairro" });
+    if (socio.cidade.length === 0) faltantes.push({ campo: "socioCidade", label: "Cidade" });
+    if (socio.uf.length === 0) faltantes.push({ campo: "socioUf", label: "UF" });
+    if (!socio.rgArquivo) faltantes.push({ campo: "rgArquivo", label: "RG ou CNH" });
+    if (socio.isRepresentante && !socio.procuracaoArquivo) {
+      faltantes.push({ campo: "procuracaoArquivo", label: "Procuração" });
+    }
+    return faltantes;
   }
-  const sociosCompletos = socios.map((socio, index) =>
-    socioCompleto(socio, sociosValidacao[index]!),
+  const sociosCamposFaltantes = socios.map((socio, index) =>
+    camposFaltantesSocio(socio, sociosValidacao[index]!),
   );
+  const sociosCompletos = sociosCamposFaltantes.map((faltantes) => faltantes.length === 0);
 
-  const enderecoCompleto = enderecoBanco.enderecoMesmoSocio
-    ? enderecoBanco.socioEnderecoVinculado !== null &&
-      Boolean(socios[enderecoBanco.socioEnderecoVinculado]?.logradouro)
-    : enderecoBanco.cep.length > 0 &&
-      enderecoBanco.logradouro.length > 0 &&
-      enderecoBanco.numero.length > 0 &&
-      enderecoBanco.bairro.length > 0 &&
-      enderecoBanco.cidade.length > 0 &&
-      enderecoBanco.uf.length > 0;
+  const camposFaltantesEndereco: CampoFaltante[] = [];
+  if (enderecoBanco.enderecoMesmoSocio) {
+    if (
+      enderecoBanco.socioEnderecoVinculado === null ||
+      !socios[enderecoBanco.socioEnderecoVinculado]?.logradouro
+    ) {
+      camposFaltantesEndereco.push({
+        campo: "socioEnderecoVinculado",
+        label: "Sócio vinculado ao endereço",
+      });
+    }
+  } else {
+    if (enderecoBanco.cep.length === 0)
+      camposFaltantesEndereco.push({ campo: "cep", label: "CEP" });
+    if (enderecoBanco.logradouro.length === 0) {
+      camposFaltantesEndereco.push({ campo: "logradouro", label: "Logradouro" });
+    }
+    if (enderecoBanco.numero.length === 0) {
+      camposFaltantesEndereco.push({ campo: "numero", label: "Número" });
+    }
+    if (enderecoBanco.bairro.length === 0) {
+      camposFaltantesEndereco.push({ campo: "bairro", label: "Bairro" });
+    }
+    if (enderecoBanco.cidade.length === 0) {
+      camposFaltantesEndereco.push({ campo: "cidade", label: "Cidade" });
+    }
+    if (enderecoBanco.uf.length === 0) camposFaltantesEndereco.push({ campo: "uf", label: "UF" });
+  }
+  const enderecoCompleto = camposFaltantesEndereco.length === 0;
 
-  const bancoCompleto =
-    enderecoBanco.bancoNome.length > 0 &&
-    enderecoBanco.bancoAgencia.length > 0 &&
-    enderecoBanco.bancoConta.length > 0 &&
-    enderecoBanco.tipoConta.length > 0 &&
-    enderecoBanco.favorecidoNome.length > 0 &&
-    enderecoBanco.favorecidoDoc.length > 0 &&
-    (enderecoBanco.bancoPais !== "internacional" || enderecoBanco.bancoSwift.length > 0);
+  const camposFaltantesBanco: CampoFaltante[] = [];
+  if (enderecoBanco.bancoNome.length === 0) {
+    camposFaltantesBanco.push({ campo: "bancoNome", label: "Banco" });
+  }
+  if (enderecoBanco.bancoAgencia.length === 0) {
+    camposFaltantesBanco.push({ campo: "bancoAgencia", label: "Agência" });
+  }
+  if (enderecoBanco.bancoConta.length === 0) {
+    camposFaltantesBanco.push({ campo: "bancoConta", label: "Conta" });
+  }
+  if (enderecoBanco.tipoConta.length === 0) {
+    camposFaltantesBanco.push({ campo: "tipoConta", label: "Tipo de Conta" });
+  }
+  if (enderecoBanco.favorecidoNome.length === 0) {
+    camposFaltantesBanco.push({ campo: "favorecidoNome", label: "Nome do Favorecido" });
+  }
+  if (enderecoBanco.favorecidoDoc.length === 0) {
+    camposFaltantesBanco.push({ campo: "favorecidoDoc", label: "CPF/CNPJ do Favorecido" });
+  }
+  if (enderecoBanco.bancoPais === "internacional" && enderecoBanco.bancoSwift.length === 0) {
+    camposFaltantesBanco.push({ campo: "bancoSwift", label: "SWIFT" });
+  }
+  const bancoCompleto = camposFaltantesBanco.length === 0;
+
+  // Feedback de UI (não é dado de formulário, não persiste): que seções
+  // já tiveram uma tentativa de avançar sem estar completas — controla
+  // se a mensagem de "campo faltante" e a borda pulsante aparecem. Some
+  // sozinho quando o campo é corrigido (a lista de faltantes recalcula a
+  // cada render), sem precisar limpar manualmente.
+  const [secoesTentativaFalhou, setSecoesTentativaFalhou] = useState<Set<number>>(new Set());
+
+  function tentarAvancarSecao(numero: number, completo: boolean) {
+    if (!completo) {
+      setSecoesTentativaFalhou((atual) => new Set(atual).add(numero));
+      return;
+    }
+    setSecoesTentativaFalhou((atual) => {
+      if (!atual.has(numero)) return atual;
+      const novo = new Set(atual);
+      novo.delete(numero);
+      return novo;
+    });
+    avancarSecao();
+  }
 
   const documentosPendentes: string[] = [];
   if (!contratoSocial) documentosPendentes.push("Contrato Social da empresa");
@@ -997,6 +1118,8 @@ export function useCadastroWizardViewModel({
     totalEtapas: TOTAL_ETAPAS,
     labels: ETAPA_LABELS,
     avancarSecao,
+    secoesTentativaFalhou,
+    tentarAvancarSecao,
 
     executivos,
     associacoes,
@@ -1024,6 +1147,7 @@ export function useCadastroWizardViewModel({
     cnpjCompleto,
     empresaCamposDesbloqueados,
     empresaCompleta,
+    camposFaltantesEmpresa,
 
     telefoneComercial,
     telefoneComercialPais,
@@ -1047,6 +1171,7 @@ export function useCadastroWizardViewModel({
     sociosValidacao,
     sociosAnaliseIdentificacao,
     sociosCompletos,
+    sociosCamposFaltantes,
     socioCepBuscando,
     addSocio,
     removeSocio,
@@ -1057,7 +1182,9 @@ export function useCadastroWizardViewModel({
     enderecoBanco,
     enderecoBancoCepBuscando,
     enderecoCompleto,
+    camposFaltantesEndereco,
     bancoCompleto,
+    camposFaltantesBanco,
     updateEnderecoBanco,
     buscarCepEnderecoBanco,
     bancos,

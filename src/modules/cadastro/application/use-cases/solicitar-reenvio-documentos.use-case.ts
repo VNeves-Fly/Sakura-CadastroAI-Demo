@@ -67,18 +67,28 @@ export class SolicitarReenvioDocumentosUseCase implements UseCase<
     const link = `${urlBase()}/cadastro/documentos-pendentes/${input.agenciaId}`;
     const listaHtml = itens.map((item) => `<li>${item}</li>`).join("");
 
-    await this.emailSender.send({
-      to: detalhe.agencia.emailContato,
-      subject: "Documentos pendentes — Cadastro Sakura",
-      html: `
-        <div style="font-family: sans-serif; font-size: 15px; color: #1f2937;">
-          <p>Olá!</p>
-          <p>Pra continuar a análise do cadastro de <strong>${detalhe.agencia.razaoSocial}</strong>,
-          precisamos que os documentos abaixo sejam reenviados:</p>
-          <ul>${listaHtml}</ul>
-          <p><a href="${link}">${link}</a></p>
-        </div>
-      `,
-    });
+    // Best-effort de verdade: falha de envio (SMTP fora do ar, credencial
+    // expirada, e-mail de contato inválido) não pode quebrar a página —
+    // o link já fica disponível no dossiê pro analista copiar/colar na
+    // mão, então o pior cenário é só não ter mandado o e-mail automático.
+    try {
+      await this.emailSender.send({
+        to: detalhe.agencia.emailContato,
+        subject: "Documentos pendentes — Cadastro Sakura",
+        html: `
+          <div style="font-family: sans-serif; font-size: 15px; color: #1f2937;">
+            <p>Olá!</p>
+            <p>Pra continuar a análise do cadastro de <strong>${detalhe.agencia.razaoSocial}</strong>,
+            precisamos que os documentos abaixo sejam reenviados:</p>
+            <ul>${listaHtml}</ul>
+            <p><a href="${link}">${link}</a></p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error(
+        `SolicitarReenvioDocumentosUseCase: falha ao enviar e-mail pra ${detalhe.agencia.emailContato} (agenciaId=${input.agenciaId}): ${String(error)}`,
+      );
+    }
   }
 }

@@ -22,6 +22,7 @@ import { solicitarTransferenciaSchema } from "@/modules/atendimento/application/
 import { responderTransferenciaSchema } from "@/modules/atendimento/application/dto/responder-transferencia.schema";
 import { criarTemplateSchema } from "@/modules/atendimento/application/dto/criar-template.schema";
 import { reenviarTemplateSchema } from "@/modules/atendimento/application/dto/reenviar-template.schema";
+import { iniciarConversaSchema } from "@/modules/atendimento/application/dto/iniciar-conversa.schema";
 
 // Ações de analista autenticado — não expostas ao público, mas ainda
 // protegidas contra clique acidental em loop (ex.: double submit).
@@ -412,6 +413,55 @@ export async function vincularMidiaComoDocumentoRoute(request: Request, midiaId:
       midiaId,
     });
     return httpOk(documento);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+// Aba "Contatos" — todas as agências (não só as com conversa já
+// materializada), com busca por nome ou CNPJ via `?busca=`.
+export async function listarContatosRoute(request: Request) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const busca = new URL(request.url).searchParams.get("busca") ?? undefined;
+    const contatos = await atendimentoController.listarContatos({ busca });
+    return httpOk(contatos);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+// Modal "com quem você quer falar" ao chegar de /atendimento?agenciaId=X.
+export async function obterContatoAgenciaRoute(_request: Request, agenciaId: string) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const contato = await atendimentoController.obterContatoAgencia({ agenciaId });
+    return httpOk(contato);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function iniciarConversaRoute(request: Request) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const chaveRateLimit = `atendimento-escrita:${analistaId}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ESCRITA)) throw new RateLimitError();
+
+    const body = await request.json();
+    const parsed = iniciarConversaSchema.safeParse(body);
+    if (!parsed.success) {
+      return httpError(parsed.error.issues.map((issue) => issue.message).join(" "), 422);
+    }
+
+    const conversa = await atendimentoController.iniciarConversa(parsed.data);
+    return httpCreated(conversa);
   } catch (error) {
     return mapErrorToResponse(error);
   }

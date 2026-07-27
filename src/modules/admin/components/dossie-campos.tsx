@@ -18,9 +18,14 @@ import type {
   ParecerIaView,
 } from "@/modules/admin/types/dossie.types";
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type {
+  AnaliseIaCampoComparado,
+  AnaliseIaCnaePrincipal,
+  AnaliseIaStage1,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
-import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
+import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
 // (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
@@ -35,13 +40,19 @@ export function Campo({
   label,
   children,
   className,
+  corFundo = "bg-card",
 }: {
   label: string;
   children: ReactNode;
   className?: string;
+  // Prop separada da `className` de propósito: um `bg-*` dentro de
+  // `className` colidiria com o `bg-card` fixo (duas classes de mesma
+  // propriedade, quem ganha depende da ordem no CSS gerado pelo
+  // Tailwind, não da ordem na string) — ver corFundoDocumento abaixo.
+  corFundo?: string;
 }) {
   return (
-    <div className={`bg-card px-3 py-2.5 ${className ?? ""}`}>
+    <div className={`${corFundo} px-3 py-2.5 ${className ?? ""}`}>
       <dt className="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">{label}</dt>
       <dd className="text-foreground mt-0.5 text-sm font-medium break-words">{children}</dd>
     </div>
@@ -79,6 +90,18 @@ export function CamposGrid({ children, className }: { children: ReactNode; class
       {itensAjustados}
     </dl>
   );
+}
+
+// Fundo do Campo de Contrato Social/RG-CNH/Procuração conforme a decisão
+// do analista — verde aprovado, vermelho reprovado, amarelo enquanto
+// ainda pendente (documento enviado, aguardando revisão em Complementar,
+// ver PENDENTE em Arquivo) — decisão do usuário, 2026-07-27. `null`
+// (nenhum arquivo enviado ainda) mantém o fundo neutro de sempre.
+export function corFundoDocumento(documento: Documento | null): string {
+  if (!documento) return "bg-card";
+  if (documento.status === "APROVADO") return "bg-success-bg";
+  if (documento.status === "REPROVADO") return "bg-destructive-bg";
+  return "bg-warning-bg";
 }
 
 // Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
@@ -146,6 +169,167 @@ export function CnaesDetalhe({ cnaes }: { cnaes: DadosReceitaCnae[] }) {
             ))}
           </ul>
         </details>
+      ) : null}
+    </div>
+  );
+}
+
+// Comparação fornecido x oficial de um campo de stage1 (razão social, nome
+// fantasia) — mesma linguagem visual de ComparacaoOficialDetalhe (✓/✗/—
+// conforme `confere`), mas como linha de Campo normal em vez de escondida
+// atrás de <details>: aqui são só 2-3 campos, não uma lista longa.
+function CampoComparado({
+  label,
+  campo,
+}: {
+  label: string;
+  campo: AnaliseIaCampoComparado | null;
+}) {
+  if (!campo) return <Campo label={label}>—</Campo>;
+  return (
+    <Campo label={label}>
+      <span className="flex items-start gap-1.5">
+        <span
+          className={
+            campo.confere === true
+              ? "text-success"
+              : campo.confere === false
+                ? "text-destructive"
+                : "text-muted-foreground"
+          }
+        >
+          {campo.confere === true ? "✓" : campo.confere === false ? "✗" : "—"}
+        </span>
+        <span>
+          <span className="text-foreground">{campo.fornecido ?? "—"}</span>
+          {campo.oficial && campo.oficial !== campo.fornecido ? (
+            <span className="text-muted-foreground"> (oficial: {campo.oficial})</span>
+          ) : null}
+        </span>
+      </span>
+    </Campo>
+  );
+}
+
+// CNAEs do stage1 (com compatibilidade de turismo) — mesmo layout de
+// CnaesDetalhe (destaque do principal, secundários atrás de <details>), mas
+// com um badge extra por item indicando se a atividade é compatível com o
+// segmento de turismo (critério do agente, ver AnaliseIaCnaePrincipal).
+// Fonte diferente de CnaesDetalhe (stage1 em vez de DadosReceita.cnaes) —
+// esta é a que de fato vem populada hoje.
+function CnaesStage1Detalhe({
+  principal,
+  secundarios,
+}: {
+  principal: AnaliseIaCnaePrincipal | null;
+  secundarios: AnaliseIaCnaePrincipal[];
+}) {
+  if (!principal && secundarios.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      {principal ? (
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
+            Principal
+          </span>
+          {principal.codigo} — {principal.descricao}
+          <ChecagemBadge label="Turismo" valor={principal.compativelTurismo} />
+        </span>
+      ) : null}
+      {secundarios.length > 0 ? (
+        <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs">
+          <summary className="text-primary cursor-pointer font-semibold">
+            Ver CNAEs secundários ({secundarios.length})
+          </summary>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {secundarios.map((cnae, index) => (
+              <li key={index} className="flex flex-wrap items-center gap-1.5">
+                {cnae.codigo} — {cnae.descricao}
+                <ChecagemBadge label="Turismo" valor={cnae.compativelTurismo} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+// Verificação cadastral (stage1) — comparação fornecido x oficial que o
+// agente já calcula na avaliação (razão social, nome fantasia, e-mail,
+// sócios) mais CNAEs com compatibilidade de turismo. Decisão do usuário
+// (2026-07-27): mostrar esse dado no dossiê em vez de descartá-lo depois de
+// calculado (ver paraVerificacaoCadastralView em dossie.adapter.ts). null
+// tanto em cadastros anteriores a essa funcionalidade quanto quando o
+// agente não trouxe stage1 (ex.: mock local sem AGENCY_ANALYSIS_API_KEY).
+export function VerificacaoCadastral({ stage1 }: { stage1: AnaliseIaStage1 | null }) {
+  if (!stage1) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Verificação cadastral não disponível — cadastro anterior a esta funcionalidade, ou a IA não
+        retornou esses dados pra este cadastro.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <CamposGrid>
+        <CampoComparado label="Razão Social" campo={stage1.razaoSocial} />
+        <CampoComparado label="Nome Fantasia" campo={stage1.nomeFantasia} />
+        <Campo label="E-mail">
+          {stage1.email ? (
+            <span className="flex flex-col gap-1">
+              <span>{stage1.email.fornecido ?? "—"}</span>
+              <span className="flex flex-wrap gap-1.5">
+                <ChecagemBadge label="MX" valor={stage1.email.hasMx} />
+                <ChecagemBadge label="Corporativo" valor={stage1.email.corporativo} />
+              </span>
+            </span>
+          ) : (
+            "—"
+          )}
+        </Campo>
+        <Campo label="Processos">
+          {stage1.processos ? (
+            <span className="flex flex-col gap-1">
+              <ChecagemBadge label="Verificado" valor={stage1.processos.verificado} />
+              {stage1.processos.resumo ? (
+                <span className="text-muted-foreground text-xs">{stage1.processos.resumo}</span>
+              ) : null}
+            </span>
+          ) : (
+            "—"
+          )}
+        </Campo>
+      </CamposGrid>
+
+      <div className="flex flex-col gap-2">
+        <SubsecaoLabel>Atividades (CNAE)</SubsecaoLabel>
+        <CnaesStage1Detalhe
+          principal={stage1.cnaePrincipal}
+          secundarios={stage1.cnaesSecundarios}
+        />
+      </div>
+
+      {stage1.socios ? (
+        <div className="flex flex-col gap-2">
+          <SubsecaoLabel>Sócios (fornecido x QSA oficial)</SubsecaoLabel>
+          {stage1.socios.divergencias.length > 0 ? (
+            <ul className="text-destructive list-inside list-disc text-xs">
+              {stage1.socios.divergencias.map((divergencia, index) => (
+                <li key={index}>{divergencia}</li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-success text-xs font-medium">
+              Nenhuma divergência entre os sócios fornecidos e o QSA oficial.
+            </span>
+          )}
+        </div>
       ) : null}
     </div>
   );
@@ -253,21 +437,21 @@ function AcoesAprovacaoDocumento({
 
   if (somenteLeitura) return null;
 
-  // Rodapé tintado conforme a decisão atual — verde quando aprovado,
-  // vermelho quando reprovado, neutro enquanto pendente.
-  const corRodape =
-    status === "APROVADO" ? "bg-success/10" : status === "REPROVADO" ? "bg-destructive/10" : "";
-
+  // Header/rodapé do modal (ver VisualizarDocumento) já ficam com o
+  // fundo sistêmico verde/vermelho conforme a decisão — aqui só o botão
+  // já confirmado usa o tom claro (contraste sobre esse fundo sólido); o
+  // botão que não foi clicado permanece branco, decisão do usuário
+  // (2026-07-27).
   return (
-    <div className={`flex flex-col gap-2 rounded-xl p-2 ${corRodape}`}>
+    <div className="flex flex-col gap-2 p-2">
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setModo(modo === "aprovar" ? null : "aprovar")}
           className={`${BOTAO_DECISAO_DOCUMENTO} ${
             status === "APROVADO"
-              ? "border-success bg-success text-success-foreground"
-              : "border-input text-foreground hover:bg-accent"
+              ? "border-success-bg bg-success-bg text-success-text"
+              : "border-input bg-card text-foreground hover:bg-accent"
           }`}
         >
           Aprovar
@@ -277,8 +461,8 @@ function AcoesAprovacaoDocumento({
           onClick={() => setModo(modo === "reprovar" ? null : "reprovar")}
           className={`${BOTAO_DECISAO_DOCUMENTO} ${
             status === "REPROVADO"
-              ? "border-destructive bg-destructive text-destructive-foreground"
-              : "border-input text-foreground hover:bg-accent"
+              ? "border-destructive-bg bg-destructive-bg text-destructive-text"
+              : "border-input bg-card text-foreground hover:bg-accent"
           }`}
         >
           Reprovar
@@ -296,8 +480,9 @@ function AcoesAprovacaoDocumento({
           <textarea
             name="motivo"
             required
+            minLength={20}
             rows={2}
-            placeholder="Motivo da aprovação (obrigatório)"
+            placeholder="Motivo da aprovação (mínimo 20 caracteres)"
             className={TEXTAREA_MOTIVO_DECISAO}
           />
           <div className="flex gap-2">
@@ -443,37 +628,45 @@ export function Arquivo({
     reenviado;
 
   return (
-    <VisualizarDocumento
-      documentoId={documento.id}
-      gcsPath={documento.gcsPath}
-      label={nomeArquivo}
-      painelEsquerdo={analise !== undefined ? <AnaliseIaDetalhe analise={analise} /> : undefined}
-      infoAuditoria={
-        temAuditoria ? (
-          <AuditoriaDocumento documento={documento} reenviado={reenviado} />
-        ) : undefined
-      }
-      acoes={
-        agenciaId && aprovarDocumentoAction && reprovarDocumentoAction ? (
-          <AcoesAprovacaoDocumento
-            agenciaId={agenciaId}
-            documentoId={documento.id}
-            status={documento.status}
-            aprovarDocumentoAction={aprovarDocumentoAction}
-            reprovarDocumentoAction={reprovarDocumentoAction}
-            somenteLeitura={somenteLeitura}
-          />
-        ) : undefined
-      }
-    >
-      <span className="flex flex-wrap items-center gap-2">
-        <span className="border-input hover:bg-accent inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition">
-          <Eye className="size-3.5" />
-          Visualizar
+    <div className="flex flex-col gap-1.5">
+      <VisualizarDocumento
+        documentoId={documento.id}
+        gcsPath={documento.gcsPath}
+        label={nomeArquivo}
+        statusDecisao={documento.status}
+        painelEsquerdo={analise !== undefined ? <AnaliseIaDetalhe analise={analise} /> : undefined}
+        infoAuditoria={
+          temAuditoria ? (
+            <AuditoriaDocumento documento={documento} reenviado={reenviado} />
+          ) : undefined
+        }
+        acoes={
+          agenciaId && aprovarDocumentoAction && reprovarDocumentoAction ? (
+            <AcoesAprovacaoDocumento
+              agenciaId={agenciaId}
+              documentoId={documento.id}
+              status={documento.status}
+              aprovarDocumentoAction={aprovarDocumentoAction}
+              reprovarDocumentoAction={reprovarDocumentoAction}
+              somenteLeitura={somenteLeitura}
+            />
+          ) : undefined
+        }
+      >
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="border-input hover:bg-accent inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition">
+            <Eye className="size-3.5" />
+            Visualizar
+          </span>
+          <span className="text-muted-foreground font-mono text-xs break-all">{nomeArquivo}</span>
         </span>
-        <span className="text-muted-foreground font-mono text-xs break-all">{nomeArquivo}</span>
-      </span>
-    </VisualizarDocumento>
+      </VisualizarDocumento>
+      {documento.status === "PENDENTE" ? (
+        <span className="bg-warning-bg text-warning-text w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
+          Pendente
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -710,7 +903,7 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
           </span>
         ) : null}
         <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
-          Confiança: {analise.confiancaExtracao}
+          Confiança: {formatarPercentual(analise.confiancaExtracao)}
         </span>
         {alertas.length > 0 ? (
           <span className="bg-warning/15 text-warning rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
@@ -767,9 +960,29 @@ export function AnaliseIaDetalhe({ analise }: { analise: AnaliseIaResumo | null 
           <p className="text-muted-foreground mt-2 whitespace-pre-wrap">{analise.textoBruto}</p>
         </details>
       ) : null}
+
+      {/* Marca d'água decorativa no espaço vazio abaixo do parecer —
+          reforça visualmente o veredito sem competir com o conteúdo
+          (65% de opacidade, decisão do usuário, 2026-07-27). */}
+      {IMAGEM_PARECER[analise.parecer ?? ""] ? (
+        <div className="flex w-full items-center justify-center py-8">
+          {/* eslint-disable-next-line @next/next/no-img-element -- ícone decorativo estático em public/, next/image seria overhead sem ganho aqui */}
+          <img
+            src={IMAGEM_PARECER[analise.parecer ?? ""]}
+            alt=""
+            aria-hidden="true"
+            className="h-40 w-40 object-contain opacity-65"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
+
+const IMAGEM_PARECER: Record<string, string> = {
+  APROVADO: "/parecer/aprovado.png",
+  REPROVADO: "/parecer/reprovado.svg",
+};
 
 const RESULTADO_ANALISE_LABELS: Record<string, string> = {
   EM_ANALISE: "Em análise",
@@ -851,20 +1064,30 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
         </div>
       ) : null}
 
-      {parecer.itensParaChecar.length > 0 ? (
-        <div className="flex flex-col gap-1.5">
+      {parecer.gruposParaChecar.length > 0 ? (
+        <div className="flex flex-col gap-3">
           <SubsecaoLabel>O que o analista precisa checar</SubsecaoLabel>
-          <ul className="flex flex-col gap-1.5">
-            {parecer.itensParaChecar.map((item, index) => (
-              <li
-                key={index}
-                className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs"
-              >
-                <span className="text-foreground font-semibold">{item.origem}: </span>
-                <span className="text-muted-foreground">{item.mensagem}</span>
-              </li>
-            ))}
-          </ul>
+          {parecer.gruposParaChecar.map((grupo) => (
+            <div key={grupo.entidadeLabel} className="flex flex-col gap-1.5">
+              <span className="text-foreground text-xs font-bold">{grupo.entidadeLabel}</span>
+              <span className="text-muted-foreground text-[11px] font-bold tracking-wide uppercase">
+                Inconsistências
+              </span>
+              {grupo.documentos.map((documento) => (
+                <div
+                  key={documento.tipoLabel}
+                  className="border-border bg-muted/30 rounded-lg border px-3 py-2 text-xs"
+                >
+                  <span className="text-foreground font-semibold">{documento.tipoLabel}</span>
+                  <ol className="text-muted-foreground mt-1 list-inside list-decimal">
+                    {documento.mensagens.map((mensagem, index) => (
+                      <li key={index}>{mensagem}</li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

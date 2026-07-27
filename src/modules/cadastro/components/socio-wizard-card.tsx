@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { FileDropInput } from "@/modules/cadastro/components/file-drop-input";
 import { AnaliseDocumentoLoading } from "@/modules/cadastro/components/analise-documento-loading";
 import {
@@ -24,6 +25,7 @@ import type {
   SocioWizardValidacao,
 } from "@/modules/cadastro/types/socio-wizard.types";
 import type { DocumentoIdentificacaoAnaliseView } from "@/modules/cadastro/types/agencia.types";
+import type { CampoFaltante } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 
 interface SocioAnaliseIdentificacaoProps {
   analisando: boolean;
@@ -37,6 +39,10 @@ interface SocioWizardCardProps {
   analiseIdentificacao: SocioAnaliseIdentificacaoProps;
   podeRemover: boolean;
   cepBuscando: boolean;
+  // Só vem preenchida quando o rodapé já está mostrando a mensagem de
+  // erro pra este sócio (ver Passo5Socios) — evita destacar campo antes
+  // de qualquer tentativa de avançar.
+  camposFaltantes: CampoFaltante[];
   onUpdate: (patch: Partial<SocioWizardFormValues>) => void;
   onRemove: () => void;
   onToggleRepresentante: () => void;
@@ -53,6 +59,7 @@ export function SocioWizardCard({
   analiseIdentificacao,
   podeRemover,
   cepBuscando,
+  camposFaltantes,
   onUpdate,
   onRemove,
   onToggleRepresentante,
@@ -65,10 +72,12 @@ export function SocioWizardCard({
     emailInvalido,
     emailErro,
     telefoneInvalido,
+    telefoneErro,
     rgErro,
     procuracaoErro,
   } = validacao;
   const paisTelefone = paisTelefonePorCodigo(socio.telefonePais);
+  const comErro = (campo: string) => camposFaltantes.some((item) => item.campo === campo);
 
   return (
     <div className="border-border bg-card flex flex-col gap-4 rounded-2xl border p-4">
@@ -102,6 +111,7 @@ export function SocioWizardCard({
         disabled={analiseIdentificacao.analisando}
         disabledHelperText="Aguarde a análise do documento terminar..."
         required
+        destaqueErro={comErro("rgArquivo")}
       />
 
       <AnaliseDocumentoLoading
@@ -124,7 +134,7 @@ export function SocioWizardCard({
               autoComplete="off"
               value={socio.nome}
               onChange={(event) => onUpdate({ nome: event.target.value })}
-              className={INPUT_CLASSNAME}
+              className={cn(INPUT_CLASSNAME, comErro("nome") && "campo-erro-pulsante")}
               placeholder="Nome conforme QSA"
             />
           </div>
@@ -139,7 +149,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.cpf}
                 onChange={(event) => onUpdate({ cpf: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("cpf") && "campo-erro-pulsante")}
                 placeholder="000.000.000-00"
               />
               {cpfStatus.mensagem ? (
@@ -158,6 +168,7 @@ export function SocioWizardCard({
                 value={socio.dataNascimento}
                 onChange={(valor) => onUpdate({ dataNascimento: valor })}
                 disabledDays={{ after: new Date() }}
+                className={cn(comErro("dataNascimento") && "campo-erro-pulsante")}
               />
               {dataNascimentoStatus.mensagem ? (
                 <span className="text-destructive text-xs font-medium">
@@ -177,7 +188,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.email}
                 onChange={(event) => onUpdate({ email: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("email") && "campo-erro-pulsante")}
                 placeholder="socio@email.com"
               />
               {emailInvalido && emailErro ? (
@@ -212,13 +223,17 @@ export function SocioWizardCard({
                   autoComplete="off"
                   value={socio.telefone}
                   onChange={(event) => onUpdate({ telefone: event.target.value })}
-                  className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+                  className={cn(
+                    INPUT_CLASSNAME,
+                    "min-w-0 flex-1",
+                    comErro("telefone") && "campo-erro-pulsante",
+                  )}
                   placeholder={paisTelefone.placeholder}
                 />
               </div>
               {telefoneInvalido ? (
                 <span className="text-destructive text-xs font-medium">
-                  Telefone incompleto para {paisTelefone.nome}.
+                  {telefoneErro ?? `Telefone incompleto para ${paisTelefone.nome}.`}
                 </span>
               ) : null}
             </div>
@@ -275,7 +290,7 @@ export function SocioWizardCard({
                 value={socio.estadoCivil}
                 onValueChange={(valor) => onUpdate({ estadoCivil: valor ?? "" })}
               >
-                <SelectTrigger>
+                <SelectTrigger className={cn(comErro("estadoCivil") && "campo-erro-pulsante")}>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
@@ -296,7 +311,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.nacionalidade}
                 onChange={(event) => onUpdate({ nacionalidade: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("nacionalidade") && "campo-erro-pulsante")}
                 placeholder="Brasileiro(a)"
               />
             </div>
@@ -312,7 +327,11 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.cep}
                 onChange={(event) => onUpdate({ cep: event.target.value })}
-                className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+                className={cn(
+                  INPUT_CLASSNAME,
+                  "min-w-0 flex-1",
+                  comErro("socioCep") && "campo-erro-pulsante",
+                )}
                 placeholder="00000-000"
               />
               <button
@@ -336,7 +355,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.logradouro}
                 onChange={(event) => onUpdate({ logradouro: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("socioLogradouro") && "campo-erro-pulsante")}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -348,7 +367,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.numero}
                 onChange={(event) => onUpdate({ numero: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("socioNumero") && "campo-erro-pulsante")}
               />
             </div>
           </div>
@@ -375,7 +394,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.bairro}
                 onChange={(event) => onUpdate({ bairro: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("socioBairro") && "campo-erro-pulsante")}
               />
             </div>
           </div>
@@ -390,7 +409,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.cidade}
                 onChange={(event) => onUpdate({ cidade: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("socioCidade") && "campo-erro-pulsante")}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -403,7 +422,7 @@ export function SocioWizardCard({
                 autoComplete="off"
                 value={socio.uf}
                 onChange={(event) => onUpdate({ uf: event.target.value.toUpperCase() })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("socioUf") && "campo-erro-pulsante")}
               />
             </div>
           </div>
@@ -426,6 +445,7 @@ export function SocioWizardCard({
               onChange={(file) => onUpdate({ procuracaoArquivo: file })}
               helperText="Analisada por IA no envio final"
               required
+              destaqueErro={comErro("procuracaoArquivo")}
             />
           ) : null}
         </>

@@ -4,6 +4,7 @@ import type {
   AnaliseIaResultado,
   AnaliseIaDetalhamento,
   AnaliseIaRawData,
+  AnaliseIaStage1,
   AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import {
@@ -36,6 +37,8 @@ import {
   type ContratoSignatarioData,
   type CreateAgenciaData,
   type EnderecoData,
+  type FonteConsultaCredito,
+  type HistoricoConsultaCreditoItem,
   type ListarCadastrosFiltros,
   type ListarCadastrosResult,
   type OrigemGeracaoContrato,
@@ -118,6 +121,9 @@ function analiseIaFinalParaPrisma(
     detalhamento: avaliacao.detalhamento
       ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    stage1: avaliacao.stage1
+      ? (avaliacao.stage1 as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
     stage2: avaliacao.stage2
       ? (avaliacao.stage2 as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
@@ -138,6 +144,7 @@ interface AnaliseIaAgenciaRecord {
   motivo: string | null;
   flagsRisco: string[];
   detalhamento: Prisma.JsonValue | null;
+  stage1: Prisma.JsonValue | null;
   stage2: Prisma.JsonValue | null;
   rawData: Prisma.JsonValue | null;
   avaliadoEm: Date;
@@ -153,10 +160,33 @@ function analiseIaAgenciaToDomain(
     motivo: record.motivo,
     flagsRisco: record.flagsRisco,
     detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
+    stage1: record.stage1 as unknown as AnaliseIaStage1 | null,
     stage2: record.stage2 as unknown as AnaliseIaStage2 | null,
     rawData: record.rawData as unknown as AnaliseIaRawData | null,
     avaliadoEm: record.avaliadoEm,
   };
+}
+
+interface HistoricoConsultaCreditoRecord {
+  id: string;
+  fonte: string;
+  sucesso: boolean;
+  erro: string | null;
+  consultadoPor: string;
+  createdAt: Date;
+}
+
+function historicoConsultaCreditoToDomain(
+  registros: HistoricoConsultaCreditoRecord[],
+): HistoricoConsultaCreditoItem[] {
+  return registros.map((registro) => ({
+    id: registro.id,
+    fonte: registro.fonte as FonteConsultaCredito,
+    sucesso: registro.sucesso,
+    erro: registro.erro,
+    consultadoPor: registro.consultadoPor,
+    createdAt: registro.createdAt,
+  }));
 }
 
 function enderecoToDomain(record: EnderecoRecord | null): EnderecoData {
@@ -318,6 +348,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         documentos: { orderBy: { createdAt: "desc" } },
         contratos: { orderBy: { createdAt: "desc" } },
         analiseIa: true,
+        historicoConsultasCredito: { orderBy: { createdAt: "desc" } },
         executivo: { select: { nome: true } },
         associacao: { select: { nome: true } },
         evento: { select: { nome: true } },
@@ -341,6 +372,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         createdAt: contrato.createdAt,
       })),
       analiseIa: analiseIaAgenciaToDomain(record.analiseIa),
+      historicoConsultaCredito: historicoConsultaCreditoToDomain(record.historicoConsultasCredito),
       executivoNome: record.executivo?.nome ?? null,
       associacaoNome: record.associacao?.nome ?? null,
       eventoNome: record.evento?.nome ?? null,
@@ -516,6 +548,58 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         where: { id: agenciaId },
         data: { status: novoStatus as PrismaStatusAgencia },
       }),
+    ]);
+  }
+
+  async registrarConsultaCredito(
+    agenciaId: string,
+    data: {
+      fonte: FonteConsultaCredito;
+      sucesso: boolean;
+      erro: string | null;
+      stage2: AnaliseIaStage2 | null;
+      rawData: AnaliseIaRawData | null;
+      consultadoPor: string;
+    },
+  ): Promise<void> {
+    const fonteChave = data.fonte.toLowerCase();
+    const resultadoFonte = data.fonte === "AMAT" ? data.stage2?.amat : data.stage2?.sofia;
+    const rawResultadoFonte = data.rawData?.[fonteChave];
+    await this.prisma.$transaction([
+      this.prisma.historicoConsultaCredito.create({
+        data: {
+          agenciaId,
+          fonte: data.fonte,
+          sucesso: data.sucesso,
+          erro: data.erro,
+          resultado: resultadoFonte
+            ? (resultadoFonte as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+          rawResultado: rawResultadoFonte
+            ? (rawResultadoFonte as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+          consultadoPor: data.consultadoPor,
+        },
+      }),
+      // Só sobrescreve o estado "atual" (AnaliseIaAgencia.stage2/rawData)
+      // quando a reconsulta deu certo — uma falha vira só uma linha de
+      // histórico com erro, sem apagar o último dado válido exibido no
+      // card (ver ReconsultarCreditoUseCase).
+      ...(data.sucesso
+        ? [
+            this.prisma.analiseIaAgencia.update({
+              where: { agenciaId },
+              data: {
+                stage2: data.stage2
+                  ? (data.stage2 as unknown as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+                rawData: data.rawData
+                  ? (data.rawData as unknown as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+              },
+            }),
+          ]
+        : []),
     ]);
   }
 

@@ -36,6 +36,7 @@ function criarMocks(documento: Documento) {
     create: jest.fn(),
     registrarAnaliseDocumento: jest.fn(),
     registrarAnaliseFinal: jest.fn(),
+    registrarConsultaCredito: jest.fn(),
     atualizarStatus: jest.fn(),
     atualizarDadosCadastrais: jest.fn(),
     salvarSica: jest.fn(),

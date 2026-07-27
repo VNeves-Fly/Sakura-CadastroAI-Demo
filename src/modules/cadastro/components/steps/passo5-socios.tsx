@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { animate } from "animejs";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { SocioWizardCard } from "@/modules/cadastro/components/socio-wizard-card";
 import { PersonPlusIcon } from "@/modules/cadastro/components/icons";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
@@ -20,6 +21,7 @@ const VALIDACAO_VAZIA: SocioWizardValidacao = {
   emailInvalido: false,
   emailErro: null,
   telefoneInvalido: false,
+  telefoneErro: null,
   rgErro: null,
   procuracaoErro: null,
 };
@@ -41,15 +43,17 @@ export function Passo5Socios({
   sociosValidacao,
   sociosAnaliseIdentificacao,
   sociosCompletos,
+  sociosCamposFaltantes,
   socioCepBuscando,
   analisandoContratoSocial,
   podeAvancar,
+  secoesTentativaFalhou,
+  tentarAvancarSecao,
   addSocio,
   removeSocio,
   updateSocio,
   toggleRepresentante,
   buscarCepSocio,
-  avancarSecao,
 }: Passo5SociosProps) {
   const [socioAtivoIndex, setSocioAtivoIndex] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -101,6 +105,7 @@ export function Passo5Socios({
 
   function handleContinuar() {
     if (haSocioPendente) {
+      tentarAvancarSecao(2, false);
       setSocioAtivoIndex(indicePendente);
       cardRef.current?.scrollIntoView({
         behavior: prefereMovimentoReduzido() ? "auto" : "smooth",
@@ -108,10 +113,12 @@ export function Passo5Socios({
       });
       return;
     }
-    avancarSecao();
+    tentarAvancarSecao(2, true);
   }
 
   const socioAtivo = socios[socioAtivoIndex];
+  const camposFaltantesSocioAtivo = sociosCamposFaltantes[socioAtivoIndex] ?? [];
+  const mostrarErroSocio = secoesTentativaFalhou.has(2) && camposFaltantesSocioAtivo.length > 0;
 
   // Os campos de sócio são preenchidos automaticamente pela análise do
   // contrato social (Passo 1) — mostrar o formulário vazio antes da
@@ -188,6 +195,7 @@ export function Passo5Socios({
             }
             podeRemover={socios.length > 1}
             cepBuscando={socioCepBuscando === socioAtivoIndex}
+            camposFaltantes={mostrarErroSocio ? camposFaltantesSocioAtivo : []}
             onUpdate={(patch) => updateSocio(socioAtivoIndex, patch)}
             onRemove={() => removeSocio(socioAtivoIndex)}
             onToggleRepresentante={() => toggleRepresentante(socioAtivoIndex)}
@@ -197,13 +205,27 @@ export function Passo5Socios({
       ) : null}
 
       {podeAvancar ? (
-        <button
-          type="button"
-          onClick={handleContinuar}
-          className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit self-end rounded-full px-5 py-2.5 text-sm font-medium transition"
-        >
-          {haSocioPendente ? "Próximo →" : "Continuar →"}
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          {mostrarErroSocio ? (
+            <div className="border-destructive bg-destructive-bg text-destructive-text w-full rounded-xl border px-4 py-2.5 text-sm">
+              Preencha antes de continuar:{" "}
+              {camposFaltantesSocioAtivo.map((campo) => campo.label).join(", ")}.
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleContinuar}
+            aria-disabled={haSocioPendente}
+            className={cn(
+              "w-fit rounded-full px-5 py-2.5 text-sm font-medium transition",
+              haSocioPendente
+                ? "bg-primary text-primary-foreground cursor-not-allowed opacity-50"
+                : "bg-primary text-primary-foreground hover:bg-sakura-600",
+            )}
+          >
+            {haSocioPendente ? "Próximo →" : "Continuar →"}
+          </button>
+        </div>
       ) : null}
     </div>
   );

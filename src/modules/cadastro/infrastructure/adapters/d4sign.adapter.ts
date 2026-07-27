@@ -1,5 +1,7 @@
 import type {
+  ArquivoContrato,
   ContratoAssinaturaService,
+  DocumentoD4SignInfo,
   GerarContratoInput,
   GerarContratoResult,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
@@ -61,10 +63,7 @@ export class D4SignAdapter implements ContratoAssinaturaService {
 
     const documentUuid = await this.criarDocumento(safeUuid, templateId, input);
 
-    const webhookUrl = process.env.D4SIGN_WEBHOOK_URL;
-    if (webhookUrl) {
-      await this.registrarWebhook(documentUuid, webhookUrl);
-    }
+    await this.registrarWebhook(documentUuid);
 
     await this.cadastrarSignatarios(documentUuid, input.signatarios);
     await this.enviarParaAssinatura(documentUuid);
@@ -114,8 +113,82 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     return uuid;
   }
 
-  private async registrarWebhook(documentUuid: string, url: string): Promise<void> {
-    await this.request("POST", `/documents/${documentUuid}/webhooks`, { url });
+  async registrarWebhook(provedorId: string): Promise<{ registrado: boolean }> {
+    const url = process.env.D4SIGN_WEBHOOK_URL;
+    if (!url) {
+      return { registrado: false };
+    }
+
+    await this.request("POST", `/documents/${provedorId}/webhooks`, { url });
+    return { registrado: true };
+  }
+
+  // `/download` não devolve os bytes do PDF direto — devolve um JSON com
+  // um link temporário pro arquivo real (confirmado no SDK oficial:
+  // `getfileurl()` retorna um objeto e o exemplo do README busca o PDF
+  // com `file_get_contents($url_final->url)`). Por isso precisa dos dois
+  // fetches: um pro link assinado, outro pro arquivo em si. `encoding:
+  // false` pede o PDF cru (não base64) — confirmado na doc oficial
+  // (`docapi.d4sign.com.br/reference/download-de-um-documento`).
+  async visualizarDocumento(provedorId: string): Promise<ArquivoContrato> {
+    const url = `${baseUrl()}/documents/${provedorId}/download?tokenAPI=${requireEnv("D4SIGN_TOKEN_API")}&cryptKey=${requireEnv("D4SIGN_CRYPT_KEY")}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "pdf", language: "pt", encoding: false }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`D4Sign /documents/${provedorId}/download respondeu ${response.status}`);
+    }
+
+    const { url: signedUrl } = (await response.json()) as { url: string };
+    const arquivo = await fetch(signedUrl);
+    if (!arquivo.ok) {
+      throw new Error(`D4Sign download (signed-URL) respondeu ${arquivo.status}`);
+    }
+
+    const buffer = Buffer.from(await arquivo.arrayBuffer());
+    return { buffer, mimeType: "application/pdf" };
+  }
+
+  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign — só
+  // GET /documents/{uuid} sem sufixo foi testado ao vivo neste projeto
+  // antes (docs/d4sign.md §3, retorna array com uuidDoc/nameDoc/
+  // statusName). Array vazio ou erro de rede/HTTP são tratados como
+  // "não existe" — pro caller (RegistrarContratoExternoUseCase) as duas
+  // situações pedem a mesma resposta ao analista.
+  async obterDocumento(provedorId: string): Promise<DocumentoD4SignInfo> {
+    try {
+      const resultado = (await this.request("GET", `/documents/${provedorId}`, undefined)) as
+        | Array<{ uuidDoc?: string; nameDoc?: string; statusName?: string }>
+        | { uuidDoc?: string; nameDoc?: string; statusName?: string };
+
+      const documento = Array.isArray(resultado) ? resultado[0] : resultado;
+      if (!documento?.uuidDoc) {
+        return { existe: false, nomeDocumento: null, statusName: null };
+      }
+
+      return {
+        existe: true,
+        nomeDocumento: documento.nameDoc ?? null,
+        statusName: documento.statusName ?? null,
+      };
+    } catch {
+      return { existe: false, nomeDocumento: null, statusName: null };
+    }
+  }
+
+  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign —
+  // não testado ao vivo ainda (ver docs/d4sign.md). Assume uma lista de
+  // objetos com campo `email`, tolerando variação no nome dos demais
+  // campos (não usados aqui).
+  async obterDestinatarios(provedorId: string): Promise<string[]> {
+    const resultado = (await this.request("GET", `/documents/${provedorId}/list`, undefined)) as
+      Array<{ email?: string }> | { list?: Array<{ email?: string }> };
+
+    const lista = Array.isArray(resultado) ? resultado : (resultado.list ?? []);
+    return lista.map((item) => item.email).filter((email): email is string => Boolean(email));
   }
 
   private async cadastrarSignatarios(

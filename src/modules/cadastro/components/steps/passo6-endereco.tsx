@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import type { useCadastroWizardViewModel } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import {
   Select,
@@ -26,10 +27,15 @@ export function Passo6Endereco({
   socios,
   enderecoBanco,
   enderecoBancoCepBuscando,
+  camposFaltantesEndereco,
+  secoesTentativaFalhou,
   updateEnderecoBanco,
   buscarCepEnderecoBanco,
 }: Passo6EnderecoProps) {
   const enderecoManual = enderecoBanco.enderecoMesmoSocio !== true;
+  const tentativaFalhou = secoesTentativaFalhou.has(3);
+  const comErro = (campo: string) =>
+    tentativaFalhou && camposFaltantesEndereco.some((item) => item.campo === campo);
   const socioVinculado =
     enderecoBanco.socioEnderecoVinculado !== null
       ? (socios[enderecoBanco.socioEnderecoVinculado] ?? null)
@@ -103,9 +109,14 @@ export function Passo6Endereco({
               <input
                 type="text"
                 autoComplete="off"
+                data-campo="cep"
                 value={enderecoBanco.cep}
                 onChange={(event) => updateEnderecoBanco({ cep: event.target.value })}
-                className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+                className={cn(
+                  INPUT_CLASSNAME,
+                  "min-w-0 flex-1",
+                  comErro("cep") && "campo-erro-pulsante",
+                )}
                 placeholder="00000-000"
               />
               <button
@@ -126,9 +137,10 @@ export function Passo6Endereco({
             <input
               type="text"
               autoComplete="off"
+              data-campo="logradouro"
               value={enderecoBanco.logradouro}
               onChange={(event) => updateEnderecoBanco({ logradouro: event.target.value })}
-              className={INPUT_CLASSNAME}
+              className={cn(INPUT_CLASSNAME, comErro("logradouro") && "campo-erro-pulsante")}
             />
           </div>
 
@@ -140,9 +152,10 @@ export function Passo6Endereco({
               <input
                 type="text"
                 autoComplete="off"
+                data-campo="numero"
                 value={enderecoBanco.numero}
                 onChange={(event) => updateEnderecoBanco({ numero: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("numero") && "campo-erro-pulsante")}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -162,9 +175,10 @@ export function Passo6Endereco({
               <input
                 type="text"
                 autoComplete="off"
+                data-campo="bairro"
                 value={enderecoBanco.bairro}
                 onChange={(event) => updateEnderecoBanco({ bairro: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("bairro") && "campo-erro-pulsante")}
               />
             </div>
           </div>
@@ -177,9 +191,10 @@ export function Passo6Endereco({
               <input
                 type="text"
                 autoComplete="off"
+                data-campo="cidade"
                 value={enderecoBanco.cidade}
                 onChange={(event) => updateEnderecoBanco({ cidade: event.target.value })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("cidade") && "campo-erro-pulsante")}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -190,9 +205,10 @@ export function Passo6Endereco({
                 type="text"
                 maxLength={2}
                 autoComplete="off"
+                data-campo="uf"
                 value={enderecoBanco.uf}
                 onChange={(event) => updateEnderecoBanco({ uf: event.target.value.toUpperCase() })}
-                className={INPUT_CLASSNAME}
+                className={cn(INPUT_CLASSNAME, comErro("uf") && "campo-erro-pulsante")}
               />
             </div>
           </div>

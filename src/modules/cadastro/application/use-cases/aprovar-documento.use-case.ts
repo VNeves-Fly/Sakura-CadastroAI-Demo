@@ -30,8 +30,8 @@ export class AprovarDocumentoUseCase implements UseCase<AprovarDocumentoInput, D
       throw new NotFoundError("Documento");
     }
 
-    if (input.motivo.trim().length === 0) {
-      throw new DomainError("Informe o motivo da aprovação.");
+    if (input.motivo.trim().length < 20) {
+      throw new DomainError("A justificativa da aprovação precisa ter pelo menos 20 caracteres.");
     }
 
     return this.documentoRepository.atualizarStatus(input.id, {

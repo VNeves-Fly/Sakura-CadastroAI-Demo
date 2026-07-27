@@ -12,6 +12,10 @@ import type {
   AnaliseIaStage1,
   AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
+import {
+  flysakuraBaseUrl,
+  requireFlysakuraApiKey,
+} from "@/modules/cadastro/infrastructure/adapters/flysakura-http.util";
 
 // Integração real com o agente de análise da Sakura
 // (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/sync
@@ -40,10 +44,6 @@ import type {
 // analisa contrato_social e doc_identificacao hoje; quando "procuracao" for
 // um document_type suportado lá, o resultado entra em socios[].documentos
 // do mesmo jeito que o de doc_identificacao.
-function baseUrl(): string {
-  return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
-}
-
 export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
   async avaliar(input: AnaliseIaInput): Promise<AnaliseIaResultado> {
     const socios = input.socios.map((socio) => ({
@@ -66,42 +66,44 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       ],
     }));
 
-    const response = await fetch(`${baseUrl()}/api/v1/agency-analysis/sync`, {
+    const body = JSON.stringify({
+      cnpj: input.cnpj,
+      channel: "api",
+      language: "pt-br",
+      session_id: input.cnpj,
+      // Traz o payload bruto de cada tool chamada (search_amat_debts,
+      // sofia_agency_lookup etc.), antes de qualquer sumarização —
+      // exposto ao analista no dossiê como complemento ao stage2
+      // resumido (ver AnaliseIaRawData). Campo raiz do request, não de
+      // `analysis_data` (confirmado no /openapi.json deles).
+      include_raw_data: true,
+      analysis_data: {
+        cnpj: input.cnpj,
+        focus: "completo",
+        verificar_processos: false,
+        // Ligado (2026-07-27): decisão do usuário de trazer dívida
+        // AMAT de verdade pro dossiê em vez do mock front-end (ver
+        // mock-amat-sofia.util.ts, que este trabalho substitui). Os CPFs
+        // dos sócios já vão em `socios[].documento_identificacao` — o
+        // agente usa isso pra decidir quem consultar no AMAT; não existe
+        // `amat_cpfs_socios` no schema deles (confirmado pelo usuário).
+        verificar_amat: true,
+        razao_social: input.razaoSocial,
+        email: input.email,
+        socios,
+        // Documentos de nível empresa (cadastur/iata) ficam de fora
+        // enquanto o array estiver vazio — o wizard não coleta esses
+        // documentos ainda. Reaparece aqui quando houver item real.
+      },
+    });
+    console.log("/api/v1/agency-analysis/sync", body);
+    const response = await fetch(`${flysakuraBaseUrl()}/api/v1/agency-analysis/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Internal-Secret": requireApiKey(),
+        "X-Internal-Secret": requireFlysakuraApiKey(),
       },
-      body: JSON.stringify({
-        cnpj: input.cnpj,
-        channel: "api",
-        language: "pt-br",
-        session_id: input.cnpj,
-        // Traz o payload bruto de cada tool chamada (search_amat_debts,
-        // sofia_agency_lookup etc.), antes de qualquer sumarização —
-        // exposto ao analista no dossiê como complemento ao stage2
-        // resumido (ver AnaliseIaRawData). Campo raiz do request, não de
-        // `analysis_data` (confirmado no /openapi.json deles).
-        include_raw_data: true,
-        analysis_data: {
-          cnpj: input.cnpj,
-          focus: "completo",
-          verificar_processos: false,
-          // Ligado (2026-07-27): decisão do usuário de trazer dívida
-          // AMAT de verdade pro dossiê em vez do mock front-end (ver
-          // mock-amat-sofia.util.ts, que este trabalho substitui). Os CPFs
-          // dos sócios já vão em `socios[].documento_identificacao` — o
-          // agente usa isso pra decidir quem consultar no AMAT; não existe
-          // `amat_cpfs_socios` no schema deles (confirmado pelo usuário).
-          verificar_amat: true,
-          razao_social: input.razaoSocial,
-          email: input.email,
-          socios,
-          // Documentos de nível empresa (cadastur/iata) ficam de fora
-          // enquanto o array estiver vazio — o wizard não coleta esses
-          // documentos ainda. Reaparece aqui quando houver item real.
-        },
-      }),
+      body,
     });
 
     if (!response.ok) {
@@ -324,14 +326,4 @@ function mapDetalhamento(stage3: {
       documentos: socio.documentos.map(mapDocumentoDetalhe),
     })),
   };
-}
-
-function requireApiKey(): string {
-  const apiKey = process.env.AGENCY_ANALYSIS_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "AGENCY_ANALYSIS_API_KEY não configurada — necessária para FlysakuraAnaliseIaAdapter.",
-    );
-  }
-  return apiKey;
 }

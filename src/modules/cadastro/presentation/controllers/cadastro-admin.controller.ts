@@ -13,10 +13,13 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaHistoricoEdicaoCadastroRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-historico-edicao-cadastro.repository";
+import { PrismaDecisaoHumanaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-decisao-humana.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
 import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter";
+import { MockSofiaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-sofia-consulta.adapter";
+import { FlysakuraSofiaConsultaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-sofia-consulta.adapter";
 import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
@@ -41,8 +44,15 @@ import {
   SalvarUsuarioMasterUseCase,
   type SalvarUsuarioMasterInput,
 } from "@/modules/cadastro/application/use-cases/salvar-usuario-master.use-case";
-import { AprovarCadastroComplementarUseCase } from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
+import {
+  AprovarCadastroComplementarUseCase,
+  type AprovarCadastroComplementarInput,
+} from "@/modules/cadastro/application/use-cases/aprovar-cadastro-complementar.use-case";
 import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
+import {
+  ReconsultarCreditoUseCase,
+  type ReconsultarCreditoInput,
+} from "@/modules/cadastro/application/use-cases/reconsultar-credito.use-case";
 import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
 import { ObterAnaliseContratosUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-contratos.use-case";
 import {
@@ -90,6 +100,9 @@ import { SmtpEmailAdapter } from "@/modules/shared/infrastructure/adapters/smtp-
 import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
 import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos.use-case";
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
+import { ObterArquivoContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-contrato.use-case";
+import { RegistrarContratoExternoUseCase } from "@/modules/cadastro/application/use-cases/registrar-contrato-externo.use-case";
+import { ProcessarWebhookD4SignUseCase } from "@/modules/cadastro/application/use-cases/processar-webhook-d4sign.use-case";
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
 import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-assinaturas-contrato.use-case";
@@ -127,6 +140,7 @@ const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaRepository(prisma);
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const historicoEdicaoCadastroRepository = new PrismaHistoricoEdicaoCadastroRepository(prisma);
+const decisaoHumanaRepository = new PrismaDecisaoHumanaRepository(prisma);
 // Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
 // configurada, senão lê do disco local (uploads/).
 const documentoArquivoService = process.env.GCS_BUCKET_NAME
@@ -149,6 +163,12 @@ const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
 const analiseIaService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraAnaliseIaAdapter()
   : new MockAnaliseIaService();
+// Mesmo critério acima — endpoint dedicado de SOFIA (ver
+// ReconsultarCreditoUseCase), usado só pela reconsulta isolada de SOFIA no
+// dossiê (ConsultaSofiaCard).
+const sofiaConsultaService = process.env.AGENCY_ANALYSIS_API_KEY
+  ? new FlysakuraSofiaConsultaAdapter()
+  : new MockSofiaConsultaService();
 const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraDocumentAnalysisAdapter()
   : new MockDocumentAnalysisService();
@@ -179,12 +199,19 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  aprovarComplementar(id: string) {
+  aprovarComplementar(input: AprovarCadastroComplementarInput) {
     const useCase = new AprovarCadastroComplementarUseCase(
       agenciaRepository,
       contratoAssinaturaService,
+      decisaoHumanaRepository,
     );
-    return useCase.execute(id);
+    return useCase.execute(input);
+  },
+
+  // Auditoria das decisões manuais (ver AprovarCadastroComplementarUseCase)
+  // — mais recente primeiro (ver PrismaDecisaoHumanaRepository).
+  listarDecisoesHumanas(agenciaId: string) {
+    return decisaoHumanaRepository.findByAgenciaId(agenciaId);
   },
 
   // Reprocessa a análise de IA de um cadastro travado em "em_analise"
@@ -198,8 +225,21 @@ export const cadastroAdminController = {
       analiseIaService,
       documentAnalysisService,
       dadosReceitaRepository,
+      documentoRepository,
     );
     return useCase.execute({ agenciaId: id });
+  },
+
+  // Reconsulta isolada de AMAT ou SOFIA (ver ConsultaAmatCard/
+  // ConsultaSofiaCard) — não usa AnalisarCadastroUseCase de propósito:
+  // não deve reanalisar documentos nem mudar Agencia.status.
+  reconsultarCredito(input: ReconsultarCreditoInput) {
+    const useCase = new ReconsultarCreditoUseCase(
+      agenciaRepository,
+      analiseIaService,
+      sofiaConsultaService,
+    );
+    return useCase.execute(input);
   },
 
   marcarContratoAssinado(id: string) {
@@ -337,6 +377,11 @@ export const cadastroAdminController = {
     return useCase.execute(id);
   },
 
+  obterArquivoContrato(contratoId: string) {
+    const useCase = new ObterArquivoContratoUseCase(contratoRepository, contratoAssinaturaService);
+    return useCase.execute(contratoId);
+  },
+
   listarSignatariosContrato(contratoId: string) {
     const useCase = new ListarSignatariosContratoUseCase(contratoSignatarioRepository);
     return useCase.execute(contratoId);
@@ -352,6 +397,44 @@ export const cadastroAdminController = {
   listarAssinaturasContrato(contratoId: string) {
     const useCase = new ListarAssinaturasContratoUseCase(contratoAssinaturaRepository);
     return useCase.execute(contratoId);
+  },
+
+  async registrarContratoExterno(input: {
+    agenciaId: string;
+    contratoId: string;
+    provedorId: string;
+  }) {
+    // Mesma fonte de dados que dossie.view-model.ts usa pra montar a Fila
+    // de Assinatura — sócios da agência + signatários fixos ativos — só
+    // pra validar que o documento colado é o certo, ver
+    // RegistrarContratoExternoUseCase.
+    const [detalhe, signatariosPadraoAtivos] = await Promise.all([
+      agenciaRepository.obterDetalhe(input.agenciaId),
+      signatarioPadraoRepository.findAtivos(),
+    ]);
+    const emailsEsperados = [
+      ...(detalhe?.representantesLegais.map((socio) => socio.email) ?? []),
+      ...signatariosPadraoAtivos
+        .filter((padrao) => padrao.email)
+        .map((padrao) => padrao.email as string),
+    ];
+
+    const processarWebhookUseCase = new ProcessarWebhookD4SignUseCase(
+      agenciaRepository,
+      signatarioPadraoRepository,
+      contratoEmailFalhaEntregaRepository,
+      contratoAssinaturaRepository,
+    );
+    const useCase = new RegistrarContratoExternoUseCase(
+      contratoRepository,
+      contratoAssinaturaService,
+      processarWebhookUseCase,
+    );
+    return useCase.execute({
+      contratoId: input.contratoId,
+      provedorId: input.provedorId,
+      emailsEsperados,
+    });
   },
 
   listarSignatariosPadraoAtivos() {

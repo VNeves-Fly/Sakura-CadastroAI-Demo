@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
-import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
-import { telefonesEquivalentes } from "@/modules/shared/utils/telefone.util";
 import {
   Building2,
   Users,
@@ -17,8 +13,10 @@ import {
   FolderCheck,
   Bell,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
+import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import {
   Campo,
   CamposGrid,
@@ -27,6 +25,8 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   ParecerIa,
+  corFundoDocumento,
+  VerificacaoCadastral,
 } from "@/modules/admin/components/dossie-campos";
 import {
   formatarData,
@@ -61,7 +61,6 @@ import {
   paraUsuarioMasterView,
   usuarioMasterEstaCompleto,
   documentosAguardandoRevisaoPosReenvio,
-  montarOpcoesAtendimento,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import {
@@ -87,6 +86,7 @@ import {
   marcarContratoAssinadoAction,
   recusarCadastroAction,
   reprocessarAnaliseAction,
+  reconsultarCreditoAction,
   validarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
@@ -95,7 +95,7 @@ import {
 
 // `concluida` default true — Contrato/SICA continuam decorativos (chegar
 // na etapa Ativação já implica que passaram), só Travel Link passou a
-// checar de verdade (agencia.travelLinkCriado, ver TravelLinkModal).
+// checar de verdade (agencia.travelLinkCriado, ver TravelLinkSecao).
 function ChecklistEtapaConcluida({
   label,
   concluida = true,
@@ -210,17 +210,11 @@ export default async function DossieAgenciaPage({
   params: { id: string };
   searchParams: { etapa?: string; leitura?: string };
 }) {
-  const [view, conversasAgencia, session] = await Promise.all([
-    obterDossieView(params.id),
-    atendimentoController.listarConversasPorAgencia(params.id),
-    getServerSession(nextAuthOptions),
-  ]);
+  const view = await obterDossieView(params.id);
 
   if (!view) {
     notFound();
   }
-
-  const analistaAtual = session?.user?.name ?? session?.user?.email ?? "Analista";
 
   const {
     agencia,
@@ -234,38 +228,22 @@ export default async function DossieAgenciaPage({
     filaAssinatura,
     documentosAtivos,
     documentosPendentes,
+    documentosNaoAprovados,
     indiceTrilha,
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     parecerIa,
     analiseCredito,
+    verificacaoCadastral,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,
     historicoEdicoesEmpresa,
+    decisaoComplementar,
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
-  // Cruza os telefones cadastrais (montarOpcoesAtendimento) com as
-  // conversas que já existem de verdade pra essa agência — só dá pra
-  // "assumir atendimento" (mesmo lock de /atendimento) quando já existe uma
-  // Conversa (materializada na primeira mensagem trocada); sem ela, o botão
-  // só navega, como sempre fez.
-  const opcoesAtendimento = montarOpcoesAtendimento(
-    agencia,
-    complementar,
-    representantesLegais,
-  ).map((opcao) => {
-    const conversa = conversasAgencia.find((item) =>
-      telefonesEquivalentes(item.membro.telefone, opcao.telefone),
-    );
-    return {
-      ...opcao,
-      conversaId: conversa?.id ?? null,
-      atendimentoAtual: conversa?.atendimentoAtual ?? null,
-    };
-  });
   const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
   // Mesmo conjunto do banner acima, só que como lookup por id — usado pra
   // repassar `reenviado` pro CampoDocumento de cada slot (Empresa/Sócios),
@@ -299,7 +277,7 @@ export default async function DossieAgenciaPage({
   );
   const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
 
-  // Dados pro formulário de leitura do Travel Link (ver TravelLinkModal)
+  // Dados pro formulário de leitura do Travel Link (ver TravelLinkSecao)
   // — cópia dos mesmos dados já coletados na ficha, sem campo novo.
   // "Nome de contato"/"E-mail" usam o sócio representante legal (nenhuma
   // tela grava `cargo` hoje, então não tem "cargo" pra copiar junto).
@@ -319,11 +297,7 @@ export default async function DossieAgenciaPage({
       <CadastroDetalheLive agenciaId={params.id} />
       <div className="flex items-center justify-between gap-3">
         <VoltarButton />
-        <AtendimentoButton
-          agenciaId={agencia.id}
-          opcoes={opcoesAtendimento}
-          analistaAtual={analistaAtual}
-        />
+        <AtendimentoButton agenciaId={agencia.id} />
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
@@ -444,6 +418,21 @@ export default async function DossieAgenciaPage({
             </div>
           ) : (
             <>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ConsultaAmatCard
+                  amat={analiseCredito.amat}
+                  rawAmat={analiseCredito.rawAmat}
+                  historico={analiseCredito.historicoAmat}
+                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
+                />
+                <ConsultaSofiaCard
+                  sofia={analiseCredito.sofia}
+                  rawSofia={analiseCredito.rawSofia}
+                  historico={analiseCredito.historicoSofia}
+                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
+                />
+              </div>
+
               <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
                 <div className="mb-3 flex justify-end">
                   <EditarEmpresaForm
@@ -462,7 +451,7 @@ export default async function DossieAgenciaPage({
                   <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
                   <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
                   <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
-                  <Campo label="Contrato Social">
+                  <Campo label="Contrato Social" corFundo={corFundoDocumento(contratoSocial)}>
                     <CampoDocumento
                       documento={contratoSocial}
                       analise={analiseIaContratoSocial}
@@ -482,6 +471,11 @@ export default async function DossieAgenciaPage({
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
+                <div className="mb-4 flex flex-col gap-2">
+                  <SubsecaoLabel>Verificação Cadastral (Fornecido x Receita)</SubsecaoLabel>
+                  <VerificacaoCadastral stage1={verificacaoCadastral} />
+                </div>
+
                 {!dadosReceita ? (
                   <p className="text-muted-foreground text-sm">
                     Dados da Receita não disponíveis — cadastro anterior a esta funcionalidade (só
@@ -543,9 +537,6 @@ export default async function DossieAgenciaPage({
                 <ParecerIa parecer={parecerIa} />
               </SecaoColapsavel>
 
-              <ConsultaAmatCard amat={analiseCredito.amat} rawAmat={analiseCredito.rawAmat} />
-              <ConsultaSofiaCard sofia={analiseCredito.sofia} rawSofia={analiseCredito.rawSofia} />
-
               <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
                 <div className="flex flex-col gap-3">
                   {representantesLegais.map((socio) => (
@@ -590,7 +581,7 @@ export default async function DossieAgenciaPage({
                         <Campo label="Endereço" className="sm:col-span-2">
                           {formatarEndereco(socio.endereco)}
                         </Campo>
-                        <Campo label="RG/CNH">
+                        <Campo label="RG/CNH" corFundo={corFundoDocumento(socio.rg)}>
                           <CampoDocumento
                             documento={socio.rg}
                             analise={analiseIaPorSocioId.get(socio.id) ?? null}
@@ -611,7 +602,7 @@ export default async function DossieAgenciaPage({
                           </Campo>
                         ) : null}
                         {socio.procuracao || socio.isRepresentanteLegal ? (
-                          <Campo label="Procuração">
+                          <Campo label="Procuração" corFundo={corFundoDocumento(socio.procuracao)}>
                             <CampoDocumento
                               documento={socio.procuracao}
                               agenciaId={agencia.id}
@@ -691,12 +682,23 @@ export default async function DossieAgenciaPage({
               <FilaAssinatura fila={filaAssinatura} />
 
               <div className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
-                <span className="text-primary mb-3 flex items-center gap-2">
-                  <FileCheck2 className="size-4" />
-                  <span className="text-xs font-bold tracking-wide uppercase">
-                    Contratos D4Sign
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-primary flex items-center gap-2">
+                    <FileCheck2 className="size-4" />
+                    <span className="text-xs font-bold tracking-wide uppercase">
+                      Contratos D4Sign
+                    </span>
                   </span>
-                </span>
+                  <VisualizarDocumento
+                    url={`/api/cadastros/contratos/${contratoAtual.id}/arquivo`}
+                    label="Contrato D4Sign"
+                  >
+                    <span className="border-input text-foreground hover:bg-accent flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition">
+                      <Eye className="size-3.5" />
+                      Visualizar Documento
+                    </span>
+                  </VisualizarDocumento>
+                </div>
 
                 <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <Campo label="Status">
@@ -715,11 +717,20 @@ export default async function DossieAgenciaPage({
                   <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
                   <Campo label="ID do Contrato" className="sm:col-span-2">
                     <ContratoIdManual
+                      agenciaId={agencia.id}
+                      contratoId={contratoAtual.id}
                       provedorId={contratoAtual.provedorId}
+                      origemExterno={contratoAtual.origemGeracao === "externo"}
                       somenteLeitura={!mostrandoEtapaAtual}
                     />
                   </Campo>
                   <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
+                  {contratoAtual.origemGeracao === "humano" && decisaoComplementar ? (
+                    <Campo label="Aprovado por" className="sm:col-span-2">
+                      {decisaoComplementar.usuarioEmail ?? "analista não identificado"} em{" "}
+                      {formatarData(decisaoComplementar.createdAt)}
+                    </Campo>
+                  ) : null}
                 </dl>
 
                 <div className="border-border bg-muted/40 text-muted-foreground mt-4 rounded-xl border border-dashed px-4 py-3 text-xs">
@@ -728,9 +739,7 @@ export default async function DossieAgenciaPage({
                   </strong>{" "}
                   o histórico de auditoria (quem gerou, quem revisou e quem enviou o contrato, com
                   data/hora) não existe no schema hoje — sinalizando aqui em vez de simular um log
-                  falso. O ID de contrato assinado por fora também não persiste ainda (só nesta
-                  tela, some se recarregar a página) — falta um campo novo no banco pra guardar isso
-                  de verdade.
+                  falso.
                 </div>
 
                 {mostrandoEtapaAtual && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
@@ -763,12 +772,21 @@ export default async function DossieAgenciaPage({
                 contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
               </p>
 
+              {documentosNaoAprovados.length > 0 ? (
+                <div className="border-warning/30 bg-warning/5 text-warning rounded-xl border px-4 py-3 text-sm">
+                  <strong>Documentos ainda não aprovados:</strong>{" "}
+                  {documentosNaoAprovados.map((doc) => doc.label).join(", ")} — revise-os na seção
+                  de documentos antes de aprovar.
+                </div>
+              ) : null}
+
               {mostrandoEtapaAtual ? (
                 <div className="flex flex-wrap gap-2">
                   <form action={aprovarComplementarAction.bind(null, agencia.id)}>
                     <button
                       type="submit"
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                      disabled={documentosNaoAprovados.length > 0}
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Aprovar e Enviar Contrato
                     </button>
@@ -800,7 +818,7 @@ export default async function DossieAgenciaPage({
                 Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
                 {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
                 assinado antes de seguir pra ativação — SICA e Travel Link ficam no bloco
-                &ldquo;Credenciais de Usuário&rdquo;, abaixo.
+                &ldquo;SICA/Travel Link&rdquo;, abaixo.
               </p>
             </div>
           ) : null}
@@ -828,7 +846,7 @@ export default async function DossieAgenciaPage({
           não tem nada pra mostrar aqui. */}
       {etapaExibida === indiceValidacao || etapaExibida === indiceAtivacao ? (
         <SecaoColapsavel
-          titulo="Credenciais de Usuário"
+          titulo="SICA/Travel Link"
           icon={<KeyRound className="size-4" />}
           defaultAberta
         >
@@ -861,6 +879,14 @@ export default async function DossieAgenciaPage({
                 validarContratoAction={validarContratoAction}
                 recusarCadastroAction={recusarCadastroAction}
                 somenteLeitura={!mostrandoEtapaAtual}
+                amat={analiseCredito.amat}
+                rawAmat={analiseCredito.rawAmat}
+                historicoAmat={analiseCredito.historicoAmat}
+                sofia={analiseCredito.sofia}
+                rawSofia={analiseCredito.rawSofia}
+                historicoSofia={analiseCredito.historicoSofia}
+                reconsultarAmat={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
+                reconsultarSofia={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
               />
             ) : null}
 
