@@ -35,7 +35,6 @@ export function Passo2Empresa({
   empresaCamposDesbloqueados,
   setTelefoneComercial,
   setTelefoneComercialPais,
-  setSemTelefoneComercial,
   setEmailOperacional,
   setEmailComercial,
   setEmailFinanceiro,
