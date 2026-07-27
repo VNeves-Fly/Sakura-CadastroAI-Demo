@@ -154,12 +154,17 @@ export function VisualizarDocumento(props: VisualizarDocumentoProps) {
               visualizacao
             )}
 
-            {acoes ? (
+            {acoes || statusDecisao ? (
               <div
-                className={`border-t px-5 py-4 ${
+                className={`flex flex-col gap-2 border-t px-5 py-4 ${
                   classesFooter ? `${classesFooter} border-white/20` : "border-border bg-card"
                 }`}
               >
+                {statusDecisao === "APROVADO" || statusDecisao === "REPROVADO" ? (
+                  <p className="text-center text-lg font-bold tracking-widest text-white uppercase">
+                    {statusDecisao}
+                  </p>
+                ) : null}
                 {acoes}
               </div>
             ) : null}
