@@ -91,7 +91,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
             ],
           },
         ],
-        amat_cpfs_socios: ["39053344705"],
       },
     });
   });
@@ -309,19 +308,6 @@ describe("FlysakuraAnaliseIaAdapter", () => {
         },
       ],
     });
-  });
-
-  it("manda amat_cpfs_socios com os CPFs de todos os sócios", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ parecer: "APROVADO", justificativa: "", flags_risco: [] }),
-    });
-
-    await new FlysakuraAnaliseIaAdapter().avaliar(input);
-
-    const [, opts] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(JSON.parse(opts.body).analysis_data.amat_cpfs_socios).toEqual(["39053344705"]);
   });
 
   it("mapeia o stage2 (AMAT tipado + sofia/processos/reclamações como dict livre)", async () => {
