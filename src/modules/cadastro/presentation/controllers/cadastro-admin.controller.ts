@@ -17,6 +17,8 @@ import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mo
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
 import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter";
+import { MockSofiaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-sofia-consulta.adapter";
+import { FlysakuraSofiaConsultaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-sofia-consulta.adapter";
 import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
@@ -156,6 +158,12 @@ const contratoAssinaturaService = process.env.D4SIGN_TOKEN_API
 const analiseIaService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraAnaliseIaAdapter()
   : new MockAnaliseIaService();
+// Mesmo critério acima — endpoint dedicado de SOFIA (ver
+// ReconsultarCreditoUseCase), usado só pela reconsulta isolada de SOFIA no
+// dossiê (ConsultaSofiaCard).
+const sofiaConsultaService = process.env.AGENCY_ANALYSIS_API_KEY
+  ? new FlysakuraSofiaConsultaAdapter()
+  : new MockSofiaConsultaService();
 const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraDocumentAnalysisAdapter()
   : new MockDocumentAnalysisService();
@@ -214,7 +222,11 @@ export const cadastroAdminController = {
   // ConsultaSofiaCard) — não usa AnalisarCadastroUseCase de propósito:
   // não deve reanalisar documentos nem mudar Agencia.status.
   reconsultarCredito(input: ReconsultarCreditoInput) {
-    const useCase = new ReconsultarCreditoUseCase(agenciaRepository, analiseIaService);
+    const useCase = new ReconsultarCreditoUseCase(
+      agenciaRepository,
+      analiseIaService,
+      sofiaConsultaService,
+    );
     return useCase.execute(input);
   },
 
