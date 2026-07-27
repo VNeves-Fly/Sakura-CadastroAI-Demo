@@ -21,10 +21,8 @@ import {
   CONTRATO_STATUS_ASSINADO,
   type RepresentanteLegalDetalhe,
   type AnaliseIaAgenciaDetalhe,
-  type CadastroComplementarDetalhe,
   type HistoricoConsultaCreditoItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
-import { unmaskTelefone } from "@/modules/shared/utils/telefone.util";
 import type {
   DocumentoRevisao,
   DocumentoHistoricoItem,
@@ -365,40 +363,6 @@ export function paraAnaliseCreditoView(
       .filter((item) => item.fonte === "SOFIA")
       .map(paraHistoricoConsultaCreditoView),
   };
-}
-
-export interface OpcaoTelefoneAtendimento {
-  label: string;
-  telefone: string;
-}
-
-// Telefones de quem pode ser contatado pra essa agência via Atendimento
-// (WhatsApp) — mesmas 3 fontes que WhatsAppContactMatcherAdapter usa pra
-// resolver uma mensagem recebida: telefoneContato/telefoneComercial (ambos
-// rotulados "Comercial", igual ao `membroPapel: "comercial"` de lá) e o
-// telefone de cada sócio (rotulado pelo próprio nome). Deduplicado por
-// dígito — um mesmo número não aparece duas vezes (ex.: telefoneComercial
-// repetindo o telefoneContato).
-export function montarOpcoesAtendimento(
-  agencia: { telefoneContato: string },
-  complementar: CadastroComplementarDetalhe | null,
-  representantesLegais: RepresentanteLegalDetalhe[],
-): OpcaoTelefoneAtendimento[] {
-  const candidatos: OpcaoTelefoneAtendimento[] = [
-    { label: "Comercial", telefone: agencia.telefoneContato },
-    ...(complementar?.telefoneComercial
-      ? [{ label: "Comercial", telefone: complementar.telefoneComercial }]
-      : []),
-    ...representantesLegais.map((socio) => ({ label: socio.nome, telefone: socio.telefone })),
-  ];
-
-  const vistos = new Set<string>();
-  return candidatos.filter((opcao) => {
-    const digitos = unmaskTelefone(opcao.telefone);
-    if (digitos.length === 0 || vistos.has(digitos)) return false;
-    vistos.add(digitos);
-    return true;
-  });
 }
 
 // Recorte plano do Usuário Master — a entidade de domínio (classe com

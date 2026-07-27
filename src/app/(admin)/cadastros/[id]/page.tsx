@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
-import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
-import { telefonesEquivalentes } from "@/modules/shared/utils/telefone.util";
 import {
   Building2,
   Users,
@@ -61,7 +57,6 @@ import {
   paraUsuarioMasterView,
   usuarioMasterEstaCompleto,
   documentosAguardandoRevisaoPosReenvio,
-  montarOpcoesAtendimento,
 } from "@/modules/admin/adapters/dossie.adapter";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import {
@@ -211,17 +206,11 @@ export default async function DossieAgenciaPage({
   params: { id: string };
   searchParams: { etapa?: string; leitura?: string };
 }) {
-  const [view, conversasAgencia, session] = await Promise.all([
-    obterDossieView(params.id),
-    atendimentoController.listarConversasPorAgencia(params.id),
-    getServerSession(nextAuthOptions),
-  ]);
+  const view = await obterDossieView(params.id);
 
   if (!view) {
     notFound();
   }
-
-  const analistaAtual = session?.user?.name ?? session?.user?.email ?? "Analista";
 
   const {
     agencia,
@@ -248,25 +237,6 @@ export default async function DossieAgenciaPage({
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
-  // Cruza os telefones cadastrais (montarOpcoesAtendimento) com as
-  // conversas que já existem de verdade pra essa agência — só dá pra
-  // "assumir atendimento" (mesmo lock de /atendimento) quando já existe uma
-  // Conversa (materializada na primeira mensagem trocada); sem ela, o botão
-  // só navega, como sempre fez.
-  const opcoesAtendimento = montarOpcoesAtendimento(
-    agencia,
-    complementar,
-    representantesLegais,
-  ).map((opcao) => {
-    const conversa = conversasAgencia.find((item) =>
-      telefonesEquivalentes(item.membro.telefone, opcao.telefone),
-    );
-    return {
-      ...opcao,
-      conversaId: conversa?.id ?? null,
-      atendimentoAtual: conversa?.atendimentoAtual ?? null,
-    };
-  });
   const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
   // Mesmo conjunto do banner acima, só que como lookup por id — usado pra
   // repassar `reenviado` pro CampoDocumento de cada slot (Empresa/Sócios),
@@ -320,11 +290,7 @@ export default async function DossieAgenciaPage({
       <CadastroDetalheLive agenciaId={params.id} />
       <div className="flex items-center justify-between gap-3">
         <VoltarButton />
-        <AtendimentoButton
-          agenciaId={agencia.id}
-          opcoes={opcoesAtendimento}
-          analistaAtual={analistaAtual}
-        />
+        <AtendimentoButton agenciaId={agencia.id} />
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">

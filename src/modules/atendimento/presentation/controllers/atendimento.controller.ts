@@ -11,6 +11,7 @@ import { PrismaSolicitacaoTransferenciaRepository } from "@/modules/atendimento/
 import { PrismaTextoProntoRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-texto-pronto.repository";
 import { PrismaTemplateWhatsAppRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-template-whatsapp.repository";
 import { PrismaResumoFichaClienteRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-resumo-ficha-cliente.repository";
+import { PrismaAgenciaContatoRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-agencia-contato.repository";
 import { MetaWhatsAppAdapter } from "@/modules/atendimento/infrastructure/adapters/meta-whatsapp.adapter";
 import { MockWhatsAppMessagingAdapter } from "@/modules/atendimento/infrastructure/adapters/mock-whatsapp-messaging.adapter";
 import { WhatsAppContactMatcherAdapter } from "@/modules/atendimento/infrastructure/adapters/whatsapp-contact-matcher.adapter";
@@ -36,6 +37,9 @@ import { SincronizarTemplatesWhatsAppUseCase } from "@/modules/atendimento/appli
 import { ObterArquivoMidiaUseCase } from "@/modules/atendimento/application/use-cases/obter-arquivo-midia.use-case";
 import { ObterConfiguracaoWhatsappUseCase } from "@/modules/atendimento/application/use-cases/obter-configuracao-whatsapp.use-case";
 import { TestarConexaoWhatsappUseCase } from "@/modules/atendimento/application/use-cases/testar-conexao-whatsapp.use-case";
+import { ListarContatosUseCase } from "@/modules/atendimento/application/use-cases/listar-contatos.use-case";
+import { ObterContatoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/obter-contato-agencia.use-case";
+import { IniciarConversaUseCase } from "@/modules/atendimento/application/use-cases/iniciar-conversa.use-case";
 import type { EnviarMensagemInput } from "@/modules/atendimento/application/dto/enviar-mensagem.dto";
 import type { AssumirAtendimentoInput } from "@/modules/atendimento/application/dto/assumir-atendimento.dto";
 import type { EncerrarAtendimentoInput } from "@/modules/atendimento/application/dto/encerrar-atendimento.dto";
@@ -44,6 +48,7 @@ import type { ResponderTransferenciaInput } from "@/modules/atendimento/applicat
 import type { CriarTextoProntoInput } from "@/modules/atendimento/application/dto/criar-texto-pronto.dto";
 import type { AtualizarTextoProntoInput } from "@/modules/atendimento/application/dto/atualizar-texto-pronto.dto";
 import type { CriarTemplateInput } from "@/modules/atendimento/application/dto/criar-template.dto";
+import type { IniciarConversaInput } from "@/modules/atendimento/application/dto/iniciar-conversa.dto";
 
 // Composition root do módulo atendimento — único lugar que conhece
 // Prisma/FileStorage/Meta concretos. Mesmo padrão de
@@ -59,6 +64,7 @@ const solicitacaoTransferenciaRepository = new PrismaSolicitacaoTransferenciaRep
 const textoProntoRepository = new PrismaTextoProntoRepository(prisma);
 const templateWhatsAppRepository = new PrismaTemplateWhatsAppRepository(prisma);
 const resumoFichaClienteRepository = new PrismaResumoFichaClienteRepository(prisma);
+const agenciaContatoRepository = new PrismaAgenciaContatoRepository(prisma);
 const userRepository = new PrismaUserRepository(prisma);
 const contactMatcher = new WhatsAppContactMatcherAdapter(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
@@ -87,6 +93,25 @@ export const atendimentoController = {
   listarAtendimentosAtivosPorAgencias(agenciaIds: string[]) {
     const useCase = new ListarAtendimentosAtivosPorAgenciasUseCase(assumirAtendimentoRepository);
     return useCase.execute(agenciaIds);
+  },
+
+  listarContatos(input: { busca?: string }) {
+    const useCase = new ListarContatosUseCase(agenciaContatoRepository);
+    return useCase.execute(input);
+  },
+
+  obterContatoAgencia(input: { agenciaId: string }) {
+    const useCase = new ObterContatoAgenciaUseCase(agenciaContatoRepository);
+    return useCase.execute(input);
+  },
+
+  iniciarConversa(input: IniciarConversaInput) {
+    const useCase = new IniciarConversaUseCase(
+      conversaRepository,
+      resumoFichaClienteRepository,
+      solicitacaoTransferenciaRepository,
+    );
+    return useCase.execute(input);
   },
 
   listarTemplatesAprovados() {
