@@ -63,17 +63,21 @@ function toIsoDate(data: Date | null): string {
 // o próprio agente externo já reconhece isso na narrativa (resumoAnalise),
 // mas ainda reprova por "campo obrigatório ausente" (checagem de schema),
 // uma contradição que não fundamenta reprovação de verdade (decisão do
-// usuário, 2026-07-27). Só sobrescreve quando ESSE é o único motivo —
-// qualquer outro alerta (ex.: assinatura ausente, documento ilegível)
-// continua reprovando normalmente.
+// usuário, 2026-07-27). Só sobrescreve quando ESSE é o único motivo real —
+// `alertas` mistura observações informativas ("Info: ...", vindas de
+// `data.observations`) com erros de verdade ("Erro: ...", prefixo que o
+// próprio FlysakuraDocumentAnalysisAdapter adiciona a partir de
+// `data.errors`) — só os "Erro:" contam como motivo de bloqueio; qualquer
+// outro erro real (ex.: assinatura ausente) continua reprovando normalmente.
 function corrigirFalsoPositivoCnpjAusente(
   resultado: DocumentAnalysisResultado,
 ): DocumentAnalysisResultado {
   if (resultado.parecer !== "REPROVADO") return resultado;
 
-  const alertasCnpj = resultado.alertas.filter((alerta) => /cnpj/i.test(alerta));
-  const outrosAlertas = resultado.alertas.filter((alerta) => !/cnpj/i.test(alerta));
-  if (alertasCnpj.length === 0 || outrosAlertas.length > 0) return resultado;
+  const erros = resultado.alertas.filter((alerta) => alerta.startsWith("Erro:"));
+  const errosCnpj = erros.filter((erro) => /cnpj/i.test(erro));
+  const outrosErros = erros.filter((erro) => !/cnpj/i.test(erro));
+  if (errosCnpj.length === 0 || outrosErros.length > 0) return resultado;
 
   return { ...resultado, parecer: "APROVADO" };
 }

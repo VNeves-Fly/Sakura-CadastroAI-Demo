@@ -483,7 +483,8 @@ describe("AnalisarCadastroUseCase", () => {
                   ...ANALISE_VAZIA,
                   parecer: "REPROVADO",
                   alertas: [
-                    "CNPJ não encontrado no documento (campo obrigatório no schema, mas não presente no documento).",
+                    "Info: Contrato Social formal identificado e validado.",
+                    "Erro: CNPJ não encontrado no documento (campo obrigatório no schema, mas não presente no documento).",
                   ],
                 }
               : ANALISE_VAZIA,
@@ -514,7 +515,10 @@ describe("AnalisarCadastroUseCase", () => {
             ? {
                 ...ANALISE_VAZIA,
                 parecer: "REPROVADO",
-                alertas: ["CNPJ não encontrado no documento.", "Assinatura digital ausente."],
+                alertas: [
+                  "Erro: CNPJ não encontrado no documento.",
+                  "Erro: Assinatura digital ausente.",
+                ],
               }
             : ANALISE_VAZIA,
         ),
