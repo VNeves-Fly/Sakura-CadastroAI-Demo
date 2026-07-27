@@ -6,7 +6,7 @@ import { SwipeSwitch } from "./swipe-switch";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import type { RepresentanteLegalDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { HistoricoEdicaoCadastro } from "@/modules/cadastro/domain/entities/historico-edicao-cadastro.entity";
-import { formatarData } from "@/modules/admin/components/dossie-campos";
+import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
 
 interface EditarSocioFormProps {
   agenciaId: string;

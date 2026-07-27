@@ -13,10 +13,6 @@ import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
   Campo,
   CamposGrid,
-  formatarData,
-  formatarDataCurta,
-  formatarMoedaBrl,
-  formatarEnderecoReceita,
   SubsecaoLabel,
   SituacaoCadastralBadge,
   CnaesDetalhe,
@@ -24,6 +20,12 @@ import {
   ParecerIa,
   HistoricoDocumento,
 } from "@/modules/admin/components/dossie-campos";
+import {
+  formatarData,
+  formatarDataCurta,
+  formatarMoedaBrl,
+  formatarEnderecoReceita,
+} from "@/modules/admin/utils/dossie-campos.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import {
   ConsultaAmatCard,

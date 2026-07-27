@@ -1,6 +1,7 @@
 import { CircleDollarSign, ShieldAlert } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
-import { Campo, CamposGrid, formatarMoedaBrl } from "@/modules/admin/components/dossie-campos";
+import { Campo, CamposGrid } from "@/modules/admin/components/dossie-campos";
+import { formatarMoedaBrl } from "@/modules/admin/utils/dossie-campos.util";
 import type {
   ConsultaAmat,
   ConsultaSofia,

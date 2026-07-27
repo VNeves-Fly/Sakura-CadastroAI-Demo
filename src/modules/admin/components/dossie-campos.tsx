@@ -10,10 +10,7 @@ import {
 } from "react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
-import type {
-  DadosReceitaEndereco,
-  DadosReceitaCnae,
-} from "@/modules/cadastro/domain/entities/dados-receita.entity";
+import type { DadosReceitaCnae } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
   AnaliseIaResumo,
   DocumentoRevisao,
@@ -22,6 +19,7 @@ import type {
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
+import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
 // (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
@@ -80,29 +78,6 @@ export function CamposGrid({ children, className }: { children: ReactNode; class
       {itensAjustados}
     </dl>
   );
-}
-
-export function formatarData(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
-}
-
-export function formatarDataCurta(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
-}
-
-export function formatarMoedaBrl(valor: number | null): string {
-  if (valor === null) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
-}
-
-// Endereço de Dados da Receita tem campos todos opcionais (a Receita nem
-// sempre devolve tudo) — formatação própria, diferente de formatarEndereco
-// (que espera os campos sempre preenchidos, vindos do que o próprio
-// usuário digitou no wizard).
-export function formatarEnderecoReceita(endereco: DadosReceitaEndereco | null): string {
-  if (!endereco || !endereco.logradouro) return "—";
-  const complemento = endereco.complemento ? `, ${endereco.complemento}` : "";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro ?? "—"}, ${endereco.cidade ?? "—"}/${endereco.uf ?? "—"}`;
 }
 
 // Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
