@@ -8,6 +8,7 @@ import {
   paraAnaliseIaResumo,
   paraParecerView,
   paraAnaliseCreditoView,
+  paraVerificacaoCadastralView,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -34,6 +35,7 @@ export async function obterDossieView(id: string) {
   const contratoAtual = contratos[0] ?? null;
   const parecerIa = paraParecerView(analiseIa);
   const analiseCredito = paraAnaliseCreditoView(analiseIa, historicoConsultaCredito);
+  const verificacaoCadastral = paraVerificacaoCadastralView(analiseIa);
 
   // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
   // por e-mail, cobre tanto os sócios quanto os signatários fixos da
@@ -173,6 +175,7 @@ export async function obterDossieView(id: string) {
     analiseIaPorSocioId,
     parecerIa,
     analiseCredito,
+    verificacaoCadastral,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,

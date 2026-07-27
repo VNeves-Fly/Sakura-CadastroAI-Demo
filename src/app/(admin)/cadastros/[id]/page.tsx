@@ -25,6 +25,7 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   ParecerIa,
+  VerificacaoCadastral,
 } from "@/modules/admin/components/dossie-campos";
 import {
   formatarData,
@@ -232,6 +233,7 @@ export default async function DossieAgenciaPage({
     analiseIaPorSocioId,
     parecerIa,
     analiseCredito,
+    verificacaoCadastral,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,
@@ -466,6 +468,11 @@ export default async function DossieAgenciaPage({
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
+                <div className="mb-4 flex flex-col gap-2">
+                  <SubsecaoLabel>Verificação Cadastral (Fornecido x Receita)</SubsecaoLabel>
+                  <VerificacaoCadastral stage1={verificacaoCadastral} />
+                </div>
+
                 {!dadosReceita ? (
                   <p className="text-muted-foreground text-sm">
                     Dados da Receita não disponíveis — cadastro anterior a esta funcionalidade (só

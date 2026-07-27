@@ -363,13 +363,15 @@ describe("D4SignAdapter", () => {
   });
 
   describe("visualizarDocumento", () => {
-    it("baixa o PDF em bytes crus (encoding: 0) e retorna buffer + mimeType", async () => {
+    it("resolve o link assinado (/download) e baixa o PDF de lá, retornando buffer + mimeType", async () => {
       const bytes = new TextEncoder().encode("%PDF-fake");
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        arrayBuffer: async () => bytes.buffer,
-      });
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ url: "https://d4sign-files.example.com/assinado?sig=abc" }))
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => bytes.buffer,
+        });
 
       const resultado = await new D4SignAdapter(
         fakeSignatarioPadraoRepository(),
@@ -377,19 +379,33 @@ describe("D4SignAdapter", () => {
 
       expect(resultado.mimeType).toBe("application/pdf");
       expect(Buffer.from(resultado.buffer).toString()).toBe("%PDF-fake");
-      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
-      expect(url).toBe(
+
+      const [linkUrl, linkOpts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(linkUrl).toBe(
         "https://api.teste.d4sign/documents/doc-uuid-1/download?tokenAPI=token-teste&cryptKey=crypt-teste",
       );
-      expect(JSON.parse(opts.body)).toEqual({ type: "pdf", language: "pt", encoding: "0" });
+      expect(JSON.parse(linkOpts.body)).toEqual({ type: "pdf", language: "pt", encoding: false });
+
+      const [arquivoUrl] = (global.fetch as jest.Mock).mock.calls[1];
+      expect(arquivoUrl).toBe("https://d4sign-files.example.com/assinado?sig=abc");
     });
 
-    it("lança erro descritivo se o download falhar", async () => {
+    it("lança erro descritivo se a resolução do link assinado falhar", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 
       await expect(
         new D4SignAdapter(fakeSignatarioPadraoRepository()).visualizarDocumento("doc-inexistente"),
       ).rejects.toThrow("D4Sign /documents/doc-inexistente/download respondeu 404");
+    });
+
+    it("lança erro descritivo se o download do PDF pelo link assinado falhar", async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ url: "https://d4sign-files.example.com/assinado?sig=abc" }))
+        .mockResolvedValueOnce({ ok: false, status: 403 });
+
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).visualizarDocumento("doc-uuid-1"),
+      ).rejects.toThrow("D4Sign download (signed-URL) respondeu 403");
     });
   });
 

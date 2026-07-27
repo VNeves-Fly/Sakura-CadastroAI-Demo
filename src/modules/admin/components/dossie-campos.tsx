@@ -18,6 +18,11 @@ import type {
   ParecerIaView,
 } from "@/modules/admin/types/dossie.types";
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type {
+  AnaliseIaCampoComparado,
+  AnaliseIaCnaePrincipal,
+  AnaliseIaStage1,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
@@ -146,6 +151,167 @@ export function CnaesDetalhe({ cnaes }: { cnaes: DadosReceitaCnae[] }) {
             ))}
           </ul>
         </details>
+      ) : null}
+    </div>
+  );
+}
+
+// Comparação fornecido x oficial de um campo de stage1 (razão social, nome
+// fantasia) — mesma linguagem visual de ComparacaoOficialDetalhe (✓/✗/—
+// conforme `confere`), mas como linha de Campo normal em vez de escondida
+// atrás de <details>: aqui são só 2-3 campos, não uma lista longa.
+function CampoComparado({
+  label,
+  campo,
+}: {
+  label: string;
+  campo: AnaliseIaCampoComparado | null;
+}) {
+  if (!campo) return <Campo label={label}>—</Campo>;
+  return (
+    <Campo label={label}>
+      <span className="flex items-start gap-1.5">
+        <span
+          className={
+            campo.confere === true
+              ? "text-success"
+              : campo.confere === false
+                ? "text-destructive"
+                : "text-muted-foreground"
+          }
+        >
+          {campo.confere === true ? "✓" : campo.confere === false ? "✗" : "—"}
+        </span>
+        <span>
+          <span className="text-foreground">{campo.fornecido ?? "—"}</span>
+          {campo.oficial && campo.oficial !== campo.fornecido ? (
+            <span className="text-muted-foreground"> (oficial: {campo.oficial})</span>
+          ) : null}
+        </span>
+      </span>
+    </Campo>
+  );
+}
+
+// CNAEs do stage1 (com compatibilidade de turismo) — mesmo layout de
+// CnaesDetalhe (destaque do principal, secundários atrás de <details>), mas
+// com um badge extra por item indicando se a atividade é compatível com o
+// segmento de turismo (critério do agente, ver AnaliseIaCnaePrincipal).
+// Fonte diferente de CnaesDetalhe (stage1 em vez de DadosReceita.cnaes) —
+// esta é a que de fato vem populada hoje.
+function CnaesStage1Detalhe({
+  principal,
+  secundarios,
+}: {
+  principal: AnaliseIaCnaePrincipal | null;
+  secundarios: AnaliseIaCnaePrincipal[];
+}) {
+  if (!principal && secundarios.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      {principal ? (
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
+            Principal
+          </span>
+          {principal.codigo} — {principal.descricao}
+          <ChecagemBadge label="Turismo" valor={principal.compativelTurismo} />
+        </span>
+      ) : null}
+      {secundarios.length > 0 ? (
+        <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs">
+          <summary className="text-primary cursor-pointer font-semibold">
+            Ver CNAEs secundários ({secundarios.length})
+          </summary>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {secundarios.map((cnae, index) => (
+              <li key={index} className="flex flex-wrap items-center gap-1.5">
+                {cnae.codigo} — {cnae.descricao}
+                <ChecagemBadge label="Turismo" valor={cnae.compativelTurismo} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+// Verificação cadastral (stage1) — comparação fornecido x oficial que o
+// agente já calcula na avaliação (razão social, nome fantasia, e-mail,
+// sócios) mais CNAEs com compatibilidade de turismo. Decisão do usuário
+// (2026-07-27): mostrar esse dado no dossiê em vez de descartá-lo depois de
+// calculado (ver paraVerificacaoCadastralView em dossie.adapter.ts). null
+// tanto em cadastros anteriores a essa funcionalidade quanto quando o
+// agente não trouxe stage1 (ex.: mock local sem AGENCY_ANALYSIS_API_KEY).
+export function VerificacaoCadastral({ stage1 }: { stage1: AnaliseIaStage1 | null }) {
+  if (!stage1) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Verificação cadastral não disponível — cadastro anterior a esta funcionalidade, ou a IA não
+        retornou esses dados pra este cadastro.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <CamposGrid>
+        <CampoComparado label="Razão Social" campo={stage1.razaoSocial} />
+        <CampoComparado label="Nome Fantasia" campo={stage1.nomeFantasia} />
+        <Campo label="E-mail">
+          {stage1.email ? (
+            <span className="flex flex-col gap-1">
+              <span>{stage1.email.fornecido ?? "—"}</span>
+              <span className="flex flex-wrap gap-1.5">
+                <ChecagemBadge label="MX" valor={stage1.email.hasMx} />
+                <ChecagemBadge label="Corporativo" valor={stage1.email.corporativo} />
+              </span>
+            </span>
+          ) : (
+            "—"
+          )}
+        </Campo>
+        <Campo label="Processos">
+          {stage1.processos ? (
+            <span className="flex flex-col gap-1">
+              <ChecagemBadge label="Verificado" valor={stage1.processos.verificado} />
+              {stage1.processos.resumo ? (
+                <span className="text-muted-foreground text-xs">{stage1.processos.resumo}</span>
+              ) : null}
+            </span>
+          ) : (
+            "—"
+          )}
+        </Campo>
+      </CamposGrid>
+
+      <div className="flex flex-col gap-2">
+        <SubsecaoLabel>Atividades (CNAE)</SubsecaoLabel>
+        <CnaesStage1Detalhe
+          principal={stage1.cnaePrincipal}
+          secundarios={stage1.cnaesSecundarios}
+        />
+      </div>
+
+      {stage1.socios ? (
+        <div className="flex flex-col gap-2">
+          <SubsecaoLabel>Sócios (fornecido x QSA oficial)</SubsecaoLabel>
+          {stage1.socios.divergencias.length > 0 ? (
+            <ul className="text-destructive list-inside list-disc text-xs">
+              {stage1.socios.divergencias.map((divergencia, index) => (
+                <li key={index}>{divergencia}</li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-success text-xs font-medium">
+              Nenhuma divergência entre os sócios fornecidos e o QSA oficial.
+            </span>
+          )}
+        </div>
       ) : null}
     </div>
   );
