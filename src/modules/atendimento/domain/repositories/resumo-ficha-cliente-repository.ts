@@ -12,6 +12,7 @@ export const RESUMO_FICHA_NAO_IDENTIFICADO: ResumoFichaClienteEntity = {
   statusAgencia: "em_andamento",
   documentosAprovados: 0,
   documentosPendentes: 0,
+  documentosParaRevisar: [],
   situacaoCadastralReceita: null,
   contratoStatus: null,
   amatSofiaConsultado: false,

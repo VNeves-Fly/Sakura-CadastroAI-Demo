@@ -56,10 +56,19 @@ export interface SolicitacaoTransferencia {
 // Resumo da ficha do cliente mostrado na coluna de informações — reflete
 // o mesmo tipo de dado já mostrado no dossiê real (/cadastros, /arquivo),
 // só que aqui é gerado junto com o resto do mock do atendimento.
+export interface DocumentoParaRevisar {
+  id: string;
+  tipo: string;
+  status: "PENDENTE" | "REPROVADO";
+  nomeSocio: string | null;
+  motivoReprovacao: string | null;
+}
+
 export interface ResumoFichaCliente {
   statusAgencia: "ativo" | "recusado" | "em_andamento";
   documentosAprovados: number;
   documentosPendentes: number;
+  documentosParaRevisar: DocumentoParaRevisar[];
   situacaoCadastralReceita: string | null;
   contratoStatus: string | null;
   amatSofiaConsultado: boolean;

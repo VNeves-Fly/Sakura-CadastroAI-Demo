@@ -25,8 +25,8 @@ export class ReprovarDocumentoUseCase implements UseCase<ReprovarDocumentoInput,
       throw new NotFoundError("Documento");
     }
 
-    if (input.motivo.trim().length === 0) {
-      throw new DomainError("Informe o motivo da reprovação.");
+    if (input.motivo.trim().length < 20) {
+      throw new DomainError("A justificativa da reprovação precisa ter pelo menos 20 caracteres.");
     }
 
     return this.documentoRepository.atualizarStatus(input.id, {

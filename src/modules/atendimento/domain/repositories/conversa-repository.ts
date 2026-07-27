@@ -18,6 +18,7 @@ export interface ConversaRepository {
   findAll(): Promise<ConversaEntity[]>;
   findById(id: string): Promise<ConversaEntity | null>;
   findByTelefoneWhatsapp(telefoneWhatsapp: string): Promise<ConversaEntity | null>;
+  findAllByAgenciaId(agenciaId: string): Promise<ConversaEntity[]>;
   create(data: CriarConversaData): Promise<ConversaEntity>;
   touchLastMessage(id: string, quando: Date): Promise<void>;
 }

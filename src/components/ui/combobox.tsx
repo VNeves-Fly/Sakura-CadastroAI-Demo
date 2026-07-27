@@ -80,6 +80,32 @@ function ComboboxContent({
   );
 }
 
+// Agrupamento por categoria dentro da mesma lista (ex.: filtro único de
+// /cadastros) — sem filtragem automática do base-ui (children estáticos,
+// ver ComboboxList acima); quem monta os grupos decide o que renderizar.
+function ComboboxGroup({ className, ...props }: ComboboxPrimitive.Group.Props) {
+  return (
+    <ComboboxPrimitive.Group
+      data-slot="combobox-group"
+      className={cn("flex flex-col", className)}
+      {...props}
+    />
+  );
+}
+
+function ComboboxGroupLabel({ className, ...props }: ComboboxPrimitive.GroupLabel.Props) {
+  return (
+    <ComboboxPrimitive.GroupLabel
+      data-slot="combobox-group-label"
+      className={cn(
+        "text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-semibold tracking-wide uppercase",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.Props) {
   return (
     <ComboboxPrimitive.Item
@@ -150,6 +176,8 @@ export {
   ComboboxInputGroup,
   ComboboxInput,
   ComboboxContent,
+  ComboboxGroup,
+  ComboboxGroupLabel,
   ComboboxItem,
   ComboboxValue,
   ComboboxChips,
