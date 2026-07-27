@@ -17,6 +17,32 @@ export async function aprovarComplementarAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
+export async function registrarContratoExternoAction(
+  agenciaId: string,
+  contratoId: string,
+  provedorId: string,
+): Promise<
+  | { ok: true; nomeDocumento: string | null; statusName: string | null; avisos: string[] }
+  | { ok: false; motivo: string }
+> {
+  try {
+    const resultado = await cadastroAdminController.registrarContratoExterno({
+      agenciaId,
+      contratoId,
+      provedorId,
+    });
+    if (resultado.ok) {
+      revalidatePath(`/cadastros/${agenciaId}`);
+    }
+    return resultado;
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { ok: false, motivo: error.message };
+    }
+    throw error;
+  }
+}
+
 export async function marcarContratoAssinadoAction(id: string) {
   await cadastroAdminController.marcarContratoAssinado(id);
   revalidatePath(`/cadastros/${id}`);

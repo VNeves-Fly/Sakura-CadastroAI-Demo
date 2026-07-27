@@ -175,6 +175,10 @@ function criarContratoAssinaturaFake(
     gerarEEnviar: jest
       .fn()
       .mockResolvedValue({ provedorId: "d4sign-1", status: "aguardando_assinatura" }),
+    visualizarDocumento: jest.fn(),
+    obterDocumento: jest.fn(),
+    obterDestinatarios: jest.fn(),
+    registrarWebhook: jest.fn(),
     ...overrides,
   };
 }

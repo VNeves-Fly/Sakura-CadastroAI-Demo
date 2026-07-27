@@ -9,9 +9,7 @@ function extensao(path: string): string {
   return path.split(".").pop()?.toLowerCase() ?? "";
 }
 
-interface VisualizarDocumentoProps {
-  documentoId: string;
-  gcsPath: string;
+interface VisualizarDocumentoBaseProps {
   label: string;
   children: ReactNode;
   // Rodapé opcional do modal (ex: botões Aprovar/Reprovar) — força o
@@ -32,6 +30,17 @@ interface VisualizarDocumentoProps {
   infoAuditoria?: ReactNode;
 }
 
+// Duas formas de apontar a visualização: um `Documento` do banco (deriva
+// a rota padrão de arquivo a partir do id, e decide imagem-vs-iframe pela
+// extensão do gcsPath) ou uma `url` explícita já pronta (ex.: contrato do
+// D4Sign, que não é um Documento — sempre iframe/PDF, sem extensão pra
+// checar).
+type VisualizarDocumentoProps = VisualizarDocumentoBaseProps &
+  (
+    | { documentoId: string; gcsPath: string; url?: never }
+    | { documentoId?: never; gcsPath?: never; url: string }
+  );
+
 // Botão + modal de pré-visualização — antes "Ver anexo" abria
 // /api/cadastros/documentos/[id]/arquivo numa aba nova (o navegador só
 // mostra o PDF/imagem cru, sem nada da tela do dossiê). A mesma rota
@@ -39,17 +48,16 @@ interface VisualizarDocumentoProps {
 // igual dentro de <iframe>/<img>, então a pré-visualização não precisa de
 // nenhum endpoint novo.
 export function VisualizarDocumento({
-  documentoId,
-  gcsPath,
   label,
   children,
   acoes,
   painelEsquerdo,
   infoAuditoria,
+  ...props
 }: VisualizarDocumentoProps) {
   const [aberto, setAberto] = useState(false);
-  const url = `/api/cadastros/documentos/${documentoId}/arquivo`;
-  const ehImagem = EXTENSOES_IMAGEM.has(extensao(gcsPath));
+  const url = props.url ?? `/api/cadastros/documentos/${props.documentoId}/arquivo`;
+  const ehImagem = props.gcsPath ? EXTENSOES_IMAGEM.has(extensao(props.gcsPath)) : false;
 
   const visualizacao = (
     <div className="bg-muted/30 min-h-0 flex-1">

@@ -18,4 +18,13 @@ export interface ContratoRepository {
   atualizarStatus(id: string, status: StatusContrato): Promise<Contrato>;
   confirmarLeitura(id: string, confirmadoPor: string): Promise<Contrato>;
   registrarAssinatura(id: string, pdfAssinadoGcsPath: string): Promise<Contrato>;
+  // Corrige o provedorId (uuid do documento no D4Sign) de um contrato já
+  // existente — usado por RegistrarContratoExternoUseCase quando o
+  // documento de verdade foi criado fora do fluxo automático (direto no
+  // D4Sign, ou assinado fisicamente e depois subido lá). origemGeracao
+  // vira "externo" junto, na mesma escrita.
+  atualizarProvedorId(
+    id: string,
+    data: { provedorId: string; origemGeracao: OrigemGeracaoContrato },
+  ): Promise<Contrato>;
 }

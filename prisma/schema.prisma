@@ -112,6 +112,10 @@ enum StatusContrato {
 enum OrigemGeracaoContrato {
   ia
   humano
+  // Documento criado/assinado fora do fluxo automático (direto no D4Sign,
+  // ou fisicamente) e depois registrado na plataforma — ver
+  // RegistrarContratoExternoUseCase.
+  externo
 }
 
 enum TipoDocumento {

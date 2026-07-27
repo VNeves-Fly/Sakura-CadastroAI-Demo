@@ -5,7 +5,7 @@ import type {
   ContratoRepository,
   CreateContratoData,
 } from "@/modules/cadastro/domain/repositories/contrato-repository";
-import type { StatusContrato } from "@/modules/cadastro/domain/enums";
+import type { OrigemGeracaoContrato, StatusContrato } from "@/modules/cadastro/domain/enums";
 
 export class PrismaContratoRepository implements ContratoRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -56,6 +56,17 @@ export class PrismaContratoRepository implements ContratoRepository {
         pdfAssinadoGcsPath,
         assinadoAt: new Date(),
       },
+    });
+    return this.toDomain(record);
+  }
+
+  async atualizarProvedorId(
+    id: string,
+    data: { provedorId: string; origemGeracao: OrigemGeracaoContrato },
+  ): Promise<Contrato> {
+    const record = await this.prisma.contrato.update({
+      where: { id },
+      data: { provedorId: data.provedorId, origemGeracao: data.origemGeracao },
     });
     return this.toDomain(record);
   }

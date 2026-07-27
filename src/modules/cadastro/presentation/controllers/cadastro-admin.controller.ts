@@ -94,6 +94,9 @@ import { SmtpEmailAdapter } from "@/modules/shared/infrastructure/adapters/smtp-
 import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
 import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos.use-case";
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
+import { ObterArquivoContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-contrato.use-case";
+import { RegistrarContratoExternoUseCase } from "@/modules/cadastro/application/use-cases/registrar-contrato-externo.use-case";
+import { ProcessarWebhookD4SignUseCase } from "@/modules/cadastro/application/use-cases/processar-webhook-d4sign.use-case";
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
 import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-assinaturas-contrato.use-case";
@@ -349,6 +352,11 @@ export const cadastroAdminController = {
     return useCase.execute(id);
   },
 
+  obterArquivoContrato(contratoId: string) {
+    const useCase = new ObterArquivoContratoUseCase(contratoRepository, contratoAssinaturaService);
+    return useCase.execute(contratoId);
+  },
+
   listarSignatariosContrato(contratoId: string) {
     const useCase = new ListarSignatariosContratoUseCase(contratoSignatarioRepository);
     return useCase.execute(contratoId);
@@ -364,6 +372,44 @@ export const cadastroAdminController = {
   listarAssinaturasContrato(contratoId: string) {
     const useCase = new ListarAssinaturasContratoUseCase(contratoAssinaturaRepository);
     return useCase.execute(contratoId);
+  },
+
+  async registrarContratoExterno(input: {
+    agenciaId: string;
+    contratoId: string;
+    provedorId: string;
+  }) {
+    // Mesma fonte de dados que dossie.view-model.ts usa pra montar a Fila
+    // de Assinatura — sócios da agência + signatários fixos ativos — só
+    // pra validar que o documento colado é o certo, ver
+    // RegistrarContratoExternoUseCase.
+    const [detalhe, signatariosPadraoAtivos] = await Promise.all([
+      agenciaRepository.obterDetalhe(input.agenciaId),
+      signatarioPadraoRepository.findAtivos(),
+    ]);
+    const emailsEsperados = [
+      ...(detalhe?.representantesLegais.map((socio) => socio.email) ?? []),
+      ...signatariosPadraoAtivos
+        .filter((padrao) => padrao.email)
+        .map((padrao) => padrao.email as string),
+    ];
+
+    const processarWebhookUseCase = new ProcessarWebhookD4SignUseCase(
+      agenciaRepository,
+      signatarioPadraoRepository,
+      contratoEmailFalhaEntregaRepository,
+      contratoAssinaturaRepository,
+    );
+    const useCase = new RegistrarContratoExternoUseCase(
+      contratoRepository,
+      contratoAssinaturaService,
+      processarWebhookUseCase,
+    );
+    return useCase.execute({
+      contratoId: input.contratoId,
+      provedorId: input.provedorId,
+      emailsEsperados,
+    });
   },
 
   listarSignatariosPadraoAtivos() {
