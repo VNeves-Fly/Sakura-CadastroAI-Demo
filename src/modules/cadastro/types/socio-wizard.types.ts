@@ -59,6 +59,7 @@ export interface SocioWizardValidacao {
   cpfStatus: ReturnType<typeof validarCpfComMensagem>;
   dataNascimentoStatus: ReturnType<typeof validarDataNascimentoComMensagem>;
   emailInvalido: boolean;
+  emailErro: string | null;
   telefoneInvalido: boolean;
   rgErro: string | null;
   procuracaoErro: string | null;

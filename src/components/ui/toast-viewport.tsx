@@ -2,7 +2,12 @@
 
 import { XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToastStore, type TipoToast } from "@/modules/shared/stores/toast.store";
+import {
+  useToastStore,
+  type CantoToast,
+  type Toast,
+  type TipoToast,
+} from "@/modules/shared/stores/toast.store";
 
 const CLASSES_POR_TIPO: Record<TipoToast, string> = {
   info: "border-border bg-card text-foreground",
@@ -10,14 +15,26 @@ const CLASSES_POR_TIPO: Record<TipoToast, string> = {
   erro: "border-destructive-text/20 bg-destructive-bg text-destructive-text",
 };
 
-export function ToastViewport() {
-  const toasts = useToastStore((state) => state.toasts);
-  const removerToast = useToastStore((state) => state.removerToast);
+const CLASSES_POR_CANTO: Record<CantoToast, string> = {
+  "superior-direito": "top-4 right-4",
+  "inferior-esquerdo": "bottom-4 left-4",
+};
 
+function GrupoToasts({
+  canto,
+  toasts,
+  removerToast,
+}: {
+  canto: CantoToast;
+  toasts: Toast[];
+  removerToast: (id: string) => void;
+}) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2">
+    <div
+      className={cn("fixed z-[100] flex w-full max-w-sm flex-col gap-2", CLASSES_POR_CANTO[canto])}
+    >
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -39,5 +56,32 @@ export function ToastViewport() {
         </div>
       ))}
     </div>
+  );
+}
+
+export function ToastViewport() {
+  const toasts = useToastStore((state) => state.toasts);
+  const removerToast = useToastStore((state) => state.removerToast);
+
+  if (toasts.length === 0) return null;
+
+  const toastsPorCanto: Record<CantoToast, Toast[]> = {
+    "superior-direito": toasts.filter((toast) => toast.canto === "superior-direito"),
+    "inferior-esquerdo": toasts.filter((toast) => toast.canto === "inferior-esquerdo"),
+  };
+
+  return (
+    <>
+      <GrupoToasts
+        canto="superior-direito"
+        toasts={toastsPorCanto["superior-direito"]}
+        removerToast={removerToast}
+      />
+      <GrupoToasts
+        canto="inferior-esquerdo"
+        toasts={toastsPorCanto["inferior-esquerdo"]}
+        removerToast={removerToast}
+      />
+    </>
   );
 }

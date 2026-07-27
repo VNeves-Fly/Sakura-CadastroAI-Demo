@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
+import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
+import { telefonesEquivalentes } from "@/modules/shared/utils/telefone.util";
 import {
   Building2,
   Users,
@@ -7,6 +11,8 @@ import {
   FileSignature,
   FileCheck2,
   CheckCircle2,
+  Circle,
+  KeyRound,
   ScrollText,
   FolderCheck,
   Bell,
@@ -87,7 +93,25 @@ import {
   salvarUsuarioMasterAction,
 } from "./actions";
 
-function ChecklistEtapaConcluida({ label }: { label: string }) {
+// `concluida` default true — Contrato/SICA continuam decorativos (chegar
+// na etapa Ativação já implica que passaram), só Travel Link passou a
+// checar de verdade (agencia.travelLinkCriado, ver TravelLinkModal).
+function ChecklistEtapaConcluida({
+  label,
+  concluida = true,
+}: {
+  label: string;
+  concluida?: boolean;
+}) {
+  if (!concluida) {
+    return (
+      <span className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium">
+        <Circle className="size-4" />
+        {label}
+      </span>
+    );
+  }
+
   return (
     <span className="text-success flex items-center gap-1.5 text-sm font-semibold">
       <CheckCircle2 className="size-4" />
@@ -186,11 +210,17 @@ export default async function DossieAgenciaPage({
   params: { id: string };
   searchParams: { etapa?: string; leitura?: string };
 }) {
-  const view = await obterDossieView(params.id);
+  const [view, conversasAgencia, session] = await Promise.all([
+    obterDossieView(params.id),
+    atendimentoController.listarConversasPorAgencia(params.id),
+    getServerSession(nextAuthOptions),
+  ]);
 
   if (!view) {
     notFound();
   }
+
+  const analistaAtual = session?.user?.name ?? session?.user?.email ?? "Analista";
 
   const {
     agencia,
@@ -217,7 +247,25 @@ export default async function DossieAgenciaPage({
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
-  const opcoesAtendimento = montarOpcoesAtendimento(agencia, complementar, representantesLegais);
+  // Cruza os telefones cadastrais (montarOpcoesAtendimento) com as
+  // conversas que já existem de verdade pra essa agência — só dá pra
+  // "assumir atendimento" (mesmo lock de /atendimento) quando já existe uma
+  // Conversa (materializada na primeira mensagem trocada); sem ela, o botão
+  // só navega, como sempre fez.
+  const opcoesAtendimento = montarOpcoesAtendimento(
+    agencia,
+    complementar,
+    representantesLegais,
+  ).map((opcao) => {
+    const conversa = conversasAgencia.find((item) =>
+      telefonesEquivalentes(item.membro.telefone, opcao.telefone),
+    );
+    return {
+      ...opcao,
+      conversaId: conversa?.id ?? null,
+      atendimentoAtual: conversa?.atendimentoAtual ?? null,
+    };
+  });
   const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
   // Mesmo conjunto do banner acima, só que como lookup por id — usado pra
   // repassar `reenviado` pro CampoDocumento de cada slot (Empresa/Sócios),
@@ -251,12 +299,31 @@ export default async function DossieAgenciaPage({
   );
   const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
 
+  // Dados pro formulário de leitura do Travel Link (ver TravelLinkModal)
+  // — cópia dos mesmos dados já coletados na ficha, sem campo novo.
+  // "Nome de contato"/"E-mail" usam o sócio representante legal (nenhuma
+  // tela grava `cargo` hoje, então não tem "cargo" pra copiar junto).
+  const socioContatoTravelLink =
+    representantesLegais.find((socio) => socio.isRepresentanteLegal) ??
+    representantesLegais[0] ??
+    null;
+  const enderecoAgenciaTravelLink = complementar
+    ? formatarEndereco(complementar.enderecoAgencia)
+    : "—";
+  const bancoLabelTravelLink = complementar?.bancoNome
+    ? `${complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}${complementar.bancoNome}`
+    : null;
+
   return (
     <div className="flex flex-col gap-4">
       <CadastroDetalheLive agenciaId={params.id} />
       <div className="flex items-center justify-between gap-3">
         <VoltarButton />
-        <AtendimentoButton opcoes={opcoesAtendimento} />
+        <AtendimentoButton
+          agenciaId={agencia.id}
+          opcoes={opcoesAtendimento}
+          analistaAtual={analistaAtual}
+        />
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
@@ -362,250 +429,264 @@ export default async function DossieAgenciaPage({
         </div>
       ) : null}
 
-      {!complementar ? (
-        <div className="border-border bg-card text-muted-foreground rounded-2xl border p-6 text-sm">
-          Dados complementares não encontrados pra esta agência.
-        </div>
-      ) : (
+      {/* Complementar concentra TODOS os dados que o cliente preencheu
+          (/cadastro + /chat) + revisão de documento — só existe nesta
+          etapa (decisão do usuário, 2026-07-27): pra ver depois que o
+          cadastro avançou, o analista clica em "Complementar" na trilha
+          (modo leitura, ?etapa=), o que também já garante sozinho que
+          aprovar/reprovar documento só acontece aqui (somenteLeitura vem
+          de mostrandoEtapaAtual, que fica false ao revisitar em leitura). */}
+      {etapaExibida === indiceComplementar ? (
         <>
-          <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
-            <div className="mb-3 flex justify-end">
-              <EditarEmpresaForm
-                agenciaId={agencia.id}
-                agencia={agencia}
-                complementar={complementar}
-                dadosReceita={dadosReceita}
-                historico={historicoEdicoesEmpresa}
-                editarEmpresaAction={editarEmpresaAction}
-                disabled={!mostrandoEtapaAtual}
-              />
+          {!complementar ? (
+            <div className="border-border bg-card text-muted-foreground rounded-2xl border p-6 text-sm">
+              Dados complementares não encontrados pra esta agência.
             </div>
-            <CamposGrid>
-              <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
-              <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
-              <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
-              <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
-              <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
-              <Campo label="Contrato Social">
-                <CampoDocumento
-                  documento={contratoSocial}
-                  analise={analiseIaContratoSocial}
-                  agenciaId={agencia.id}
-                  tipo="CONTRATO_SOCIAL"
-                  representanteLegalId={null}
-                  aprovarDocumentoAction={aprovarDocumentoAction}
-                  reprovarDocumentoAction={reprovarDocumentoAction}
-                  inserirDocumentoManualAction={inserirDocumentoManualAction}
-                  somenteLeitura={!mostrandoEtapaAtual}
-                  reenviado={
-                    contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
-                  }
-                />
-              </Campo>
-            </CamposGrid>
-          </SecaoColapsavel>
-
-          <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
-            {!dadosReceita ? (
-              <p className="text-muted-foreground text-sm">
-                Dados da Receita não disponíveis — cadastro anterior a esta funcionalidade (só
-                cadastros novos passam a gravar esse dado).
-              </p>
-            ) : (
-              <div className="flex flex-col gap-4">
+          ) : (
+            <>
+              <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
+                <div className="mb-3 flex justify-end">
+                  <EditarEmpresaForm
+                    agenciaId={agencia.id}
+                    agencia={agencia}
+                    complementar={complementar}
+                    dadosReceita={dadosReceita}
+                    historico={historicoEdicoesEmpresa}
+                    editarEmpresaAction={editarEmpresaAction}
+                    disabled={!mostrandoEtapaAtual}
+                  />
+                </div>
                 <CamposGrid>
-                  <Campo label="Situação Cadastral">
-                    <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
-                  </Campo>
-                  <Campo label="Natureza Jurídica">{dadosReceita.naturezaJuridica || "—"}</Campo>
-                  <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
-                  <Campo label="Capital Social">
-                    {formatarMoedaBrl(dadosReceita.capitalSocial)}
-                  </Campo>
-                  <Campo label="Data de Abertura">
-                    {dadosReceita.dataAbertura ? formatarDataCurta(dadosReceita.dataAbertura) : "—"}
-                  </Campo>
-                  <Campo label="Optante pelo Simples">
-                    {dadosReceita.optanteSimples
-                      ? `Sim${dadosReceita.dataOpcaoSimples ? ` (desde ${formatarDataCurta(dadosReceita.dataOpcaoSimples)})` : ""}`
-                      : "Não"}
+                  <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
+                  <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
+                  <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
+                  <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
+                  <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
+                  <Campo label="Contrato Social">
+                    <CampoDocumento
+                      documento={contratoSocial}
+                      analise={analiseIaContratoSocial}
+                      agenciaId={agencia.id}
+                      tipo="CONTRATO_SOCIAL"
+                      representanteLegalId={null}
+                      aprovarDocumentoAction={aprovarDocumentoAction}
+                      reprovarDocumentoAction={reprovarDocumentoAction}
+                      inserirDocumentoManualAction={inserirDocumentoManualAction}
+                      somenteLeitura={!mostrandoEtapaAtual}
+                      reenviado={
+                        contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
+                      }
+                    />
                   </Campo>
                 </CamposGrid>
+              </SecaoColapsavel>
 
-                <div className="flex flex-col gap-2">
-                  <SubsecaoLabel>Contato</SubsecaoLabel>
-                  <CamposGrid>
-                    <Campo label="Telefone (Receita)">{dadosReceita.telefone || "—"}</Campo>
-                    <Campo label="E-mail (Receita)">{dadosReceita.email || "—"}</Campo>
-                  </CamposGrid>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <SubsecaoLabel>Endereço</SubsecaoLabel>
-                  <p className="text-foreground text-sm font-medium">
-                    {formatarEnderecoReceita(dadosReceita.endereco)}
+              <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
+                {!dadosReceita ? (
+                  <p className="text-muted-foreground text-sm">
+                    Dados da Receita não disponíveis — cadastro anterior a esta funcionalidade (só
+                    cadastros novos passam a gravar esse dado).
                   </p>
-                </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    <CamposGrid>
+                      <Campo label="Situação Cadastral">
+                        <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
+                      </Campo>
+                      <Campo label="Natureza Jurídica">
+                        {dadosReceita.naturezaJuridica || "—"}
+                      </Campo>
+                      <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
+                      <Campo label="Capital Social">
+                        {formatarMoedaBrl(dadosReceita.capitalSocial)}
+                      </Campo>
+                      <Campo label="Data de Abertura">
+                        {dadosReceita.dataAbertura
+                          ? formatarDataCurta(dadosReceita.dataAbertura)
+                          : "—"}
+                      </Campo>
+                      <Campo label="Optante pelo Simples">
+                        {dadosReceita.optanteSimples
+                          ? `Sim${dadosReceita.dataOpcaoSimples ? ` (desde ${formatarDataCurta(dadosReceita.dataOpcaoSimples)})` : ""}`
+                          : "Não"}
+                      </Campo>
+                    </CamposGrid>
 
-                <div className="flex flex-col gap-2">
-                  <SubsecaoLabel>Atividades (CNAE)</SubsecaoLabel>
-                  <CnaesDetalhe cnaes={dadosReceita.cnaes} />
-                </div>
-
-                <p className="border-border text-muted-foreground border-t pt-3 text-xs">
-                  Consultado em {formatarData(dadosReceita.consultadoEm)}
-                </p>
-              </div>
-            )}
-          </SecaoColapsavel>
-
-          <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
-            <ParecerIa parecer={parecerIa} />
-          </SecaoColapsavel>
-
-          <ConsultaAmatCard amat={analiseCredito.amat} rawAmat={analiseCredito.rawAmat} />
-          <ConsultaSofiaCard sofia={analiseCredito.sofia} rawSofia={analiseCredito.rawSofia} />
-
-          <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
-            <div className="flex flex-col gap-3">
-              {representantesLegais.map((socio) => (
-                <div
-                  key={socio.id}
-                  className="border-border bg-muted/40 flex flex-col gap-2 rounded-xl border px-4 py-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-1.5">
-                    <span className="text-foreground font-semibold">{socio.nome}</span>
-                    <div className="flex items-center gap-2">
-                      {socio.isRepresentanteLegal ? (
-                        <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
-                          Representante legal
-                        </span>
-                      ) : null}
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          socio.administrativo === false
-                            ? "bg-muted text-muted-foreground"
-                            : "bg-success/15 text-success"
-                        }`}
-                      >
-                        {socio.administrativo === false
-                          ? "Não assina o contrato"
-                          : "Assina o contrato"}
-                      </span>
-                      <EditarSocioForm
-                        agenciaId={agencia.id}
-                        socio={socio}
-                        historico={historicoEdicoesPorSocioId.get(socio.id) ?? []}
-                        editarSocioAction={editarSocioAction}
-                        disabled={!mostrandoEtapaAtual}
-                      />
+                    <div className="flex flex-col gap-2">
+                      <SubsecaoLabel>Contato</SubsecaoLabel>
+                      <CamposGrid>
+                        <Campo label="Telefone (Receita)">{dadosReceita.telefone || "—"}</Campo>
+                        <Campo label="E-mail (Receita)">{dadosReceita.email || "—"}</Campo>
+                      </CamposGrid>
                     </div>
-                  </div>
-                  <CamposGrid>
-                    <Campo label="CPF">{socio.cpf}</Campo>
-                    <Campo label="E-mail">{socio.email}</Campo>
-                    <Campo label="Telefone">{socio.telefone}</Campo>
-                    <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
-                    <Campo label="Nacionalidade">{socio.nacionalidade || "—"}</Campo>
-                    <Campo label="Endereço" className="sm:col-span-2">
-                      {formatarEndereco(socio.endereco)}
-                    </Campo>
-                    <Campo label="RG/CNH">
-                      <CampoDocumento
-                        documento={socio.rg}
-                        analise={analiseIaPorSocioId.get(socio.id) ?? null}
-                        agenciaId={agencia.id}
-                        tipo="RG_CNPJ"
-                        representanteLegalId={socio.id}
-                        aprovarDocumentoAction={aprovarDocumentoAction}
-                        reprovarDocumentoAction={reprovarDocumentoAction}
-                        inserirDocumentoManualAction={inserirDocumentoManualAction}
-                        somenteLeitura={!mostrandoEtapaAtual}
-                        reenviado={socio.rg ? idsDocumentosReenviados.has(socio.rg.id) : false}
-                      />
-                    </Campo>
-                    {socio.rgNumero ? (
-                      <Campo label="Número do RG">
-                        {socio.rgNumero}
-                        {socio.rgOrgaoEmissor ? ` / ${socio.rgOrgaoEmissor}` : ""}
-                      </Campo>
-                    ) : null}
-                    {socio.procuracao || socio.isRepresentanteLegal ? (
-                      <Campo label="Procuração">
-                        <CampoDocumento
-                          documento={socio.procuracao}
-                          agenciaId={agencia.id}
-                          tipo="PROCURACAO"
-                          representanteLegalId={socio.id}
-                          aprovarDocumentoAction={aprovarDocumentoAction}
-                          reprovarDocumentoAction={reprovarDocumentoAction}
-                          inserirDocumentoManualAction={inserirDocumentoManualAction}
-                          somenteLeitura={!mostrandoEtapaAtual}
-                          reenviado={
-                            socio.procuracao
-                              ? idsDocumentosReenviados.has(socio.procuracao.id)
-                              : false
-                          }
-                        />
-                      </Campo>
-                    ) : null}
-                  </CamposGrid>
-                </div>
-              ))}
-            </div>
-          </SecaoColapsavel>
 
-          <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
-            <CamposGrid>
-              <Campo label="Endereço da Agência" className="sm:col-span-2">
-                {formatarEndereco(complementar.enderecoAgencia)}
-              </Campo>
-              <Campo label="Banco">
-                {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
-                {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})
-              </Campo>
-              <Campo label="Tipo de Conta">{labelTipoConta(complementar.tipoConta ?? "")}</Campo>
-              <Campo label="Agência">{complementar.bancoAgencia}</Campo>
-              <Campo label="Conta">{complementar.bancoConta}</Campo>
-              <Campo label="Favorecido" className="sm:col-span-2">
-                {complementar.favorecidoNome} — {complementar.favorecidoDoc}
-              </Campo>
-            </CamposGrid>
+                    <div className="flex flex-col gap-2">
+                      <SubsecaoLabel>Endereço</SubsecaoLabel>
+                      <p className="text-foreground text-sm font-medium">
+                        {formatarEnderecoReceita(dadosReceita.endereco)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <SubsecaoLabel>Atividades (CNAE)</SubsecaoLabel>
+                      <CnaesDetalhe cnaes={dadosReceita.cnaes} />
+                    </div>
+
+                    <p className="border-border text-muted-foreground border-t pt-3 text-xs">
+                      Consultado em {formatarData(dadosReceita.consultadoEm)}
+                    </p>
+                  </div>
+                )}
+              </SecaoColapsavel>
+
+              <SecaoColapsavel titulo="Parecer da IA" icon={<Sparkles className="size-4" />}>
+                <ParecerIa parecer={parecerIa} />
+              </SecaoColapsavel>
+
+              <ConsultaAmatCard amat={analiseCredito.amat} rawAmat={analiseCredito.rawAmat} />
+              <ConsultaSofiaCard sofia={analiseCredito.sofia} rawSofia={analiseCredito.rawSofia} />
+
+              <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
+                <div className="flex flex-col gap-3">
+                  {representantesLegais.map((socio) => (
+                    <div
+                      key={socio.id}
+                      className="border-border bg-muted/40 flex flex-col gap-2 rounded-xl border px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <span className="text-foreground font-semibold">{socio.nome}</span>
+                        <div className="flex items-center gap-2">
+                          {socio.isRepresentanteLegal ? (
+                            <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
+                              Representante legal
+                            </span>
+                          ) : null}
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              socio.administrativo === false
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-success/15 text-success"
+                            }`}
+                          >
+                            {socio.administrativo === false
+                              ? "Não assina o contrato"
+                              : "Assina o contrato"}
+                          </span>
+                          <EditarSocioForm
+                            agenciaId={agencia.id}
+                            socio={socio}
+                            historico={historicoEdicoesPorSocioId.get(socio.id) ?? []}
+                            editarSocioAction={editarSocioAction}
+                            disabled={!mostrandoEtapaAtual}
+                          />
+                        </div>
+                      </div>
+                      <CamposGrid>
+                        <Campo label="CPF">{socio.cpf}</Campo>
+                        <Campo label="E-mail">{socio.email}</Campo>
+                        <Campo label="Telefone">{socio.telefone}</Campo>
+                        <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
+                        <Campo label="Nacionalidade">{socio.nacionalidade || "—"}</Campo>
+                        <Campo label="Endereço" className="sm:col-span-2">
+                          {formatarEndereco(socio.endereco)}
+                        </Campo>
+                        <Campo label="RG/CNH">
+                          <CampoDocumento
+                            documento={socio.rg}
+                            analise={analiseIaPorSocioId.get(socio.id) ?? null}
+                            agenciaId={agencia.id}
+                            tipo="RG_CNPJ"
+                            representanteLegalId={socio.id}
+                            aprovarDocumentoAction={aprovarDocumentoAction}
+                            reprovarDocumentoAction={reprovarDocumentoAction}
+                            inserirDocumentoManualAction={inserirDocumentoManualAction}
+                            somenteLeitura={!mostrandoEtapaAtual}
+                            reenviado={socio.rg ? idsDocumentosReenviados.has(socio.rg.id) : false}
+                          />
+                        </Campo>
+                        {socio.rgNumero ? (
+                          <Campo label="Número do RG">
+                            {socio.rgNumero}
+                            {socio.rgOrgaoEmissor ? ` / ${socio.rgOrgaoEmissor}` : ""}
+                          </Campo>
+                        ) : null}
+                        {socio.procuracao || socio.isRepresentanteLegal ? (
+                          <Campo label="Procuração">
+                            <CampoDocumento
+                              documento={socio.procuracao}
+                              agenciaId={agencia.id}
+                              tipo="PROCURACAO"
+                              representanteLegalId={socio.id}
+                              aprovarDocumentoAction={aprovarDocumentoAction}
+                              reprovarDocumentoAction={reprovarDocumentoAction}
+                              inserirDocumentoManualAction={inserirDocumentoManualAction}
+                              somenteLeitura={!mostrandoEtapaAtual}
+                              reenviado={
+                                socio.procuracao
+                                  ? idsDocumentosReenviados.has(socio.procuracao.id)
+                                  : false
+                              }
+                            />
+                          </Campo>
+                        ) : null}
+                      </CamposGrid>
+                    </div>
+                  ))}
+                </div>
+              </SecaoColapsavel>
+
+              <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
+                <CamposGrid>
+                  <Campo label="Endereço da Agência" className="sm:col-span-2">
+                    {formatarEndereco(complementar.enderecoAgencia)}
+                  </Campo>
+                  <Campo label="Banco">
+                    {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
+                    {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})
+                  </Campo>
+                  <Campo label="Tipo de Conta">
+                    {labelTipoConta(complementar.tipoConta ?? "")}
+                  </Campo>
+                  <Campo label="Agência">{complementar.bancoAgencia}</Campo>
+                  <Campo label="Conta">{complementar.bancoConta}</Campo>
+                  <Campo label="Favorecido" className="sm:col-span-2">
+                    {complementar.favorecidoNome} — {complementar.favorecidoDoc}
+                  </Campo>
+                </CamposGrid>
+              </SecaoColapsavel>
+            </>
+          )}
+
+          {/* Reenvio só existe na etapa Complementar (decisão do usuário,
+              2026-07-27) — aprovar/reprovar documento também só acontece
+              aqui, então não sobra motivo pra reenvio ficar solto em
+              outra etapa. */}
+          <SecaoColapsavel titulo="Reenvio de documentos" icon={<FolderCheck className="size-4" />}>
+            <div className="flex flex-col gap-3">
+              {reenviosAguardandoRevisao.length > 0 ? (
+                <div className="border-warning bg-warning/10 text-warning-text flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold">
+                  <Bell className="size-4 shrink-0" />
+                  {reenviosAguardandoRevisao.length} documento
+                  {reenviosAguardandoRevisao.length > 1 ? "s" : ""} reenviado
+                  {reenviosAguardandoRevisao.length > 1 ? "s" : ""} pelo cliente, aguardando sua
+                  revisão.
+                </div>
+              ) : null}
+
+              <RevisaoDocumentosComplementar
+                agenciaId={agencia.id}
+                documentosPendentes={documentosPendentes}
+                solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
+                somenteLeitura={!mostrandoEtapaAtual}
+              />
+            </div>
           </SecaoColapsavel>
         </>
-      )}
-
-      {/* Reenvio de documentos sempre visível, em qualquer etapa do funil —
-          antes só existia dentro da etapa "Complementar", então um reenvio
-          chegando depois dela (ex: agência já em Assinatura/Validação) não
-          tinha onde ser solicitado. Ver/aprovar/reprovar cada documento
-          agora vive embutido nas seções Empresa/Sócios (ver CampoDocumento
-          acima) — aqui sobra só pedir reenvio de quem está REPROVADO,
-          quantas rodadas forem necessárias. */}
-      <SecaoColapsavel titulo="Reenvio de documentos" icon={<FolderCheck className="size-4" />}>
-        <div className="flex flex-col gap-3">
-          {reenviosAguardandoRevisao.length > 0 ? (
-            <div className="border-warning bg-warning/10 text-warning-text flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold">
-              <Bell className="size-4 shrink-0" />
-              {reenviosAguardandoRevisao.length} documento
-              {reenviosAguardandoRevisao.length > 1 ? "s" : ""} reenviado
-              {reenviosAguardandoRevisao.length > 1 ? "s" : ""} pelo cliente, aguardando sua
-              revisão.
-            </div>
-          ) : null}
-
-          <RevisaoDocumentosComplementar
-            agenciaId={agencia.id}
-            documentosPendentes={documentosPendentes}
-            solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
-            somenteLeitura={!mostrandoEtapaAtual}
-          />
-        </div>
-      </SecaoColapsavel>
+      ) : null}
 
       <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />} defaultAberta>
         <div className="flex flex-col gap-3">
-          {contratoAtual && etapaExibida >= indiceAssinatura ? (
+          {contratoAtual && etapaExibida === indiceAssinatura ? (
             <>
               <FilaAssinatura fila={filaAssinatura} />
 
@@ -718,80 +799,9 @@ export default async function DossieAgenciaPage({
               <p className="text-muted-foreground text-sm">
                 Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
                 {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
-                assinado e valide antes de seguir pra ativação.
+                assinado antes de seguir pra ativação — SICA e Travel Link ficam no bloco
+                &ldquo;Credenciais de Usuário&rdquo;, abaixo.
               </p>
-              <ValidacaoSicaTravelLink
-                agenciaId={agencia.id}
-                sicaCodigo={agencia.sicaCodigo}
-                sicaSalvoPor={agencia.sicaSalvoPor}
-                sicaSalvoEm={agencia.sicaSalvoEm}
-                travelLinkCriado={agencia.travelLinkCriado}
-                travelLinkSalvoPor={agencia.travelLinkSalvoPor}
-                travelLinkSalvoEm={agencia.travelLinkSalvoEm}
-                salvarSicaAction={salvarSicaAction}
-                salvarTravelLinkAction={salvarTravelLinkAction}
-                validarContratoAction={validarContratoAction}
-                recusarCadastroAction={recusarCadastroAction}
-                somenteLeitura={!mostrandoEtapaAtual}
-              />
-            </div>
-          ) : null}
-
-          {etapaExibida === indiceAtivacao ? (
-            <div className="flex flex-col gap-3">
-              {/* Contrato/SICA/Travel Link sempre marcados aqui: chegar
-                  nesta etapa só é possível depois de "Validar Contrato" —
-                  botão que já trava (ver ValidacaoSicaTravelLink) até
-                  SICA e Travel Link estarem preenchidos. Mesmo raciocínio
-                  de calcularProgressoTrilha: inferir do status real da
-                  agência em vez de exigir um campo novo só pra repetir
-                  uma garantia que o fluxo anterior já impõe. */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <ChecklistEtapaConcluida label="Contrato" />
-                <ChecklistEtapaConcluida label="SICA" />
-                <ChecklistEtapaConcluida label="Travel Link" />
-              </div>
-
-              <UsuarioMaster
-                agenciaId={agencia.id}
-                representantesLegais={representantesLegais}
-                usuarioMaster={usuarioMasterView}
-                somenteLeitura={!mostrandoEtapaAtual}
-                salvarUsuarioMasterAction={salvarUsuarioMasterAction}
-              />
-
-              <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-                <strong className="text-foreground">Não implementado ainda:</strong> os checks acima
-                confirmam que SICA e Travel Link foram preenchidos antes de chegar aqui, mas o
-                código/link em si não é salvo — schema ainda não tem campo pra isso (sinalizando em
-                vez de simular dado falso).
-              </div>
-              {mostrandoEtapaAtual ? (
-                <div className="flex flex-wrap gap-2">
-                  <form action={ativarClienteAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      disabled={!usuarioMasterEstaCompleto(usuarioMasterView)}
-                      title={
-                        usuarioMasterEstaCompleto(usuarioMasterView)
-                          ? undefined
-                          : "Salve o Usuário Master completo antes de ativar o cliente"
-                      }
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Ativar cliente
-                    </button>
-                  </form>
-                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
-                    >
-                      Recusar
-                    </button>
-                  </form>
-                </div>
-              ) : null}
             </div>
           ) : null}
 
@@ -810,6 +820,114 @@ export default async function DossieAgenciaPage({
           ) : null}
         </div>
       </SecaoColapsavel>
+
+      {/* Separado do bloco "Contrato" (decisão do usuário, 2026-07-27) —
+          SICA/Travel Link (etapa Validação) e Usuário Master (etapa
+          Ativação) são credenciais/acessos, não contrato. Só aparece
+          nessas duas etapas; nas outras (Complementar/Assinatura/Ativo)
+          não tem nada pra mostrar aqui. */}
+      {etapaExibida === indiceValidacao || etapaExibida === indiceAtivacao ? (
+        <SecaoColapsavel
+          titulo="Credenciais de Usuário"
+          icon={<KeyRound className="size-4" />}
+          defaultAberta
+        >
+          <div className="flex flex-col gap-3">
+            {etapaExibida === indiceValidacao ? (
+              <ValidacaoSicaTravelLink
+                agenciaId={agencia.id}
+                razaoSocial={agencia.razaoSocial}
+                cnpj={agencia.cnpj}
+                enderecoFormatado={enderecoAgenciaTravelLink}
+                telefoneContato={agencia.telefoneContato}
+                telefoneComercial={complementar?.telefoneComercial ?? null}
+                associacaoNome={associacaoNome}
+                promotorNome={executivoNome}
+                nomeContato={socioContatoTravelLink?.nome ?? null}
+                emailContato={socioContatoTravelLink?.email ?? null}
+                bancoLabel={bancoLabelTravelLink}
+                bancoAgencia={complementar?.bancoAgencia ?? null}
+                bancoConta={complementar?.bancoConta ?? null}
+                favorecidoNome={complementar?.favorecidoNome ?? null}
+                favorecidoDoc={complementar?.favorecidoDoc ?? null}
+                sicaCodigo={agencia.sicaCodigo}
+                sicaSalvoPor={agencia.sicaSalvoPor}
+                sicaSalvoEm={agencia.sicaSalvoEm}
+                travelLinkCriado={agencia.travelLinkCriado}
+                travelLinkSalvoPor={agencia.travelLinkSalvoPor}
+                travelLinkSalvoEm={agencia.travelLinkSalvoEm}
+                salvarSicaAction={salvarSicaAction}
+                salvarTravelLinkAction={salvarTravelLinkAction}
+                validarContratoAction={validarContratoAction}
+                recusarCadastroAction={recusarCadastroAction}
+                somenteLeitura={!mostrandoEtapaAtual}
+              />
+            ) : null}
+
+            {etapaExibida === indiceAtivacao ? (
+              <>
+                {/* Contrato/SICA continuam decorativos aqui: chegar
+                    nesta etapa só é possível depois de "Validar
+                    Contrato" — botão que já trava (ver
+                    ValidacaoSicaTravelLink) até SICA e Travel Link
+                    estarem preenchidos. Travel Link, porém, reflete o
+                    valor real de agencia.travelLinkCriado (decisão do
+                    usuário, 2026-07-27: quem for criar o Usuário Master
+                    precisa confiar no check, não só inferir da etapa). */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <ChecklistEtapaConcluida label="Contrato" />
+                  <ChecklistEtapaConcluida label="SICA" />
+                  <ChecklistEtapaConcluida
+                    label="Travel Link"
+                    concluida={agencia.travelLinkCriado}
+                  />
+                </div>
+
+                <UsuarioMaster
+                  agenciaId={agencia.id}
+                  representantesLegais={representantesLegais}
+                  usuarioMaster={usuarioMasterView}
+                  somenteLeitura={!mostrandoEtapaAtual}
+                  salvarUsuarioMasterAction={salvarUsuarioMasterAction}
+                />
+
+                <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
+                  <strong className="text-foreground">Não implementado ainda:</strong> os checks
+                  acima confirmam que SICA e Travel Link foram preenchidos antes de chegar aqui, mas
+                  o código/link em si não é salvo — schema ainda não tem campo pra isso (sinalizando
+                  em vez de simular dado falso).
+                </div>
+                {mostrandoEtapaAtual ? (
+                  <div className="flex flex-wrap gap-2">
+                    <form action={ativarClienteAction.bind(null, agencia.id)}>
+                      <button
+                        type="submit"
+                        disabled={!usuarioMasterEstaCompleto(usuarioMasterView)}
+                        title={
+                          usuarioMasterEstaCompleto(usuarioMasterView)
+                            ? undefined
+                            : "Salve o Usuário Master completo antes de ativar o cliente"
+                        }
+                        className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Ativar cliente
+                      </button>
+                    </form>
+                    <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                      <button
+                        type="submit"
+                        className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                      >
+                        Recusar
+                      </button>
+                    </form>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        </SecaoColapsavel>
+      ) : null}
     </div>
   );
 }

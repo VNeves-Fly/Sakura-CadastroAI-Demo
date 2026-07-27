@@ -114,6 +114,44 @@ export const finalizarCadastroMetaSchema = z
         path: ["telefoneComercial"],
       });
     }
+
+    // CPF/e-mail duplicados entre sócios não estouram mais erro de
+    // constraint única no banco (RepresentanteLegal não tem mais
+    // @@unique([agenciaId, cpf]) — a mesma pessoa pode ser sócia em
+    // agências diferentes), então essa checagem passa a ser a única
+    // linha de defesa contra duas linhas idênticas na MESMA agência.
+    const cpfPorIndice = new Map<string, number>();
+    const emailPorIndice = new Map<string, number>();
+
+    data.socios.forEach((socio, index) => {
+      const cpfNormalizado = socio.cpf.replace(/\D/g, "");
+      if (cpfNormalizado.length > 0) {
+        const primeiroIndice = cpfPorIndice.get(cpfNormalizado);
+        if (primeiroIndice !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `CPF duplicado: sócio ${primeiroIndice + 1} e sócio ${index + 1} têm o mesmo CPF.`,
+            path: ["socios", index, "cpf"],
+          });
+        } else {
+          cpfPorIndice.set(cpfNormalizado, index);
+        }
+      }
+
+      const emailNormalizado = socio.email.trim().toLowerCase();
+      if (emailNormalizado.length > 0) {
+        const primeiroIndice = emailPorIndice.get(emailNormalizado);
+        if (primeiroIndice !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `E-mail duplicado: sócio ${primeiroIndice + 1} e sócio ${index + 1} têm o mesmo e-mail.`,
+            path: ["socios", index, "email"],
+          });
+        } else {
+          emailPorIndice.set(emailNormalizado, index);
+        }
+      }
+    });
   });
 
 export type FinalizarCadastroMeta = z.infer<typeof finalizarCadastroMetaSchema>;

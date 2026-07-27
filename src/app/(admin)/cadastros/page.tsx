@@ -1,19 +1,27 @@
 import Link from "next/link";
+import { UserCog } from "lucide-react";
 import { CadastrosLive } from "./cadastros-live";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { eventosAdminController } from "@/modules/eventos/presentation/controllers/eventos-admin.controller";
+import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
-import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
+import {
+  labelStatus,
+  classesBadgeStatus,
+  STATUS_LABELS,
+} from "@/modules/admin/utils/status-cadastro.util";
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
-import { SelectField } from "@/components/ui/select-field";
+import { FiltroCadastrosField } from "@/modules/admin/components/filtro-cadastros-field";
+import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
 import {
   STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
+  STATUS_ATIVO,
+  STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface CadastrosPageProps {
@@ -22,9 +30,7 @@ interface CadastrosPageProps {
     status?: string;
     sort?: string;
     dir?: string;
-    executivo?: string | string[];
-    associacao?: string | string[];
-    evento?: string | string[];
+    filtro?: string | string[];
   };
 }
 
@@ -33,9 +39,20 @@ function paraArray(valor: string | string[] | undefined): string[] {
   return Array.isArray(valor) ? valor : [valor];
 }
 
+// Categoria de cada opção do filtro único (ver FiltroCadastrosField) vem
+// prefixada no próprio value (ex.: "base:SP") pra sobreviver ao roundtrip
+// do form GET — aqui desfaz o prefixo pra montar os filtros da query.
+function extrairCategoria(valores: string[], prefixo: string): string[] {
+  const marca = `${prefixo}:`;
+  return valores
+    .filter((valor) => valor.startsWith(marca))
+    .map((valor) => valor.slice(marca.length));
+}
+
 // Filas clicáveis — ciclo completo de estados (decisão do usuário,
 // 2026-07-16; "em_analise" adicionado em 2026-07-24 quando o envio do
-// cadastro passou a persistir antes da IA rodar): o cadastro é
+// cadastro passou a persistir antes da IA rodar; unificada com o KPI
+// numérico em 2026-07-27, um card só por status): o cadastro é
 // persistido assim que enviado ("em_analise") e a IA avalia depois, em
 // background; se reprovar (ou a análise falhar tecnicamente) vai pra
 // "em_complementar" (sem contrato ainda). Se aprovar (ou depois que o
@@ -43,45 +60,57 @@ function paraArray(valor: string | string[] | undefined): string[] {
 // gerado e cai em "aguardando_assinatura". Assinado, vira
 // "aguardando_validacao" (analista confere o contrato assinado);
 // validado, vira "aguardando_ativacao" (só falta SICA/Travel
-// Link/Usuário Master + clicar ativar).
+// Link/Usuário Master + clicar ativar); ativado vira "ativo", ou a
+// qualquer momento pode ser "recusado".
 const FILAS = [
   {
     status: STATUS_EM_ANALISE,
+    chave: "emAnalise" as const,
     label: "Em análise (IA)",
     sublabel: "aguardando a IA avaliar",
   },
-  { status: STATUS_EM_COMPLEMENTAR, label: "Em complementar", sublabel: "IA sinalizou revisão" },
+  {
+    status: STATUS_EM_COMPLEMENTAR,
+    chave: "emComplementar" as const,
+    label: "Em complementar",
+    sublabel: "IA sinalizou revisão",
+  },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
+    chave: "aguardandoAssinatura" as const,
     label: "Aguardando assinatura",
     sublabel: "contrato enviado aos sócios",
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
+    chave: "aguardandoValidacao" as const,
     label: "Aguardando validação",
     sublabel: "contrato assinado, falta validar",
   },
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
+    chave: "aguardandoAtivacao" as const,
     label: "Aguardando ativação",
     sublabel: "falta SICA/Travel Link/ativar",
   },
-];
-
-const KPIS = [
-  { chave: "emAnalise" as const, label: "Em análise (IA)" },
-  { chave: "emComplementar" as const, label: "Em complementar" },
-  { chave: "aguardandoAssinatura" as const, label: "Aguard. assinatura" },
-  { chave: "aguardandoValidacao" as const, label: "Aguard. validação" },
-  { chave: "aguardandoAtivacao" as const, label: "Aguard. ativação" },
-  { chave: "ativas" as const, label: "Ativas" },
-  { chave: "recusadas" as const, label: "Recusadas" },
+  {
+    status: STATUS_ATIVO,
+    chave: "ativas" as const,
+    label: "Ativas",
+    sublabel: "agência liberada e operando",
+  },
+  {
+    status: STATUS_RECUSADO,
+    chave: "recusadas" as const,
+    label: "Recusadas",
+    sublabel: "cadastro recusado",
+  },
 ];
 
 const COLUNAS_ORDENAVEIS = [
   { chave: "razaoSocial" as const, label: "Agência" },
   { chave: "createdAt" as const, label: "Cadastro" },
-];
+] as const;
 
 function diasAtras(data: Date): string {
   const dias = Math.floor((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
@@ -110,6 +139,32 @@ function construirHref(
   return query ? `/cadastros?${query}` : "/cadastros";
 }
 
+function ThOrdenavel({
+  coluna,
+  sortBy,
+  sortDir,
+  searchParams,
+}: {
+  coluna: (typeof COLUNAS_ORDENAVEIS)[number];
+  sortBy: string;
+  sortDir: "asc" | "desc";
+  searchParams: CadastrosPageProps["searchParams"];
+}) {
+  const ativa = sortBy === coluna.chave;
+  const proximaDir = ativa && sortDir === "desc" ? "asc" : "desc";
+  return (
+    <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+      <Link
+        href={construirHref(searchParams, { sort: coluna.chave, dir: proximaDir })}
+        className="hover:text-foreground flex items-center gap-1"
+      >
+        {coluna.label}
+        {ativa ? <span>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+      </Link>
+    </th>
+  );
+}
+
 function labelOrigemContrato(origem: "ia" | "humano" | null): string | null {
   if (origem === "ia") return "Contrato gerado pela IA";
   if (origem === "humano") return "Contrato gerado pelo analista";
@@ -126,28 +181,78 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
 
-  const [{ items, total, kpis }, analise, promotores, associacoesTodas, eventos] =
-    await Promise.all([
-      cadastroAdminController.listarCadastros({
-        busca: searchParams.busca,
-        status: searchParams.status,
-        sortBy,
-        sortDir,
-        executivoId: searchParams.executivo,
-        associacaoId: searchParams.associacao,
-        eventoId: searchParams.evento,
-      }),
-      ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
-      atribuicoesAdminController.listarPromotores(),
-      atribuicoesAdminController.listarAssociacoes(),
-      eventosAdminController.listarEventos(),
-    ]);
+  // Filtro único (ver FiltroCadastrosField) — cada categoria vem
+  // prefixada dentro de searchParams.filtro; Status também pode chegar
+  // pelos cards de "Filas" (searchParams.status) — as duas fontes só se
+  // combinam na query, sem sincronizar visualmente entre si.
+  const valoresFiltro = paraArray(searchParams.filtro);
+  const baseDoFiltro = extrairCategoria(valoresFiltro, "base");
+  const gestorDoFiltro = extrairCategoria(valoresFiltro, "gestor");
+  const executivoDoFiltro = extrairCategoria(valoresFiltro, "executivo");
+  const associacaoDoFiltro = extrairCategoria(valoresFiltro, "associacao");
+  const statusDoFiltro = extrairCategoria(valoresFiltro, "status");
+  const statusCombinado = [...new Set([...paraArray(searchParams.status), ...statusDoFiltro])];
 
-  const executivosOpcoes = promotores.map((promotor) => ({ id: promotor.id, nome: promotor.nome }));
-  const associacoesOpcoes = associacoesTodas
-    .filter((associacao) => associacao.ativo)
-    .map((associacao) => ({ id: associacao.id, nome: associacao.nome }));
-  const eventosOpcoes = eventos.map((evento) => ({ id: evento.id, nome: evento.nome }));
+  const [{ items, total, kpis }, analise, promotores, associacoesTodas] = await Promise.all([
+    cadastroAdminController.listarCadastros({
+      busca: searchParams.busca,
+      status: statusCombinado.length > 0 ? statusCombinado : undefined,
+      sortBy,
+      sortDir,
+      executivoId: executivoDoFiltro,
+      associacaoId: associacaoDoFiltro,
+      base: baseDoFiltro,
+      gestor: gestorDoFiltro,
+    }),
+    ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
+    atribuicoesAdminController.listarPromotores(),
+    atribuicoesAdminController.listarAssociacoes(),
+  ]);
+
+  const associacoesAtivas = associacoesTodas.filter((associacao) => associacao.ativo);
+
+  // Opções do filtro único, agrupadas por categoria na ordem em que devem
+  // aparecer no dropdown — Base/Gestor derivados em memória (não existe
+  // query dedicada, lista é pequena) a partir dos mesmos promotores já
+  // buscados acima.
+  const basesUnicas = [...new Set(promotores.map((p) => p.base).filter((b): b is string => !!b))];
+  const gestoresUnicos = [...new Set(promotores.map((p) => p.gestor).filter(Boolean))];
+  const opcoesFiltro: OpcaoFiltroCadastros[] = [
+    ...basesUnicas.map((base) => ({ value: `base:${base}`, label: base, categoria: "Base" })),
+    ...gestoresUnicos.map((gestor) => ({
+      value: `gestor:${gestor}`,
+      label: gestor,
+      categoria: "Gestor",
+    })),
+    ...promotores.map((promotor) => ({
+      value: `executivo:${promotor.id}`,
+      label: promotor.nome,
+      categoria: "Executivo",
+    })),
+    ...associacoesAtivas.map((associacao) => ({
+      value: `associacao:${associacao.id}`,
+      label: associacao.nome,
+      categoria: "Associação",
+    })),
+    ...Object.entries(STATUS_LABELS).map(([status, label]) => ({
+      value: `status:${status}`,
+      label,
+      categoria: "Status",
+    })),
+  ];
+
+  // Quem está atendendo cada agência agora (via conversas ligadas a ela) —
+  // buscado à parte do Promise.all acima porque depende dos ids resolvidos
+  // por ele. Agrupado por agenciaId pra lookup O(1) linha a linha.
+  const atendimentosAtivos = await atendimentoController.listarAtendimentosAtivosPorAgencias(
+    items.map(({ agencia }) => agencia.id),
+  );
+  const atendimentosPorAgencia = new Map<string, typeof atendimentosAtivos>();
+  for (const registro of atendimentosAtivos) {
+    const atual = atendimentosPorAgencia.get(registro.agenciaId) ?? [];
+    atual.push(registro);
+    atendimentosPorAgencia.set(registro.agenciaId, atual);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -163,24 +268,6 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         </p>
       </div>
 
-      {/* KPIs — informativos, contados direto da tabela agencias. Cartão
-          único (sem cor por status, sem percentual) — o rótulo reserva
-          altura fixa (2 linhas) pra o número ficar sempre alinhado entre
-          os cards, mesmo quando um rótulo é mais curto que o outro. Sem
-          card "Notificações" hoje: exigiria rastrear documento/mensagem
-          novos desde a última vez que o analista "viu" a agência, o que
-          não existe no schema ainda. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {KPIS.map((kpi) => (
-          <div key={kpi.chave} className="border-border rounded-xl border bg-white p-4 shadow-sm">
-            <span className="line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide text-neutral-500">
-              {kpi.label}
-            </span>
-            <p className="mt-1 text-3xl font-bold text-neutral-900">{kpis[kpi.chave]}</p>
-          </div>
-        ))}
-      </div>
-
       {/* Análise — IA x atendimento humano, fluxo de contratos por dia
           (assinados x pendentes). Dado real de Contrato.createdAt/status/
           signatarios, últimos 14 dias — nada estimado. Escondida por
@@ -192,8 +279,10 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         </div>
       ) : null}
 
-      {/* Filtros — busca textual + Executivo/Associação/Evento, todos via
-          querystring (GET) num form só, mesmo padrão de /atribuicoes. */}
+      {/* Filtros — busca textual + campo único (Base/Gestor/Executivo/
+          Associação/Status agrupados, ver FiltroCadastrosField), na
+          mesma linha (decisão do usuário, 2026-07-27), via querystring
+          (GET) num form só. */}
       <form
         className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
         action="/cadastros"
@@ -211,40 +300,12 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           placeholder="Buscar por CNPJ, razão social ou e-mail"
           className="border-input bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 min-w-0 flex-1 rounded-full border px-4 py-2 text-sm outline-none focus:ring-2"
         />
-        <div className="w-full sm:w-56">
-          <SelectField
-            multiple
-            searchable
-            name="executivo"
-            defaultValue={paraArray(searchParams.executivo)}
-            placeholder="Executivo"
-            options={executivosOpcoes.map((executivo) => ({
-              value: executivo.id,
-              label: executivo.nome,
-            }))}
-          />
-        </div>
-        <div className="w-full sm:w-56">
-          <SelectField
-            multiple
-            searchable
-            name="associacao"
-            defaultValue={paraArray(searchParams.associacao)}
-            placeholder="Associação"
-            options={associacoesOpcoes.map((associacao) => ({
-              value: associacao.id,
-              label: associacao.nome,
-            }))}
-          />
-        </div>
-        <div className="w-full sm:w-56">
-          <SelectField
-            multiple
-            searchable
-            name="evento"
-            defaultValue={paraArray(searchParams.evento)}
-            placeholder="Evento"
-            options={eventosOpcoes.map((evento) => ({ value: evento.id, label: evento.nome }))}
+        <div className="w-full sm:w-80">
+          <FiltroCadastrosField
+            name="filtro"
+            defaultValue={valoresFiltro}
+            placeholder="Base, gestor, executivo, associação ou status"
+            options={opcoesFiltro}
           />
         </div>
         <button
@@ -255,22 +316,27 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         </button>
       </form>
 
-      {/* Filas — clicar filtra a lista por aquele status; clicar de novo
-          na mesma remove o filtro. */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Filas — cartão único por status (KPI numérico + descrição
+          unificados em 2026-07-27), numa linha só. Clicar filtra a lista
+          por aquele status; clicar de novo na mesma remove o filtro.
+          Largura mínima por card + shrink-0 força scroll horizontal em
+          telas estreitas em vez de quebrar em várias linhas; em telas
+          largas o flex-1 distribui o espaço sobrando igualmente. */}
+      <div className="flex gap-3 overflow-x-auto pb-1">
         {FILAS.map((fila) => {
           const ativa = searchParams.status === fila.status;
           return (
             <Link
               key={fila.status}
               href={construirHref(searchParams, { status: ativa ? undefined : fila.status })}
-              className={`rounded-xl border px-4 py-3 shadow-sm transition ${
+              className={`min-w-[168px] flex-1 shrink-0 rounded-xl border px-4 py-3 shadow-sm transition ${
                 ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
               }`}
             >
-              <span className="text-muted-foreground text-xs font-medium tracking-wide">
+              <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide">
                 {fila.label}
               </span>
+              <p className="text-foreground mt-1 text-3xl font-bold">{kpis[fila.chave]}</p>
               <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
             </Link>
           );
@@ -291,78 +357,112 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             <table className="w-full text-left text-sm">
               <thead className="border-border bg-muted/40 border-b">
                 <tr>
-                  {COLUNAS_ORDENAVEIS.map((coluna) => {
-                    const ativa = sortBy === coluna.chave;
-                    const proximaDir = ativa && sortDir === "desc" ? "asc" : "desc";
-                    return (
-                      <th
-                        key={coluna.chave}
-                        className="text-muted-foreground px-4 py-2.5 font-medium"
-                      >
-                        <Link
-                          href={construirHref(searchParams, {
-                            sort: coluna.chave,
-                            dir: proximaDir,
-                          })}
-                          className="hover:text-foreground flex items-center gap-1"
-                        >
-                          {coluna.label}
-                          {ativa ? <span>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
-                        </Link>
-                      </th>
-                    );
-                  })}
-                  <th className="text-muted-foreground px-4 py-2.5 font-medium">Associação</th>
-                  <th className="text-muted-foreground px-4 py-2.5 font-medium">Status</th>
+                  <ThOrdenavel
+                    coluna={COLUNAS_ORDENAVEIS[0]}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    searchParams={searchParams}
+                  />
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    Status
+                  </th>
+                  <ThOrdenavel
+                    coluna={COLUNAS_ORDENAVEIS[1]}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    searchParams={searchParams}
+                  />
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    Base
+                  </th>
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    Executivo
+                  </th>
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    Gestor
+                  </th>
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    Associação
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map(
-                  ({ agencia, origemContratoAtual, associacaoNome, executivoNome, eventoNome }) => (
-                    <tr key={agencia.id} className="border-border border-b last:border-0">
-                      <td className="px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <Link
-                              href={`/cadastros/${agencia.id}`}
-                              className="text-foreground hover:text-primary font-medium hover:underline"
-                            >
-                              {agencia.razaoSocial}
-                            </Link>
-                            <p className="text-muted-foreground text-xs">
-                              {maskCnpj(agencia.cnpj)}
-                            </p>
-                          </div>
-                          {eventoNome || executivoNome ? (
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              {eventoNome ? (
-                                <span className="bg-accent text-accent-foreground rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
-                                  {eventoNome}
+                  ({
+                    agencia,
+                    origemContratoAtual,
+                    associacaoNome,
+                    executivoNome,
+                    executivoBase,
+                    executivoGestor,
+                    eventoNome,
+                  }) => {
+                    const atendimentos = atendimentosPorAgencia.get(agencia.id) ?? [];
+                    return (
+                      <tr key={agencia.id} className="border-border border-b last:border-0">
+                        <td className="px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2">
+                              {atendimentos[0] ? (
+                                <span
+                                  className="bg-success-bg text-success-text mt-0.5 flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                                  title={atendimentos.map((item) => item.analistaNome).join(", ")}
+                                >
+                                  <UserCog className="size-3" />
+                                  {atendimentos[0].analistaNome}
+                                  {atendimentos.length > 1 ? ` +${atendimentos.length - 1}` : ""}
                                 </span>
                               ) : null}
-                              {executivoNome ? (
-                                <span className="bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
-                                  {executivoNome}
-                                </span>
-                              ) : null}
+                              <div>
+                                <Link
+                                  href={`/cadastros/${agencia.id}`}
+                                  className="text-foreground hover:text-primary font-medium hover:underline"
+                                >
+                                  {agencia.razaoSocial}
+                                </Link>
+                                <p className="text-muted-foreground text-xs">
+                                  {maskCnpj(agencia.cnpj)}
+                                </p>
+                              </div>
                             </div>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="text-muted-foreground px-4 py-3">
-                        {formatarData(agencia.createdAt)} · {diasAtras(agencia.createdAt)}
-                      </td>
-                      <td className="text-muted-foreground px-4 py-3">{associacaoNome ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${classesBadgeStatus(agencia.status)}`}
-                          title={labelOrigemContrato(origemContratoAtual) ?? undefined}
-                        >
-                          {labelStatus(agencia.status)}
-                        </span>
-                      </td>
-                    </tr>
-                  ),
+                            {eventoNome ? (
+                              <span className="bg-accent text-accent-foreground shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
+                                {eventoNome}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${classesBadgeStatus(agencia.status)}`}
+                            title={labelOrigemContrato(origemContratoAtual) ?? undefined}
+                          >
+                            {labelStatus(agencia.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="text-foreground font-medium">
+                            {formatarData(agencia.createdAt)}
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            {diasAtras(agencia.createdAt)}
+                          </p>
+                        </td>
+                        <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
+                          {executivoBase ?? "—"}
+                        </td>
+                        <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
+                          {executivoNome ?? "—"}
+                        </td>
+                        <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
+                          {executivoGestor ?? "—"}
+                        </td>
+                        <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
+                          {associacaoNome ?? "—"}
+                        </td>
+                      </tr>
+                    );
+                  },
                 )}
               </tbody>
             </table>

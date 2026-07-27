@@ -116,6 +116,7 @@ export function AtendimentoView({ analistaAtual, telefoneInicial }: AtendimentoV
             todasConversas={conversas}
             onSelecionarConversa={selecionarESeguir}
             onVoltarParaConversa={() => setMobileView("thread")}
+            onEnviarMensagem={enviarMensagem}
           />
         ) : (
           <div className="border-border w-full border-l" />

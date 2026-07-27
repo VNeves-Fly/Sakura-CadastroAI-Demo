@@ -89,15 +89,14 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
           verificar_processos: false,
           // Ligado (2026-07-27): decisão do usuário de trazer dívida
           // AMAT de verdade pro dossiê em vez do mock front-end (ver
-          // mock-amat-sofia.util.ts, que este trabalho substitui).
-          // `amat_cpfs_socios` é quem diz pro agente quais CPFs consultar
-          // — sem isso, `verificar_amat: true` sozinho só cobriria a
-          // pessoa jurídica, não os sócios.
+          // mock-amat-sofia.util.ts, que este trabalho substitui). Os CPFs
+          // dos sócios já vão em `socios[].documento_identificacao` — o
+          // agente usa isso pra decidir quem consultar no AMAT; não existe
+          // `amat_cpfs_socios` no schema deles (confirmado pelo usuário).
           verificar_amat: true,
           razao_social: input.razaoSocial,
           email: input.email,
           socios,
-          amat_cpfs_socios: input.socios.map((socio) => socio.cpf),
           // Documentos de nível empresa (cadastur/iata) ficam de fora
           // enquanto o array estiver vazio — o wizard não coleta esses
           // documentos ainda. Reaparece aqui quando houver item real.

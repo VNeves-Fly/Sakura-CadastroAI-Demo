@@ -18,6 +18,7 @@ const VALIDACAO_VAZIA: SocioWizardValidacao = {
   cpfStatus: { valido: false, mensagem: null },
   dataNascimentoStatus: { valido: false, mensagem: null },
   emailInvalido: false,
+  emailErro: null,
   telefoneInvalido: false,
   rgErro: null,
   procuracaoErro: null,

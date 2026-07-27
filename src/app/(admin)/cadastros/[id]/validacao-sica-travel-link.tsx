@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { SwipeSwitch } from "./swipe-switch";
+import { useState, type MouseEvent } from "react";
+import { TravelLinkModal } from "./travel-link-modal";
+import { AlertaTravelLinkModal } from "./alerta-travel-link-modal";
 
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
@@ -12,6 +13,20 @@ function formatarDataHora(data: Date): string {
 
 interface ValidacaoSicaTravelLinkProps {
   agenciaId: string;
+  razaoSocial: string;
+  cnpj: string;
+  enderecoFormatado: string;
+  telefoneContato: string;
+  telefoneComercial: string | null;
+  associacaoNome: string | null;
+  promotorNome: string | null;
+  nomeContato: string | null;
+  emailContato: string | null;
+  bancoLabel: string | null;
+  bancoAgencia: string | null;
+  bancoConta: string | null;
+  favorecidoNome: string | null;
+  favorecidoDoc: string | null;
   sicaCodigo: string | null;
   sicaSalvoPor: string | null;
   sicaSalvoEm: Date | null;
@@ -35,6 +50,20 @@ interface ValidacaoSicaTravelLinkProps {
 // quando.
 export function ValidacaoSicaTravelLink({
   agenciaId,
+  razaoSocial,
+  cnpj,
+  enderecoFormatado,
+  telefoneContato,
+  telefoneComercial,
+  associacaoNome,
+  promotorNome,
+  nomeContato,
+  emailContato,
+  bancoLabel,
+  bancoAgencia,
+  bancoConta,
+  favorecidoNome,
+  favorecidoDoc,
   sicaCodigo,
   sicaSalvoPor,
   sicaSalvoEm,
@@ -50,22 +79,27 @@ export function ValidacaoSicaTravelLink({
   const [editandoSica, setEditandoSica] = useState(false);
   const [rascunhoSica, setRascunhoSica] = useState(sicaCodigo ?? "");
   const [salvandoSica, setSalvandoSica] = useState(false);
-  const [salvandoTravelLink, setSalvandoTravelLink] = useState(false);
+  const [alertaTravelLinkAberto, setAlertaTravelLinkAberto] = useState(false);
 
-  const podeValidar = sicaCodigo !== null && travelLinkCriado;
+  const sicaPronta = sicaCodigo !== null;
   const mostrarInputSica = editandoSica || sicaCodigo === null;
+
+  // SICA pronto mas Travel Link ainda não criado: em vez de só desabilitar
+  // o botão (fácil de ignorar), avisa com um alerta que some sozinho em
+  // 5s (decisão do usuário, 2026-07-27) — deixa o botão clicável pra dar
+  // pra mostrar o alerta.
+  function handleClickValidar(event: MouseEvent<HTMLButtonElement>) {
+    if (sicaPronta && !travelLinkCriado) {
+      event.preventDefault();
+      setAlertaTravelLinkAberto(true);
+    }
+  }
 
   async function handleSalvarSica(formData: FormData) {
     setSalvandoSica(true);
     await salvarSicaAction(agenciaId, formData);
     setSalvandoSica(false);
     setEditandoSica(false);
-  }
-
-  async function handleToggleTravelLink(checked: boolean) {
-    setSalvandoTravelLink(true);
-    await salvarTravelLinkAction(agenciaId, checked);
-    setSalvandoTravelLink(false);
   }
 
   return (
@@ -133,21 +167,32 @@ export function ValidacaoSicaTravelLink({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-3">
-          <span className="text-foreground text-sm font-bold">Travel Link criado</span>
-          <SwipeSwitch
-            id="travel-link"
-            checked={travelLinkCriado}
-            onChange={(checked) => void handleToggleTravelLink(checked)}
-            disabled={somenteLeitura || salvandoTravelLink}
-          />
-        </div>
-
-        {travelLinkCriado && travelLinkSalvoPor && travelLinkSalvoEm ? (
-          <span className="text-success text-xs font-medium">
-            ✓ Confirmado por {travelLinkSalvoPor} em {formatarDataHora(travelLinkSalvoEm)}
-          </span>
-        ) : null}
+        <span className="text-foreground text-sm font-bold">Travel Link</span>
+        <TravelLinkModal
+          agenciaId={agenciaId}
+          razaoSocial={razaoSocial}
+          cnpj={cnpj}
+          enderecoFormatado={enderecoFormatado}
+          telefoneContato={telefoneContato}
+          telefoneComercial={telefoneComercial}
+          associacaoNome={associacaoNome}
+          promotorNome={promotorNome}
+          nomeContato={nomeContato}
+          emailContato={emailContato}
+          bancoLabel={bancoLabel}
+          bancoAgencia={bancoAgencia}
+          bancoConta={bancoConta}
+          favorecidoNome={favorecidoNome}
+          favorecidoDoc={favorecidoDoc}
+          travelLinkCriado={travelLinkCriado}
+          travelLinkSalvoPor={travelLinkSalvoPor}
+          travelLinkSalvoEm={travelLinkSalvoEm}
+          salvarTravelLinkAction={salvarTravelLinkAction}
+          somenteLeitura={somenteLeitura}
+          onFechar={() => {
+            if (!travelLinkCriado) setAlertaTravelLinkAberto(true);
+          }}
+        />
       </div>
 
       {!somenteLeitura ? (
@@ -155,12 +200,9 @@ export function ValidacaoSicaTravelLink({
           <form action={validarContratoAction.bind(null, agenciaId)}>
             <button
               type="submit"
-              disabled={!podeValidar}
-              title={
-                podeValidar
-                  ? undefined
-                  : "Salve o código SICA e confirme o Travel Link antes de validar"
-              }
+              disabled={!sicaPronta}
+              onClick={handleClickValidar}
+              title={!sicaPronta ? "Salve o código SICA antes de validar" : undefined}
               className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Validar Contrato
@@ -176,6 +218,11 @@ export function ValidacaoSicaTravelLink({
           </form>
         </div>
       ) : null}
+
+      <AlertaTravelLinkModal
+        aberto={alertaTravelLinkAberto}
+        onFechar={() => setAlertaTravelLinkAberto(false)}
+      />
     </div>
   );
 }

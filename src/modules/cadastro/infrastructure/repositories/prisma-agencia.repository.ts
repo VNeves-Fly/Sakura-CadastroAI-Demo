@@ -629,8 +629,17 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         : (filtros.status as PrismaStatusAgencia);
     }
 
+    // Combinados numa relação só (em vez de where.executivoId direto) —
+    // id/base/gestor podem vir juntos (ex.: filtrar por Base E Gestor ao
+    // mesmo tempo), cada um AND entre si.
+    const filtroExecutivo: Prisma.PromotorWhereInput = {};
     const executivoCondicao = condicaoFiltroIn(filtros.executivoId);
-    if (executivoCondicao !== undefined) where.executivoId = executivoCondicao;
+    if (executivoCondicao !== undefined) filtroExecutivo.id = executivoCondicao;
+    const baseCondicao = condicaoFiltroIn(filtros.base);
+    if (baseCondicao !== undefined) filtroExecutivo.base = baseCondicao;
+    const gestorCondicao = condicaoFiltroIn(filtros.gestor);
+    if (gestorCondicao !== undefined) filtroExecutivo.gestor = gestorCondicao;
+    if (Object.keys(filtroExecutivo).length > 0) where.executivo = filtroExecutivo;
 
     const associacaoCondicao = condicaoFiltroIn(filtros.associacaoId);
     if (associacaoCondicao !== undefined) where.associacaoId = associacaoCondicao;
@@ -645,7 +654,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         include: {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
-          executivo: { select: { nome: true } },
+          executivo: { select: { nome: true, base: true, gestor: true } },
           evento: { select: { nome: true } },
         },
       }),
@@ -659,6 +668,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         associacaoNome: record.associacao?.nome ?? null,
         executivoNome: record.executivo?.nome ?? null,
         eventoNome: record.evento?.nome ?? null,
+        executivoBase: record.executivo?.base ?? null,
+        executivoGestor: record.executivo?.gestor ?? null,
       })),
       total,
     };

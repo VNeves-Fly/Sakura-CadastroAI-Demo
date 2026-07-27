@@ -15,6 +15,8 @@ import { MetaWhatsAppAdapter } from "@/modules/atendimento/infrastructure/adapte
 import { MockWhatsAppMessagingAdapter } from "@/modules/atendimento/infrastructure/adapters/mock-whatsapp-messaging.adapter";
 import { WhatsAppContactMatcherAdapter } from "@/modules/atendimento/infrastructure/adapters/whatsapp-contact-matcher.adapter";
 import { ListarConversasUseCase } from "@/modules/atendimento/application/use-cases/listar-conversas.use-case";
+import { ListarConversasPorAgenciaUseCase } from "@/modules/atendimento/application/use-cases/listar-conversas-por-agencia.use-case";
+import { ListarAtendimentosAtivosPorAgenciasUseCase } from "@/modules/atendimento/application/use-cases/listar-atendimentos-ativos-por-agencias.use-case";
 import { ListarTemplatesAprovadosUseCase } from "@/modules/atendimento/application/use-cases/listar-templates-aprovados.use-case";
 import { ListarTodosTemplatesUseCase } from "@/modules/atendimento/application/use-cases/listar-todos-templates.use-case";
 import { CriarTemplateUseCase } from "@/modules/atendimento/application/use-cases/criar-template.use-case";
@@ -75,6 +77,16 @@ export const atendimentoController = {
       solicitacaoTransferenciaRepository,
     );
     return useCase.execute();
+  },
+
+  listarConversasPorAgencia(agenciaId: string) {
+    const useCase = new ListarConversasPorAgenciaUseCase(conversaRepository);
+    return useCase.execute(agenciaId);
+  },
+
+  listarAtendimentosAtivosPorAgencias(agenciaIds: string[]) {
+    const useCase = new ListarAtendimentosAtivosPorAgenciasUseCase(assumirAtendimentoRepository);
+    return useCase.execute(agenciaIds);
   },
 
   listarTemplatesAprovados() {

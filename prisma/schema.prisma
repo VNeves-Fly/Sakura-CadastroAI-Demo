@@ -442,7 +442,11 @@ model RepresentanteLegal {
   enderecosAgenciaVinculada CadastroComplementar[] @relation("SocioVinculadoEndereco")
   conversas                 Conversa[]
 
-  @@unique([agenciaId, cpf])
+  // Sem unique: a mesma pessoa (CPF) pode ser sócia em agências
+  // diferentes ao mesmo tempo — CPF duplicado DENTRO da mesma agência é
+  // barrado antes, na validação de finalizarCadastroMetaSchema (ver
+  // schema.ts), não pelo banco.
+  @@index([agenciaId, cpf])
   @@map("representantes_legais")
 }
 
