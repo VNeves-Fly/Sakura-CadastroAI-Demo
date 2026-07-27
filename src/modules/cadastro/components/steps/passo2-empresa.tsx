@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import {
   PAISES_TELEFONE,
   PAISES_TELEFONE_ITEMS,
@@ -33,6 +34,8 @@ export function Passo2Empresa({
   emailComercialInvalido,
   emailFinanceiroInvalido,
   empresaCamposDesbloqueados,
+  camposFaltantesEmpresa,
+  secoesTentativaFalhou,
   setTelefoneComercial,
   setTelefoneComercialPais,
   setEmailOperacional,
@@ -42,6 +45,9 @@ export function Passo2Empresa({
 }: Passo2EmpresaProps) {
   const paisTelefone = paisTelefonePorCodigo(telefoneComercialPais);
   const bloqueado = !empresaCamposDesbloqueados;
+  const tentativaFalhou = secoesTentativaFalhou.has(1);
+  const comErro = (campo: string) =>
+    tentativaFalhou && camposFaltantesEmpresa.some((item) => item.campo === campo);
 
   return (
     <div className="flex flex-col gap-5">
@@ -79,10 +85,15 @@ export function Passo2Empresa({
             type="tel"
             inputMode="numeric"
             autoComplete="off"
+            data-campo="telefoneComercial"
             value={telefoneComercial}
             disabled={bloqueado || semTelefoneComercial}
             onChange={(event) => setTelefoneComercial(event.target.value)}
-            className={`${INPUT_CLASSNAME} min-w-0 flex-1`}
+            className={cn(
+              INPUT_CLASSNAME,
+              "min-w-0 flex-1",
+              comErro("telefoneComercial") && "campo-erro-pulsante",
+            )}
             placeholder={paisTelefone.placeholder}
           />
         </div>
@@ -124,10 +135,11 @@ export function Passo2Empresa({
           <input
             type="email"
             autoComplete="off"
+            data-campo="emailOperacional"
             value={emailOperacional}
             disabled={bloqueado}
             onChange={(event) => setEmailOperacional(event.target.value)}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("emailOperacional") && "campo-erro-pulsante")}
             placeholder="operacional@empresa.com"
           />
           {emailOperacionalInvalido ? (
@@ -140,10 +152,11 @@ export function Passo2Empresa({
           <input
             type="email"
             autoComplete="off"
+            data-campo="emailComercial"
             value={emailComercial}
             disabled={bloqueado}
             onChange={(event) => setEmailComercial(event.target.value)}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("emailComercial") && "campo-erro-pulsante")}
             placeholder="comercial@empresa.com"
           />
           {emailComercialInvalido ? (
@@ -156,10 +169,11 @@ export function Passo2Empresa({
           <input
             type="email"
             autoComplete="off"
+            data-campo="emailFinanceiro"
             value={emailFinanceiro}
             disabled={bloqueado}
             onChange={(event) => setEmailFinanceiro(event.target.value)}
-            className={INPUT_CLASSNAME}
+            className={cn(INPUT_CLASSNAME, comErro("emailFinanceiro") && "campo-erro-pulsante")}
             placeholder="financeiro@empresa.com"
           />
           {emailFinanceiroInvalido ? (
