@@ -63,17 +63,12 @@ const CLASSES_FOOTER_DECISAO: Record<string, string> = {
 // (redirect signed-URL no GCS, ou buffer direto em disco local) funciona
 // igual dentro de <iframe>/<img>, então a pré-visualização não precisa de
 // nenhum endpoint novo.
-export function VisualizarDocumento({
-  label,
-  children,
-  acoes,
-  painelEsquerdo,
-  infoAuditoria,
-  statusDecisao,
-}: VisualizarDocumentoProps) {
+export function VisualizarDocumento(props: VisualizarDocumentoProps) {
+  const { label, children, acoes, painelEsquerdo, infoAuditoria, statusDecisao } = props;
   const [aberto, setAberto] = useState(false);
-  const url = `/api/cadastros/documentos/${documentoId}/arquivo`;
-  const ehImagem = EXTENSOES_IMAGEM.has(extensao(gcsPath));
+  const url =
+    props.url !== undefined ? props.url : `/api/cadastros/documentos/${props.documentoId}/arquivo`;
+  const ehImagem = props.gcsPath !== undefined && EXTENSOES_IMAGEM.has(extensao(props.gcsPath));
   const classesHeader = statusDecisao ? CLASSES_HEADER_DECISAO[statusDecisao] : undefined;
   const classesFooter = statusDecisao ? CLASSES_FOOTER_DECISAO[statusDecisao] : undefined;
 
