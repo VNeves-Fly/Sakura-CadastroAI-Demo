@@ -3,7 +3,10 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import type { UsuarioMaster } from "@/modules/cadastro/domain/entities/usuario-master.entity";
-import type { AnaliseIaDocumentoDetalhe } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type {
+  AnaliseIaDocumentoDetalhe,
+  AnaliseIaStage1,
+} from "@/modules/cadastro/domain/services/analise-ia-service";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
 import {
   TIPO_CONTA_OPCOES,
@@ -357,6 +360,20 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
     gruposParaChecar,
     avaliadoEm: analiseIa.avaliadoEm,
   };
+}
+
+// Verificação cadastral (stage1) pro dossiê (ver VerificacaoCadastral) —
+// comparação fornecido x oficial que o agente já calcula (razão social,
+// nome fantasia, e-mail, sócios) mais CNAE principal/secundários com
+// compatibilidade de turismo. null tanto em cadastros anteriores a essa
+// funcionalidade quanto quando o agente não trouxe stage1 (ex.: mock local
+// sem AGENCY_ANALYSIS_API_KEY). Reaproveita o tipo de domínio diretamente
+// em vez de duplicar em dossie.types.ts — mesma decisão já tomada pra
+// AnaliseCreditoView.amat.
+export function paraVerificacaoCadastralView(
+  analiseIa: AnaliseIaAgenciaDetalhe | null,
+): AnaliseIaStage1 | null {
+  return analiseIa?.stage1 ?? null;
 }
 
 // AMAT/SOFIA reais pro dossiê (ver ConsultaAmatCard/ConsultaSofiaCard) —

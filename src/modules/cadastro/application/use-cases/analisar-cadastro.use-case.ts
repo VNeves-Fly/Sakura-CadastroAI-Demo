@@ -58,6 +58,30 @@ function toIsoDate(data: Date | null): string {
   return data ? data.toISOString().slice(0, 10) : "";
 }
 
+// CNPJ ausente no corpo do Contrato Social é comum e aceitável (contratos
+// sociais de constituição, redigidos antes da emissão do cartão CNPJ) —
+// o próprio agente externo já reconhece isso na narrativa (resumoAnalise),
+// mas ainda reprova por "campo obrigatório ausente" (checagem de schema),
+// uma contradição que não fundamenta reprovação de verdade (decisão do
+// usuário, 2026-07-27). Só sobrescreve quando ESSE é o único motivo real —
+// `alertas` mistura observações informativas ("Info: ...", vindas de
+// `data.observations`) com erros de verdade ("Erro: ...", prefixo que o
+// próprio FlysakuraDocumentAnalysisAdapter adiciona a partir de
+// `data.errors`) — só os "Erro:" contam como motivo de bloqueio; qualquer
+// outro erro real (ex.: assinatura ausente) continua reprovando normalmente.
+function corrigirFalsoPositivoCnpjAusente(
+  resultado: DocumentAnalysisResultado,
+): DocumentAnalysisResultado {
+  if (resultado.parecer !== "REPROVADO") return resultado;
+
+  const erros = resultado.alertas.filter((alerta) => alerta.startsWith("Erro:"));
+  const errosCnpj = erros.filter((erro) => /cnpj/i.test(erro));
+  const outrosErros = erros.filter((erro) => !/cnpj/i.test(erro));
+  if (errosCnpj.length === 0 || outrosErros.length > 0) return resultado;
+
+  return { ...resultado, parecer: "APROVADO" };
+}
+
 // Mesma normalização usada em analisar-contrato-social.use-case.ts —
 // capital social pode vir como número ou string em formato BR ("100.000,00").
 function extrairCapitalSocial(valor: unknown): number | null {
@@ -177,11 +201,13 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
 
     // Tolerante a falha por design (ver FlysakuraDocumentAnalysisAdapter) —
     // nunca lança, só devolve um resultado vazio quando o agente falha.
-    const analiseIaContratoSocial = await this.documentAnalysisService.analisar({
-      cnpj: agencia.cnpj,
-      documentPath: contratoSocial.gcsPath,
-      documentType: "contrato_social",
-    });
+    const analiseIaContratoSocial = corrigirFalsoPositivoCnpjAusente(
+      await this.documentAnalysisService.analisar({
+        cnpj: agencia.cnpj,
+        documentPath: contratoSocial.gcsPath,
+        documentType: "contrato_social",
+      }),
+    );
     await this.agenciaRepository.registrarAnaliseDocumento(
       contratoSocial.id,
       analiseIaContratoSocial,

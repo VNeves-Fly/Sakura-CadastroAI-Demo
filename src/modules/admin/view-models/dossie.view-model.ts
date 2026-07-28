@@ -8,6 +8,7 @@ import {
   paraAnaliseIaResumo,
   paraParecerView,
   paraAnaliseCreditoView,
+  paraVerificacaoCadastralView,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -34,6 +35,7 @@ export async function obterDossieView(id: string) {
   const contratoAtual = contratos[0] ?? null;
   const parecerIa = paraParecerView(analiseIa);
   const analiseCredito = paraAnaliseCreditoView(analiseIa, historicoConsultaCredito);
+  const verificacaoCadastral = paraVerificacaoCadastralView(analiseIa);
 
   // Indicativo de "e-mail não entregue" (D4Sign webhook, type_post=2) —
   // por e-mail, cobre tanto os sócios quanto os signatários fixos da
@@ -53,6 +55,7 @@ export async function obterDossieView(id: string) {
     historicosSociosRaw,
     historicoAgencia,
     historicoComplementar,
+    decisoesHumanas,
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
@@ -92,6 +95,9 @@ export async function obterDossieView(id: string) {
     complementar
       ? cadastroAdminController.listarHistoricoEdicoes(complementar.id)
       : Promise.resolve([]),
+    // Quem aprovou manualmente um cadastro que a IA reprovou/falhou (ver
+    // AprovarCadastroComplementarUseCase) — mais recente primeiro.
+    cadastroAdminController.listarDecisoesHumanas(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   const assinaturasPorEmail = new Map(
@@ -139,11 +145,22 @@ export async function obterDossieView(id: string) {
   ];
   const { ativos: documentosAtivos, pendentes: documentosPendentes } =
     separarDocumentosPorStatus(documentosParaRevisao);
+  // Mesmo conjunto (contrato social + RG/procuração de cada sócio) que
+  // AprovarCadastroComplementarUseCase valida antes de aprovar — usado
+  // aqui só pra desabilitar o botão e mostrar ao analista o que falta
+  // revisar, sem esperar o erro do backend.
+  const documentosNaoAprovados = documentosParaRevisao.filter((doc) => doc.status !== "APROVADO");
 
   const { indiceAtual: indiceTrilha, recusado } = calcularProgressoTrilha(
     agencia.status,
     contratoAtual !== null,
   );
+
+  // decisoesHumanas já vem ordenado createdAt desc (ver
+  // PrismaDecisaoHumanaRepository) — a primeira da etapa COMPLEMENTAR é
+  // sempre a aprovação manual mais recente.
+  const decisaoComplementar =
+    decisoesHumanas.find((decisao) => decisao.etapa === "COMPLEMENTAR") ?? null;
 
   const filaAssinatura = montarFilaAssinatura(
     representantesLegais,
@@ -167,15 +184,18 @@ export async function obterDossieView(id: string) {
     filaAssinatura,
     documentosAtivos,
     documentosPendentes,
+    documentosNaoAprovados,
     indiceTrilha,
     trilhaRecusada: recusado,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     parecerIa,
     analiseCredito,
+    verificacaoCadastral,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,
     historicoEdicoesEmpresa,
+    decisaoComplementar,
   };
 }

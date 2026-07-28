@@ -7,12 +7,24 @@ import type { DadosReceitaEndereco } from "@/modules/cadastro/domain/entities/da
 // Component — chamável só como componente, nunca como função — então
 // precisam morar num módulo sem a diretiva.
 
-export function formatarData(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
+// Aceita string além de Date de propósito: entidades de domínio com
+// `toJSON()` (ex.: Documento, ver documento.entity.ts) cruzam a fronteira
+// Server → Client Component já convertidas pra ISO string pelo React —
+// mesmo o tipo declarado dizendo `Date`, o valor real em runtime pode
+// chegar como string, e `Intl.DateTimeFormat.format()` quebra com
+// "RangeError: Invalid time value" se não normalizar antes.
+function paraDate(data: Date | string): Date {
+  return data instanceof Date ? data : new Date(data);
 }
 
-export function formatarDataCurta(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
+export function formatarData(data: Date | string): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+    paraDate(data),
+  );
+}
+
+export function formatarDataCurta(data: Date | string): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(paraDate(data));
 }
 
 export function formatarMoedaBrl(valor: number | null): string {

@@ -12,6 +12,10 @@ import type {
   AnaliseIaStage1,
   AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
+import {
+  flysakuraBaseUrl,
+  requireFlysakuraApiKey,
+} from "@/modules/cadastro/infrastructure/adapters/flysakura-http.util";
 
 // Integração real com o agente de análise da Sakura
 // (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/sync
@@ -40,10 +44,6 @@ import type {
 // analisa contrato_social e doc_identificacao hoje; quando "procuracao" for
 // um document_type suportado lá, o resultado entra em socios[].documentos
 // do mesmo jeito que o de doc_identificacao.
-function baseUrl(): string {
-  return process.env.AGENCY_ANALYSIS_BASE_URL ?? "https://agents.flysakura.com";
-}
-
 export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
   async avaliar(input: AnaliseIaInput): Promise<AnaliseIaResultado> {
     const socios = input.socios.map((socio) => ({
@@ -97,11 +97,11 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       },
     });
     console.log("/api/v1/agency-analysis/sync", body);
-    const response = await fetch(`${baseUrl()}/api/v1/agency-analysis/sync`, {
+    const response = await fetch(`${flysakuraBaseUrl()}/api/v1/agency-analysis/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Internal-Secret": requireApiKey(),
+        "X-Internal-Secret": requireFlysakuraApiKey(),
       },
       body,
     });
@@ -326,14 +326,4 @@ function mapDetalhamento(stage3: {
       documentos: socio.documentos.map(mapDocumentoDetalhe),
     })),
   };
-}
-
-function requireApiKey(): string {
-  const apiKey = process.env.AGENCY_ANALYSIS_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "AGENCY_ANALYSIS_API_KEY não configurada — necessária para FlysakuraAnaliseIaAdapter.",
-    );
-  }
-  return apiKey;
 }

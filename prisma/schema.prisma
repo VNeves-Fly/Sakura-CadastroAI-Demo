@@ -640,6 +640,12 @@ model AnaliseIaAgencia {
   motivo       String?
   flagsRisco   String[]
   detalhamento Json?
+  // Stage1 (verificação cadastral — situação, CNAE principal/secundários
+  // com compatibilidade de turismo, e comparação fornecido x oficial de
+  // razão social/nome fantasia/e-mail/sócios) — ver AnaliseIaStage1 em
+  // analise-ia-service.ts. Já vinha mapeado no adapter desde antes, só não
+  // era persistido.
+  stage1 Json?
   // Stage2 (crédito — AMAT tipado + sofia/processos/reclamações como dict
   // livre) e as chamadas de tool brutas (raw_data, quando
   // `include_raw_data: true`) — ver AnaliseIaStage2/AnaliseIaRawData em

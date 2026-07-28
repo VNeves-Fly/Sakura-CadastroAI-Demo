@@ -6,6 +6,7 @@ import type {
   AnaliseIaResultado,
   AnaliseIaDetalhamento,
   AnaliseIaRawData,
+  AnaliseIaStage1,
   AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 
@@ -279,6 +280,11 @@ export interface AnaliseIaAgenciaDetalhe {
   motivo: string | null;
   flagsRisco: string[];
   detalhamento: AnaliseIaDetalhamento | null;
+  // Verificação cadastral (situação, CNAE, comparação fornecido x oficial
+  // de razão social/nome fantasia/e-mail/sócios) — ver VerificacaoCadastral
+  // no dossiê. null em cadastros analisados antes desta funcionalidade
+  // existir, ou quando o agente não executou o stage1.
+  stage1: AnaliseIaStage1 | null;
   // AMAT/SOFIA (ver ConsultaAmatCard/ConsultaSofiaCard) — null em
   // cadastros analisados antes desta funcionalidade existir, ou quando o
   // agente não executou o stage2/não trouxe raw_data.

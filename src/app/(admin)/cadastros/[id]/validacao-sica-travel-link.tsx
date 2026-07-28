@@ -16,8 +16,10 @@ import type { HistoricoConsultaCreditoView } from "@/modules/admin/types/dossie.
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
-function formatarDataHora(data: Date): string {
-  return data.toLocaleString("pt-BR");
+// `data` chega como string (não Date) quando vem de uma entidade de
+// domínio com toJSON — ver formatarData em dossie-campos.util.ts.
+function formatarDataHora(data: Date | string): string {
+  return (data instanceof Date ? data : new Date(data)).toLocaleString("pt-BR");
 }
 
 interface ValidacaoSicaTravelLinkProps {

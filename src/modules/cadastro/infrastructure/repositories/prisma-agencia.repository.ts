@@ -4,6 +4,7 @@ import type {
   AnaliseIaResultado,
   AnaliseIaDetalhamento,
   AnaliseIaRawData,
+  AnaliseIaStage1,
   AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import {
@@ -120,6 +121,9 @@ function analiseIaFinalParaPrisma(
     detalhamento: avaliacao.detalhamento
       ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
+    stage1: avaliacao.stage1
+      ? (avaliacao.stage1 as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
     stage2: avaliacao.stage2
       ? (avaliacao.stage2 as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
@@ -140,6 +144,7 @@ interface AnaliseIaAgenciaRecord {
   motivo: string | null;
   flagsRisco: string[];
   detalhamento: Prisma.JsonValue | null;
+  stage1: Prisma.JsonValue | null;
   stage2: Prisma.JsonValue | null;
   rawData: Prisma.JsonValue | null;
   avaliadoEm: Date;
@@ -155,6 +160,7 @@ function analiseIaAgenciaToDomain(
     motivo: record.motivo,
     flagsRisco: record.flagsRisco,
     detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
+    stage1: record.stage1 as unknown as AnaliseIaStage1 | null,
     stage2: record.stage2 as unknown as AnaliseIaStage2 | null,
     rawData: record.rawData as unknown as AnaliseIaRawData | null,
     avaliadoEm: record.avaliadoEm,

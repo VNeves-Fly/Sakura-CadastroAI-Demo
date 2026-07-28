@@ -17,8 +17,10 @@ import {
   SituacaoCadastralBadge,
   CnaesDetalhe,
   CampoDocumento,
+  corFundoDocumento,
   ParecerIa,
   HistoricoDocumento,
+  VerificacaoCadastral,
 } from "@/modules/admin/components/dossie-campos";
 import {
   formatarData,
@@ -132,6 +134,7 @@ export default async function ArquivoDossiePage({
     analiseIaPorSocioId,
     parecerIa,
     analiseCredito,
+    verificacaoCadastral,
     dadosReceita,
   } = view;
 
@@ -232,7 +235,7 @@ export default async function ArquivoDossiePage({
                   <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
                   <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
                   <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
-                  <Campo label="Contrato Social">
+                  <Campo label="Contrato Social" corFundo={corFundoDocumento(contratoSocial)}>
                     <CampoDocumento
                       documento={contratoSocial}
                       analise={analiseIaContratoSocial}
@@ -247,6 +250,11 @@ export default async function ArquivoDossiePage({
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
+                <div className="mb-4 flex flex-col gap-2">
+                  <SubsecaoLabel>Verificação Cadastral (Fornecido x Receita)</SubsecaoLabel>
+                  <VerificacaoCadastral stage1={verificacaoCadastral} />
+                </div>
+
                 {!dadosReceita ? (
                   <p className="text-muted-foreground text-sm">
                     Dados da Receita não disponíveis — cadastro anterior a esta funcionalidade (só
@@ -340,7 +348,7 @@ export default async function ArquivoDossiePage({
                         <Campo label="Endereço" className="sm:col-span-2">
                           {formatarEndereco(socio.endereco)}
                         </Campo>
-                        <Campo label="RG/CNH">
+                        <Campo label="RG/CNH" corFundo={corFundoDocumento(socio.rg)}>
                           <CampoDocumento
                             documento={socio.rg}
                             analise={analiseIaPorSocioId.get(socio.id) ?? null}
@@ -348,7 +356,7 @@ export default async function ArquivoDossiePage({
                           />
                         </Campo>
                         {socio.procuracao ? (
-                          <Campo label="Procuração">
+                          <Campo label="Procuração" corFundo={corFundoDocumento(socio.procuracao)}>
                             <CampoDocumento documento={socio.procuracao} somenteLeitura />
                           </Campo>
                         ) : null}

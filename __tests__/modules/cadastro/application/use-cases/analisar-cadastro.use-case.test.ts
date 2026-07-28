@@ -471,6 +471,65 @@ describe("AnalisarCadastroUseCase", () => {
     );
   });
 
+  it("quando o contrato social é reprovado só por CNPJ ausente, trata como aprovado e segue pro contrato", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, agenciaRepository, contratoAssinaturaService, documentoRepository } =
+      criarUseCase({
+        analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+        documentAnalysisService: criarDocumentAnalysisFake({
+          analisar: jest.fn().mockImplementation(async (input) =>
+            input.documentType === "contrato_social"
+              ? {
+                  ...ANALISE_VAZIA,
+                  parecer: "REPROVADO",
+                  alertas: [
+                    "Info: Contrato Social formal identificado e validado.",
+                    "Erro: CNPJ não encontrado no documento (campo obrigatório no schema, mas não presente no documento).",
+                  ],
+                }
+              : ANALISE_VAZIA,
+          ),
+        }),
+      });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    expect(agenciaRepository.registrarAnaliseDocumento).toHaveBeenCalledWith(
+      "doc-contrato-1",
+      expect.objectContaining({ parecer: "APROVADO" }),
+    );
+    expect(contratoAssinaturaService.gerarEEnviar).toHaveBeenCalled();
+    expect(documentoRepository.atualizarStatus).toHaveBeenCalledWith(
+      "doc-contrato-1",
+      expect.objectContaining({ status: "APROVADO" }),
+    );
+  });
+
+  it("quando o contrato social é reprovado por CNPJ ausente E outro alerta, continua reprovado (não sobrescreve)", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, contratoAssinaturaService } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+      documentAnalysisService: criarDocumentAnalysisFake({
+        analisar: jest.fn().mockImplementation(async (input) =>
+          input.documentType === "contrato_social"
+            ? {
+                ...ANALISE_VAZIA,
+                parecer: "REPROVADO",
+                alertas: [
+                  "Erro: CNPJ não encontrado no documento.",
+                  "Erro: Assinatura digital ausente.",
+                ],
+              }
+            : ANALISE_VAZIA,
+        ),
+      }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
+  });
+
   it("exclui da lista de signatarios o sócio marcado administrativo=false, mas inclui administrativo=null/true", async () => {
     const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
     const naoAssina = socioFake({

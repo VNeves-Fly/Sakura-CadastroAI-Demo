@@ -25,6 +25,8 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   ParecerIa,
+  corFundoDocumento,
+  VerificacaoCadastral,
 } from "@/modules/admin/components/dossie-campos";
 import {
   formatarData,
@@ -226,16 +228,19 @@ export default async function DossieAgenciaPage({
     filaAssinatura,
     documentosAtivos,
     documentosPendentes,
+    documentosNaoAprovados,
     indiceTrilha,
     trilhaRecusada,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     parecerIa,
     analiseCredito,
+    verificacaoCadastral,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,
     historicoEdicoesEmpresa,
+    decisaoComplementar,
   } = view;
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
@@ -446,7 +451,7 @@ export default async function DossieAgenciaPage({
                   <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
                   <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
                   <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
-                  <Campo label="Contrato Social">
+                  <Campo label="Contrato Social" corFundo={corFundoDocumento(contratoSocial)}>
                     <CampoDocumento
                       documento={contratoSocial}
                       analise={analiseIaContratoSocial}
@@ -466,6 +471,11 @@ export default async function DossieAgenciaPage({
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
+                <div className="mb-4 flex flex-col gap-2">
+                  <SubsecaoLabel>Verificação Cadastral (Fornecido x Receita)</SubsecaoLabel>
+                  <VerificacaoCadastral stage1={verificacaoCadastral} />
+                </div>
+
                 {!dadosReceita ? (
                   <p className="text-muted-foreground text-sm">
                     Dados da Receita não disponíveis — cadastro anterior a esta funcionalidade (só
@@ -571,7 +581,7 @@ export default async function DossieAgenciaPage({
                         <Campo label="Endereço" className="sm:col-span-2">
                           {formatarEndereco(socio.endereco)}
                         </Campo>
-                        <Campo label="RG/CNH">
+                        <Campo label="RG/CNH" corFundo={corFundoDocumento(socio.rg)}>
                           <CampoDocumento
                             documento={socio.rg}
                             analise={analiseIaPorSocioId.get(socio.id) ?? null}
@@ -592,7 +602,7 @@ export default async function DossieAgenciaPage({
                           </Campo>
                         ) : null}
                         {socio.procuracao || socio.isRepresentanteLegal ? (
-                          <Campo label="Procuração">
+                          <Campo label="Procuração" corFundo={corFundoDocumento(socio.procuracao)}>
                             <CampoDocumento
                               documento={socio.procuracao}
                               agenciaId={agencia.id}
@@ -715,6 +725,12 @@ export default async function DossieAgenciaPage({
                     />
                   </Campo>
                   <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
+                  {contratoAtual.origemGeracao === "humano" && decisaoComplementar ? (
+                    <Campo label="Aprovado por" className="sm:col-span-2">
+                      {decisaoComplementar.usuarioEmail ?? "analista não identificado"} em{" "}
+                      {formatarData(decisaoComplementar.createdAt)}
+                    </Campo>
+                  ) : null}
                 </dl>
 
                 <div className="border-border bg-muted/40 text-muted-foreground mt-4 rounded-xl border border-dashed px-4 py-3 text-xs">
@@ -756,12 +772,21 @@ export default async function DossieAgenciaPage({
                 contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
               </p>
 
+              {documentosNaoAprovados.length > 0 ? (
+                <div className="border-warning/30 bg-warning/5 text-warning rounded-xl border px-4 py-3 text-sm">
+                  <strong>Documentos ainda não aprovados:</strong>{" "}
+                  {documentosNaoAprovados.map((doc) => doc.label).join(", ")} — revise-os na seção
+                  de documentos antes de aprovar.
+                </div>
+              ) : null}
+
               {mostrandoEtapaAtual ? (
                 <div className="flex flex-wrap gap-2">
                   <form action={aprovarComplementarAction.bind(null, agencia.id)}>
                     <button
                       type="submit"
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                      disabled={documentosNaoAprovados.length > 0}
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Aprovar e Enviar Contrato
                     </button>
