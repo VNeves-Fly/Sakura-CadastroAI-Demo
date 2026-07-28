@@ -510,13 +510,17 @@ export default async function DossieAgenciaPage({
                   amat={analiseCredito.amat}
                   rawAmat={analiseCredito.rawAmat}
                   historico={analiseCredito.historicoAmat}
-                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
+                  reconsultar={
+                    podeAgir ? reconsultarCreditoAction.bind(null, agencia.id, "AMAT") : undefined
+                  }
                 />
                 <ConsultaSofiaCard
                   sofia={analiseCredito.sofia}
                   rawSofia={analiseCredito.rawSofia}
                   historico={analiseCredito.historicoSofia}
-                  reconsultar={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
+                  reconsultar={
+                    podeAgir ? reconsultarCreditoAction.bind(null, agencia.id, "SOFIA") : undefined
+                  }
                 />
               </div>
 
