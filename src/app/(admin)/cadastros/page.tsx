@@ -216,7 +216,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   // aparecer no dropdown — Base/Gestor derivados em memória (não existe
   // query dedicada, lista é pequena) a partir dos mesmos promotores já
   // buscados acima.
-  const basesUnicas = [...new Set(promotores.map((p) => p.base).filter((b): b is string => !!b))];
+  const basesUnicas = [...new Set(promotores.flatMap((p) => p.bases))];
   const gestoresUnicos = [...new Set(promotores.map((p) => p.gestor).filter(Boolean))];
   const opcoesFiltro: OpcaoFiltroCadastros[] = [
     ...basesUnicas.map((base) => ({ value: `base:${base}`, label: base, categoria: "Base" })),

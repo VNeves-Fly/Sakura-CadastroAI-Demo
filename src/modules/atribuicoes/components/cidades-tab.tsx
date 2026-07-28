@@ -1,8 +1,8 @@
 import Link from "next/link";
-import type { Cidade } from "@/modules/atribuicoes/types/atribuicao.types";
+import type { CidadeComercial } from "@/modules/atribuicoes/domain/entities/cidade-comercial.entity";
 
 interface CidadesTabProps {
-  cidades: Cidade[];
+  cidades: CidadeComercial[];
   totalFiltrado: number;
   paginaAtual: number;
   totalPaginas: number;

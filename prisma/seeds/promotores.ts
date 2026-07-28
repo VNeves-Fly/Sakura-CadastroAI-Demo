@@ -9,13 +9,25 @@ import type { PrismaClient } from "@prisma/client";
 // erro de digitação (por isso os dois nomes/e-mails/telefones/links
 // aparecem combinados numa linha só, em vez de inventar um SICA novo
 // pra um dos dois).
+//
+// `bases` vem de uma segunda fonte real, o export "gerentes_conta" /
+// "gerentes_conta_bases" de um sistema anterior (2026-07-27) — cruzado
+// aqui por e-mail. Só cobre 11 das pessoas abaixo (o export em si é bem
+// menor que esta lista); as demais ficam sem base até existir fonte real
+// pra elas também. `sica`/`link` ficam `null` pras 5 pessoas que só
+// existem nesse export (Marcel Mazzonetto, Tainara Dini, Grasiele
+// Carara, Luis Vargas, Cecília Uda — ela aparecia só como o apelido
+// "SEKAI" no campo `gestor` de PC-Paulo Cesar até então): esse export
+// não tem SICA nem link pessoal de cadastro, e nenhum dos dois pode ser
+// inventado.
 const PROMOTORES: Array<{
-  sica: number;
+  sica: number | null;
   nome: string;
   gestor: string;
   email: string;
   telefone: string | null;
-  link: string;
+  link: string | null;
+  bases?: string[];
 }> = [
   {
     sica: 65,
@@ -48,6 +60,16 @@ const PROMOTORES: Array<{
     email: "camila.piton@sakuratur.com.br",
     telefone: "19 99328-6161",
     link: "https://flysakura.com/cadastro?evento=site&executivo=4466d4fa-4ff1-4f87-94d6-dcbb475479bd",
+    bases: ["CPQ"],
+  },
+  {
+    sica: null,
+    nome: "CECILIA UDA",
+    gestor: "CECILIA UDA",
+    email: "cecilia.uda@sakuratur.com.br",
+    telefone: "48 99982-4588",
+    link: null,
+    bases: ["FLN"],
   },
   {
     sica: 105,
@@ -112,6 +134,24 @@ const PROMOTORES: Array<{
     email: "douglas.mendes@sakuratur.com.br",
     telefone: "11 99977-9076",
     link: "https://flysakura.com/cadastro?evento=site&executivo=acef7463-429f-47e3-87fe-4fb191b2b23e",
+    bases: [
+      "SAO",
+      "FOR",
+      "MAO",
+      "RAO",
+      "RBR",
+      "NAT",
+      "SSZ",
+      "BVB",
+      "MCZ",
+      "MCP",
+      "AJU",
+      "BEL",
+      "REC",
+      "THE",
+      "JPA",
+      "PVH",
+    ],
   },
   {
     sica: 49,
@@ -144,6 +184,7 @@ const PROMOTORES: Array<{
     email: "elcio.vieira@sakuratur.com.br",
     telefone: "61 98530-9992",
     link: "https://flysakura.com/cadastro?evento=site&executivo=509af8a7-73fe-4838-9367-923168fe2c15",
+    bases: ["CGB", "CGR", "GYN", "PMW", "BSB"],
   },
   {
     sica: 54,
@@ -176,6 +217,7 @@ const PROMOTORES: Array<{
     email: "fernando.blanco@sakuratur.com.br",
     telefone: "51 99946-2244",
     link: "https://flysakura.com/cadastro?evento=site&executivo=716120d3-f875-409e-8503-e40c3c06dcdc",
+    bases: ["POA"],
   },
   {
     sica: 127,
@@ -232,6 +274,14 @@ const PROMOTORES: Array<{
     email: "giselly.moura@sakuratur.com.br",
     telefone: "62 98150-0301",
     link: "https://flysakura.com/cadastro?evento=site&executivo=9afe2cf0-e99a-45fb-b2de-161d6fec1461",
+  },
+  {
+    sica: null,
+    nome: "GRASIELE CARARA",
+    gestor: "GRASIELE CARARA",
+    email: "grasiele.carara@sakuratur.com.br",
+    telefone: "11 96793-5857",
+    link: null,
   },
   {
     sica: 120,
@@ -296,6 +346,7 @@ const PROMOTORES: Array<{
     email: "jorge.borges@sakuratur.com.br",
     telefone: "45 99105-0334",
     link: "https://flysakura.com/cadastro?evento=site&executivo=6a0933d3-35d2-42f9-9a89-9e4ccca30766",
+    bases: ["IGU"],
   },
   {
     sica: 99,
@@ -378,6 +429,15 @@ const PROMOTORES: Array<{
     link: "https://flysakura.com/cadastro?evento=site&executivo=e7536b37-ba93-4f86-b2c1-2ea9f71882be",
   },
   {
+    sica: null,
+    nome: "LUIS VARGAS",
+    gestor: "LUIS VARGAS",
+    email: "luis.vargas@sakuratur.com.br",
+    telefone: "11 98168-3939",
+    link: null,
+    bases: ["CWB"],
+  },
+  {
     sica: 104,
     nome: "LUIZ CUNHA",
     gestor: "PEDRO CICCARELLI",
@@ -400,6 +460,15 @@ const PROMOTORES: Array<{
     email: "lydiane.fukayama@sakuratur.com.br",
     telefone: null,
     link: "https://flysakura.com/cadastro?evento=site&executivo=7067feb6-1ecb-4966-9b6d-af93793945ee",
+  },
+  {
+    sica: null,
+    nome: "MARCEL MAZZONETTO",
+    gestor: "MARCEL MAZZONETTO",
+    email: "marcel.mazzonetto@sakuratur.com.br",
+    telefone: "11 98886-6519",
+    link: null,
+    bases: ["SJP", "SJK", "PPB", "BAU", "RAO", "LDB", "UDI"],
   },
   {
     sica: 24,
@@ -456,6 +525,7 @@ const PROMOTORES: Array<{
     email: "miguel.ramos@sakuratur.com.br",
     telefone: "11 94107-7012",
     link: "https://flysakura.com/cadastro?evento=site&executivo=3815e751-c4a7-4fdd-b99e-fc4ab72ce654",
+    bases: ["SAO", "IS"],
   },
   {
     sica: 21,
@@ -576,6 +646,7 @@ const PROMOTORES: Array<{
     email: "sandro.marota@sakuratur.com.br / gilberto.grudka@sakuratur.com.br",
     telefone: "27 99901-5142 / 27 99233-3954",
     link: "https://flysakura.com/cadastro?evento=site&executivo=3fb1430f-c721-4bc1-8d2a-1f0e6258a6b8 / https://flysakura.com/cadastro?evento=site&executivo=52bb6ad1-0a16-49fd-86a1-a8d5765038fe",
+    bases: ["VIX"],
   },
   {
     sica: 3,
@@ -610,6 +681,14 @@ const PROMOTORES: Array<{
     link: "https://flysakura.com/cadastro?evento=site&executivo=7e7f88fe-93c0-45a4-8f3c-787e436aa3db",
   },
   {
+    sica: null,
+    nome: "TAINARA DINI",
+    gestor: "TAINARA DINI",
+    email: "tainara.dini@sakuratur.com.br",
+    telefone: "51 99332-4472",
+    link: null,
+  },
+  {
     sica: 94,
     nome: "TALITA MORO",
     gestor: "FERNANDO BLANCO",
@@ -624,6 +703,7 @@ const PROMOTORES: Array<{
     email: "thais.barreto@sakuratur.com.br",
     telefone: "71 99278-3455",
     link: "https://flysakura.com/cadastro?evento=site&executivo=dfc96abf-fc4a-4249-950c-83bd75883dec",
+    bases: ["SSA"],
   },
   {
     sica: 63,
@@ -661,8 +741,11 @@ const PROMOTORES: Array<{
 
 // Extrai o(s) uuid(s) do parâmetro `?executivo=` de dentro de `link` —
 // normalmente um só, mas a linha de SICA compartilhado (sócios com o
-// mesmo código) tem dois links pessoais diferentes concatenados.
-function extrairLinkExecutivoId(link: string): string[] {
+// mesmo código) tem dois links pessoais diferentes concatenados. `null`
+// (promotor sem link pessoal, ver comentário de PROMOTORES) não tem uuid
+// nenhum pra extrair.
+function extrairLinkExecutivoId(link: string | null): string[] {
+  if (!link) return [];
   const regex = /executivo=([0-9a-f-]{36})/gi;
   return [...link.matchAll(regex)]
     .map((match) => match[1])
@@ -670,14 +753,29 @@ function extrairLinkExecutivoId(link: string): string[] {
 }
 
 export async function seedPromotores(prisma: PrismaClient): Promise<void> {
-  for (const promotor of PROMOTORES) {
-    const linkExecutivoId = extrairLinkExecutivoId(promotor.link);
-    await prisma.promotor.upsert({
-      where: { sica: promotor.sica },
-      update: { ...promotor, linkExecutivoId },
-      create: { ...promotor, linkExecutivoId },
+  let totalBases = 0;
+
+  for (const { bases = [], ...dados } of PROMOTORES) {
+    const linkExecutivoId = extrairLinkExecutivoId(dados.link);
+    // Upsert por e-mail (não por sica): promotores só do export
+    // "gerentes_conta" não têm sica, então não dá pra usá-lo como chave.
+    const registro = await prisma.promotor.upsert({
+      where: { email: dados.email },
+      update: { ...dados, linkExecutivoId },
+      create: { ...dados, linkExecutivoId },
     });
+
+    for (const baseSigla of bases) {
+      await prisma.promotorBase.upsert({
+        where: { promotorId_baseSigla: { promotorId: registro.id, baseSigla } },
+        update: {},
+        create: { promotorId: registro.id, baseSigla },
+      });
+      totalBases += 1;
+    }
   }
 
-  console.warn(`Seed: ${PROMOTORES.length} promotores (executivos/gestores comerciais)`);
+  console.warn(
+    `Seed: ${PROMOTORES.length} promotores (executivos/gestores comerciais), ${totalBases} vínculos de base`,
+  );
 }

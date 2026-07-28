@@ -720,7 +720,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     const executivoCondicao = condicaoFiltroIn(filtros.executivoId);
     if (executivoCondicao !== undefined) filtroExecutivo.id = executivoCondicao;
     const baseCondicao = condicaoFiltroIn(filtros.base);
-    if (baseCondicao !== undefined) filtroExecutivo.base = baseCondicao;
+    if (baseCondicao !== undefined) filtroExecutivo.bases = { some: { baseSigla: baseCondicao } };
     const gestorCondicao = condicaoFiltroIn(filtros.gestor);
     if (gestorCondicao !== undefined) filtroExecutivo.gestor = gestorCondicao;
     if (Object.keys(filtroExecutivo).length > 0) where.executivo = filtroExecutivo;
@@ -738,7 +738,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         include: {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
-          executivo: { select: { nome: true, base: true, gestor: true } },
+          executivo: {
+            select: { nome: true, gestor: true, bases: { select: { baseSigla: true } } },
+          },
           evento: { select: { nome: true } },
         },
       }),
@@ -752,7 +754,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         associacaoNome: record.associacao?.nome ?? null,
         executivoNome: record.executivo?.nome ?? null,
         eventoNome: record.evento?.nome ?? null,
-        executivoBase: record.executivo?.base ?? null,
+        executivoBase:
+          record.executivo && record.executivo.bases.length > 0
+            ? record.executivo.bases.map((base) => base.baseSigla).join(", ")
+            : null,
         executivoGestor: record.executivo?.gestor ?? null,
       })),
       total,

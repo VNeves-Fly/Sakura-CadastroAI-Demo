@@ -195,21 +195,21 @@ model Agencia {
   travelLinkSalvoPor String?
   travelLinkSalvoEm  DateTime?
 
-  complementar         CadastroComplementar?
-  representantesLegais RepresentanteLegal[]
-  documentos           Documento[]
-  contratos            Contrato[]
-  analiseIa            AnaliseIaAgencia?
-  dadosReceita         DadosReceita?
-  gateValidacoes       GateValidacao[]
-  alertas              Alerta[]
-  usuarioMaster        UsuarioMaster?
-  avancosForcados      AvancoForcado[]
-  kanbanHistorico      KanbanHistorico[]
-  decisoesHumanas      DecisaoHumana[]
-  notificacoes         Notificacao[]
-  conversas            Conversa[]
-  historicoEdicoes     HistoricoEdicaoCadastro[]
+  complementar              CadastroComplementar?
+  representantesLegais      RepresentanteLegal[]
+  documentos                Documento[]
+  contratos                 Contrato[]
+  analiseIa                 AnaliseIaAgencia?
+  dadosReceita              DadosReceita?
+  gateValidacoes            GateValidacao[]
+  alertas                   Alerta[]
+  usuarioMaster             UsuarioMaster?
+  avancosForcados           AvancoForcado[]
+  kanbanHistorico           KanbanHistorico[]
+  decisoesHumanas           DecisaoHumana[]
+  notificacoes              Notificacao[]
+  conversas                 Conversa[]
+  historicoEdicoes          HistoricoEdicaoCadastro[]
   historicoConsultasCredito HistoricoConsultaCredito[]
 
   @@map("agencias")
@@ -488,19 +488,19 @@ model Documento {
   gcsSize   Int?
   gcsMd5    String?
 
-  status           StatusDocumento @default(PENDENTE)
-  verificado       Boolean         @default(false)
-  reprovadoPor     String?
-  motivoReprovacao String?
-  reprovadoEm      DateTime?
+  status                 StatusDocumento @default(PENDENTE)
+  verificado             Boolean         @default(false)
+  reprovadoPor           String?
+  motivoReprovacao       String?
+  reprovadoEm            DateTime?
   // Simétrico ao trio de reprovação acima — aprovação manual (analista)
   // passou a exigir justificativa igual à reprovação: se um humano decidiu
   // aprovar em vez de deixar a IA seguir sozinha, algo levou a essa
   // exceção, então quem/quando/por quê ficam registrados do mesmo jeito
   // (decisão do usuário, 2026-07-26).
-  aprovadoPor      String?
-  motivoAprovacao  String?
-  aprovadoEm       DateTime?
+  aprovadoPor            String?
+  motivoAprovacao        String?
+  aprovadoEm             DateTime?
   // Quem fez upload manual pelo dossiê (painel admin), preenchendo um slot
   // vazio ou reprovado — null quando o arquivo veio do wizard público ou
   // do reenvio do próprio cliente.
@@ -541,7 +541,7 @@ model AnaliseIaDocumento {
   // Comparação campo a campo com fonte oficial (Receita) — só populado quando
   // include_official_data foi pedido E o document_type tem fonte oficial
   // disponível (hoje: só contrato_social, ver docs/agency-analysis-params-tracking.md).
-  comparacaoOficial            Json?
+  comparacaoOficial           Json?
   detalhesChecagem            Json?
 
   processadoEm DateTime @default(now())
@@ -631,9 +631,9 @@ enum ResultadoAnaliseIa {
 // parecer não é APROVADO, em vez de só o status "em_complementar" sem
 // explicação.
 model AnaliseIaAgencia {
-  id        String             @id @default(cuid())
-  agenciaId String             @unique
-  agencia   Agencia            @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  agenciaId String  @unique
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
 
   resultado    ResultadoAnaliseIa
   parecer      String?
@@ -645,14 +645,14 @@ model AnaliseIaAgencia {
   // razão social/nome fantasia/e-mail/sócios) — ver AnaliseIaStage1 em
   // analise-ia-service.ts. Já vinha mapeado no adapter desde antes, só não
   // era persistido.
-  stage1 Json?
+  stage1       Json?
   // Stage2 (crédito — AMAT tipado + sofia/processos/reclamações como dict
   // livre) e as chamadas de tool brutas (raw_data, quando
   // `include_raw_data: true`) — ver AnaliseIaStage2/AnaliseIaRawData em
   // analise-ia-service.ts. Adicionados em 2026-07-27 junto da integração
   // real de AMAT/SOFIA (substitui mock-amat-sofia.util.ts).
-  stage2  Json?
-  rawData Json?
+  stage2       Json?
+  rawData      Json?
 
   avaliadoEm DateTime @default(now())
 
@@ -1135,33 +1135,99 @@ model TemplateWhatsApp {
 // base/cidade/região atendida, cruzado por nome.
 model Promotor {
   id              String   @id @default(cuid())
-  sica            Int      @unique
+  // Nullable — só existe na planilha "Links Promotores.xlsx"; promotores
+  // vindos só do export "gerentes_conta" (sistema anterior, 2026-07-27,
+  // ex.: Marcel Mazzonetto, Luis Vargas) não têm SICA, não inventado.
+  sica            Int?     @unique
   nome            String
   gestor          String
-  email           String
+  // Chave de upsert do seed (ver prisma/seeds/promotores.ts) — único
+  // porque promotores sem SICA (acima) precisam de outra chave estável.
+  email           String   @unique
   // Nullable — 7 dos 81 registros da planilha de origem vêm sem
   // telefone preenchido; não inventado.
   telefone        String?
-  link            String
+  // Nullable — mesma razão do sica: promotores só do export
+  // "gerentes_conta" não têm link pessoal de cadastro.
+  link            String?
   // uuid(s) do parâmetro `?executivo=` extraído(s) de `link` — chave real
   // de atribuição automática: um cadastro feito por um desses links vira
   // dessa pessoa (e do gestor/base dela) automaticamente, ver
   // Agencia.executivoId (resolvido a partir daqui pelo ExecutivoResolver).
   // Lista (não campo único) porque sócios que dividem o mesmo SICA (ex.:
   // sica 26) têm dois links pessoais diferentes apontando pra essa mesma
-  // linha.
+  // linha. Vazia pra quem não tem link (acima).
   linkExecutivoId String[]
-  // Planilha de origem não tem coluna de base — fica null até existir
-  // uma fonte real pra esse dado (não inventado a partir do mock de
-  // cidades, que usa nomes divergentes).
-  base            String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   agenciasAtribuidas Agencia[]
+  bases              PromotorBase[]
 
   @@map("promotores")
+}
+
+// Bases atendidas por um gerente/promotor — fonte real: export
+// "gerentes_conta_bases" (sistema anterior), 2026-07-27. Muitos-para-muitos
+// porque um gerente pode atender várias bases (ex.: Douglas Mendes atende
+// 16) e uma base pode ter mais de um gerente (ex.: RAO tem Douglas e
+// Marcel). baseSigla usa o mesmo código de CidadeComercial.base, mas sem
+// FK formal pra lá — fontes de dados diferentes, sem garantia de cobertura
+// total (só 11 dos ~85 promotores aparecem nesse export).
+model PromotorBase {
+  id         String   @id @default(cuid())
+  promotorId String
+  promotor   Promotor @relation(fields: [promotorId], references: [id], onDelete: Cascade)
+  baseSigla  String
+  createdAt  DateTime @default(now())
+
+  @@unique([promotorId, baseSigla])
+  @@index([baseSigla])
+  @@map("promotor_bases")
+}
+
+// Hierarquia comercial (Agência → Executivo → Gestor, por Base/Região) —
+// fonte real da planilha "MAPA COMERCIAL GESTORES" (aba MAPA_COMERCIAL_
+// FINAL), antes carregada como mock em memória (ver git history do módulo
+// atribuições). `executivo`/`gestor` aqui são os apelidos/nomes abreviados
+// da planilha original, que não batem por string com `Promotor.nome`
+// (nome completo) — cruzamento por nome, quando feito, é best-effort.
+model CidadeComercial {
+  id          String  @id @default(cuid())
+  regiao      String?
+  estado      String?
+  cidade      String
+  ddd         String?
+  base        String?
+  executivo   String?
+  gestor      String?
+  subregiaoSp String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([base])
+  @@index([executivo])
+  @@index([gestor])
+  @@index([regiao])
+  @@map("cidades_comerciais")
+}
+
+// Log de reatribuições feitas na tela Remanejar → Substituir do módulo
+// atribuições (fundir/renomear um executivo, gestor ou base em todas as
+// cidades atendidas por ele) — antes vivia só em memória, perdido a cada
+// restart.
+model SubstituicaoAtribuicao {
+  id                   String @id @default(cuid())
+  tipo                 String // "executivo" | "gestor" | "base"
+  nomeAntigo           String
+  nomeNovo             String
+  totalCidadesAfetadas Int
+
+  createdAt DateTime @default(now())
+
+  @@map("substituicoes_atribuicoes")
 }
 
 // Grupo que recebe um percentual por indicar agências (decisão do

@@ -25,7 +25,6 @@ import {
   CnaesDetalhe,
   CampoDocumento,
   ParecerIa,
-  corFundoDocumento,
   VerificacaoCadastral,
 } from "@/modules/admin/components/dossie-campos";
 import {
@@ -33,6 +32,7 @@ import {
   formatarDataCurta,
   formatarMoedaBrl,
   formatarEnderecoReceita,
+  corFundoDocumento,
 } from "@/modules/admin/utils/dossie-campos.util";
 import { RevisaoDocumentosComplementar } from "@/modules/admin/components/revisao-documentos";
 import {

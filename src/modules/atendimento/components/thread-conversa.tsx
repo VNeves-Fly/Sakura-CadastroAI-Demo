@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Image as ImageIcon,
   Send,
@@ -331,19 +332,29 @@ function TemplatesAprovadosPicker({
         <Sparkles className="size-3.5" />
         Janela de 24h fechada — use um template aprovado pela Meta
       </span>
-      <div className="flex flex-wrap gap-2">
-        {templatesAprovados.map((template) => (
-          <button
-            key={template.id}
-            type="button"
-            onClick={() => onEnviar(template.conteudo)}
-            className="border-input bg-card hover:bg-accent rounded-full border px-3 py-1.5 text-left text-xs font-medium"
-            title={template.conteudo}
-          >
-            {template.nome}
-          </button>
-        ))}
-      </div>
+      {templatesAprovados.length === 0 ? (
+        <p className="text-muted-foreground text-xs">
+          Nenhum template aprovado disponível ainda. Cadastre ou sincronize os templates em{" "}
+          <Link href="/cadastros/messenger" className="text-foreground font-medium underline">
+            Configurações do Messenger
+          </Link>
+          .
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {templatesAprovados.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              onClick={() => onEnviar(template.conteudo)}
+              className="border-input bg-card hover:bg-accent rounded-full border px-3 py-1.5 text-left text-xs font-medium"
+              title={template.conteudo}
+            >
+              {template.nome}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

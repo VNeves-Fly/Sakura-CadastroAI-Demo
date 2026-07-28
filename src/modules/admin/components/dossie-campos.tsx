@@ -48,7 +48,8 @@ export function Campo({
   // Prop separada da `className` de propósito: um `bg-*` dentro de
   // `className` colidiria com o `bg-card` fixo (duas classes de mesma
   // propriedade, quem ganha depende da ordem no CSS gerado pelo
-  // Tailwind, não da ordem na string) — ver corFundoDocumento abaixo.
+  // Tailwind, não da ordem na string) — ver corFundoDocumento em
+  // dossie-campos.util.ts.
   corFundo?: string;
 }) {
   return (
@@ -90,18 +91,6 @@ export function CamposGrid({ children, className }: { children: ReactNode; class
       {itensAjustados}
     </dl>
   );
-}
-
-// Fundo do Campo de Contrato Social/RG-CNH/Procuração conforme a decisão
-// do analista — verde aprovado, vermelho reprovado, amarelo enquanto
-// ainda pendente (documento enviado, aguardando revisão em Complementar,
-// ver PENDENTE em Arquivo) — decisão do usuário, 2026-07-27. `null`
-// (nenhum arquivo enviado ainda) mantém o fundo neutro de sempre.
-export function corFundoDocumento(documento: Documento | null): string {
-  if (!documento) return "bg-card";
-  if (documento.status === "APROVADO") return "bg-success-bg";
-  if (documento.status === "REPROVADO") return "bg-destructive-bg";
-  return "bg-warning-bg";
 }
 
 // Cabeçalho de subseção dentro de uma SecaoColapsavel — agrupa campos
@@ -781,7 +770,15 @@ function ChecagemBadge({ label, valor }: { label: string; valor: boolean | null 
 // deixar a lacuna, e desce em objeto/array até sobrar só primitivo.
 export function formatarValorExtraido(valor: unknown): string {
   if (valor === null || valor === undefined) return "—";
-  if (typeof valor === "string") return valor.trim().length > 0 ? valor : "—";
+  if (typeof valor === "string") {
+    const texto = valor.trim();
+    if (texto.length === 0) return "—";
+    // "NAO_CONSTA" é o valor de status "limpo" da SOFIA (ver varianteSofia
+    // em consulta-amat-sofia.tsx) — só o rótulo muda pro analista, o dado
+    // gravado no banco continua o token original.
+    if (texto.toUpperCase() === "NAO_CONSTA") return "Nada consta";
+    return texto;
+  }
   if (typeof valor === "number" || typeof valor === "boolean") return String(valor);
 
   if (Array.isArray(valor)) {

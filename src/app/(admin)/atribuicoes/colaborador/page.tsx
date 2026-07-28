@@ -1,11 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Campo, CamposGrid } from "@/modules/admin/components/dossie-campos";
-import {
-  carregarCidades,
-  paraExecutivosView,
-  paraGestoresView,
-} from "@/modules/atribuicoes/utils/agregacoes.util";
+import { paraExecutivosView, paraGestoresView } from "@/modules/atribuicoes/utils/agregacoes.util";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import type { AgenciaResumoPromotor } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
@@ -142,7 +138,7 @@ export default async function ColaboradorPage({ searchParams }: ColaboradorPageP
   const nome = searchParams.nome ?? "";
 
   const [todasCidades, promotores] = await Promise.all([
-    Promise.resolve(carregarCidades()),
+    atribuicoesAdminController.listarCidades(),
     atribuicoesAdminController.listarPromotores(),
   ]);
 
