@@ -1,6 +1,10 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { authenticateController } from "@/modules/auth/presentation/controllers/auth.controller";
+import {
+  sessionCookieName,
+  useSecureCookies,
+} from "@/modules/auth/presentation/routes/session-cookie";
 
 // Providers são configuráveis: novos providers (OAuth, email, etc.) podem ser
 // adicionados ao array abaixo sem alterar o restante do módulo.
@@ -10,6 +14,17 @@ export const nextAuthOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
+  },
+  cookies: {
+    sessionToken: {
+      name: sessionCookieName,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
   },
   providers: [
     CredentialsProvider({

@@ -1,5 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { sessionCookieName } from "@/modules/auth/presentation/routes/session-cookie";
 
 export default withAuth(
   function middleware(request) {
@@ -18,6 +19,7 @@ export default withAuth(
   },
   {
     pages: { signIn: "/login" },
+    cookies: { sessionToken: { name: sessionCookieName } },
   },
 );
 
