@@ -150,6 +150,29 @@ export function ValidacaoSicaTravelLink({
         />
       </div>
 
+      <TravelLinkSecao
+        agenciaId={agenciaId}
+        razaoSocial={razaoSocial}
+        cnpj={cnpj}
+        enderecoFormatado={enderecoFormatado}
+        telefoneContato={telefoneContato}
+        telefoneComercial={telefoneComercial}
+        associacaoNome={associacaoNome}
+        promotorNome={promotorNome}
+        nomeContato={nomeContato}
+        emailContato={emailContato}
+        bancoLabel={bancoLabel}
+        bancoAgencia={bancoAgencia}
+        bancoConta={bancoConta}
+        favorecidoNome={favorecidoNome}
+        favorecidoDoc={favorecidoDoc}
+        travelLinkCriado={travelLinkCriado}
+        travelLinkSalvoPor={travelLinkSalvoPor}
+        travelLinkSalvoEm={travelLinkSalvoEm}
+        salvarTravelLinkAction={salvarTravelLinkAction}
+        somenteLeitura={somenteLeitura}
+      />
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="sica" className="text-foreground text-sm font-bold">
           Código SICA
@@ -211,29 +234,6 @@ export function ValidacaoSicaTravelLink({
           </span>
         ) : null}
       </div>
-
-      <TravelLinkSecao
-        agenciaId={agenciaId}
-        razaoSocial={razaoSocial}
-        cnpj={cnpj}
-        enderecoFormatado={enderecoFormatado}
-        telefoneContato={telefoneContato}
-        telefoneComercial={telefoneComercial}
-        associacaoNome={associacaoNome}
-        promotorNome={promotorNome}
-        nomeContato={nomeContato}
-        emailContato={emailContato}
-        bancoLabel={bancoLabel}
-        bancoAgencia={bancoAgencia}
-        bancoConta={bancoConta}
-        favorecidoNome={favorecidoNome}
-        favorecidoDoc={favorecidoDoc}
-        travelLinkCriado={travelLinkCriado}
-        travelLinkSalvoPor={travelLinkSalvoPor}
-        travelLinkSalvoEm={travelLinkSalvoEm}
-        salvarTravelLinkAction={salvarTravelLinkAction}
-        somenteLeitura={somenteLeitura}
-      />
 
       {!somenteLeitura ? (
         <div className="flex flex-wrap gap-2">
