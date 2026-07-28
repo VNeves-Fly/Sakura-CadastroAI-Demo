@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
 import { DomainError } from "@/modules/shared/domain/errors";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
 import { obterUrlBase } from "@/modules/shared/utils/url-base.util";
@@ -14,7 +15,32 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 // revalida a própria página do dossiê (sem redirect: o form re-renderiza
 // no mesmo lugar já com o novo status).
 
+async function analistaIdLogado(): Promise<string> {
+  const session = await getServerSession(nextAuthOptions);
+  if (!session?.user?.id) throw new DomainError("Não autenticado.");
+  return session.user.id;
+}
+
+// Trava real (backend, não só UI) — alterar/aprovar/reprovar um cadastro
+// exige que o analista logado tenha assumido o atendimento da agência
+// antes (decisão do usuário, 2026-07-28). Chamada no início de toda action
+// que muda estado; leitura (visualizar documento etc.) não passa por aqui.
+async function garantirAtendimentoAssumido(agenciaId: string): Promise<void> {
+  await atendimentoController.garantirAtendimentoAssumido(agenciaId, await analistaIdLogado());
+}
+
+export async function assumirAtendimentoDossieAction(agenciaId: string) {
+  await atendimentoController.assumirAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function encerrarAtendimentoDossieAction(agenciaId: string) {
+  await atendimentoController.encerrarAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function aprovarComplementarAction(id: string) {
+  await garantirAtendimentoAssumido(id);
   await cadastroAdminController.aprovarComplementar({ id, analistaEmail: await analistaLogado() });
   revalidatePath(`/cadastros/${id}`);
 }
@@ -28,6 +54,7 @@ export async function registrarContratoExternoAction(
   | { ok: false; motivo: string }
 > {
   try {
+    await garantirAtendimentoAssumido(agenciaId);
     const resultado = await cadastroAdminController.registrarContratoExterno({
       agenciaId,
       contratoId,
@@ -46,31 +73,37 @@ export async function registrarContratoExternoAction(
 }
 
 export async function marcarContratoAssinadoAction(id: string) {
+  await garantirAtendimentoAssumido(id);
   await cadastroAdminController.marcarContratoAssinado(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function validarContratoAction(id: string) {
+  await garantirAtendimentoAssumido(id);
   await cadastroAdminController.validarContrato(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function ativarClienteAction(id: string) {
+  await garantirAtendimentoAssumido(id);
   await cadastroAdminController.ativarCliente(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function recusarCadastroAction(id: string) {
+  await garantirAtendimentoAssumido(id);
   await cadastroAdminController.recusarCadastro(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reprocessarAnaliseAction(id: string) {
+  await garantirAtendimentoAssumido(id);
   await cadastroAdminController.reprocessarAnalise(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reconsultarCreditoAction(agenciaId: string, fonte: "AMAT" | "SOFIA") {
+  await garantirAtendimentoAssumido(agenciaId);
   await cadastroAdminController.reconsultarCredito({
     agenciaId,
     fonte,
@@ -84,6 +117,7 @@ export async function aprovarDocumentoAction(
   documentoId: string,
   formData: FormData,
 ) {
+  await garantirAtendimentoAssumido(agenciaId);
   const session = await getServerSession(nextAuthOptions);
   const motivo = String(formData.get("motivo") ?? "");
 
@@ -100,6 +134,7 @@ export async function reprovarDocumentoAction(
   documentoId: string,
   formData: FormData,
 ) {
+  await garantirAtendimentoAssumido(agenciaId);
   const session = await getServerSession(nextAuthOptions);
   const motivo = String(formData.get("motivo") ?? "");
 
@@ -117,6 +152,7 @@ export async function inserirDocumentoManualAction(
   representanteLegalId: string | null,
   formData: FormData,
 ) {
+  await garantirAtendimentoAssumido(agenciaId);
   const session = await getServerSession(nextAuthOptions);
   const arquivo = formData.get("arquivo");
 
@@ -142,6 +178,7 @@ export async function inserirDocumentoManualAction(
 }
 
 export async function solicitarReenvioDocumentosAction(agenciaId: string, formData: FormData) {
+  await garantirAtendimentoAssumido(agenciaId);
   const documentoIds = formData.getAll("documentoIds").map(String);
   const baseUrl = obterUrlBase(headers());
   await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds, baseUrl });
@@ -154,6 +191,7 @@ async function analistaLogado(): Promise<string> {
 }
 
 export async function salvarSicaAction(agenciaId: string, formData: FormData) {
+  await garantirAtendimentoAssumido(agenciaId);
   const codigo = String(formData.get("codigo") ?? "");
   await cadastroAdminController.salvarSica({
     agenciaId,
@@ -173,6 +211,7 @@ export async function editarSocioAction(
   representanteLegalId: string,
   formData: FormData,
 ) {
+  await garantirAtendimentoAssumido(agenciaId);
   await cadastroAdminController.atualizarRepresentanteLegal({
     id: representanteLegalId,
     editadoPor: await analistaLogado(),
@@ -194,6 +233,7 @@ export async function editarSocioAction(
 }
 
 export async function editarEmpresaAction(agenciaId: string, formData: FormData) {
+  await garantirAtendimentoAssumido(agenciaId);
   await cadastroAdminController.editarDadosEmpresa({
     agenciaId,
     editadoPor: await analistaLogado(),
@@ -214,6 +254,7 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
 }
 
 export async function salvarTravelLinkAction(agenciaId: string, criado: boolean) {
+  await garantirAtendimentoAssumido(agenciaId);
   await cadastroAdminController.salvarTravelLink({
     agenciaId,
     criado,
@@ -232,6 +273,7 @@ function parseDataIso(valor: string): Date | null {
 }
 
 export async function salvarUsuarioMasterAction(agenciaId: string, formData: FormData) {
+  await garantirAtendimentoAssumido(agenciaId);
   const origemRepresentanteLegalId = String(formData.get("origemRepresentanteLegalId") ?? "");
 
   await cadastroAdminController.salvarUsuarioMaster({

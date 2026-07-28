@@ -15,14 +15,11 @@ import type { UploadedFileInput } from "@/modules/cadastro/application/dto/final
 // (o usuário preenche uma vez só); limite generoso o bastante pra reenvio
 // depois de corrigir um erro de validação.
 const RATE_LIMIT_SUBMIT = { limite: 5, janelaMs: 10 * 60 * 1000 };
-// Consulta QSA dispara a cada CNPJ completo digitado — mais frequente,
-// limite mais folgado.
-const RATE_LIMIT_QSA = { limite: 30, janelaMs: 60 * 1000 };
-// Verificação de duplicidade dispara no mesmo momento que a QSA (CNPJ
-// completo) — é só um lookup por chave única, mesmo limite generoso.
+// Verificação de duplicidade dispara a cada CNPJ completo digitado — é só
+// um lookup por chave única, mesmo limite generoso.
 const RATE_LIMIT_VERIFICAR_CNPJ = { limite: 30, janelaMs: 60 * 1000 };
 // Análise de documento chama o agents-service (Document AI) — mais custosa
-// que a QSA, dispara só quando CNPJ+arquivo estão prontos.
+// que a verificação de duplicidade, dispara só quando CNPJ+arquivo estão prontos.
 const RATE_LIMIT_ANALISE_DOCUMENTO = { limite: 10, janelaMs: 5 * 60 * 1000 };
 // Lista de bancos é estática por até 24h (cache do adapter) — limite só
 // pra conter abuso, não pra proteger a BrasilAPI de tráfego normal.
@@ -174,27 +171,6 @@ export async function createAgenciaRoute(request: Request) {
     });
 
     return httpCreated(agencia);
-  } catch (error) {
-    return mapErrorToResponse(error);
-  }
-}
-
-export async function consultarQsaRoute(request: Request) {
-  try {
-    const chaveRateLimit = `cadastro-qsa:${obterIpCliente(request)}`;
-    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_QSA)) {
-      throw new RateLimitError();
-    }
-
-    const body = await request.json();
-    const cnpj = typeof body?.cnpj === "string" ? body.cnpj : "";
-
-    if (!cnpj) {
-      return httpError("CNPJ é obrigatório.", 422);
-    }
-
-    const resultado = await cadastroPublicoController.consultarQsa(cnpj);
-    return httpOk(resultado);
   } catch (error) {
     return mapErrorToResponse(error);
   }

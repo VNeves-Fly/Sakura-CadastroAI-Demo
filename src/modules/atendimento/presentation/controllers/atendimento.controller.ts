@@ -1,4 +1,5 @@
 import { prisma } from "@/modules/shared/infrastructure/prisma/client";
+import { garantirAtendimentoAssumido as garantirAtendimentoAssumidoHelper } from "@/modules/atendimento/application/shared/garantir-atendimento-assumido";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 import { LocalDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/local-documento-arquivo.adapter";
@@ -7,6 +8,7 @@ import { PrismaUserRepository } from "@/modules/users/infrastructure/repositorie
 import { PrismaConversaRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-conversa.repository";
 import { PrismaMensagemRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-mensagem.repository";
 import { PrismaAssumirAtendimentoRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-assumir-atendimento.repository";
+import { PrismaAtendimentoAgenciaRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-atendimento-agencia.repository";
 import { PrismaSolicitacaoTransferenciaRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-solicitacao-transferencia.repository";
 import { PrismaTextoProntoRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-texto-pronto.repository";
 import { PrismaTemplateWhatsAppRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-template-whatsapp.repository";
@@ -19,6 +21,11 @@ import { ListarConversasUseCase } from "@/modules/atendimento/application/use-ca
 import { ListarConversasPorAgenciaUseCase } from "@/modules/atendimento/application/use-cases/listar-conversas-por-agencia.use-case";
 import { ListarAtendimentosAtivosPorAgenciasUseCase } from "@/modules/atendimento/application/use-cases/listar-atendimentos-ativos-por-agencias.use-case";
 import { ListarUltimoAtendimentoEncerradoPorAgenciasUseCase } from "@/modules/atendimento/application/use-cases/listar-ultimo-atendimento-encerrado-por-agencias.use-case";
+import { AssumirAtendimentoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/assumir-atendimento-agencia.use-case";
+import { EncerrarAtendimentoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/encerrar-atendimento-agencia.use-case";
+import { ListarHistoricoAtendimentoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/listar-historico-atendimento-agencia.use-case";
+import { ListarAtendimentosAgenciaAtivosUseCase } from "@/modules/atendimento/application/use-cases/listar-atendimentos-agencia-ativos.use-case";
+import { ListarUltimoAtendimentoAgenciaEncerradoUseCase } from "@/modules/atendimento/application/use-cases/listar-ultimo-atendimento-agencia-encerrado.use-case";
 import { ListarTemplatesAprovadosUseCase } from "@/modules/atendimento/application/use-cases/listar-templates-aprovados.use-case";
 import { ListarTodosTemplatesUseCase } from "@/modules/atendimento/application/use-cases/listar-todos-templates.use-case";
 import { CriarTemplateUseCase } from "@/modules/atendimento/application/use-cases/criar-template.use-case";
@@ -61,6 +68,7 @@ import type { IniciarConversaInput } from "@/modules/atendimento/application/dto
 const conversaRepository = new PrismaConversaRepository(prisma);
 const mensagemRepository = new PrismaMensagemRepository(prisma);
 const assumirAtendimentoRepository = new PrismaAssumirAtendimentoRepository(prisma);
+const atendimentoAgenciaRepository = new PrismaAtendimentoAgenciaRepository(prisma);
 const solicitacaoTransferenciaRepository = new PrismaSolicitacaoTransferenciaRepository(prisma);
 const textoProntoRepository = new PrismaTextoProntoRepository(prisma);
 const templateWhatsAppRepository = new PrismaTemplateWhatsAppRepository(prisma);
@@ -118,6 +126,7 @@ export const atendimentoController = {
       conversaRepository,
       resumoFichaClienteRepository,
       solicitacaoTransferenciaRepository,
+      atendimentoAgenciaRepository,
     );
     return useCase.execute(input);
   },
@@ -181,6 +190,7 @@ export const atendimentoController = {
       mensagemRepository,
       templateWhatsAppRepository,
       whatsAppMessagingService,
+      atendimentoAgenciaRepository,
     );
     return useCase.execute(input);
   },
@@ -191,6 +201,7 @@ export const atendimentoController = {
       conversaRepository,
       resumoFichaClienteRepository,
       solicitacaoTransferenciaRepository,
+      atendimentoAgenciaRepository,
     );
     return useCase.execute(input);
   },
@@ -201,8 +212,49 @@ export const atendimentoController = {
       conversaRepository,
       resumoFichaClienteRepository,
       solicitacaoTransferenciaRepository,
+      atendimentoAgenciaRepository,
     );
     return useCase.execute(input);
+  },
+
+  obterAtendimentoAgenciaAtual(agenciaId: string) {
+    return atendimentoAgenciaRepository.findAtual(agenciaId);
+  },
+
+  assumirAtendimentoAgencia(agenciaId: string, analistaId: string) {
+    const useCase = new AssumirAtendimentoAgenciaUseCase(atendimentoAgenciaRepository);
+    return useCase.execute(agenciaId, analistaId);
+  },
+
+  encerrarAtendimentoAgencia(agenciaId: string, analistaId: string) {
+    const useCase = new EncerrarAtendimentoAgenciaUseCase(atendimentoAgenciaRepository);
+    return useCase.execute(agenciaId, analistaId);
+  },
+
+  listarHistoricoAtendimentoAgencia(agenciaId: string) {
+    const useCase = new ListarHistoricoAtendimentoAgenciaUseCase(atendimentoAgenciaRepository);
+    return useCase.execute(agenciaId);
+  },
+
+  listarAtendimentosAgenciaAtivos(agenciaIds: string[]) {
+    const useCase = new ListarAtendimentosAgenciaAtivosUseCase(atendimentoAgenciaRepository);
+    return useCase.execute(agenciaIds);
+  },
+
+  listarUltimoAtendimentoAgenciaEncerrado(agenciaIds: string[]) {
+    const useCase = new ListarUltimoAtendimentoAgenciaEncerradoUseCase(
+      atendimentoAgenciaRepository,
+    );
+    return useCase.execute(agenciaIds);
+  },
+
+  // Trava real usada pelas Server Actions do dossiê — lança se ninguém
+  // assumiu o atendimento da agência, ou se foi outro analista. As
+  // use-cases de iniciar-conversa/enviar-mensagem chamam o mesmo helper
+  // direto (ver garantir-atendimento-assumido.ts), sem depender deste
+  // controller.
+  garantirAtendimentoAssumido(agenciaId: string, analistaId: string): Promise<void> {
+    return garantirAtendimentoAssumidoHelper(atendimentoAgenciaRepository, agenciaId, analistaId);
   },
 
   solicitarTransferencia(input: SolicitarTransferenciaInput) {

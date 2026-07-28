@@ -6,7 +6,6 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { PrismaExecutivoResolver } from "@/modules/cadastro/infrastructure/repositories/prisma-executivo-resolver";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
-import { createQsaConsultaService } from "@/modules/cadastro/infrastructure/factories/qsa-consulta-service.factory";
 import { BrasilApiBancoConsultaAdapter } from "@/modules/cadastro/infrastructure/adapters/brasilapi-banco-consulta.adapter";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
@@ -16,7 +15,6 @@ import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/a
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
 import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
-import { ConsultarQsaUseCase } from "@/modules/cadastro/application/use-cases/consultar-qsa.use-case";
 import { VerificarCnpjCadastradoUseCase } from "@/modules/cadastro/application/use-cases/verificar-cnpj-cadastrado.use-case";
 import { AnalisarContratoSocialUseCase } from "@/modules/cadastro/application/use-cases/analisar-contrato-social.use-case";
 import { AnalisarDocumentoIdentificacaoUseCase } from "@/modules/cadastro/application/use-cases/analisar-documento-identificacao.use-case";
@@ -31,14 +29,11 @@ import type { AnalisarContratoSocialInput } from "@/modules/cadastro/application
 import type { AnalisarDocumentoIdentificacaoInput } from "@/modules/cadastro/application/dto/analisar-documento-identificacao.dto";
 
 // Composition root do módulo cadastro (área pública): única camada que
-// conhece Prisma/filesystem/QSA/D4Sign/IA concretos. FileStorage usa GCS
+// conhece Prisma/filesystem/D4Sign/IA concretos. FileStorage usa GCS
 // quando GCS_BUCKET_NAME está configurada, senão cai pro disco local.
 // AnaliseIaService usa o agente real (agents.flysakura.com) quando
 // AGENCY_ANALYSIS_API_KEY está configurada, senão cai pro mock (checksum
-// do CNPJ). QsaConsultaService vem de uma factory (ver
-// infrastructure/factories/qsa-consulta-service.factory.ts) — hoje resolve
-// pra ReceitaWS ou mock; é o ponto único de troca quando o SERPRO entrar.
-// ContratoAssinaturaService usa o D4Sign real quando D4SIGN_TOKEN_API está
+// do CNPJ). ContratoAssinaturaService usa o D4Sign real quando D4SIGN_TOKEN_API está
 // configurada, senão cai pro mock. DocumentAnalysisService (análise por
 // documento, antes da avaliação final) usa a mesma credencial de
 // AnaliseIaService (AGENCY_ANALYSIS_API_KEY) — são o mesmo agente.
@@ -48,10 +43,6 @@ const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const executivoResolver = new PrismaExecutivoResolver(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
-// LEGADO — não é mais usado por FinalizarCadastroUseCase (razão social vem
-// do contrato social, dados oficiais vêm da Stage 1 do /agency-analysis/sync).
-// Mantido só pela rota /api/cadastro/qsa, hoje sem chamador no client.
-const qsaConsultaService = createQsaConsultaService();
 // BrasilAPI é pública e gratuita (sem token) — diferente de
 // ReceitaWS/D4Sign/etc., não há variação de provedor a decidir aqui, só o
 // adapter real.
@@ -85,11 +76,6 @@ export const cadastroPublicoController = {
       documentoRepository,
     );
     return useCase.execute({ agenciaId });
-  },
-
-  consultarQsa(cnpj: string) {
-    const useCase = new ConsultarQsaUseCase(qsaConsultaService);
-    return useCase.execute({ cnpj });
   },
 
   // Aviso antecipado no wizard (não substitui a checagem real do submit

@@ -114,8 +114,6 @@ export function useCadastroWizardViewModel({
 
   const cnpj = useCadastroWizardStore((state) => state.cnpj);
   const cnpjStatus = useCadastroWizardStore((state) => state.cnpjStatus);
-  const qsaChecking = useCadastroWizardStore((state) => state.qsaChecking);
-  const qsaResult = useCadastroWizardStore((state) => state.qsaResult);
   const avisoAlfanumerico = useCadastroWizardStore((state) => state.avisoAlfanumerico);
   const verificandoCnpjCadastrado = useCadastroWizardStore(
     (state) => state.verificandoCnpjCadastrado,
@@ -130,8 +128,6 @@ export function useCadastroWizardViewModel({
 
   const setCnpjRaw = useCadastroWizardStore((state) => state.setCnpj);
   const setCnpjStatus = useCadastroWizardStore((state) => state.setCnpjStatus);
-  const setQsaChecking = useCadastroWizardStore((state) => state.setQsaChecking);
-  const setQsaResult = useCadastroWizardStore((state) => state.setQsaResult);
   const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
   const setVerificandoCnpjCadastrado = useCadastroWizardStore(
     (state) => state.setVerificandoCnpjCadastrado,
@@ -270,25 +266,6 @@ export function useCadastroWizardViewModel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventoId]);
 
-  // LEGADO — qsaResult nunca é populado hoje (consultarQsaSeCompleto não é
-  // mais chamado por setCnpj), então este efeito fica inerte. Mantido junto
-  // com o resto do código de QSA/ReceitaWS por decisão do usuário.
-  useEffect(() => {
-    if (!qsaResult) return;
-
-    const atualizados = [...socios];
-    qsaResult.nomesSocios.forEach((nome, index) => {
-      if (!atualizados[index]) {
-        atualizados[index] = criarSocioWizardVazio();
-      }
-      if (!atualizados[index].nome) {
-        atualizados[index] = { ...atualizados[index], nome };
-      }
-    });
-    setSocios(atualizados);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qsaResult]);
-
   // Quando a análise do contrato social resolve, tenta preencher um card de
   // sócio pra cada item de `qsa` — nome, cpf, data de nascimento, RG e
   // endereço já vêm do próprio contrato social agora (antes só o nome).
@@ -387,7 +364,7 @@ export function useCadastroWizardViewModel({
   async function analisarContratoSocialSeCompleto(cnpjMascarado: string, arquivo: File | null) {
     if (!arquivo) return;
 
-    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+    const cnpjLimpo = agenciaAdapter.toCnpjLimpo(cnpjMascarado);
     if (!validarCnpjComMensagem(cnpjMascarado).valido || isCnpjAlfanumerico(cnpjLimpo)) {
       return;
     }
@@ -423,7 +400,7 @@ export function useCadastroWizardViewModel({
   ) {
     if (!arquivo) return;
 
-    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+    const cnpjLimpo = agenciaAdapter.toCnpjLimpo(cnpjMascarado);
     if (!validarCnpjComMensagem(cnpjMascarado).valido || isCnpjAlfanumerico(cnpjLimpo)) {
       return;
     }
@@ -475,41 +452,6 @@ export function useCadastroWizardViewModel({
     }
   }
 
-  // LEGADO — não é mais chamado automaticamente (ver setCnpj). Razão social
-  // e sócios agora vêm do contrato social; endereço e sócios "oficiais" vêm
-  // da Stage 1 do /agency-analysis/sync no submit final. Mantido sem uso
-  // ativo, por decisão do usuário, pra eventual necessidade futura.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async function consultarQsaSeCompleto(cnpjMascarado: string) {
-    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
-
-    if (cnpjLimpo.length < 14) {
-      setQsaResult(null);
-      setAvisoAlfanumerico(false);
-      return;
-    }
-
-    if (isCnpjAlfanumerico(cnpjLimpo)) {
-      setAvisoAlfanumerico(true);
-      setQsaResult(null);
-      return;
-    }
-
-    setAvisoAlfanumerico(false);
-    setQsaChecking(true);
-
-    try {
-      const raw = await agenciaService.consultarQsa(cnpjLimpo);
-      setQsaResult(raw ? agenciaAdapter.toQsaResultView(raw) : null);
-    } catch {
-      // Consulta é best-effort (rate limit ou instabilidade da Receita não
-      // devem travar o preenchimento) — o usuário completa os campos manualmente.
-      setQsaResult(null);
-    } finally {
-      setQsaChecking(false);
-    }
-  }
-
   // Valida antes de aceitar o arquivo (mesma regra que o backend reaplica
   // na rota) — a View só recebe o resultado já decidido, nunca a regra em si.
   function setContratoSocial(file: File | null) {
@@ -530,11 +472,11 @@ export function useCadastroWizardViewModel({
 
   // Aviso antecipado — não bloqueia o preenchimento nem substitui a
   // checagem real do submit final (FinalizarCadastroUseCase): é só um
-  // "ei, esse CNPJ já tem cadastro" o mais cedo possível. Best-effort,
-  // igual à consulta de QSA legada: falha (rate limit, instabilidade) não
-  // trava o usuário, só deixa de mostrar o aviso.
+  // "ei, esse CNPJ já tem cadastro" o mais cedo possível. Best-effort:
+  // falha (rate limit, instabilidade) não trava o usuário, só deixa de
+  // mostrar o aviso.
   async function verificarCnpjCadastradoSeCompleto(cnpjMascarado: string) {
-    const cnpjLimpo = agenciaAdapter.toQsaConsultaInput(cnpjMascarado);
+    const cnpjLimpo = agenciaAdapter.toCnpjLimpo(cnpjMascarado);
 
     if (cnpjLimpo.length < 14) {
       setCnpjJaCadastrado(false);
@@ -873,7 +815,7 @@ export function useCadastroWizardViewModel({
   // contrato social resolver (com ou sem sucesso — best-effort, não trava
   // o usuário se a IA falhar). Cada sócio só libera o resto do form depois
   // do upload do RG/CNH — ver socio-wizard-card.tsx.
-  const cnpjCompleto = agenciaAdapter.toQsaConsultaInput(cnpj).length >= 14;
+  const cnpjCompleto = agenciaAdapter.toCnpjLimpo(cnpj).length >= 14;
   const empresaCamposDesbloqueados = Boolean(contratoSocial) && !analisandoContratoSocial;
 
   // "Completo" = já dá pra avançar pra próxima etapa sem estourar erro no
@@ -1132,8 +1074,6 @@ export function useCadastroWizardViewModel({
 
     cnpj,
     cnpjStatus,
-    qsaChecking,
-    qsaResult,
     avisoAlfanumerico,
     verificandoCnpjCadastrado,
     cnpjJaCadastrado,

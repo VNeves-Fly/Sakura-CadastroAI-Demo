@@ -14,9 +14,8 @@ function extrairString(valor: unknown): string | null {
   return typeof valor === "string" && valor.length > 0 ? valor : null;
 }
 
-// Mesma normalização usada em receitaws-qsa-consulta.adapter.ts pro capital
-// social vindo da Receita — aceita tanto número quanto string em formato BR
-// ("100.000,00").
+// Aceita tanto número quanto string em formato BR ("100.000,00") pro
+// capital social extraído do contrato social.
 function extrairCapitalSocial(valor: unknown): number | null {
   if (typeof valor === "number" && Number.isFinite(valor)) return valor;
   if (typeof valor !== "string") return null;
