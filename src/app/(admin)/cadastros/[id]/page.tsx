@@ -365,7 +365,7 @@ export default async function DossieAgenciaPage({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl bg-[#f6c3ca]/80 p-5">
+      <div className="flex flex-col gap-3 rounded-2xl bg-[#f6c3ca]/75 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-3xl font-bold tracking-wide text-[#004d3e]">{agencia.razaoSocial}</h1>
           {/* Gestor/Base escondidos até existir fonte de dado real (aguardando
