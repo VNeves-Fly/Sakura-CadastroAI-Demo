@@ -16,9 +16,23 @@ export interface RegistroAtendimentoAtivoPorAgencia {
   assumidoEm: Date;
 }
 
+// Último atendimento já encerrado (liberadoEm preenchido) de uma agência —
+// usado como fallback na listagem de /cadastros quando não há ninguém
+// atendendo no momento, pra mostrar quem foi o último a atender.
+export interface RegistroAtendimentoEncerradoPorAgencia {
+  agenciaId: string;
+  conversaId: string;
+  analistaNome: string;
+  assumidoEm: Date;
+  liberadoEm: Date;
+}
+
 export interface AssumirAtendimentoRepository {
   findAtual(conversaId: string): Promise<RegistroAtendimentoAtual | null>;
   criar(conversaId: string, analistaId: string): Promise<AssumirAtendimentoRegistroEntity>;
   liberar(registroId: string): Promise<void>;
   listarAtivosPorAgencias(agenciaIds: string[]): Promise<RegistroAtendimentoAtivoPorAgencia[]>;
+  listarUltimoEncerradoPorAgencias(
+    agenciaIds: string[],
+  ): Promise<RegistroAtendimentoEncerradoPorAgencia[]>;
 }

@@ -53,6 +53,7 @@ export function fakeAssumirAtendimentoRepository(
     }),
     liberar: jest.fn(),
     listarAtivosPorAgencias: jest.fn().mockResolvedValue([]),
+    listarUltimoEncerradoPorAgencias: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
 }

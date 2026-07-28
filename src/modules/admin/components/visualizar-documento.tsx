@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, Loader2 } from "lucide-react";
 
 const EXTENSOES_IMAGEM = new Set(["jpg", "jpeg", "png"]);
 
@@ -75,6 +75,11 @@ const CLASSES_FOOTER_DECISAO: Record<string, string> = {
 export function VisualizarDocumento(props: VisualizarDocumentoProps) {
   const { label, children, acoes, painelEsquerdo, infoAuditoria, statusDecisao } = props;
   const [aberto, setAberto] = useState(false);
+  // Contrato do D4Sign passa por dois fetches no servidor antes de
+  // devolver o PDF (ver D4SignAdapter.visualizarDocumento) — sem isso o
+  // modal fica com a área de visualização em branco por vários segundos,
+  // parecendo quebrado em vez de carregando.
+  const [carregando, setCarregando] = useState(true);
   const url =
     props.url !== undefined ? props.url : `/api/cadastros/documentos/${props.documentoId}/arquivo`;
   const ehImagem = props.gcsPath !== undefined && EXTENSOES_IMAGEM.has(extensao(props.gcsPath));
@@ -82,19 +87,41 @@ export function VisualizarDocumento(props: VisualizarDocumentoProps) {
   const classesFooter = statusDecisao ? CLASSES_FOOTER_DECISAO[statusDecisao] : undefined;
 
   const visualizacao = (
-    <div className="bg-muted/30 min-h-0 flex-1">
+    <div className="bg-muted/30 relative min-h-0 flex-1">
+      {carregando ? (
+        <div className="bg-muted/30 absolute inset-0 flex items-center justify-center">
+          <Loader2 className="text-muted-foreground size-8 animate-spin" />
+        </div>
+      ) : null}
       {ehImagem ? (
         // eslint-disable-next-line @next/next/no-img-element -- vem de rota autenticada própria, não é otimizável pelo next/image
-        <img src={url} alt={label} className="h-full w-full object-contain" />
+        <img
+          src={url}
+          alt={label}
+          className="h-full w-full object-contain"
+          onLoad={() => setCarregando(false)}
+        />
       ) : (
-        <iframe src={url} title={label} className="h-full w-full border-0" />
+        <iframe
+          src={url}
+          title={label}
+          className="h-full w-full border-0"
+          onLoad={() => setCarregando(false)}
+        />
       )}
     </div>
   );
 
   return (
     <>
-      <button type="button" onClick={() => setAberto(true)} className="hover:underline">
+      <button
+        type="button"
+        onClick={() => {
+          setCarregando(true);
+          setAberto(true);
+        }}
+        className="hover:underline"
+      >
         {children}
       </button>
 

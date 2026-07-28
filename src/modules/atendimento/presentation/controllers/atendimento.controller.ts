@@ -18,6 +18,7 @@ import { WhatsAppContactMatcherAdapter } from "@/modules/atendimento/infrastruct
 import { ListarConversasUseCase } from "@/modules/atendimento/application/use-cases/listar-conversas.use-case";
 import { ListarConversasPorAgenciaUseCase } from "@/modules/atendimento/application/use-cases/listar-conversas-por-agencia.use-case";
 import { ListarAtendimentosAtivosPorAgenciasUseCase } from "@/modules/atendimento/application/use-cases/listar-atendimentos-ativos-por-agencias.use-case";
+import { ListarUltimoAtendimentoEncerradoPorAgenciasUseCase } from "@/modules/atendimento/application/use-cases/listar-ultimo-atendimento-encerrado-por-agencias.use-case";
 import { ListarTemplatesAprovadosUseCase } from "@/modules/atendimento/application/use-cases/listar-templates-aprovados.use-case";
 import { ListarTodosTemplatesUseCase } from "@/modules/atendimento/application/use-cases/listar-todos-templates.use-case";
 import { CriarTemplateUseCase } from "@/modules/atendimento/application/use-cases/criar-template.use-case";
@@ -92,6 +93,13 @@ export const atendimentoController = {
 
   listarAtendimentosAtivosPorAgencias(agenciaIds: string[]) {
     const useCase = new ListarAtendimentosAtivosPorAgenciasUseCase(assumirAtendimentoRepository);
+    return useCase.execute(agenciaIds);
+  },
+
+  listarUltimoAtendimentoEncerradoPorAgencias(agenciaIds: string[]) {
+    const useCase = new ListarUltimoAtendimentoEncerradoPorAgenciasUseCase(
+      assumirAtendimentoRepository,
+    );
     return useCase.execute(agenciaIds);
   },
 
