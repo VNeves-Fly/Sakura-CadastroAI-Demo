@@ -79,12 +79,12 @@ describe("processarWebhookD4SignRoute", () => {
     expect(mockProcessar).not.toHaveBeenCalled();
   });
 
-  it("rejeita com 401 quando D4SIGN_WEBHOOK_SECRET está configurada e o HMAC não bate", async () => {
+  it("rejeita com 401 quando D4SIGN_WEBHOOK_SECRET está configurada e a assinatura não bate", async () => {
     process.env = { ...originalEnv, D4SIGN_WEBHOOK_SECRET: "segredo" };
 
     const request = buildFormDataRequest(
       { uuid: "doc-1", type_post: "1" },
-      { "content-hmac": "sha256=assinatura-errada" },
+      { "x-signature": "assinatura-errada" },
     );
     const response = await processarWebhookD4SignRoute(request);
 
@@ -92,25 +92,39 @@ describe("processarWebhookD4SignRoute", () => {
     expect(mockProcessar).not.toHaveBeenCalled();
   });
 
-  it("aceita temporariamente quando D4SIGN_WEBHOOK_SECRET está configurada mas o header não veio — D4Sign não está mandando Content-Hmac (2026-07-28, em investigação), header ausente é tolerado; presente e errado continua rejeitando (teste acima)", async () => {
+  it("rejeita com 401 quando D4SIGN_WEBHOOK_SECRET está configurada e o header não veio", async () => {
+    process.env = { ...originalEnv, D4SIGN_WEBHOOK_SECRET: "segredo" };
+
+    const request = buildFormDataRequest({ uuid: "doc-1", type_post: "1" });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(401);
+    expect(mockProcessar).not.toHaveBeenCalled();
+  });
+
+  it("aceita quando a assinatura bate em hex puro, sem prefixo sha256= (formato real confirmado em produção, 2026-07-28 — x-signature, não Content-Hmac)", async () => {
     process.env = { ...originalEnv, D4SIGN_WEBHOOK_SECRET: "segredo" };
     mockProcessar.mockResolvedValueOnce({ processado: true });
 
-    const request = buildFormDataRequest({ uuid: "doc-1", type_post: "1" });
+    const assinaturaCorreta = createHmac("sha256", "segredo").update("doc-1").digest("hex");
+    const request = buildFormDataRequest(
+      { uuid: "doc-1", type_post: "1" },
+      { "x-signature": assinaturaCorreta },
+    );
     const response = await processarWebhookD4SignRoute(request);
 
     expect(response.status).toBe(200);
     expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
   });
 
-  it("aceita quando o HMAC bate (sha256 do uuid do documento com a secret)", async () => {
+  it("aceita quando a assinatura bate com o prefixo sha256= (formato documentado, tolerado por segurança)", async () => {
     process.env = { ...originalEnv, D4SIGN_WEBHOOK_SECRET: "segredo" };
     mockProcessar.mockResolvedValueOnce({ processado: true });
 
     const assinaturaCorreta = `sha256=${createHmac("sha256", "segredo").update("doc-1").digest("hex")}`;
     const request = buildFormDataRequest(
       { uuid: "doc-1", type_post: "1" },
-      { "content-hmac": assinaturaCorreta },
+      { "x-signature": assinaturaCorreta },
     );
     const response = await processarWebhookD4SignRoute(request);
 
