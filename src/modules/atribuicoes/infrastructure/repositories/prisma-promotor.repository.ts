@@ -36,4 +36,12 @@ export class PrismaPromotorRepository implements PromotorRepository {
     });
     return record ? toDomain(record) : null;
   }
+
+  async findByEmail(email: string): Promise<Promotor | null> {
+    const record = await this.prisma.promotor.findUnique({
+      where: { email },
+      include: { bases: true },
+    });
+    return record ? toDomain(record) : null;
+  }
 }
