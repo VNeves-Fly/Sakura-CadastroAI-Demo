@@ -192,10 +192,13 @@ export interface ListarCadastrosItem {
   // associacaoNome. Null quando não há atribuição.
   executivoNome: string | null;
   eventoNome: string | null;
-  // Base(s) e gestor do executivo (PromotorBase.baseSigla/Promotor.gestor)
-  // — um executivo pode atender várias bases; exibido já concatenado
-  // ("SAO, FOR, MAO") quando houver mais de uma.
-  executivoBase: string | null;
+  // Sempre null (decisão do usuário, 2026-07-28): cada agência pertence a
+  // UMA base só, mas isso nunca foi capturado no cadastro — o executivo
+  // atribuído pode atender várias bases (PromotorBase), então mostrar
+  // "todas as bases do executivo" como se fosse "a base da agência" é
+  // ambíguo/errado. Mantido no tipo (em vez de removido) até existir uma
+  // fonte real de base por agência.
+  executivoBase: null;
   executivoGestor: string | null;
 }
 

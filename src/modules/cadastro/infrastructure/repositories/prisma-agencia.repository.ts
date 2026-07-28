@@ -739,7 +739,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
           executivo: {
-            select: { nome: true, gestor: true, bases: { select: { baseSigla: true } } },
+            select: { nome: true, gestor: true },
           },
           evento: { select: { nome: true } },
         },
@@ -754,10 +754,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         associacaoNome: record.associacao?.nome ?? null,
         executivoNome: record.executivo?.nome ?? null,
         eventoNome: record.evento?.nome ?? null,
-        executivoBase:
-          record.executivo && record.executivo.bases.length > 0
-            ? record.executivo.bases.map((base) => base.baseSigla).join(", ")
-            : null,
+        // Cada agência pertence a UMA base só, mas isso nunca foi capturado
+        // no cadastro — o promotor responsável pode atender várias bases
+        // (ver PromotorBase), então listar todas elas aqui como se fossem
+        // "a base da agência" está errado (decisão do usuário, 2026-07-28:
+        // melhor deixar em branco do que mostrar um dado ambíguo/errado).
+        executivoBase: null,
         executivoGestor: record.executivo?.gestor ?? null,
       })),
       total,
