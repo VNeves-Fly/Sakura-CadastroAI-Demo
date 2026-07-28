@@ -5,7 +5,10 @@
 // (não deveria acontecer atrás do LB do GCP).
 const FALLBACK_URL_BASE = "https://painel.sakuraclick.com.br";
 
-export function obterUrlBase(headers: Headers): string {
+// Aceita qualquer objeto com `.get()` (não só `Headers` inteiro) pra
+// também funcionar com o `ReadonlyHeaders` de next/headers() — usado em
+// Server Actions, que não têm um Request com `.headers` de verdade.
+export function obterUrlBase(headers: Pick<Headers, "get">): string {
   const host = headers.get("x-forwarded-host") ?? headers.get("host");
   if (!host) return FALLBACK_URL_BASE;
 
