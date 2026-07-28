@@ -14,7 +14,26 @@ const schema = process.env.DATABASE_URL
   ? (new URL(process.env.DATABASE_URL).searchParams.get("schema") ?? undefined)
   : undefined;
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL }, { schema });
+// Cloud SQL's legacy per-instance CA doesn't put the connection IP in the
+// cert's SAN, so hostname verification (sslmode=verify-full) always fails —
+// verificamos a cadeia contra a CA da própria instância (verify-ca) e
+// pulamos só a checagem de hostname, em vez de cair pra sslmode=no-verify.
+// Mesmo tratamento de src/modules/shared/infrastructure/prisma/client.ts —
+// sem isso, rodar o seed contra o Postgres real (produção) falha com
+// "unable to verify the first certificate".
+const adapter = new PrismaPg(
+  {
+    connectionString: process.env.DATABASE_URL,
+    ...(process.env.DATABASE_CA_CERT && {
+      ssl: {
+        ca: process.env.DATABASE_CA_CERT,
+        rejectUnauthorized: true,
+        checkServerIdentity: () => undefined,
+      },
+    }),
+  },
+  { schema },
+);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
