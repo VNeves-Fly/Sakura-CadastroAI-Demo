@@ -91,7 +91,7 @@ const FILAS = [
     status: STATUS_AGUARDANDO_ATIVACAO,
     chave: "aguardandoAtivacao" as const,
     label: "Aguardando ativação",
-    sublabel: "falta SICA/Travel Link/ativar",
+    sublabel: "Usuário master e ativar agência",
   },
   {
     status: STATUS_ATIVO,

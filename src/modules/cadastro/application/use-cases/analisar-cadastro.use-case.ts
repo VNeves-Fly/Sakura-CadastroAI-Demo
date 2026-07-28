@@ -145,21 +145,16 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     private readonly documentoRepository: DocumentoRepository,
   ) {}
 
-  // A IA aprovando o cadastro inteiro (fast-track, sem passar por
-  // em_complementar) não passa por AprovarDocumentoUseCase documento a
-  // documento — sem isso, Documento.status ficava PENDENTE pra sempre
-  // (default do schema), mesmo com o cadastro já aguardando assinatura/
-  // ativo, fazendo o dossiê e o /atendimento mostrarem pendência que não
-  // existe de verdade (decisão do usuário, 2026-07-27).
-  private async aprovarDocumentosAutomaticamente(
-    contratoSocial: Documento,
-    representantesLegais: { rg: Documento | null }[],
-  ): Promise<void> {
-    const documentos = [
-      contratoSocial,
-      ...representantesLegais.map((socio) => socio.rg).filter((rg): rg is Documento => rg !== null),
-    ];
-
+  // A IA aprovando um documento (contrato social ou RG de um sócio) não
+  // passa por AprovarDocumentoUseCase — sem isso, Documento.status ficava
+  // PENDENTE pra sempre (default do schema), mesmo com a IA já tendo
+  // aprovado aquele documento específico, fazendo o dossiê mostrar
+  // pendência (amarelo) que não existe de verdade (decisão do usuário,
+  // 2026-07-27 e 2026-07-28). Chamado com só os documentos aprovados
+  // individualmente pela IA — os reprovados (ou não avaliados) continuam
+  // PENDENTE de propósito, sinalizando que o analista precisa revisar
+  // justamente esses.
+  private async aprovarDocumentosAutomaticamente(documentos: Documento[]): Promise<void> {
     await Promise.all(
       documentos.map((documento) =>
         this.documentoRepository.atualizarStatus(documento.id, {
@@ -268,6 +263,21 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
         (socio) => analisesPorSocioId.get(socio.id)?.parecer === "APROVADO",
       );
 
+    // Aprova documento a documento conforme o parecer individual da IA,
+    // independente do veredito agregado — se a IA aprovou o Contrato
+    // Social mas reprovou o RG de um sócio, o Contrato Social já vira
+    // verde aqui, mesmo o cadastro caindo pra revisão manual no `else`
+    // abaixo por causa só do RG.
+    const documentosAprovadosPelaIa = [
+      ...(analiseIaContratoSocial.parecer === "APROVADO" ? [contratoSocial] : []),
+      ...representantesLegais
+        .filter((socio) => socio.rg && analisesPorSocioId.get(socio.id)?.parecer === "APROVADO")
+        .map((socio) => socio.rg as Documento),
+    ];
+    if (documentosAprovadosPelaIa.length > 0) {
+      await this.aprovarDocumentosAutomaticamente(documentosAprovadosPelaIa);
+    }
+
     if (analiseIa.aprovado && todosDocumentosAprovados) {
       // `administrativo === false` é a única marca que exclui um sócio da
       // lista de signatarios — null (IA não avaliou) e true assinam (ver
@@ -306,7 +316,6 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
           STATUS_AGUARDANDO_ASSINATURA,
           "APROVADO",
         );
-        await this.aprovarDocumentosAutomaticamente(contratoSocial, representantesLegais);
       } catch (error) {
         // IA aprovou, mas o contrato não pôde ser gerado/enviado (D4Sign
         // fora do ar etc.) — não perde o veredito da IA, só cai pra fila
