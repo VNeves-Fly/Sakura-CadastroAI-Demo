@@ -23,9 +23,7 @@ export function CnpjCopiavel({ cnpj }: CnpjCopiavelProps) {
       onClick={copiar}
       title="Copiar CNPJ"
       className={`flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-base font-bold transition ${
-        copiado
-          ? "bg-success-bg text-success-text"
-          : "bg-primary/10 text-primary hover:bg-primary/20"
+        copiado ? "text-success-text" : "text-[#004d3e] hover:opacity-70"
       }`}
     >
       {maskCnpj(cnpj)}

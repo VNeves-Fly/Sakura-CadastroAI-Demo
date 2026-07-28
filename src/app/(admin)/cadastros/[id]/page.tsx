@@ -365,9 +365,9 @@ export default async function DossieAgenciaPage({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
+      <div className="flex flex-col gap-3 rounded-2xl bg-[#f6c3ca]/75 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-xl font-bold tracking-wide text-[#72243e]">{agencia.razaoSocial}</h1>
+          <h1 className="text-3xl font-bold tracking-wide text-[#004d3e]">{agencia.razaoSocial}</h1>
           {/* Gestor/Base escondidos até existir fonte de dado real (aguardando
               modelagem no backend) — mostrar "—" com tooltip parecia
               funcionalidade quebrada, não um espaço reservado pro futuro.
@@ -376,17 +376,17 @@ export default async function DossieAgenciaPage({
           {eventoNome || executivoNome || associacaoNome ? (
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {eventoNome ? (
-                <span className="bg-accent text-accent-foreground rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap">
+                <span className="bg-accent text-accent-foreground border-primary rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap">
                   {eventoNome}
                 </span>
               ) : null}
               {executivoNome ? (
-                <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
+                <span className="bg-primary/10 text-primary border-primary rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap">
                   {executivoNome}
                 </span>
               ) : null}
               {associacaoNome ? (
-                <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap">
+                <span className="bg-primary/10 text-primary border-primary rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap">
                   {associacaoNome}
                 </span>
               ) : null}
@@ -397,11 +397,11 @@ export default async function DossieAgenciaPage({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-col gap-0.5 text-sm">
             <span>
-              <span className="text-muted-foreground">E-mail:</span>{" "}
+              <span className="text-black">E-mail:</span>{" "}
               <span className="text-foreground font-medium">{agencia.emailContato || "—"}</span>
             </span>
             <span>
-              <span className="text-muted-foreground">Telefone:</span>{" "}
+              <span className="text-black">Telefone:</span>{" "}
               <span className="text-foreground font-medium">
                 {complementar?.telefoneComercial || "—"}
               </span>
@@ -411,7 +411,7 @@ export default async function DossieAgenciaPage({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground font-medium">CNPJ:</span>
+            <span className="font-medium text-black">CNPJ:</span>
             <CnpjCopiavel cnpj={agencia.cnpj} />
           </p>
           <span

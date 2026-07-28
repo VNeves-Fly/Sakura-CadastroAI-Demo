@@ -17,19 +17,29 @@
     --accent-foreground: 323 90% 42%;
     --destructive: 0 57% 41%;
     --destructive-foreground: 0 0% 100%;
-    --destructive-bg: 0 74% 95%;
-    --destructive-text: 0 59% 30%;
+    /* #fb3640 — pedido do usuário, 2026-07-28: os selos/campos vermelhos
+       (documento reprovado, CONSTA no SOFIA, etc.) estavam pálidos
+       demais; texto branco pra contraste, mesmo padrão de
+       --destructive-foreground nos botões sólidos. */
+    --destructive-bg: 357 96% 60%;
+    --destructive-text: 0 0% 100%;
     --border: 323 25% 85%;
     --input: 323 25% 85%;
     --ring: 323 90% 51%;
     --radius: 0.5rem;
     --success: 93 73% 25%;
     --success-foreground: 0 0% 100%;
-    --success-bg: 86 47% 91%;
+    /* #3fd97f — pedido do usuário, 2026-07-28 (mesmo motivo do vermelho
+       acima): verde pálido demais nos campos/selos de aprovado. Texto
+       escuro (--success-text original) já contrasta bem contra esse tom
+       mais vívido, sem precisar trocar. */
+    --success-bg: 145 67% 55%;
     --success-text: 95 78% 18%;
     --warning: 35 78% 41%;
     --warning-foreground: 0 0% 100%;
-    --warning-bg: 38 76% 92%;
+    /* #ffca64 — idem, pro amarelo (documento pendente, CONSTA parcial
+       etc.). */
+    --warning-bg: 39 100% 70%;
     --warning-text: 32 89% 21%;
     --info: 199 89% 42%;
     --info-bg: 199 89% 94%;

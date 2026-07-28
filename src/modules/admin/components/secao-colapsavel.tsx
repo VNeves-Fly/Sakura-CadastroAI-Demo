@@ -21,8 +21,13 @@ type VarianteSecaoColapsavel = "neutro" | "positivo" | "negativo";
 
 const CLASSES_VARIANTE: Record<VarianteSecaoColapsavel, string> = {
   neutro: "border-l-primary/60 bg-card",
-  positivo: "border-l-success bg-success/5",
-  negativo: "border-l-destructive bg-destructive/5",
+  // Borda na cor vívida nova (--success-bg/--destructive-bg, ver
+  // globals.css) em vez do tom sólido antigo, mais escuro/opaco — pedido
+  // do usuário, 2026-07-28: "o vermelho mais vívido pode colocar na
+  // borda do card". Fundo continua um tingimento bem leve (5%) do tom
+  // sólido, só pra não competir com o conteúdo interno.
+  positivo: "border-l-success-bg bg-success/5",
+  negativo: "border-l-destructive-bg bg-destructive/5",
 };
 
 interface SecaoColapsavelProps {
