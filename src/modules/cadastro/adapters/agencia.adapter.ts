@@ -3,14 +3,12 @@ import { unmaskCep } from "@/modules/cadastro/utils/cep.util";
 import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
 import type {
-  RawQsaResponse,
   CriarAgenciaResult,
   RawAnaliseContratoSocialResponse,
   RawAnaliseDocumentoIdentificacaoResponse,
   RawEnderecoContratoSocial,
 } from "@/modules/cadastro/services/agencia.service";
 import type {
-  QsaResultView,
   SubmitResultView,
   ContratoSocialAnaliseView,
   DocumentoIdentificacaoAnaliseView,
@@ -46,19 +44,8 @@ function toEnderecoContratoSocialView(
 // Service/API externa esperam — nenhuma outra camada do front conhece o
 // shape bruto da API.
 export const agenciaAdapter = {
-  toQsaConsultaInput(cnpjMascarado: string): string {
+  toCnpjLimpo(cnpjMascarado: string): string {
     return unmaskCnpj(cnpjMascarado);
-  },
-
-  toQsaResultView(raw: RawQsaResponse): QsaResultView {
-    return {
-      razaoSocial: raw.razaoSocial,
-      cnaeCompativel: raw.cnaeCompativel,
-      nomesSocios: raw.socios.map((socio) => socio.nome),
-      dataAbertura: raw.dataAbertura,
-      telefoneReceita: raw.telefoneReceita,
-      emailReceita: raw.emailReceita,
-    };
   },
 
   toAnalisarContratoSocialFormData(params: {

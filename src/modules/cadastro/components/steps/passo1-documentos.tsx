@@ -12,7 +12,6 @@ type Passo1DocumentosProps = ReturnType<typeof useCadastroWizardViewModel>;
 export function Passo1Documentos({
   cnpj,
   cnpjStatus,
-  qsaChecking,
   avisoAlfanumerico,
   verificandoCnpjCadastrado,
   cnpjJaCadastrado,
@@ -52,9 +51,6 @@ export function Passo1Documentos({
           placeholder="00.000.000/0000-00"
         />
 
-        {qsaChecking ? (
-          <span className="text-muted-foreground text-xs">Consultando o CNPJ...</span>
-        ) : null}
         {avisoAlfanumerico ? (
           <span className="text-warning text-xs font-medium">
             CNPJ alfanumérico — consulta automática ainda não disponível pra esse formato.
@@ -66,10 +62,10 @@ export function Passo1Documentos({
             com a Sakura.
           </span>
         ) : null}
-        {!qsaChecking && cnpjStatus.mensagem ? (
+        {cnpjStatus.mensagem ? (
           <span className="text-destructive text-xs font-medium">{cnpjStatus.mensagem}</span>
         ) : null}
-        {!qsaChecking && cnpjStatus.valido ? (
+        {cnpjStatus.valido ? (
           <span className="text-success text-xs font-medium">✓ CNPJ válido</span>
         ) : null}
       </div>

@@ -2,7 +2,6 @@ import { agenciaAdapter } from "@/modules/cadastro/adapters/agencia.adapter";
 import { criarSocioWizardVazio } from "@/modules/cadastro/types/socio-wizard.types";
 import { criarEnderecoBancoVazio } from "@/modules/cadastro/types/endereco-banco.types";
 import type {
-  RawQsaResponse,
   CriarAgenciaResult,
   RawAnaliseContratoSocialResponse,
   RawAnaliseDocumentoIdentificacaoResponse,
@@ -12,32 +11,9 @@ function arquivoFake(nome: string): File {
   return new File([new Uint8Array(10)], nome, { type: "application/pdf" });
 }
 
-describe("agenciaAdapter.toQsaConsultaInput", () => {
+describe("agenciaAdapter.toCnpjLimpo", () => {
   it("remove a máscara do CNPJ antes de mandar pro service", () => {
-    expect(agenciaAdapter.toQsaConsultaInput("11.222.333/0001-81")).toBe("11222333000181");
-  });
-});
-
-describe("agenciaAdapter.toQsaResultView", () => {
-  it("extrai só os nomes dos sócios (a UI não precisa do resto do objeto)", () => {
-    const raw: RawQsaResponse = {
-      cnpj: "11222333000181",
-      razaoSocial: "Empresa Teste Ltda",
-      cnaeCompativel: true,
-      socios: [{ nome: "Fulano" }, { nome: "Beltrana" }],
-      dataAbertura: "01/01/2020",
-      telefoneReceita: "(11) 3333-4444",
-      emailReceita: "contato@empresateste.com.br",
-    };
-
-    expect(agenciaAdapter.toQsaResultView(raw)).toEqual({
-      razaoSocial: "Empresa Teste Ltda",
-      cnaeCompativel: true,
-      nomesSocios: ["Fulano", "Beltrana"],
-      dataAbertura: "01/01/2020",
-      telefoneReceita: "(11) 3333-4444",
-      emailReceita: "contato@empresateste.com.br",
-    });
+    expect(agenciaAdapter.toCnpjLimpo("11.222.333/0001-81")).toBe("11222333000181");
   });
 });
 

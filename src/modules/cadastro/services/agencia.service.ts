@@ -7,16 +7,6 @@ export interface RawAgenciaResponse {
   status: string;
 }
 
-export interface RawQsaResponse {
-  cnpj: string;
-  razaoSocial: string;
-  cnaeCompativel: boolean;
-  socios: Array<{ nome: string }>;
-  dataAbertura: string;
-  telefoneReceita: string;
-  emailReceita: string;
-}
-
 export type CriarAgenciaResult =
   { ok: true; data: RawAgenciaResponse } | { ok: false; duplicado: boolean; error: string };
 
@@ -92,24 +82,6 @@ export const agenciaService = {
 
     const data: { existe: boolean } = await response.json();
     return data.existe;
-  },
-
-  async consultarQsa(cnpj: string): Promise<RawQsaResponse | null> {
-    const response = await fetch("/api/cadastro/qsa", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cnpj }),
-    });
-
-    if (response.status === 404) {
-      return null;
-    }
-
-    if (!response.ok) {
-      throw new Error("Não foi possível consultar o QSA na Receita Federal.");
-    }
-
-    return response.json();
   },
 
   async analisarContratoSocial(formData: FormData): Promise<RawAnaliseContratoSocialResponse> {

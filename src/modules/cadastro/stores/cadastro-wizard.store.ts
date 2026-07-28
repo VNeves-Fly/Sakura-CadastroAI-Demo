@@ -1,9 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type {
-  QsaResultView,
-  ContratoSocialAnaliseView,
-} from "@/modules/cadastro/types/agencia.types";
+import type { ContratoSocialAnaliseView } from "@/modules/cadastro/types/agencia.types";
 import {
   criarSocioWizardVazio,
   type SocioWizardFormValues,
@@ -36,8 +33,6 @@ interface CadastroWizardState {
   // Seção 1 — Empresa (documentos + dados da empresa)
   cnpj: string;
   cnpjStatus: CnpjStatus;
-  qsaChecking: boolean;
-  qsaResult: QsaResultView | null;
   avisoAlfanumerico: boolean;
   // Aviso antecipado (não substitui a checagem do submit final) — não é
   // persistido: sempre revalidado contra o CNPJ atual, nunca deve mostrar
@@ -80,8 +75,6 @@ interface CadastroWizardState {
   avancarSecao: () => void;
   setCnpj: (cnpj: string) => void;
   setCnpjStatus: (status: CnpjStatus) => void;
-  setQsaChecking: (checking: boolean) => void;
-  setQsaResult: (result: QsaResultView | null) => void;
   setAvisoAlfanumerico: (aviso: boolean) => void;
   setVerificandoCnpjCadastrado: (verificando: boolean) => void;
   setCnpjJaCadastrado: (jaCadastrado: boolean) => void;
@@ -135,8 +128,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
 
       cnpj: "",
       cnpjStatus: { valido: false, mensagem: null },
-      qsaChecking: false,
-      qsaResult: null,
       avisoAlfanumerico: false,
       verificandoCnpjCadastrado: false,
       cnpjJaCadastrado: false,
@@ -174,8 +165,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
 
       setCnpj: (cnpj) => set({ cnpj }),
       setCnpjStatus: (cnpjStatus) => set({ cnpjStatus }),
-      setQsaChecking: (qsaChecking) => set({ qsaChecking }),
-      setQsaResult: (qsaResult) => set({ qsaResult }),
       setAvisoAlfanumerico: (avisoAlfanumerico) => set({ avisoAlfanumerico }),
       setVerificandoCnpjCadastrado: (verificandoCnpjCadastrado) =>
         set({ verificandoCnpjCadastrado }),
@@ -216,8 +205,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
           secoesReveladas: 1,
           cnpj: "",
           cnpjStatus: { valido: false, mensagem: null },
-          qsaChecking: false,
-          qsaResult: null,
           avisoAlfanumerico: false,
           verificandoCnpjCadastrado: false,
           cnpjJaCadastrado: false,
@@ -252,7 +239,6 @@ export const useCadastroWizardStore = create<CadastroWizardState>()(
         eventoId: state.eventoId,
         cnpj: state.cnpj,
         cnpjStatus: state.cnpjStatus,
-        qsaResult: state.qsaResult,
         avisoAlfanumerico: state.avisoAlfanumerico,
         razaoSocial: state.razaoSocial,
         telefoneComercial: state.telefoneComercial,
