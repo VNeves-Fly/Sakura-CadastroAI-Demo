@@ -19,16 +19,30 @@ import type {
 import type { HistoricoConsultaCreditoView } from "@/modules/admin/types/dossie.types";
 
 // SOFIA é um dict livre sem schema fixo (não documentado nem do lado do
-// provedor) — `status` é o único campo com convenção conhecida hoje
-// (decisão do usuário, 2026-07-27). "NAO_CONSTA" (ou nenhum status, com
-// o dict vazio) é o caso limpo; qualquer outro valor de status (ex.:
-// "CONSTA") é tratado como restrição encontrada. Sem `status` nenhum
-// (dict não vazio mas sem essa chave) fica neutro — não dá pra afirmar.
+// provedor), mas na prática o campo que importa é `registros` — nunca
+// deve aparecer cru (`false`/`true`/número) na tela, só o veredito
+// (decisão do usuário, 2026-07-28): 0 ou null/ausente = LIMPO, qualquer
+// número maior que zero = CONSTA. `encontrado` (boolean) é redundante com
+// isso, não é usado como fonte separada de verdade. `null` aqui significa
+// "não deu pra interpretar" (dict num formato inesperado, sem `registros`)
+// — quem chama cai pro fallback de mostrar os campos crus nesse caso raro.
+function interpretarSofia(sofia: Record<string, unknown> | null): "LIMPO" | "CONSTA" | null {
+  if (!sofia) return null;
+  if (!("registros" in sofia)) return null;
+
+  const registros = sofia.registros;
+  if (registros === null || registros === undefined) return "LIMPO";
+
+  const numero = typeof registros === "number" ? registros : Number(registros);
+  if (!Number.isFinite(numero)) return null;
+
+  return numero > 0 ? "CONSTA" : "LIMPO";
+}
+
 function varianteSofia(sofia: Record<string, unknown> | null): "neutro" | "positivo" | "negativo" {
-  if (!sofia || Object.keys(sofia).length === 0) return "positivo";
-  const status = typeof sofia.status === "string" ? sofia.status.toUpperCase() : null;
-  if (status === null) return "neutro";
-  return status === "NAO_CONSTA" ? "positivo" : "negativo";
+  const veredito = interpretarSofia(sofia);
+  if (veredito === null) return "neutro";
+  return veredito === "LIMPO" ? "positivo" : "negativo";
 }
 
 // AMAT/SOFIA reais, lidos do stage2/raw_data que a IA persiste na análise
@@ -398,6 +412,7 @@ export function ConsultaSofiaCard({
 }) {
   const [modalAberto, setModalAberto] = useState(false);
   const entradas = sofia ? Object.entries(sofia) : [];
+  const veredito = interpretarSofia(sofia);
 
   return (
     <SecaoColapsavel
@@ -412,7 +427,23 @@ export function ConsultaSofiaCard({
           <p className="text-muted-foreground text-xs">
             Consulta feita, sem dado estruturado retornado.
           </p>
+        ) : veredito ? (
+          <div className="border-border bg-muted/30 flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm">
+            <span className="text-foreground font-medium">Registro no SOFIA</span>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
+                veredito === "LIMPO"
+                  ? "bg-success-bg text-success-text"
+                  : "bg-destructive-bg text-destructive-text"
+              }`}
+            >
+              {veredito}
+            </span>
+          </div>
         ) : (
+          // Formato inesperado (dict sem `registros`) — mostra os campos
+          // crus como fallback, em vez de esconder um dado que não sabemos
+          // interpretar.
           <div className="border-border bg-muted/30 flex flex-col gap-1.5 rounded-xl border px-4 py-3 text-sm">
             {entradas.map(([chave, valor]) => (
               <div key={chave} className="flex flex-wrap justify-between gap-2">
