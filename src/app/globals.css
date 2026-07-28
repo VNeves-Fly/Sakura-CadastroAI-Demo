@@ -198,4 +198,54 @@
     border-color: hsl(var(--destructive)) !important;
     animation: pulso-erro 1.4s ease-in-out infinite;
   }
+
+  /* Fundo "aurora" da página /executivo — dois radiais (violeta + rosa
+     da marca) com leve deriva, igual ao protótipo de referência (Larian).
+     Local a esta rota só, não usado em mais lugar nenhum. */
+  @keyframes aurora-drift {
+    from {
+      transform: translate3d(-2%, -1%, 0) scale(1);
+    }
+    to {
+      transform: translate3d(3%, 2%, 0) scale(1.08);
+    }
+  }
+  .bg-aurora {
+    background:
+      radial-gradient(40rem 28rem at 20% 20%, hsl(var(--violet-glow) / 0.35), transparent 70%),
+      radial-gradient(38rem 26rem at 80% 70%, hsl(var(--pink-glow) / 0.28), transparent 70%);
+    filter: blur(10px);
+    animation: aurora-drift 16s ease-in-out infinite alternate;
+  }
+
+  /* Grade de fundo com fade radial (some nas bordas) em vez de opacidade
+     uniforme — mesmo efeito do protótipo de referência. */
+  .bg-grid-fade {
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent 75%);
+  }
+
+  /* Linha horizontal que "varre" a página de cima a baixo, feito só em
+     CSS (sem JS) — mesmo efeito do protótipo de referência. */
+  @keyframes scan {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    10%,
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+  .scan-line {
+    animation: scan 5s linear infinite;
+  }
 }
