@@ -113,14 +113,19 @@ const COLUNAS_ORDENAVEIS = [
 ] as const;
 
 function diasAtras(data: Date): string {
-  const dias = Math.floor((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+  const inicioDoDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((inicioDoDia(new Date()) - inicioDoDia(data)) / (1000 * 60 * 60 * 24));
   if (dias <= 0) return "hoje";
-  if (dias === 1) return "1d atrás";
+  if (dias === 1) return "ontem";
   return `${dias}d atrás`;
 }
 
 function formatarData(data: Date): string {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
+}
+
+function formatarDataHora(data: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
 }
 
 function construirHref(
@@ -242,18 +247,25 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
     })),
   ];
 
-  // Quem está atendendo cada agência agora (via conversas ligadas a ela) —
-  // buscado à parte do Promise.all acima porque depende dos ids resolvidos
-  // por ele. Agrupado por agenciaId pra lookup O(1) linha a linha.
-  const atendimentosAtivos = await atendimentoController.listarAtendimentosAtivosPorAgencias(
-    items.map(({ agencia }) => agencia.id),
-  );
+  // Quem está atendendo cada agência agora, ou quem foi o último a
+  // atender (via conversas ligadas a ela) — buscado à parte do
+  // Promise.all acima porque depende dos ids resolvidos por ele. Cada um
+  // agrupado por agenciaId pra lookup O(1) linha a linha; o encerrado só
+  // é usado como fallback quando não há ninguém atendendo no momento.
+  const agenciaIds = items.map(({ agencia }) => agencia.id);
+  const [atendimentosAtivos, ultimosAtendimentosEncerrados] = await Promise.all([
+    atendimentoController.listarAtendimentosAtivosPorAgencias(agenciaIds),
+    atendimentoController.listarUltimoAtendimentoEncerradoPorAgencias(agenciaIds),
+  ]);
   const atendimentosPorAgencia = new Map<string, typeof atendimentosAtivos>();
   for (const registro of atendimentosAtivos) {
     const atual = atendimentosPorAgencia.get(registro.agenciaId) ?? [];
     atual.push(registro);
     atendimentosPorAgencia.set(registro.agenciaId, atual);
   }
+  const ultimoEncerradoPorAgencia = new Map(
+    ultimosAtendimentosEncerrados.map((registro) => [registro.agenciaId, registro]),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -365,6 +377,9 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     searchParams={searchParams}
                   />
                   <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    Atendimento
+                  </th>
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
                     Status
                   </th>
                   <ThOrdenavel
@@ -399,32 +414,21 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     eventoNome,
                   }) => {
                     const atendimentos = atendimentosPorAgencia.get(agencia.id) ?? [];
+                    const ultimoEncerrado = ultimoEncerradoPorAgencia.get(agencia.id);
                     return (
                       <tr key={agencia.id} className="border-border border-b last:border-0">
                         <td className="px-4 py-3">
                           <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-2">
-                              {atendimentos[0] ? (
-                                <span
-                                  className="bg-success-bg text-success-text mt-0.5 flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
-                                  title={atendimentos.map((item) => item.analistaNome).join(", ")}
-                                >
-                                  <UserCog className="size-3" />
-                                  {atendimentos[0].analistaNome}
-                                  {atendimentos.length > 1 ? ` +${atendimentos.length - 1}` : ""}
-                                </span>
-                              ) : null}
-                              <div>
-                                <Link
-                                  href={`/cadastros/${agencia.id}`}
-                                  className="text-foreground hover:text-primary font-medium hover:underline"
-                                >
-                                  {agencia.razaoSocial}
-                                </Link>
-                                <p className="text-muted-foreground text-xs">
-                                  {maskCnpj(agencia.cnpj)}
-                                </p>
-                              </div>
+                            <div>
+                              <Link
+                                href={`/cadastros/${agencia.id}`}
+                                className="text-foreground hover:text-primary font-medium hover:underline"
+                              >
+                                {agencia.razaoSocial}
+                              </Link>
+                              <p className="text-muted-foreground text-xs">
+                                {maskCnpj(agencia.cnpj)}
+                              </p>
                             </div>
                             {eventoNome ? (
                               <span className="bg-accent text-accent-foreground shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
@@ -432,6 +436,34 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               </span>
                             ) : null}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {atendimentos[0] ? (
+                            <>
+                              <span
+                                className="bg-success-bg text-success-text flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                                title={atendimentos.map((item) => item.analistaNome).join(", ")}
+                              >
+                                <UserCog className="size-3" />
+                                {atendimentos[0].analistaNome}
+                                {atendimentos.length > 1 ? ` +${atendimentos.length - 1}` : ""}
+                              </span>
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                Iniciado: {formatarDataHora(atendimentos[0].assumidoEm)}
+                              </p>
+                            </>
+                          ) : ultimoEncerrado ? (
+                            <>
+                              <p className="text-foreground font-medium">
+                                {ultimoEncerrado.analistaNome}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                Finalizado: {formatarDataHora(ultimoEncerrado.liberadoEm)}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span

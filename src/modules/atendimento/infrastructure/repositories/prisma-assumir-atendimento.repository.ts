@@ -3,6 +3,7 @@ import type {
   AssumirAtendimentoRepository,
   RegistroAtendimentoAtivoPorAgencia,
   RegistroAtendimentoAtual,
+  RegistroAtendimentoEncerradoPorAgencia,
 } from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
 import type { AssumirAtendimentoRegistroEntity } from "@/modules/atendimento/domain/entities/conversa.entity";
 
@@ -56,5 +57,34 @@ export class PrismaAssumirAtendimentoRepository implements AssumirAtendimentoRep
         analistaNome: registro.analista.name,
         assumidoEm: registro.assumidoEm,
       }));
+  }
+
+  async listarUltimoEncerradoPorAgencias(
+    agenciaIds: string[],
+  ): Promise<RegistroAtendimentoEncerradoPorAgencia[]> {
+    if (agenciaIds.length === 0) return [];
+
+    const registros = await this.prisma.assumirAtendimentoRegistro.findMany({
+      where: { liberadoEm: { not: null }, conversa: { agenciaId: { in: agenciaIds } } },
+      include: { analista: { select: { name: true } }, conversa: { select: { agenciaId: true } } },
+      orderBy: { liberadoEm: "desc" },
+    });
+
+    // Um registro por agência — o mais recente (já ordenado por
+    // liberadoEm desc), primeira ocorrência vence.
+    const porAgencia = new Map<string, RegistroAtendimentoEncerradoPorAgencia>();
+    for (const registro of registros) {
+      const agenciaId = registro.conversa.agenciaId;
+      if (agenciaId === null || porAgencia.has(agenciaId)) continue;
+      porAgencia.set(agenciaId, {
+        agenciaId,
+        conversaId: registro.conversaId,
+        analistaNome: registro.analista.name,
+        assumidoEm: registro.assumidoEm,
+        liberadoEm: registro.liberadoEm as Date,
+      });
+    }
+
+    return [...porAgencia.values()];
   }
 }
