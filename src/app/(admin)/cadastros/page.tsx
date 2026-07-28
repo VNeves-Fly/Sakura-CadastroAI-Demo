@@ -248,21 +248,21 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   ];
 
   // Quem está atendendo cada agência agora, ou quem foi o último a
-  // atender (via conversas ligadas a ela) — buscado à parte do
-  // Promise.all acima porque depende dos ids resolvidos por ele. Cada um
-  // agrupado por agenciaId pra lookup O(1) linha a linha; o encerrado só
-  // é usado como fallback quando não há ninguém atendendo no momento.
+  // atender — buscado à parte do Promise.all acima porque depende dos ids
+  // resolvidos por ele. Fonte é AtendimentoAgencia (responsabilidade sobre
+  // a agência, não sobre uma conversa de WhatsApp — ver
+  // atendimento-agencia-repository.ts), sempre no máximo 1 analista ativo
+  // por agência, então não existe mais o caso "+N analistas" de antes
+  // (quando a fonte era conversa e uma agência podia ter várias). O
+  // encerrado só é usado como fallback quando não há ninguém atendendo.
   const agenciaIds = items.map(({ agencia }) => agencia.id);
   const [atendimentosAtivos, ultimosAtendimentosEncerrados] = await Promise.all([
-    atendimentoController.listarAtendimentosAtivosPorAgencias(agenciaIds),
-    atendimentoController.listarUltimoAtendimentoEncerradoPorAgencias(agenciaIds),
+    atendimentoController.listarAtendimentosAgenciaAtivos(agenciaIds),
+    atendimentoController.listarUltimoAtendimentoAgenciaEncerrado(agenciaIds),
   ]);
-  const atendimentosPorAgencia = new Map<string, typeof atendimentosAtivos>();
-  for (const registro of atendimentosAtivos) {
-    const atual = atendimentosPorAgencia.get(registro.agenciaId) ?? [];
-    atual.push(registro);
-    atendimentosPorAgencia.set(registro.agenciaId, atual);
-  }
+  const atendimentoAtivoPorAgencia = new Map(
+    atendimentosAtivos.map((registro) => [registro.agenciaId, registro]),
+  );
   const ultimoEncerradoPorAgencia = new Map(
     ultimosAtendimentosEncerrados.map((registro) => [registro.agenciaId, registro]),
   );
@@ -413,7 +413,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     executivoGestor,
                     eventoNome,
                   }) => {
-                    const atendimentos = atendimentosPorAgencia.get(agencia.id) ?? [];
+                    const atendimentoAtivo = atendimentoAtivoPorAgencia.get(agencia.id);
                     const ultimoEncerrado = ultimoEncerradoPorAgencia.get(agencia.id);
                     return (
                       <tr key={agencia.id} className="border-border border-b last:border-0">
@@ -438,18 +438,14 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          {atendimentos[0] ? (
+                          {atendimentoAtivo ? (
                             <>
-                              <span
-                                className="bg-success-bg text-success-text flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
-                                title={atendimentos.map((item) => item.analistaNome).join(", ")}
-                              >
+                              <span className="bg-success-bg text-success-text flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
                                 <UserCog className="size-3" />
-                                {atendimentos[0].analistaNome}
-                                {atendimentos.length > 1 ? ` +${atendimentos.length - 1}` : ""}
+                                {atendimentoAtivo.analistaNome}
                               </span>
                               <p className="text-muted-foreground mt-1 text-xs">
-                                Iniciado: {formatarDataHora(atendimentos[0].assumidoEm)}
+                                Iniciado: {formatarDataHora(atendimentoAtivo.assumidoEm)}
                               </p>
                             </>
                           ) : ultimoEncerrado ? (

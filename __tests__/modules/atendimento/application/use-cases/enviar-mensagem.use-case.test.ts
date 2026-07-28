@@ -4,12 +4,17 @@ import { ForaDaJanela24hError } from "@/modules/atendimento/domain/errors";
 import type { CriarMensagemData } from "@/modules/atendimento/domain/repositories/mensagem-repository";
 import type { MensagemEntity } from "@/modules/atendimento/domain/entities/mensagem.entity";
 import {
+  fakeAtendimentoAgenciaRepository,
   fakeConversa,
   fakeConversaRepository,
   fakeMensagemRepository,
   fakeTemplateWhatsAppRepository,
   fakeWhatsAppMessagingService,
 } from "../../fixtures";
+
+// agenciaId: null em todo fakeConversa deste arquivo — testa a lógica de
+// envio (template/janela 24h), não a trava de atendimento assumido (só
+// vale pra conversa vinculada a agência, ver EnviarMensagemUseCase).
 
 function fakeMensagem(data: Partial<CriarMensagemData> = {}): MensagemEntity {
   return {
@@ -34,12 +39,14 @@ function criarUseCase() {
     findAllAprovados: jest.fn().mockResolvedValue([]),
   });
   const whatsAppMessagingService = fakeWhatsAppMessagingService();
+  const atendimentoAgenciaRepository = fakeAtendimentoAgenciaRepository();
 
   const useCase = new EnviarMensagemUseCase(
     conversaRepository,
     mensagemRepository,
     templateWhatsAppRepository,
     whatsAppMessagingService,
+    atendimentoAgenciaRepository,
   );
 
   return {
@@ -48,6 +55,7 @@ function criarUseCase() {
     mensagemRepository,
     templateWhatsAppRepository,
     whatsAppMessagingService,
+    atendimentoAgenciaRepository,
   };
 }
 
@@ -69,6 +77,7 @@ describe("EnviarMensagemUseCase", () => {
   it("envia texto direto quando a janela de 24h está aberta (mensagem recente do cliente)", async () => {
     const mensagemClienteRecente = fakeMensagem({ autor: "cliente" });
     const conversa = fakeConversa({
+      agenciaId: null,
       mensagens: [
         { ...mensagemClienteRecente, autor: "cliente", createdAt: new Date().toISOString() },
       ],
@@ -103,7 +112,7 @@ describe("EnviarMensagemUseCase", () => {
   });
 
   it("considera a janela fechada quando nunca houve mensagem do cliente", async () => {
-    const conversa = fakeConversa({ mensagens: [] });
+    const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
     const { useCase, conversaRepository, whatsAppMessagingService, templateWhatsAppRepository } =
       criarUseCase();
     (conversaRepository.findById as jest.Mock).mockResolvedValue(conversa);
@@ -123,6 +132,7 @@ describe("EnviarMensagemUseCase", () => {
   it("considera a janela fechada quando a última mensagem do cliente tem mais de 24h", async () => {
     const mensagemAntiga = fakeMensagem({ autor: "cliente" });
     const conversa = fakeConversa({
+      agenciaId: null,
       mensagens: [
         {
           ...mensagemAntiga,
@@ -148,7 +158,7 @@ describe("EnviarMensagemUseCase", () => {
   });
 
   it("com a janela fechada, usa o template quando o conteúdo bate com um aprovado no cache", async () => {
-    const conversa = fakeConversa({ mensagens: [] });
+    const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
     const {
       useCase,
       conversaRepository,
@@ -189,7 +199,7 @@ describe("EnviarMensagemUseCase", () => {
   });
 
   it("lança ForaDaJanela24hError quando a janela está fechada e o texto não bate com nenhum template — não persiste nada", async () => {
-    const conversa = fakeConversa({ mensagens: [] });
+    const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
     const {
       useCase,
       conversaRepository,
@@ -227,7 +237,7 @@ describe("EnviarMensagemUseCase", () => {
   });
 
   it("não chama a Meta para mensagens de mídia enviadas pelo analista (sem upload real na UI ainda)", async () => {
-    const conversa = fakeConversa({ mensagens: [] });
+    const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
     const { useCase, conversaRepository, mensagemRepository, whatsAppMessagingService } =
       criarUseCase();
     (conversaRepository.findById as jest.Mock).mockResolvedValue(conversa);

@@ -460,7 +460,7 @@ export async function iniciarConversaRoute(request: Request) {
       return httpError(parsed.error.issues.map((issue) => issue.message).join(" "), 422);
     }
 
-    const conversa = await atendimentoController.iniciarConversa(parsed.data);
+    const conversa = await atendimentoController.iniciarConversa({ ...parsed.data, analistaId });
     return httpCreated(conversa);
   } catch (error) {
     return mapErrorToResponse(error);

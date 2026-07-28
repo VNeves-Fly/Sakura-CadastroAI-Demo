@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
+import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
+import { HORAS_LIMITE_ASSUMIR } from "@/modules/atendimento/domain/atendimento.constants";
 import {
   Building2,
   Users,
@@ -26,6 +30,7 @@ import {
   CampoDocumento,
   ParecerIa,
   VerificacaoCadastral,
+  HistoricoAtendimentoAgencia,
 } from "@/modules/admin/components/dossie-campos";
 import {
   formatarData,
@@ -91,6 +96,8 @@ import {
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
+  assumirAtendimentoDossieAction,
+  encerrarAtendimentoDossieAction,
 } from "./actions";
 
 // `concluida` default true — Contrato/SICA continuam decorativos (chegar
@@ -216,6 +223,25 @@ export default async function DossieAgenciaPage({
     notFound();
   }
 
+  const session = await getServerSession(nextAuthOptions);
+  const analistaId = session?.user?.id ?? null;
+  const [atendimentoAtual, historicoAtendimento] = await Promise.all([
+    atendimentoController.obterAtendimentoAgenciaAtual(view.agencia.id),
+    atendimentoController.listarHistoricoAtendimentoAgencia(view.agencia.id),
+  ]);
+  const atendimentoAssumidoPorMim = atendimentoAtual?.analistaId === analistaId;
+  const atendidoPorOutro = !!atendimentoAtual && !atendimentoAssumidoPorMim;
+  const horasDesdeAtendimentoAtual = atendimentoAtual
+    ? (Date.now() - atendimentoAtual.assumidoEm.getTime()) / (1000 * 60 * 60)
+    : null;
+  // "Assumir" quando ninguém atende ou o atendimento já passou das 2h de
+  // outro analista; "Puxar" é só rótulo diferente pro mesmo botão nesse
+  // segundo caso (mesma regra de HORAS_LIMITE_ASSUMIR do chat).
+  const podeAssumirAtendimento =
+    !atendimentoAtual ||
+    atendimentoAssumidoPorMim ||
+    (horasDesdeAtendimentoAtual ?? 0) > HORAS_LIMITE_ASSUMIR;
+
   const {
     agencia,
     executivoNome,
@@ -262,6 +288,11 @@ export default async function DossieAgenciaPage({
   // pode agir no cadastro, só consultar.
   const somenteLeituraExterna = searchParams?.leitura === "1";
   const mostrandoEtapaAtual = etapaExibida === indiceTrilha && !somenteLeituraExterna;
+  // Trava real de UI (o backend já garante isso de novo em cada Server
+  // Action, ver garantirAtendimentoAssumido em actions.ts) — só libera
+  // ação quando, além de estar na etapa atual, o analista logado assumiu
+  // o atendimento desta agência (decisão do usuário, 2026-07-28).
+  const podeAgir = mostrandoEtapaAtual && atendimentoAssumidoPorMim;
 
   const indiceComplementar = ETAPAS_PIPELINE.findIndex(
     (etapa) => etapa.status === STATUS_EM_COMPLEMENTAR,
@@ -295,9 +326,43 @@ export default async function DossieAgenciaPage({
   return (
     <div className="flex flex-col gap-4">
       <CadastroDetalheLive agenciaId={params.id} />
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <VoltarButton />
-        <AtendimentoButton agenciaId={agencia.id} />
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground text-xs">
+            {atendimentoAtual ? (
+              <>
+                {atendimentoAssumidoPorMim
+                  ? "Você está atendendo"
+                  : `${atendimentoAtual.analistaNome} está atendendo`}{" "}
+                desde {formatarData(atendimentoAtual.assumidoEm)}
+              </>
+            ) : (
+              "Ninguém atendendo este cadastro"
+            )}
+          </span>
+          {atendimentoAssumidoPorMim ? (
+            <form action={encerrarAtendimentoDossieAction.bind(null, agencia.id)}>
+              <button
+                type="submit"
+                className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-medium transition"
+              >
+                Encerrar atendimento
+              </button>
+            </form>
+          ) : (
+            <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+              >
+                {podeAssumirAtendimento ? "Assumir atendimento" : "Puxar atendimento"}
+              </button>
+            </form>
+          )}
+          <HistoricoAtendimentoAgencia historico={historicoAtendimento} />
+          <AtendimentoButton agenciaId={agencia.id} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl bg-[#fdf1f7] p-5">
@@ -376,7 +441,13 @@ export default async function DossieAgenciaPage({
           <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
             <button
               type="submit"
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition"
+              disabled={!atendimentoAssumidoPorMim}
+              title={
+                atendimentoAssumidoPorMim
+                  ? undefined
+                  : "Assuma o atendimento deste cadastro pra poder reprocessar"
+              }
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reprocessar análise
             </button>
@@ -400,6 +471,22 @@ export default async function DossieAgenciaPage({
           >
             Voltar pra etapa atual
           </Link>
+        </div>
+      ) : !atendimentoAssumidoPorMim ? (
+        <div className="border-primary/30 bg-primary/5 text-primary flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed px-4 py-3 text-sm">
+          <span>
+            {atendidoPorOutro
+              ? `${atendimentoAtual?.analistaNome} está atendendo este cadastro agora — assuma o atendimento pra poder agir.`
+              : "Assuma o atendimento pra poder agir neste cadastro. Visualização de documentos continua liberada."}
+          </span>
+          <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
+            <button
+              type="submit"
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+            >
+              {podeAssumirAtendimento ? "Assumir atendimento" : "Puxar atendimento"}
+            </button>
+          </form>
         </div>
       ) : null}
 
@@ -442,7 +529,7 @@ export default async function DossieAgenciaPage({
                     dadosReceita={dadosReceita}
                     historico={historicoEdicoesEmpresa}
                     editarEmpresaAction={editarEmpresaAction}
-                    disabled={!mostrandoEtapaAtual}
+                    disabled={!podeAgir}
                   />
                 </div>
                 <CamposGrid>
@@ -461,7 +548,7 @@ export default async function DossieAgenciaPage({
                       aprovarDocumentoAction={aprovarDocumentoAction}
                       reprovarDocumentoAction={reprovarDocumentoAction}
                       inserirDocumentoManualAction={inserirDocumentoManualAction}
-                      somenteLeitura={!mostrandoEtapaAtual}
+                      somenteLeitura={!podeAgir}
                       reenviado={
                         contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
                       }
@@ -568,7 +655,7 @@ export default async function DossieAgenciaPage({
                             socio={socio}
                             historico={historicoEdicoesPorSocioId.get(socio.id) ?? []}
                             editarSocioAction={editarSocioAction}
-                            disabled={!mostrandoEtapaAtual}
+                            disabled={!podeAgir}
                           />
                         </div>
                       </div>
@@ -591,7 +678,7 @@ export default async function DossieAgenciaPage({
                             aprovarDocumentoAction={aprovarDocumentoAction}
                             reprovarDocumentoAction={reprovarDocumentoAction}
                             inserirDocumentoManualAction={inserirDocumentoManualAction}
-                            somenteLeitura={!mostrandoEtapaAtual}
+                            somenteLeitura={!podeAgir}
                             reenviado={socio.rg ? idsDocumentosReenviados.has(socio.rg.id) : false}
                           />
                         </Campo>
@@ -611,7 +698,7 @@ export default async function DossieAgenciaPage({
                               aprovarDocumentoAction={aprovarDocumentoAction}
                               reprovarDocumentoAction={reprovarDocumentoAction}
                               inserirDocumentoManualAction={inserirDocumentoManualAction}
-                              somenteLeitura={!mostrandoEtapaAtual}
+                              somenteLeitura={!podeAgir}
                               reenviado={
                                 socio.procuracao
                                   ? idsDocumentosReenviados.has(socio.procuracao.id)
@@ -668,7 +755,7 @@ export default async function DossieAgenciaPage({
                 agenciaId={agencia.id}
                 documentosPendentes={documentosPendentes}
                 solicitarReenvioDocumentosAction={solicitarReenvioDocumentosAction}
-                somenteLeitura={!mostrandoEtapaAtual}
+                somenteLeitura={!podeAgir}
               />
             </div>
           </SecaoColapsavel>
@@ -721,7 +808,7 @@ export default async function DossieAgenciaPage({
                       contratoId={contratoAtual.id}
                       provedorId={contratoAtual.provedorId}
                       origemExterno={contratoAtual.origemGeracao === "externo"}
-                      somenteLeitura={!mostrandoEtapaAtual}
+                      somenteLeitura={!podeAgir}
                     />
                   </Campo>
                   <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
@@ -742,7 +829,7 @@ export default async function DossieAgenciaPage({
                   falso.
                 </div>
 
-                {mostrandoEtapaAtual && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
+                {podeAgir && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
                   <div className="mt-4 flex flex-col gap-3">
                     <p className="text-muted-foreground text-sm">
                       Sem integração automática do D4Sign confirmando a assinatura ainda — registre
@@ -780,7 +867,7 @@ export default async function DossieAgenciaPage({
                 </div>
               ) : null}
 
-              {mostrandoEtapaAtual ? (
+              {podeAgir ? (
                 <div className="flex flex-wrap gap-2">
                   <form action={aprovarComplementarAction.bind(null, agencia.id)}>
                     <button
@@ -878,7 +965,7 @@ export default async function DossieAgenciaPage({
                 salvarTravelLinkAction={salvarTravelLinkAction}
                 validarContratoAction={validarContratoAction}
                 recusarCadastroAction={recusarCadastroAction}
-                somenteLeitura={!mostrandoEtapaAtual}
+                somenteLeitura={!podeAgir}
                 amat={analiseCredito.amat}
                 rawAmat={analiseCredito.rawAmat}
                 historicoAmat={analiseCredito.historicoAmat}
@@ -913,7 +1000,7 @@ export default async function DossieAgenciaPage({
                   agenciaId={agencia.id}
                   representantesLegais={representantesLegais}
                   usuarioMaster={usuarioMasterView}
-                  somenteLeitura={!mostrandoEtapaAtual}
+                  somenteLeitura={!podeAgir}
                   salvarUsuarioMasterAction={salvarUsuarioMasterAction}
                 />
 
@@ -923,7 +1010,7 @@ export default async function DossieAgenciaPage({
                   o código/link em si não é salvo — schema ainda não tem campo pra isso (sinalizando
                   em vez de simular dado falso).
                 </div>
-                {mostrandoEtapaAtual ? (
+                {podeAgir ? (
                   <div className="flex flex-wrap gap-2">
                     <form action={ativarClienteAction.bind(null, agencia.id)}>
                       <button
