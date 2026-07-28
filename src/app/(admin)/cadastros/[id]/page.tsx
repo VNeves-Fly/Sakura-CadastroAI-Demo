@@ -765,7 +765,7 @@ export default async function DossieAgenciaPage({
             </>
           ) : null}
 
-          {etapaExibida === indiceComplementar ? (
+          {etapaExibida === indiceComplementar && !contratoAtual ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
                 A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum

@@ -1055,6 +1055,12 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
   }
 
   const emAnalise = parecer.resultado === "EM_ANALISE";
+  // Aprovado pela IA já significa que informações e documentação bateram com
+  // as regras de aprovação (é por isso que o contrato foi gerado) — mostrar
+  // pontosDeAlerta/gruposParaChecar aqui daria a entender que há pendência
+  // num cadastro que já passou, mesmo quando o agente registrou alguma
+  // inconsistência menor não-bloqueante junto com o veredito de aprovação.
+  const precisaRevisao = parecer.resultado !== "APROVADO";
 
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -1073,7 +1079,7 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
 
       {parecer.motivo ? <p className="text-foreground">{parecer.motivo}</p> : null}
 
-      {parecer.pontosDeAlerta.length > 0 ? (
+      {precisaRevisao && parecer.pontosDeAlerta.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           <SubsecaoLabel>Pontos de alerta</SubsecaoLabel>
           <ul className="text-warning list-inside list-disc text-xs">
@@ -1084,7 +1090,7 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
         </div>
       ) : null}
 
-      {parecer.gruposParaChecar.length > 0 ? (
+      {precisaRevisao && parecer.gruposParaChecar.length > 0 ? (
         <div className="flex flex-col gap-3">
           <SubsecaoLabel>O que o analista precisa checar</SubsecaoLabel>
           {parecer.gruposParaChecar.map((grupo) => (
