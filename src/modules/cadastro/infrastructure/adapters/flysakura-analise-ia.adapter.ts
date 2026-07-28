@@ -16,6 +16,7 @@ import {
   flysakuraBaseUrl,
   requireFlysakuraApiKey,
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-http.util";
+import { sanitizarUnicodeParaJsonb } from "@/modules/shared/utils/sanitizar-unicode-jsonb.util";
 
 // Integração real com o agente de análise da Sakura
 // (https://agents.flysakura.com/redoc) — POST /api/v1/agency-analysis/sync
@@ -110,18 +111,25 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       throw new Error(`agency-analysis respondeu ${response.status}: ${await response.text()}`);
     }
 
-    const resultado = (await response.json()) as {
-      parecer: "APROVADO" | "PENDENTE" | "REPROVADO" | null;
-      justificativa: string;
-      flags_risco: string[];
-      stage1?: RawStage1 | null;
-      stage2?: RawStage2 | null;
-      stage3?: {
-        documentos_empresa?: RawDocumentoDetalhe[];
-        socios?: RawSocioDetalhe[];
-      };
-      raw_data?: AnaliseIaRawData | null;
-    };
+    // Saneado antes de qualquer mapeamento: stage1/stage2/stage3/raw_data vêm
+    // de fontes externas (AMAT/SOFIA, via agents.flysakura.com) que já
+    // quebraram o upsert em produção com "22P05 unsupported Unicode escape
+    // sequence" — NUL/surrogate solto em algum campo de texto, algo que o
+    // tipo jsonb do Postgres não aceita mesmo sendo JSON válido.
+    const resultado = sanitizarUnicodeParaJsonb(
+      (await response.json()) as {
+        parecer: "APROVADO" | "PENDENTE" | "REPROVADO" | null;
+        justificativa: string;
+        flags_risco: string[];
+        stage1?: RawStage1 | null;
+        stage2?: RawStage2 | null;
+        stage3?: {
+          documentos_empresa?: RawDocumentoDetalhe[];
+          socios?: RawSocioDetalhe[];
+        };
+        raw_data?: AnaliseIaRawData | null;
+      },
+    );
 
     return {
       aprovado: resultado.parecer === "APROVADO",

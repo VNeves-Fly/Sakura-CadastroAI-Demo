@@ -68,12 +68,12 @@ class PostgresRealtimeListener {
 
     client
       .connect()
-      .then(() =>
-        Promise.all([
-          client.query(`LISTEN ${CANAL_CADASTRO}`),
-          client.query(`LISTEN ${CANAL_ATENDIMENTO}`),
-        ]),
-      )
+      // Uma só query (não Promise.all de duas): client é um pg.Client dedicado,
+      // não um Pool — duas chamadas concorrentes no mesmo Client disparam
+      // "Calling client.query() when the client is already executing a query
+      // is deprecated" (e vai virar erro no pg@9). Sem parâmetros, então o
+      // protocolo simple query aceita os dois LISTEN separados por ";".
+      .then(() => client.query(`LISTEN ${CANAL_CADASTRO}; LISTEN ${CANAL_ATENDIMENTO}`))
       .then(() => {
         this.client = client;
         this.conectando = false;

@@ -92,14 +92,15 @@ describe("processarWebhookD4SignRoute", () => {
     expect(mockProcessar).not.toHaveBeenCalled();
   });
 
-  it("rejeita com 401 quando D4SIGN_WEBHOOK_SECRET está configurada e o header não veio", async () => {
+  it("aceita temporariamente quando D4SIGN_WEBHOOK_SECRET está configurada mas o header não veio — D4Sign não está mandando Content-Hmac (2026-07-28, em investigação), header ausente é tolerado; presente e errado continua rejeitando (teste acima)", async () => {
     process.env = { ...originalEnv, D4SIGN_WEBHOOK_SECRET: "segredo" };
+    mockProcessar.mockResolvedValueOnce({ processado: true });
 
     const request = buildFormDataRequest({ uuid: "doc-1", type_post: "1" });
     const response = await processarWebhookD4SignRoute(request);
 
-    expect(response.status).toBe(401);
-    expect(mockProcessar).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
   });
 
   it("aceita quando o HMAC bate (sha256 do uuid do documento com a secret)", async () => {

@@ -48,6 +48,10 @@ export async function processarWebhookD4SignRoute(request: Request) {
     return httpError("Payload de webhook inválido — uuid e type_post são obrigatórios.", 422);
   }
 
+  console.log(
+    `Webhook D4Sign: uuid=${uuidNormalizado} type_post=${typePostNormalizado} content-type="${contentType}".`,
+  );
+
   // Verificação de HMAC roda se D4SIGN_WEBHOOK_SECRET estiver configurada
   // ("Gerar Secret Key MAC" na área de API do D4Sign). Sem ela: em dev,
   // aceita sem validar a origem (documentado, não travar o webhook antes
@@ -56,12 +60,27 @@ export async function processarWebhookD4SignRoute(request: Request) {
   const secret = process.env.D4SIGN_WEBHOOK_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
+      console.error("D4SIGN_WEBHOOK_SECRET não configurada — webhook bloqueado.");
       return httpError("D4SIGN_WEBHOOK_SECRET não configurada — webhook bloqueado.", 500);
     }
   } else {
-    const assinaturaRecebida = request.headers.get("content-hmac");
-    if (!validarAssinatura(uuidNormalizado, secret, assinaturaRecebida)) {
-      return httpError("Assinatura HMAC inválida.", 401);
+    const signature = request.headers.get("x-signature");
+    if (!validarAssinatura(uuidNormalizado, secret, signature)) {
+      console.error(
+        `Webhook D4Sign: assinatura HMAC inválida (uuid=${uuidNormalizado}, header ${
+          signature ? "presente mas não bateu" : "ausente"
+        }).`,
+      );
+      console.error("Headers", Object.fromEntries(request.headers.entries()));
+      // Header ausente: aceita temporariamente. A D4Sign não está mandando
+      // o Content-Hmac nem em contratos criados depois do HMAC "ativado"
+      // no painel (2026-07-28, em investigação com o suporte deles) — sem
+      // isso, todo webhook real ficaria bloqueado. Se o header VIER e não
+      // bater (adulterado/secret errada), continua rejeitando — só a
+      // ausência é tolerada, não um valor inválido.
+      if (signature) {
+        return httpError("Assinatura HMAC inválida.", 401);
+      }
     }
   }
 

@@ -430,6 +430,41 @@ describe("FlysakuraAnaliseIaAdapter", () => {
     });
   });
 
+  it("remove NUL/surrogate solto do raw_data antes de repassar (evita 22P05 no upsert)", async () => {
+    const NUL = String.fromCharCode(0);
+    const SURROGATE_SOLTO = String.fromCharCode(0xd800);
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parecer: "APROVADO",
+        justificativa: "",
+        flags_risco: [],
+        raw_data: {
+          amat: [
+            {
+              tool: "search_amat_debts",
+              args: { documento: "39053344705" },
+              output: { credor: `Banco${NUL} X${SURROGATE_SOLTO}` },
+            },
+          ],
+        },
+      }),
+    });
+
+    const resultado = await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    expect(resultado.rawData).toEqual({
+      amat: [
+        {
+          tool: "search_amat_debts",
+          args: { documento: "39053344705" },
+          output: { credor: "Banco X" },
+        },
+      ],
+    });
+  });
+
   it("lança erro descritivo quando o agente responde erro (ex: 'agent_execution_failed')", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
