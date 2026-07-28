@@ -1,4 +1,5 @@
 import type { DadosReceitaEndereco } from "@/modules/cadastro/domain/entities/dados-receita.entity";
+import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 
 // Extraído de dossie-campos.tsx (que é "use client") porque estas funções
 // puras precisam ser chamadas direto durante o render de Server Components
@@ -46,4 +47,16 @@ export function formatarEnderecoReceita(endereco: DadosReceitaEndereco | null): 
   if (!endereco || !endereco.logradouro) return "—";
   const complemento = endereco.complemento ? `, ${endereco.complemento}` : "";
   return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro ?? "—"}, ${endereco.cidade ?? "—"}/${endereco.uf ?? "—"}`;
+}
+
+// Fundo do Campo de Contrato Social/RG-CNH/Procuração conforme a decisão
+// do analista — verde aprovado, vermelho reprovado, amarelo enquanto
+// ainda pendente (documento enviado, aguardando revisão em Complementar,
+// ver PENDENTE em Arquivo) — decisão do usuário, 2026-07-27. `null`
+// (nenhum arquivo enviado ainda) mantém o fundo neutro de sempre.
+export function corFundoDocumento(documento: Documento | null): string {
+  if (!documento) return "bg-card";
+  if (documento.status === "APROVADO") return "bg-success-bg";
+  if (documento.status === "REPROVADO") return "bg-destructive-bg";
+  return "bg-warning-bg";
 }

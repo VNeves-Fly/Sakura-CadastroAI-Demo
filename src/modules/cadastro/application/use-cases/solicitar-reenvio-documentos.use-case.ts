@@ -6,6 +6,7 @@ import type { EmailSender } from "@/modules/shared/domain/services/email-sender"
 export interface SolicitarReenvioDocumentosInput {
   agenciaId: string;
   documentoIds: string[];
+  baseUrl: string;
 }
 
 const LABEL_TIPO: Record<string, string> = {
@@ -13,10 +14,6 @@ const LABEL_TIPO: Record<string, string> = {
   RG_CNPJ: "RG/CNH",
   PROCURACAO: "Procuração",
 };
-
-function urlBase(): string {
-  return process.env.APP_URL ?? "http://localhost:3000";
-}
 
 // Notifica a agência (e-mail de contato do cadastro) sobre os documentos
 // reprovados que precisam de reenvio, com o link da página pública onde
@@ -64,7 +61,7 @@ export class SolicitarReenvioDocumentosUseCase implements UseCase<
       throw new DomainError("Nenhum dos documentos selecionados pertence a esta agência.");
     }
 
-    const link = `${urlBase()}/cadastro/documentos-pendentes/${input.agenciaId}`;
+    const link = `${input.baseUrl}/cadastro/documentos-pendentes/${input.agenciaId}`;
     const listaHtml = itens.map((item) => `<li>${item}</li>`).join("");
 
     // Best-effort de verdade: falha de envio (SMTP fora do ar, credencial

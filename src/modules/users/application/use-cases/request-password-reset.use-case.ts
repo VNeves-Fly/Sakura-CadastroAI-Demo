@@ -8,10 +8,7 @@ import { OTP_TTL_MINUTES } from "@/modules/users/domain/password-reset.constants
 
 export interface RequestPasswordResetInput {
   email: string;
-}
-
-function urlBase(): string {
-  return process.env.APP_URL ?? "http://localhost:3000";
+  baseUrl: string;
 }
 
 function buildHtml(firstName: string, codigo: string, link: string): string {
@@ -56,7 +53,7 @@ export class RequestPasswordResetUseCase implements UseCase<RequestPasswordReset
       expiraEm,
     });
 
-    const link = `${urlBase()}/redefinir-senha/${token}`;
+    const link = `${input.baseUrl}/redefinir-senha/${token}`;
 
     // E-mail é best-effort: falha no envio não pode vazar informação nem
     // derrubar o fluxo (mesma postura de CreateUserUseCase com o e-mail de

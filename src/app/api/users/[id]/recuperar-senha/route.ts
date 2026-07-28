@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { requestPasswordResetForUserRoute } from "@/modules/users/presentation/routes/users.routes";
+import { obterUrlBase } from "@/modules/shared/utils/url-base.util";
 
 /**
  * @swagger
@@ -27,12 +28,12 @@ import { requestPasswordResetForUserRoute } from "@/modules/users/presentation/r
  *       429:
  *         description: Muitas tentativas
  */
-export async function POST(_request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(nextAuthOptions);
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
 
-  return requestPasswordResetForUserRoute(params.id);
+  return requestPasswordResetForUserRoute(params.id, obterUrlBase(request.headers));
 }

@@ -1,20 +1,8 @@
 // Hierarquia comercial: Agência (cliente final) atendida por um
 // Executivo, que responde a um Gestor, que responde ao Diretor. Bases
 // agrupam agências/cidades de uma região. Dados de origem: planilha real
-// "MAPA COMERCIAL GESTORES" (aba MAPA_COMERCIAL_FINAL) — usada como mock
-// por enquanto (decisão do usuário, 2026-07-23), sem tabela própria no
-// banco ainda.
-
-export interface Cidade {
-  regiao: string | null;
-  estado: string | null;
-  cidade: string;
-  ddd: string | null;
-  base: string | null;
-  executivo: string | null;
-  gestor: string | null;
-  subregiaoSp: string | null;
-}
+// "MAPA COMERCIAL GESTORES" (aba MAPA_COMERCIAL_FINAL), na tabela
+// CidadeComercial — ver domain/entities/cidade-comercial.entity.ts.
 
 export interface ResumoRegiao {
   regiao: string;
@@ -67,8 +55,10 @@ export interface ResumoGestor {
   telefone: string | null;
 }
 
+export type TipoAtribuicao = "executivo" | "gestor" | "base";
+
 export interface SubstituicaoHistorico {
-  tipo: "executivo" | "gestor" | "base";
+  tipo: TipoAtribuicao;
   nomeAntigo: string;
   nomeNovo: string;
   totalCidadesAfetadas: number;

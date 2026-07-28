@@ -4,9 +4,8 @@ import {
   agregarExecutivos,
   agregarGestores,
   agregarBases,
-  carregarCidades,
 } from "@/modules/atribuicoes/utils/agregacoes.util";
-import { obterHistorico } from "@/modules/atribuicoes/services/atribuicoes-store";
+import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 
 type Tipo = "executivo" | "gestor" | "base";
 
@@ -38,13 +37,13 @@ function normalizarTipo(valor: string | undefined): Tipo {
   return "executivo";
 }
 
-export default function SubstituirPage({ searchParams }: SubstituirPageProps) {
+export default async function SubstituirPage({ searchParams }: SubstituirPageProps) {
   const tipo = normalizarTipo(searchParams.tipo);
   const nome = searchParams.nome ?? "";
   const erro = searchParams.erro ? (MENSAGENS_ERRO[searchParams.erro] ?? searchParams.erro) : null;
   const label = LABEL_TIPO[tipo];
 
-  const todasCidades = carregarCidades();
+  const todasCidades = await atribuicoesAdminController.listarCidades();
   const executivos = agregarExecutivos(todasCidades);
   const gestores = agregarGestores(todasCidades);
   const bases = agregarBases(todasCidades);
@@ -63,7 +62,8 @@ export default function SubstituirPage({ searchParams }: SubstituirPageProps) {
         ? bases.map((item) => item.base).filter((item) => item !== nome)
         : executivos.map((item) => item.executivo).filter((item) => item !== nome);
 
-  const historico = obterHistorico().filter((item) => item.tipo === tipo);
+  const historicoTodos = await atribuicoesAdminController.listarHistoricoAtribuicoes();
+  const historico = historicoTodos.filter((item) => item.tipo === tipo);
 
   if (!nome || !resumoAtual) {
     return (

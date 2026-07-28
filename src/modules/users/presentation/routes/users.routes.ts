@@ -7,6 +7,7 @@ import {
   RateLimitError,
 } from "@/modules/shared/domain/errors";
 import { obterIpCliente, verificarRateLimit } from "@/modules/shared/infrastructure/rate-limiter";
+import { obterUrlBase } from "@/modules/shared/utils/url-base.util";
 import { usersController } from "@/modules/users/presentation/controllers/users.controller";
 import { createUserSchema } from "@/modules/users/application/dto/create-user.schema";
 import { changePasswordSchema } from "@/modules/users/application/dto/change-password.schema";
@@ -106,21 +107,24 @@ export async function requestPasswordResetRoute(request: Request) {
     }
 
     // Sempre 200 em input válido — nunca revela se o e-mail existe.
-    await usersController.requestPasswordReset(parsed.data);
+    await usersController.requestPasswordReset({
+      ...parsed.data,
+      baseUrl: obterUrlBase(request.headers),
+    });
     return httpOk({ success: true });
   } catch (error) {
     return mapErrorToResponse(error);
   }
 }
 
-export async function requestPasswordResetForUserRoute(userId: string) {
+export async function requestPasswordResetForUserRoute(userId: string, baseUrl: string) {
   try {
     const chaveRateLimit = `admin-recuperar-senha:${userId}`;
     if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ADMIN_RECUPERAR_SENHA)) {
       throw new RateLimitError();
     }
 
-    await usersController.requestPasswordResetForUser(userId);
+    await usersController.requestPasswordResetForUser(userId, baseUrl);
     return httpOk({ success: true });
   } catch (error) {
     return mapErrorToResponse(error);

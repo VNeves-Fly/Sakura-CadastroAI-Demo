@@ -4,6 +4,7 @@ import { seedAdminUser } from "./seeds/admin-user";
 import { seedSignatariosPadrao } from "./seeds/signatarios-padrao";
 import { seedPromotores } from "./seeds/promotores";
 import { seedAssociacoes } from "./seeds/associacoes";
+import { seedCidadesComerciais } from "./seeds/cidades-comerciais";
 
 // O driver `pg` não interpreta `?schema=` da connection string (só o engine
 // antigo do Prisma fazia isso) — precisa repassar explicitamente pro
@@ -21,6 +22,7 @@ async function main() {
   await seedSignatariosPadrao(prisma);
   await seedPromotores(prisma);
   await seedAssociacoes(prisma);
+  await seedCidadesComerciais(prisma);
 }
 
 main()
