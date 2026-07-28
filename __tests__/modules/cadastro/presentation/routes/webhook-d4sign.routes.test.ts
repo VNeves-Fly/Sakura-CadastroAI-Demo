@@ -171,6 +171,80 @@ describe("processarWebhookD4SignRoute", () => {
     expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
   });
 
+  it("aceita type_post como número no JSON do webhook 2.0 (form-data só produz string, mas JSON pode servir number) e normaliza pra string", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    const request = new Request("http://localhost/api/webhooks/d4sign", {
+      method: "POST",
+      body: JSON.stringify({ uuid: "doc-1", type_post: 1 }),
+      headers: { "content-type": "application/json" },
+    });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({ provedorId: "doc-1", typePost: "1" });
+  });
+
+  it("extrai o e-mail de signer.email no JSON do webhook 2.0 (typePost 4 — não vem em email na raiz)", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    const request = new Request("http://localhost/api/webhooks/d4sign", {
+      method: "POST",
+      body: JSON.stringify({
+        uuid: "doc-1",
+        type_post: "4",
+        message: "Signed",
+        signer: { uuid: "signer-uuid", email: "cadastro@sakuratur.com.br" },
+      }),
+      headers: { "content-type": "application/json" },
+    });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({
+      provedorId: "doc-1",
+      typePost: "4",
+      email: "cadastro@sakuratur.com.br",
+      message: "Signed",
+    });
+  });
+
+  it("monta message a partir de error_details no JSON do webhook 2.0 (typePost 2 — message na raiz é só um rótulo fixo)", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.D4SIGN_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    const request = new Request("http://localhost/api/webhooks/d4sign", {
+      method: "POST",
+      body: JSON.stringify({
+        uuid: "doc-1",
+        type_post: "2",
+        message: "E-mail not sent",
+        signer: { uuid: "signer-uuid", email: "socio@agencia.com" },
+        error_details: {
+          category: "Mailbox unavailable",
+          reason: "Caixa de entrada cheia",
+          smtp_code: "552",
+          diagnostic_message: "5.2.2 mailbox full",
+        },
+      }),
+      headers: { "content-type": "application/json" },
+    });
+    const response = await processarWebhookD4SignRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({
+      provedorId: "doc-1",
+      typePost: "2",
+      email: "socio@agencia.com",
+      message: "Mailbox unavailable — Caixa de entrada cheia — 5.2.2 mailbox full",
+    });
+  });
+
   it("retorna 422 (não 500) quando o corpo não é decodificável no content-type declarado, em vez de derrubar a rota", async () => {
     process.env = { ...originalEnv };
     delete process.env.D4SIGN_WEBHOOK_SECRET;

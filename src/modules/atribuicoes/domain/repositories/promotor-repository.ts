@@ -7,4 +7,7 @@ export interface PromotorRepository {
   // Resolve o promotor dono de um link pessoal (parâmetro `?executivo=`
   // do cadastro público) — usado na atribuição automática de agência.
   findByLinkExecutivoId(uuid: string): Promise<Promotor | null>;
+  // Busca por e-mail (campo único) — usado na página pública onde o
+  // executivo recupera o próprio link de cadastro.
+  findByEmail(email: string): Promise<Promotor | null>;
 }

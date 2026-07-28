@@ -261,7 +261,9 @@ Usado só pra limpar os testes acima (não faz parte do fluxo do adapter).
 
 ## 8. Webhook recebido — `POST /api/webhooks/d4sign` (rota nossa)
 
-D4Sign manda o webhook em **form-data**, não JSON (confirmado na doc oficial). Como não temos URL pública em dev, testamos a rota com payloads sintéticos idênticos ao formato documentado, contra um registro de teste no banco.
+D4Sign manda o webhook em **form-data**, não JSON, na doc oficial genérica (formato 1.0). Como não temos URL pública em dev, testamos a rota com payloads sintéticos idênticos ao formato documentado, contra um registro de teste no banco.
+
+**A conta em uso está com "Webhook 2.0" ativado e Content-Type configurado como JSON** (confirmado no painel D4Sign, 2026-07-28) — não o form-data 1.0 acima. O JSON do 2.0 não é tão plano quanto o form-data: `email` do signatário vem aninhado em `signer.email` pros eventos `type_post` "2"/"4" (`signers[]`, lista, no "1" — não usado hoje), e o motivo de falha de e-mail (típo "2") vem estruturado em `error_details.{category,reason,smtp_code,diagnostic_message}`, não em `message` (que ali é só um rótulo fixo, "E-mail not sent"). Exemplos completos: `docapi.d4sign.com.br/docs/webhook-postback#retornos-enviados-para-a-sua-url-via-post-webhook-versão-20`. `webhook-d4sign.routes.ts` (`extrairCamposJson`) já trata esse aninhamento; `extrairCamposFormData` continua no formato 1.0 plano documentado abaixo, usado só como fallback quando o Content-Type recebido não é JSON. `type_post` também é aceito como number além de string (o parser de form-data só produz string, mas nada garante que o JSON sempre sirva string).
 
 **Teste A — documento finalizado (`type_post=1`):**
 

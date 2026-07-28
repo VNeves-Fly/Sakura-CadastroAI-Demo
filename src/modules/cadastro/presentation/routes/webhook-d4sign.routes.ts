@@ -13,6 +13,16 @@ import { webhookD4SignController } from "@/modules/cadastro/presentation/control
 // único formato, decide pelo Content-Type recebido e nunca deixa o parse
 // derrubar a rota com 500 — um erro nosso de parsing não some com retry
 // (D4Sign reenvia por ~27h só ajuda pra falha transitória do lado deles).
+//
+// A conta em uso tem "Webhook 2.0" ativado com Content-Type JSON (painel
+// D4Sign). No JSON do 2.0 o formato NÃO é tão plano quanto o form-data do
+// 1.0 documentado: `email` do signatário vem aninhado em `signer.email`
+// pros eventos "2"/"4" (não em `email` na raiz), e o motivo real da falha
+// de e-mail (típo "2") vem em `error_details`, não em `message` (que é só
+// um rótulo fixo, "E-mail not sent"). Ver
+// docapi.d4sign.com.br/docs/webhook-postback#retornos-enviados-para-a-sua-url-via-post-webhook-versão-20.
+// `extrairCamposJson` trata isso; `extrairCamposFormData` fica no formato
+// 1.0 plano, que é o fallback pra content-type que não é JSON.
 export async function processarWebhookD4SignRoute(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   const campos = contentType.includes("application/json")
@@ -26,7 +36,15 @@ export async function processarWebhookD4SignRoute(request: Request) {
 
   const { uuid, typePost, email, message } = campos;
 
-  if (typeof uuid !== "string" || typeof typePost !== "string") {
+  // No form-data todo campo chega como string, mas no JSON do webhook 2.0
+  // a D4Sign pode servir type_post como número — aceita os dois e normaliza.
+  const uuidNormalizado = normalizarCampoTexto(uuid);
+  const typePostNormalizado = normalizarCampoTexto(typePost);
+
+  if (uuidNormalizado === null || typePostNormalizado === null) {
+    console.error(
+      `Webhook D4Sign: uuid/type_post inválidos — uuid=${JSON.stringify(uuid)} (${typeof uuid}), type_post=${JSON.stringify(typePost)} (${typeof typePost}).`,
+    );
     return httpError("Payload de webhook inválido — uuid e type_post são obrigatórios.", 422);
   }
 
@@ -42,14 +60,14 @@ export async function processarWebhookD4SignRoute(request: Request) {
     }
   } else {
     const assinaturaRecebida = request.headers.get("content-hmac");
-    if (!validarAssinatura(uuid, secret, assinaturaRecebida)) {
+    if (!validarAssinatura(uuidNormalizado, secret, assinaturaRecebida)) {
       return httpError("Assinatura HMAC inválida.", 401);
     }
   }
 
   const resultado = await webhookD4SignController.processar({
-    provedorId: uuid,
-    typePost,
+    provedorId: uuidNormalizado,
+    typePost: typePostNormalizado,
     ...(typeof email === "string" ? { email } : {}),
     ...(typeof message === "string" ? { message } : {}),
   });
@@ -58,6 +76,12 @@ export async function processarWebhookD4SignRoute(request: Request) {
   // queremos retry pra eventos que já reconhecemos e decidimos ignorar
   // (ex.: type_post de e-mail não entregue).
   return httpOk(resultado);
+}
+
+function normalizarCampoTexto(valor: unknown): string | null {
+  if (typeof valor === "string") return valor;
+  if (typeof valor === "number") return String(valor);
+  return null;
 }
 
 interface CamposWebhookD4Sign {
@@ -86,9 +110,24 @@ async function extrairCamposJson(request: Request): Promise<CamposWebhookD4Sign 
   return {
     uuid: body.uuid,
     typePost: body.type_post,
-    email: body.email,
-    message: body.message,
+    email: extrairEmailSignatarioJson(body),
+    message: extrairMensagemJson(body),
   };
+}
+
+function extrairEmailSignatarioJson(body: Record<string, unknown>): unknown {
+  const signer = body.signer as Record<string, unknown> | undefined;
+  return signer?.email ?? body.email;
+}
+
+function extrairMensagemJson(body: Record<string, unknown>): unknown {
+  const detalhes = body.error_details as Record<string, unknown> | undefined;
+  if (!detalhes) return body.message;
+
+  const partes = [detalhes.category, detalhes.reason, detalhes.diagnostic_message].filter(
+    (parte): parte is string => typeof parte === "string" && parte.length > 0,
+  );
+  return partes.length > 0 ? partes.join(" — ") : body.message;
 }
 
 function validarAssinatura(documentUuid: string, secret: string, header: string | null): boolean {
