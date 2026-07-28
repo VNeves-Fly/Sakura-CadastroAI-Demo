@@ -67,17 +67,40 @@ export function Campo({
 // fundo aparece como um fio de 1px em toda borda de célula, mesmo com
 // grid quebrando linha (divide-x/divide-y não dá conta disso num grid
 // que quebra, só em sequência linear).
+function ehColSpan2(item: ReactNode): boolean {
+  if (!isValidElement(item)) return false;
+  const className = (item.props as { className?: string }).className ?? "";
+  return className.includes("col-span-2");
+}
+
 export function CamposGrid({ children, className }: { children: ReactNode; className?: string }) {
-  // Número ímpar de Campo deixa uma célula vazia no grid de 2 colunas —
-  // sem elemento nenhum ali, só o bg-border do container aparecendo
-  // como um bloco sólido feio. Corrige esticando o último Campo pra
-  // ocupar a linha inteira nesse caso.
+  // Um Campo com "sm:col-span-2" no meio da lista (ex.: Endereço logo
+  // depois de um número ímpar de Campos de 1 coluna) deixa a coluna
+  // anterior sem par — célula vazia no grid, sem elemento nenhum ali, só
+  // o bg-border do container aparecendo como um bloco sólido feio.
+  // Preenche essa lacuna com uma célula vazia antes de esticar o item,
+  // rastreando a coluna corrente conforme a largura real de cada Campo.
   const itens = Children.toArray(children);
+  const itensComPreenchimento: ReactNode[] = [];
+  let coluna = 0;
+
+  itens.forEach((item, index) => {
+    const largura = ehColSpan2(item) ? 2 : 1;
+    if (largura === 2 && coluna === 1) {
+      itensComPreenchimento.push(<div key={`preenchimento-${index}`} className="bg-card" />);
+      coluna = 0;
+    }
+    itensComPreenchimento.push(item);
+    coluna = (coluna + largura) % 2;
+  });
+
+  // Mesma lógica de sempre pro caso de terminar em coluna ímpar: estica
+  // o último Campo pra ocupar a linha inteira.
   const itensAjustados =
-    itens.length % 2 === 0
-      ? itens
-      : itens.map((item, index) => {
-          if (index !== itens.length - 1 || !isValidElement(item)) return item;
+    coluna === 0
+      ? itensComPreenchimento
+      : itensComPreenchimento.map((item, index) => {
+          if (index !== itensComPreenchimento.length - 1 || !isValidElement(item)) return item;
           const elemento = item as ReactElement<{ className?: string }>;
           return cloneElement(elemento, {
             className: `${elemento.props.className ?? ""} sm:col-span-2`,

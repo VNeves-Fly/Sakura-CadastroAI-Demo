@@ -113,9 +113,10 @@ const COLUNAS_ORDENAVEIS = [
 ] as const;
 
 function diasAtras(data: Date): string {
-  const dias = Math.floor((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+  const inicioDoDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((inicioDoDia(new Date()) - inicioDoDia(data)) / (1000 * 60 * 60 * 24));
   if (dias <= 0) return "hoje";
-  if (dias === 1) return "1d atrás";
+  if (dias === 1) return "ontem";
   return `${dias}d atrás`;
 }
 
