@@ -2,11 +2,13 @@ import { NotFoundError } from "@/modules/shared/domain/errors";
 import { HORAS_JANELA_ATENDIMENTO_META } from "@/modules/atendimento/domain/atendimento.constants";
 import { ForaDaJanela24hError } from "@/modules/atendimento/domain/errors";
 import type { MensagemEntity } from "@/modules/atendimento/domain/entities/mensagem.entity";
+import type { AtendimentoAgenciaRepository } from "@/modules/atendimento/domain/repositories/atendimento-agencia-repository";
 import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
 import type { MensagemRepository } from "@/modules/atendimento/domain/repositories/mensagem-repository";
 import type { TemplateWhatsAppRepository } from "@/modules/atendimento/domain/repositories/template-whatsapp-repository";
 import type { WhatsAppMessagingService } from "@/modules/atendimento/domain/services/whatsapp-messaging-service";
 import type { EnviarMensagemInput } from "@/modules/atendimento/application/dto/enviar-mensagem.dto";
+import { garantirAtendimentoAssumido } from "@/modules/atendimento/application/shared/garantir-atendimento-assumido";
 
 function janela24hFechada(ultimaMensagemClienteEm: string | null): boolean {
   if (!ultimaMensagemClienteEm) return true;
@@ -20,11 +22,24 @@ export class EnviarMensagemUseCase {
     private readonly mensagemRepository: MensagemRepository,
     private readonly templateWhatsAppRepository: TemplateWhatsAppRepository,
     private readonly whatsAppMessagingService: WhatsAppMessagingService,
+    private readonly atendimentoAgenciaRepository: AtendimentoAgenciaRepository,
   ) {}
 
   async execute(input: EnviarMensagemInput): Promise<MensagemEntity> {
     const conversa = await this.conversaRepository.findById(input.conversaId);
     if (!conversa) throw new NotFoundError("Conversa");
+
+    // Conversa de contato não identificado (agenciaId null) não tem
+    // agência nenhuma pra travar — só conversas vinculadas exigem
+    // atendimento assumido antes de mandar mensagem (decisão do usuário,
+    // 2026-07-28).
+    if (conversa.agenciaId) {
+      await garantirAtendimentoAssumido(
+        this.atendimentoAgenciaRepository,
+        conversa.agenciaId,
+        input.analistaId,
+      );
+    }
 
     let waMessageId: string | undefined;
 

@@ -453,6 +453,33 @@ describe("AnalisarCadastroUseCase", () => {
     );
   });
 
+  it("aprova o contrato social sozinho quando só ele passa na checagem individual (RG do sócio reprovado não deve travar o contrato social em pendente)", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, documentoRepository } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+      documentAnalysisService: criarDocumentAnalysisFake({
+        analisar: jest
+          .fn()
+          .mockImplementation(async (input) =>
+            input.documentType === "doc_identificacao"
+              ? { ...ANALISE_VAZIA, parecer: "REPROVADO" }
+              : ANALISE_VAZIA,
+          ),
+      }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    expect(documentoRepository.atualizarStatus).toHaveBeenCalledWith(
+      "doc-contrato-1",
+      expect.objectContaining({ status: "APROVADO", aprovadoPor: "IA (aprovação automática)" }),
+    );
+    expect(documentoRepository.atualizarStatus).not.toHaveBeenCalledWith(
+      "doc-rg-1",
+      expect.anything(),
+    );
+  });
+
   it("quando a IA aprova o cadastro e todos os documentos são aprovados na checagem individual, aprova cada documento automaticamente", async () => {
     const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
     const { useCase, documentoRepository } = criarUseCase({

@@ -1055,6 +1055,12 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
   }
 
   const emAnalise = parecer.resultado === "EM_ANALISE";
+  // Aprovado pela IA já significa que informações e documentação bateram com
+  // as regras de aprovação (é por isso que o contrato foi gerado) — mostrar
+  // pontosDeAlerta/gruposParaChecar aqui daria a entender que há pendência
+  // num cadastro que já passou, mesmo quando o agente registrou alguma
+  // inconsistência menor não-bloqueante junto com o veredito de aprovação.
+  const precisaRevisao = parecer.resultado !== "APROVADO";
 
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -1073,7 +1079,7 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
 
       {parecer.motivo ? <p className="text-foreground">{parecer.motivo}</p> : null}
 
-      {parecer.pontosDeAlerta.length > 0 ? (
+      {precisaRevisao && parecer.pontosDeAlerta.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           <SubsecaoLabel>Pontos de alerta</SubsecaoLabel>
           <ul className="text-warning list-inside list-disc text-xs">
@@ -1084,7 +1090,7 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
         </div>
       ) : null}
 
-      {parecer.gruposParaChecar.length > 0 ? (
+      {precisaRevisao && parecer.gruposParaChecar.length > 0 ? (
         <div className="flex flex-col gap-3">
           <SubsecaoLabel>O que o analista precisa checar</SubsecaoLabel>
           {parecer.gruposParaChecar.map((grupo) => (
@@ -1153,6 +1159,48 @@ export function HistoricoDocumento({ historico }: { historico: DocumentoRevisao[
                 {item.reprovadoPor ? ` — reprovado por ${item.reprovadoPor}` : ""}
               </p>
             ) : null}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+// Últimos analistas que assumiram o atendimento da agência (não da
+// conversa — ver AtendimentoAgencia) — quem, quando assumiu e quando
+// liberou (ou "em andamento", se ainda ativo). A tag/trava só mostra quem
+// está atendendo agora; o histórico completo (até 10) fica aqui, atrás de
+// um <details> (mesmo padrão de HistoricoDocumento acima), pra não sumir
+// quando o atendimento é encerrado — decisão do usuário, 2026-07-28.
+export function HistoricoAtendimentoAgencia({
+  historico,
+}: {
+  historico: { analistaNome: string; assumidoEm: Date; liberadoEm: Date | null }[];
+}) {
+  if (historico.length === 0) {
+    return (
+      <span className="text-muted-foreground text-xs">Nenhum atendimento registrado ainda.</span>
+    );
+  }
+
+  return (
+    <details className="border-border bg-muted/20 rounded-lg border px-3 py-2 text-xs">
+      <summary className="text-muted-foreground cursor-pointer font-semibold">
+        Histórico de atendimento ({historico.length})
+      </summary>
+      <div className="mt-2 flex flex-col gap-1.5">
+        {historico.map((item, index) => (
+          <div
+            key={index}
+            className="border-border flex flex-wrap items-center justify-between gap-2 border-t pt-1.5 first:border-0 first:pt-0"
+          >
+            <span className="text-foreground font-medium">{item.analistaNome}</span>
+            <span className="text-muted-foreground">
+              assumiu em {formatarData(item.assumidoEm)}
+              {item.liberadoEm
+                ? ` — encerrado em ${formatarData(item.liberadoEm)}`
+                : " — em andamento"}
+            </span>
           </div>
         ))}
       </div>

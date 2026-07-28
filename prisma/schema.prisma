@@ -37,6 +37,7 @@ model User {
 
   mensagensEnviadas       Mensagem[]
   atendimentosAssumidos   AssumirAtendimentoRegistro[]
+  atendimentosAgencia     AtendimentoAgencia[]
   textosProntosCriados    TextoPronto[]
   transferenciasFeitas    SolicitacaoTransferencia[]   @relation("TransferenciaFeitaPor")
   transferenciasRecebidas SolicitacaoTransferencia[]   @relation("TransferenciaParaAnalista")
@@ -211,6 +212,7 @@ model Agencia {
   conversas                 Conversa[]
   historicoEdicoes          HistoricoEdicaoCadastro[]
   historicoConsultasCredito HistoricoConsultaCredito[]
+  atendimentosAgencia       AtendimentoAgencia[]
 
   @@map("agencias")
 }
@@ -1090,6 +1092,28 @@ model AssumirAtendimentoRegistro {
 
   @@index([conversaId])
   @@map("assumir_atendimento_registros")
+}
+
+// Responsabilidade sobre a AGÊNCIA (o cadastro em si) — independente de
+// conversa de WhatsApp existir ou não (ex.: analista revisando um dossiê
+// reprovado pela IA, sem nunca ter falado com o cliente). É o registro que
+// trava ações de edição/aprovação/reprovação no dossiê e de iniciar/enviar
+// mensagem no atendimento — decisão do usuário, 2026-07-28. Espelhado a
+// partir de AssumirAtendimentoRegistro (chat) quando a conversa tem
+// agenciaId, pra assumir em qualquer um dos dois lugares refletir no outro.
+model AtendimentoAgencia {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  analistaId String
+  analista   User   @relation(fields: [analistaId], references: [id])
+
+  assumidoEm DateTime  @default(now())
+  liberadoEm DateTime?
+
+  @@index([agenciaId])
+  @@map("atendimentos_agencia")
 }
 
 // Textos prontos (respostas rápidas) — globais, CRUD simples.

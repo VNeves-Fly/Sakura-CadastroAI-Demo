@@ -1,5 +1,6 @@
 import type { ConversaEntity } from "@/modules/atendimento/domain/entities/conversa.entity";
 import type { AssumirAtendimentoRepository } from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
+import type { AtendimentoAgenciaRepository } from "@/modules/atendimento/domain/repositories/atendimento-agencia-repository";
 import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
 import type { MensagemRepository } from "@/modules/atendimento/domain/repositories/mensagem-repository";
 import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
@@ -52,6 +53,20 @@ export function fakeAssumirAtendimentoRepository(
       liberadoEm: null,
     }),
     liberar: jest.fn(),
+    listarAtivosPorAgencias: jest.fn().mockResolvedValue([]),
+    listarUltimoEncerradoPorAgencias: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+}
+
+export function fakeAtendimentoAgenciaRepository(
+  overrides: Partial<AtendimentoAgenciaRepository> = {},
+): AtendimentoAgenciaRepository {
+  return {
+    findAtual: jest.fn().mockResolvedValue(null),
+    criar: jest.fn().mockResolvedValue(undefined),
+    liberar: jest.fn(),
+    listarHistorico: jest.fn().mockResolvedValue([]),
     listarAtivosPorAgencias: jest.fn().mockResolvedValue([]),
     listarUltimoEncerradoPorAgencias: jest.fn().mockResolvedValue([]),
     ...overrides,

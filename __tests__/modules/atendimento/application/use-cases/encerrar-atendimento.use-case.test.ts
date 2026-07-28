@@ -3,6 +3,7 @@ import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
 import type { RegistroAtendimentoAtual } from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
 import {
   fakeAssumirAtendimentoRepository,
+  fakeAtendimentoAgenciaRepository,
   fakeConversaRepository,
   fakeResumoFichaClienteRepository,
   fakeSolicitacaoTransferenciaRepository,
@@ -13,15 +14,22 @@ function criarUseCase() {
   const conversaRepository = fakeConversaRepository();
   const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
   const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
+  const atendimentoAgenciaRepository = fakeAtendimentoAgenciaRepository();
 
   const useCase = new EncerrarAtendimentoUseCase(
     assumirAtendimentoRepository,
     conversaRepository,
     resumoFichaClienteRepository,
     solicitacaoTransferenciaRepository,
+    atendimentoAgenciaRepository,
   );
 
-  return { useCase, assumirAtendimentoRepository, conversaRepository };
+  return {
+    useCase,
+    assumirAtendimentoRepository,
+    conversaRepository,
+    atendimentoAgenciaRepository,
+  };
 }
 
 describe("EncerrarAtendimentoUseCase", () => {
