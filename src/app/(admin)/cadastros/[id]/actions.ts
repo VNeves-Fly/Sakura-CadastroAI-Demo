@@ -354,16 +354,34 @@ export async function salvarUsuarioMasterAction(agenciaId: string, formData: For
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const origemRepresentanteLegalId = String(formData.get("origemRepresentanteLegalId") ?? "");
 
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const cpf = String(formData.get("cpf") ?? "").trim();
+  const telefone = String(formData.get("telefone") ?? "").trim();
+  const rg = String(formData.get("rg") ?? "").trim();
+  const rgOrgaoEmissor = String(formData.get("rgOrgaoEmissor") ?? "").trim();
+  const rgUf = String(formData.get("rgUf") ?? "").trim();
+  const dataNascimento = parseDataIso(String(formData.get("dataNascimento") ?? ""));
+
+  // Trava real (backend, não só UI) — o botão Salvar já vem desabilitado
+  // do client enquanto faltar campo (ver usuario-master.tsx), mas sem essa
+  // checagem aqui um Usuário Master incompleto passava batido: salvava com
+  // "" nos campos vazios e só travava o "Ativar cliente" depois, sem
+  // avisar o motivo (caso real 2026-07-29, agência com UF do RG em branco).
+  if (!nome || !email || !cpf || !telefone || !rg || !rgOrgaoEmissor || !rgUf || !dataNascimento) {
+    throw new DomainError("Preencha todos os campos do Usuário Master antes de salvar.");
+  }
+
   await cadastroAdminController.salvarUsuarioMaster({
     agenciaId,
-    nome: String(formData.get("nome") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    cpf: String(formData.get("cpf") ?? ""),
-    telefone: String(formData.get("telefone") ?? ""),
-    rg: String(formData.get("rg") ?? ""),
-    rgOrgaoEmissor: String(formData.get("rgOrgaoEmissor") ?? ""),
-    rgUf: String(formData.get("rgUf") ?? ""),
-    dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+    nome,
+    email,
+    cpf,
+    telefone,
+    rg,
+    rgOrgaoEmissor,
+    rgUf,
+    dataNascimento,
     origemRepresentanteLegalId: origemRepresentanteLegalId || null,
     salvoPor: await analistaLogado(),
   });
