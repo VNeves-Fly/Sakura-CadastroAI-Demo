@@ -9,6 +9,7 @@ import {
   paraParecerView,
   paraAnaliseCreditoView,
   paraVerificacaoCadastralView,
+  paraDocumentosOutros,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -145,6 +146,7 @@ export async function obterDossieView(id: string) {
   ];
   const { ativos: documentosAtivos, pendentes: documentosPendentes } =
     separarDocumentosPorStatus(documentosParaRevisao);
+  const documentosOutros = paraDocumentosOutros(todosDocumentos, representantesLegais);
   // Mesmo conjunto (contrato social + RG/procuração de cada sócio) que
   // AprovarCadastroComplementarUseCase valida antes de aprovar — usado
   // aqui só pra desabilitar o botão e mostrar ao analista o que falta
@@ -178,12 +180,14 @@ export async function obterDossieView(id: string) {
     complementar,
     representantesLegais,
     contratoSocial,
+    contratos,
     contratoAtual,
     emailsNaoEntregues,
     signatariosPadraoAtivos,
     filaAssinatura,
     documentosAtivos,
     documentosPendentes,
+    documentosOutros,
     documentosNaoAprovados,
     indiceTrilha,
     trilhaRecusada: recusado,

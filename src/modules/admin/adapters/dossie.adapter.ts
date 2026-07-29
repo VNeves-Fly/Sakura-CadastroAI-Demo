@@ -127,6 +127,72 @@ export function historicoDoSlot(
     }));
 }
 
+const TIPOS_SLOT_FIXO = new Set<TipoDocumento>(["CONTRATO_SOCIAL", "RG_CNPJ", "PROCURACAO"]);
+
+const LABEL_TIPO_DOCUMENTO_OUTRO: Record<string, string> = {
+  CADASTUR: "Cadastur",
+  COMPROVANTE_ENDERECO: "Comprovante de Endereço",
+  COMPROVANTE_ENDERECO_AGENCIA: "Comprovante de Endereço da Agência",
+  CERTIDAO_CASAMENTO: "Certidão de Casamento",
+  OUTROS: "Outros",
+};
+
+// Documentos fora dos 3 slots fixos já exibidos em Empresa/Sócios (Contrato
+// Social, RG/CNH, Procuração) — tipos "extra" (Cadastur, Comprovante de
+// Endereço, Certidão de Casamento, Outros) que só existem via upload manual
+// direto no arquivo (ver InserirDocumentoManualUseCase, chamado com
+// `ignorarDocumentoVigente`/`aprovarAutomaticamente` a partir de
+// /arquivo/[id]). Agrupado por slot (tipo + representanteLegalId): o mais
+// recente é "o atual", o resto vira histórico — mesmo critério de
+// historicoDoSlot acima, só que descobrindo os slots em vez de recebê-los
+// prontos (aqui não existe uma lista fixa de "qual documento é o atual" pra
+// consultar, como socio.rg/socio.procuracao).
+export function paraDocumentosOutros(
+  todosDocumentos: Documento[],
+  representantesLegais: RepresentanteLegalDetalhe[],
+): DocumentoRevisao[] {
+  const nomePorSocioId = new Map(representantesLegais.map((socio) => [socio.id, socio.nome]));
+
+  const grupos = new Map<string, Documento[]>();
+  for (const documento of todosDocumentos) {
+    if (TIPOS_SLOT_FIXO.has(documento.tipo)) continue;
+    const chave = `${documento.tipo}|${documento.representanteLegalId ?? "agencia"}`;
+    grupos.set(chave, [...(grupos.get(chave) ?? []), documento]);
+  }
+
+  return Array.from(grupos.values()).map((grupo) => {
+    // Nunca vazio: só existe uma entrada em `grupos` quando pelo menos um
+    // documento foi empurrado nela (ver loop acima).
+    const [atual, ...resto] = [...grupo].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    ) as [Documento, ...Documento[]];
+    const nomeSocio = atual.representanteLegalId
+      ? (nomePorSocioId.get(atual.representanteLegalId) ?? null)
+      : null;
+    const rotuloBase =
+      atual.tipo === "OUTROS"
+        ? `Outros — ${atual.descricaoOutro ?? "sem descrição"}`
+        : (LABEL_TIPO_DOCUMENTO_OUTRO[atual.tipo] ?? atual.tipo);
+
+    return {
+      id: atual.id,
+      label: nomeSocio ? `${rotuloBase} — ${nomeSocio}` : rotuloBase,
+      gcsPath: atual.gcsPath,
+      status: atual.status,
+      motivoReprovacao: atual.motivoReprovacao,
+      historico: resto.map((documento) => ({
+        id: documento.id,
+        status: documento.status,
+        motivoReprovacao: documento.motivoReprovacao,
+        reprovadoPor: documento.reprovadoPor,
+        reprovadoEm: documento.reprovadoEm,
+        createdAt: documento.createdAt,
+        gcsPath: documento.gcsPath,
+      })),
+    };
+  });
+}
+
 // "Notificação" de reenvio pendente de revisão — sem tabela de
 // notificação nova (a `Notificacao` do schema não é usada em lugar
 // nenhum hoje): um documento avisa o analista quando está vigente

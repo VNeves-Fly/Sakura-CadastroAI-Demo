@@ -8,6 +8,7 @@ import {
   ScrollText,
   FolderCheck,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -20,6 +21,7 @@ import {
   ParecerIa,
   HistoricoDocumento,
   VerificacaoCadastral,
+  UploadDocumentoOutro,
 } from "@/modules/admin/components/dossie-campos";
 import {
   formatarData,
@@ -50,20 +52,18 @@ import {
   STATUS_ATIVO,
   STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
-import { reativarClienteAction } from "./actions";
+import { reativarClienteAction, inserirDocumentoArquivoAction } from "./actions";
 
 const ABAS = [
   { chave: "dossie", label: "Dossiê" },
   { chave: "documentacao", label: "Documentação" },
 ] as const;
 
-// Aba Documentação do arquivo é só consulta — os documentos aqui já
-// foram aprovados no funil (ver /cadastros/[id]); não faz sentido reabrir
-// aprovar/reprovar por uma agência já finalizada (Ativa ou Reprovada).
-// Um botão "Atualizar" (analista sobe uma versão nova, com log de quem/
-// quando) ficou de fora por enquanto — exigiria uma coluna nova no
-// banco pra registrar quem fez o upload, fora do escopo (só front)
-// desta tarefa.
+// Lista de consulta (sem aprovar/reprovar — uma agência já finalizada não
+// reabre essa decisão). Atualização de documentação (novo upload mantendo o
+// antigo no histórico) acontece só via CampoDocumento (aba Dossiê, para
+// Contrato Social/RG/Procuração) ou UploadDocumentoOutro (seção "Outros
+// documentos", abaixo) — nunca daqui.
 function ListaDocumentos({
   documentosAtivos,
   documentosPendentes,
@@ -127,9 +127,11 @@ export default async function ArquivoDossiePage({
     complementar,
     representantesLegais,
     contratoSocial,
+    contratos,
     contratoAtual,
     documentosAtivos,
     documentosPendentes,
+    documentosOutros,
     analiseIaContratoSocial,
     analiseIaPorSocioId,
     parecerIa,
@@ -146,6 +148,10 @@ export default async function ArquivoDossiePage({
 
   const abaAtual = ABAS.find((aba) => aba.chave === searchParams.aba) ?? ABAS[0];
   const reprovada = agencia.status === STATUS_RECUSADO;
+  // Atualizar documentação (upload mantendo histórico) só faz sentido pra
+  // quem já está finalizado como cliente — Recusada continua 100%
+  // somente-leitura (decisão do usuário, 2026-07-29).
+  const podeAtualizarDocumentos = agencia.status === STATUS_ATIVO;
 
   return (
     <div className="flex flex-col gap-4">
@@ -239,7 +245,11 @@ export default async function ArquivoDossiePage({
                     <CampoDocumento
                       documento={contratoSocial}
                       analise={analiseIaContratoSocial}
-                      somenteLeitura
+                      agenciaId={agencia.id}
+                      tipo="CONTRATO_SOCIAL"
+                      representanteLegalId={null}
+                      inserirDocumentoManualAction={inserirDocumentoArquivoAction}
+                      somenteLeitura={!podeAtualizarDocumentos}
                     />
                   </Campo>
                 </CamposGrid>
@@ -352,12 +362,23 @@ export default async function ArquivoDossiePage({
                           <CampoDocumento
                             documento={socio.rg}
                             analise={analiseIaPorSocioId.get(socio.id) ?? null}
-                            somenteLeitura
+                            agenciaId={agencia.id}
+                            tipo="RG_CNPJ"
+                            representanteLegalId={socio.id}
+                            inserirDocumentoManualAction={inserirDocumentoArquivoAction}
+                            somenteLeitura={!podeAtualizarDocumentos}
                           />
                         </Campo>
                         {socio.procuracao ? (
                           <Campo label="Procuração" corFundo={corFundoDocumento(socio.procuracao)}>
-                            <CampoDocumento documento={socio.procuracao} somenteLeitura />
+                            <CampoDocumento
+                              documento={socio.procuracao}
+                              agenciaId={agencia.id}
+                              tipo="PROCURACAO"
+                              representanteLegalId={socio.id}
+                              inserirDocumentoManualAction={inserirDocumentoArquivoAction}
+                              somenteLeitura={!podeAtualizarDocumentos}
+                            />
                           </Campo>
                         ) : null}
                       </CamposGrid>
@@ -390,14 +411,27 @@ export default async function ArquivoDossiePage({
 
           <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />}>
             {contratoAtual ? (
-              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Campo label="Status">{labelStatusContrato(contratoAtual.status)}</Campo>
-                <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
-                <Campo label="ID do Contrato" className="sm:col-span-2">
-                  {contratoAtual.provedorId}
-                </Campo>
-                <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
-              </dl>
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-end">
+                  <VisualizarDocumento
+                    url={`/api/cadastros/contratos/${contratoAtual.id}/arquivo`}
+                    label="Contrato D4Sign"
+                  >
+                    <span className="border-input text-foreground hover:bg-accent flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition">
+                      <Eye className="size-3.5" />
+                      Visualizar Documento
+                    </span>
+                  </VisualizarDocumento>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Campo label="Status">{labelStatusContrato(contratoAtual.status)}</Campo>
+                  <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
+                  <Campo label="ID do Contrato" className="sm:col-span-2">
+                    {contratoAtual.provedorId}
+                  </Campo>
+                  <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
+                </dl>
+              </div>
             ) : (
               <p className="text-muted-foreground text-sm">
                 Nenhum contrato foi gerado pra esta agência.
@@ -406,16 +440,82 @@ export default async function ArquivoDossiePage({
           </SecaoColapsavel>
         </>
       ) : (
-        <SecaoColapsavel
-          titulo="Documentação"
-          icon={<FolderCheck className="size-4" />}
-          defaultAberta
-        >
-          <ListaDocumentos
-            documentosAtivos={documentosAtivos}
-            documentosPendentes={documentosPendentes}
-          />
-        </SecaoColapsavel>
+        <>
+          {/* Histórico completo — não só o contrato vigente (contratoAtual)
+              mostrado na aba Dossiê. Fica aqui pra quando a agência renovar o
+              contrato: os anteriores continuam acessíveis (decisão do
+              usuário, 2026-07-29). */}
+          <SecaoColapsavel
+            titulo="Contratos"
+            icon={<FileSignature className="size-4" />}
+            defaultAberta
+          >
+            {contratos.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Nenhum contrato foi gerado pra esta agência.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {contratos.map((contrato) => (
+                  <div
+                    key={contrato.id}
+                    className="border-border bg-muted/30 flex flex-col gap-2 rounded-xl border px-4 py-2.5 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-foreground font-medium">
+                          {labelStatusContrato(contrato.status)}
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          {labelOrigemContrato(contrato.origemGeracao)} — criado em{" "}
+                          {formatarData(contrato.createdAt)}
+                        </span>
+                      </span>
+                      <VisualizarDocumento
+                        url={`/api/cadastros/contratos/${contrato.id}/arquivo`}
+                        label="Contrato D4Sign"
+                      >
+                        <span className="text-primary text-xs font-semibold">Ver documento</span>
+                      </VisualizarDocumento>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SecaoColapsavel>
+
+          <SecaoColapsavel
+            titulo="Documentação"
+            icon={<FolderCheck className="size-4" />}
+            defaultAberta
+          >
+            <ListaDocumentos
+              documentosAtivos={documentosAtivos}
+              documentosPendentes={documentosPendentes}
+            />
+          </SecaoColapsavel>
+
+          {/* Tipos fora dos slots fixos acima (Cadastur, Comprovante de
+              Endereço, Certidão de Casamento, Outros) — só existem via
+              upload manual daqui mesmo (ver paraDocumentosOutros). */}
+          <SecaoColapsavel titulo="Outros documentos" icon={<FolderCheck className="size-4" />}>
+            <div className="flex flex-col gap-3">
+              {documentosOutros.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Nenhum documento adicional.</p>
+              ) : (
+                <ListaDocumentos documentosAtivos={documentosOutros} documentosPendentes={[]} />
+              )}
+
+              {podeAtualizarDocumentos ? (
+                <UploadDocumentoOutro
+                  agenciaId={agencia.id}
+                  representantesLegais={representantesLegais}
+                  inserirDocumentoArquivoAction={inserirDocumentoArquivoAction}
+                />
+              ) : null}
+            </div>
+          </SecaoColapsavel>
+        </>
       )}
     </div>
   );

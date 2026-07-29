@@ -127,6 +127,7 @@ enum TipoDocumento {
   COMPROVANTE_ENDERECO_AGENCIA
   CERTIDAO_CASAMENTO
   PROCURACAO
+  OUTROS
 }
 
 enum StatusDocumento {
@@ -481,6 +482,9 @@ model Documento {
   tipo     TipoDocumento
   fileName String?
   mimeType String?
+  // Descrição livre digitada pelo analista — só preenchida quando
+  // tipo = OUTROS (documento sem slot fixo no dossiê).
+  descricaoOutro String?
 
   // Caminho retornado pelo FileStorage (local hoje, GCS futuramente).
   // Bucket/tamanho/hash ficam nullable porque o LocalFileStorage atual
