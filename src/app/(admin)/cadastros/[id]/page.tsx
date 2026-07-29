@@ -911,6 +911,19 @@ export default async function DossieAgenciaPage({
                 assinado antes de seguir pra ativação — SICA e Travel Link ficam no bloco
                 &ldquo;SICA/Travel Link&rdquo;, abaixo.
               </p>
+              {contratoAtual ? (
+                <div>
+                  <VisualizarDocumento
+                    url={`/api/cadastros/contratos/${contratoAtual.id}/arquivo`}
+                    label="Contrato D4Sign"
+                  >
+                    <span className="border-input text-foreground hover:bg-accent flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition">
+                      <Eye className="size-3.5" />
+                      Visualizar Documento
+                    </span>
+                  </VisualizarDocumento>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

@@ -8,6 +8,7 @@ import {
   ScrollText,
   FolderCheck,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
@@ -390,14 +391,27 @@ export default async function ArquivoDossiePage({
 
           <SecaoColapsavel titulo="Contrato" icon={<FileSignature className="size-4" />}>
             {contratoAtual ? (
-              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Campo label="Status">{labelStatusContrato(contratoAtual.status)}</Campo>
-                <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
-                <Campo label="ID do Contrato" className="sm:col-span-2">
-                  {contratoAtual.provedorId}
-                </Campo>
-                <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
-              </dl>
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-end">
+                  <VisualizarDocumento
+                    url={`/api/cadastros/contratos/${contratoAtual.id}/arquivo`}
+                    label="Contrato D4Sign"
+                  >
+                    <span className="border-input text-foreground hover:bg-accent flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition">
+                      <Eye className="size-3.5" />
+                      Visualizar Documento
+                    </span>
+                  </VisualizarDocumento>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Campo label="Status">{labelStatusContrato(contratoAtual.status)}</Campo>
+                  <Campo label="Origem">{labelOrigemContrato(contratoAtual.origemGeracao)}</Campo>
+                  <Campo label="ID do Contrato" className="sm:col-span-2">
+                    {contratoAtual.provedorId}
+                  </Campo>
+                  <Campo label="Criado em">{formatarData(contratoAtual.createdAt)}</Campo>
+                </dl>
+              </div>
             ) : (
               <p className="text-muted-foreground text-sm">
                 Nenhum contrato foi gerado pra esta agência.
