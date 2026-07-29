@@ -999,7 +999,6 @@ export default async function DossieAgenciaPage({
                 salvarSicaAction={salvarSicaAction}
                 salvarTravelLinkAction={salvarTravelLinkAction}
                 validarContratoAction={validarContratoAction}
-                recusarCadastroAction={recusarCadastroAction}
                 somenteLeitura={!podeAgir}
                 amat={analiseCredito.amat}
                 rawAmat={analiseCredito.rawAmat}

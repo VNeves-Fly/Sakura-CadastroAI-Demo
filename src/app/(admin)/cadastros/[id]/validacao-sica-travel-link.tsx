@@ -48,7 +48,6 @@ interface ValidacaoSicaTravelLinkProps {
   salvarSicaAction: (agenciaId: string, formData: FormData) => Promise<void>;
   salvarTravelLinkAction: (agenciaId: string, criado: boolean) => Promise<void>;
   validarContratoAction: (id: string) => Promise<void>;
-  recusarCadastroAction: (id: string) => Promise<void>;
   // true quando o analista está revendo esta etapa a partir de uma etapa
   // posterior (ver `etapaExibida` na page) — some com os botões de ação,
   // só sobra a leitura do que foi preenchido.
@@ -97,7 +96,6 @@ export function ValidacaoSicaTravelLink({
   salvarSicaAction,
   salvarTravelLinkAction,
   validarContratoAction,
-  recusarCadastroAction,
   somenteLeitura = false,
   amat,
   rawAmat,
@@ -250,14 +248,6 @@ export function ValidacaoSicaTravelLink({
               className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Validar Contrato
-            </button>
-          </form>
-          <form action={recusarCadastroAction.bind(null, agenciaId)}>
-            <button
-              type="submit"
-              className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
-            >
-              Recusar
             </button>
           </form>
         </div>
