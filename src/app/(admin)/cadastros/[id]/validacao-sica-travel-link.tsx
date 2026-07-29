@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
-import { TravelLinkSecao } from "./travel-link-secao";
+import { DadosEmpresaSecao } from "./dados-empresa-secao";
+import { TravelLinkSwitch } from "./travel-link-switch";
 import { AlertaTravelLinkModal } from "./alerta-travel-link-modal";
 import {
   ConsultaAmatCard,
@@ -54,7 +55,7 @@ interface ValidacaoSicaTravelLinkProps {
   somenteLeitura?: boolean;
   // AMAT/SOFIA repetidos aqui (mesmos dados/ações da seção Complementar,
   // ver page.tsx) — decisão do usuário, 2026-07-27: o analista que já
-  // está validando SICA/Travel Link não devia precisar voltar pra etapa
+  // está validando SICA/TravelLink não devia precisar voltar pra etapa
   // anterior só pra reconferir crédito.
   amat: AnaliseIaAmat | null;
   rawAmat: AnaliseIaRawToolCall[];
@@ -66,7 +67,7 @@ interface ValidacaoSicaTravelLinkProps {
   reconsultarSofia?: () => Promise<void>;
 }
 
-// SICA e Travel Link salvos de verdade em Agencia (sicaCodigo/
+// SICA e TravelLink salvos de verdade em Agencia (sicaCodigo/
 // sicaSalvoPor/sicaSalvoEm, travelLinkCriado/travelLinkSalvoPor/
 // travelLinkSalvoEm) — sobrevivem a recarregar a página e ficam visíveis
 // pra qualquer analista que abrir o dossiê depois, com quem confirmou e
@@ -115,7 +116,7 @@ export function ValidacaoSicaTravelLink({
   const sicaPronta = sicaCodigo !== null;
   const mostrarInputSica = editandoSica || sicaCodigo === null;
 
-  // SICA pronto mas Travel Link ainda não criado: em vez de só desabilitar
+  // SICA pronto mas TravelLink ainda não criado: em vez de só desabilitar
   // o botão (fácil de ignorar), avisa com um alerta que some sozinho em
   // 5s (decisão do usuário, 2026-07-27) — deixa o botão clicável pra dar
   // pra mostrar o alerta.
@@ -150,8 +151,7 @@ export function ValidacaoSicaTravelLink({
         />
       </div>
 
-      <TravelLinkSecao
-        agenciaId={agenciaId}
+      <DadosEmpresaSecao
         razaoSocial={razaoSocial}
         cnpj={cnpj}
         enderecoFormatado={enderecoFormatado}
@@ -166,11 +166,6 @@ export function ValidacaoSicaTravelLink({
         bancoConta={bancoConta}
         favorecidoNome={favorecidoNome}
         favorecidoDoc={favorecidoDoc}
-        travelLinkCriado={travelLinkCriado}
-        travelLinkSalvoPor={travelLinkSalvoPor}
-        travelLinkSalvoEm={travelLinkSalvoEm}
-        salvarTravelLinkAction={salvarTravelLinkAction}
-        somenteLeitura={somenteLeitura}
       />
 
       <div className="flex flex-col gap-1.5">
@@ -234,6 +229,15 @@ export function ValidacaoSicaTravelLink({
           </span>
         ) : null}
       </div>
+
+      <TravelLinkSwitch
+        agenciaId={agenciaId}
+        travelLinkCriado={travelLinkCriado}
+        travelLinkSalvoPor={travelLinkSalvoPor}
+        travelLinkSalvoEm={travelLinkSalvoEm}
+        salvarTravelLinkAction={salvarTravelLinkAction}
+        somenteLeitura={somenteLeitura}
+      />
 
       {!somenteLeitura ? (
         <div className="flex flex-wrap gap-2">

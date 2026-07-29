@@ -31,7 +31,7 @@
 **`cadastros` (update):**
 
 - `sica_codigo` (entrada manual via modal)
-- `travel_link_criado`, `travel_link_criado_em`, `travel_link_criado_por` (checkbox confirmando criação do Travel Link)
+- `travel_link_criado`, `travel_link_criado_em`, `travel_link_criado_por` (checkbox confirmando criação do TravelLink)
 - `etapa_atual`: `'contrato'` → `'credenciais'` (ao avançar manualmente, `avancarManualmente()`) — **não** `'master'`; esse valor não existe como `etapa_atual` em lugar nenhum do código, só aparece como texto de UI ("Usuário Master"). `etapa_atual` é coluna livre (sem CHECK constraint no banco).
 - **Segundo caminho, automático, para a mesma transição**: o trigger de banco `fn_contrato_assinado_avanca_etapa` (definido em `20260610151902_961ce92c-...sql`, reconectado por `20260713170000_reconectar_triggers_avanco_automatico.sql`) dispara em `contratos` sempre que `status` vira `'assinado'` (com `assinado_at`/`d4sign_document_id` setados) e avança `cadastros.etapa_atual` de `'contrato'` para `'credenciais'` **independente de alguém clicar em "Avançar"** na UI.
 - `avanco_forcado`: JSON `{ motivo, at, etapa, pendencias, autorizado_por, solicitado_por, status_real }` (se forçado via edge function `forcar-avanco-etapa`, `forcar-avanco-etapa/index.ts:164-172`) — `Etapa3Contrato.tsx:1785` lê especificamente `autorizado_por`
@@ -72,12 +72,12 @@
 
 ## Resumo — Tabelas do Supabase
 
-| Tabela                  | Operação      | Disparado por                                                                                                                                                                                  |
-| ----------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `representantes_legais` | UPDATE        | Edição manual ou extração via IA                                                                                                                                                               |
-| `contratos`             | INSERT/UPDATE | Geração / envio / assinatura                                                                                                                                                                   |
-| `cadastros`             | UPDATE        | Travel Link / SICA / avanço para Etapa 4 (`etapa_atual: 'credenciais'`) — manual **ou** automático via trigger `fn_contrato_assinado_avanca_etapa` quando `contratos.status` vira `'assinado'` |
-| `kanban_historico`      | INSERT        | Avanço para Etapa 4 (`etapa_nova: 'credenciais'`) — manual (`origem: 'manual'`) ou automático via trigger (sem `origem`, `usuario_email: 'sistema@d4sign'`)                                    |
+| Tabela                  | Operação      | Disparado por                                                                                                                                                                                 |
+| ----------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `representantes_legais` | UPDATE        | Edição manual ou extração via IA                                                                                                                                                              |
+| `contratos`             | INSERT/UPDATE | Geração / envio / assinatura                                                                                                                                                                  |
+| `cadastros`             | UPDATE        | TravelLink / SICA / avanço para Etapa 4 (`etapa_atual: 'credenciais'`) — manual **ou** automático via trigger `fn_contrato_assinado_avanca_etapa` quando `contratos.status` vira `'assinado'` |
+| `kanban_historico`      | INSERT        | Avanço para Etapa 4 (`etapa_nova: 'credenciais'`) — manual (`origem: 'manual'`) ou automático via trigger (sem `origem`, `usuario_email: 'sistema@d4sign'`)                                   |
 
 ## Edge Functions
 

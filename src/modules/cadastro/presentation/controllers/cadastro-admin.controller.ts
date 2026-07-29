@@ -434,7 +434,9 @@ export const cadastroAdminController = {
       signatarioPadraoRepository.findAtivos(),
     ]);
     const emailsEsperados = [
-      ...(detalhe?.representantesLegais.map((socio) => socio.email) ?? []),
+      ...(detalhe?.representantesLegais
+        .filter((socio) => socio.administrativo !== false)
+        .map((socio) => socio.email) ?? []),
       ...signatariosPadraoAtivos
         .filter((padrao) => padrao.email)
         .map((padrao) => padrao.email as string),

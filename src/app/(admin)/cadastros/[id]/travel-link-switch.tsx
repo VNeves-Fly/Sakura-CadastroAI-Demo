@@ -19,7 +19,7 @@ interface TravelLinkSwitchProps {
 }
 
 // Fora de qualquer acordeão (decisão do usuário, 2026-07-29 — antes vivia
-// dentro do acordeão "Travel Link", junto com os dados da empresa). A
+// dentro do acordeão "TravelLink", junto com os dados da empresa). A
 // flag grava o mesmo Agencia.travelLinkCriado de sempre, salvando direto
 // ao ligar — decisão do usuário, 2026-07-27: nunca mais é possível
 // desligar por aqui depois de criado.
@@ -42,7 +42,7 @@ export function TravelLinkSwitch({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-foreground text-sm font-medium">Travel Link criado</span>
+        <span className="text-foreground text-sm font-medium">TravelLink criado</span>
         <button
           type="button"
           role="switch"

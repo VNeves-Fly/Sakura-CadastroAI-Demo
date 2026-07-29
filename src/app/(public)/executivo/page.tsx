@@ -44,7 +44,7 @@ export default function ExecutivoPage() {
         <h1 className="mt-4 text-4xl leading-tight font-semibold sm:text-5xl">
           <span className="text-gradient-brand text-white">O futuro entra</span>
           <br />
-          por convite
+          <span className="text-white">por convite</span>
         </h1>
 
         <AcessoExecutivoForm />

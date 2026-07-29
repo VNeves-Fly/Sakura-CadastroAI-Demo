@@ -38,7 +38,7 @@ export interface HistoricoConsultaCreditoItem {
 // 1. em_complementar        — IA reprovou (ou a análise falhou tecnicamente), sem contrato ainda, analista revisa manualmente.
 // 2. aguardando_assinatura  — contrato gerado (pela IA ou pelo analista) e enviado, aguardando os sócios assinarem.
 // 3. aguardando_validacao   — contrato assinado, analista precisa validar o contrato assinado.
-// 4. aguardando_ativacao    — validado; falta só SICA/Travel Link/Usuário Master (não implementados) e clicar em ativar.
+// 4. aguardando_ativacao    — validado; falta só SICA/TravelLink/Usuário Master (não implementados) e clicar em ativar.
 // 5. ativo / recusado       — estados finais.
 export const STATUS_EM_ANALISE = "em_analise";
 export const STATUS_EM_COMPLEMENTAR = "em_complementar";

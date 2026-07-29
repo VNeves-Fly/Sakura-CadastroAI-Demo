@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 const SEGUNDOS_PARA_FECHAR = 5;
 
 // Alerta disparado ao tentar "Validar Contrato" sem ter clicado em
-// "Criar Travel Link" antes (ver ValidacaoSicaTravelLink) — some sozinho
+// "Criar TravelLink" antes (ver ValidacaoSicaTravelLink) — some sozinho
 // depois de 5s, sem precisar de clique pra fechar (decisão do usuário,
 // 2026-07-27).
 export function AlertaTravelLinkModal({
@@ -51,7 +51,7 @@ export function AlertaTravelLinkModal({
         <img src="/alerta/travel-link-pendente.png" alt="Atenção" className="size-16" />
 
         <p className="text-foreground text-sm font-semibold">
-          Atenção, você precisa clicar na flag &ldquo;Criar Travel Link&rdquo; para seguir com o
+          Atenção, você precisa clicar na flag &ldquo;Criar TravelLink&rdquo; para seguir com o
           cadastro.
         </p>
 

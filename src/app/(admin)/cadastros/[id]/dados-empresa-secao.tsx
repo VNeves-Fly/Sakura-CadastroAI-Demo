@@ -69,7 +69,7 @@ interface DadosEmpresaSecaoProps {
   favorecidoDoc: string | null;
 }
 
-// Cópia dos dados já coletados na ficha, no formato que o Travel Link
+// Cópia dos dados já coletados na ficha, no formato que o TravelLink
 // (plataforma externa, sem integração) pede, pra o analista usar de cola
 // ao cadastrar manualmente por lá.
 export function DadosEmpresaSecao({
@@ -147,7 +147,7 @@ export function DadosEmpresaSecao({
         ))}
 
         <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
-          <strong className="text-foreground">Valores padrão no Travel Link</strong> (não vêm da
+          <strong className="text-foreground">Valores padrão no TravelLink</strong> (não vêm da
           ficha, é só pra lembrar): Bloqueado = S, Tipo de pagamento = PIX.
         </div>
 

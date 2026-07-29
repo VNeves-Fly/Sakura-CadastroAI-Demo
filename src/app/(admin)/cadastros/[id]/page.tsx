@@ -105,8 +105,8 @@ import {
 } from "./actions";
 
 // `concluida` default true — Contrato/SICA continuam decorativos (chegar
-// na etapa Ativação já implica que passaram), só Travel Link passou a
-// checar de verdade (agencia.travelLinkCriado, ver TravelLinkSecao).
+// na etapa Ativação já implica que passaram), só TravelLink passou a
+// checar de verdade (agencia.travelLinkCriado, ver TravelLinkSwitch).
 function ChecklistEtapaConcluida({
   label,
   concluida = true,
@@ -312,7 +312,7 @@ export default async function DossieAgenciaPage({
   );
   const indiceAtivo = ETAPAS_PIPELINE.findIndex((etapa) => etapa.status === STATUS_ATIVO);
 
-  // Dados pro formulário de leitura do Travel Link (ver TravelLinkSecao)
+  // Dados pro formulário de leitura do TravelLink (ver DadosEmpresaSecao)
   // — cópia dos mesmos dados já coletados na ficha, sem campo novo.
   // "Nome de contato"/"E-mail" usam o sócio representante legal (nenhuma
   // tela grava `cargo` hoje, então não tem "cargo" pra copiar junto).
@@ -926,8 +926,8 @@ export default async function DossieAgenciaPage({
               <p className="text-muted-foreground text-sm">
                 Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
                 {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
-                assinado antes de seguir pra ativação — SICA e Travel Link ficam no bloco
-                &ldquo;SICA/Travel Link&rdquo;, abaixo.
+                assinado antes de seguir pra ativação — SICA e TravelLink ficam no bloco
+                &ldquo;SICA/TravelLink&rdquo;, abaixo.
               </p>
               {contratoAtual ? (
                 <div>
@@ -962,13 +962,13 @@ export default async function DossieAgenciaPage({
       </SecaoColapsavel>
 
       {/* Separado do bloco "Contrato" (decisão do usuário, 2026-07-27) —
-          SICA/Travel Link (etapa Validação) e Usuário Master (etapa
+          SICA/TravelLink (etapa Validação) e Usuário Master (etapa
           Ativação) são credenciais/acessos, não contrato. Só aparece
           nessas duas etapas; nas outras (Complementar/Assinatura/Ativo)
           não tem nada pra mostrar aqui. */}
       {etapaExibida === indiceValidacao || etapaExibida === indiceAtivacao ? (
         <SecaoColapsavel
-          titulo="SICA/Travel Link"
+          titulo="SICA/TravelLink"
           icon={<KeyRound className="size-4" />}
           defaultAberta
         >
@@ -1017,8 +1017,8 @@ export default async function DossieAgenciaPage({
                 {/* Contrato/SICA continuam decorativos aqui: chegar
                     nesta etapa só é possível depois de "Validar
                     Contrato" — botão que já trava (ver
-                    ValidacaoSicaTravelLink) até SICA e Travel Link
-                    estarem preenchidos. Travel Link, porém, reflete o
+                    ValidacaoSicaTravelLink) até SICA e TravelLink
+                    estarem preenchidos. TravelLink, porém, reflete o
                     valor real de agencia.travelLinkCriado (decisão do
                     usuário, 2026-07-27: quem for criar o Usuário Master
                     precisa confiar no check, não só inferir da etapa). */}
@@ -1026,7 +1026,7 @@ export default async function DossieAgenciaPage({
                   <ChecklistEtapaConcluida label="Contrato" />
                   <ChecklistEtapaConcluida label="SICA" />
                   <ChecklistEtapaConcluida
-                    label="Travel Link"
+                    label="TravelLink"
                     concluida={agencia.travelLinkCriado}
                   />
                 </div>
@@ -1041,7 +1041,7 @@ export default async function DossieAgenciaPage({
 
                 <div className="border-border bg-muted/40 text-muted-foreground rounded-xl border border-dashed px-4 py-3 text-xs">
                   <strong className="text-foreground">Não implementado ainda:</strong> os checks
-                  acima confirmam que SICA e Travel Link foram preenchidos antes de chegar aqui, mas
+                  acima confirmam que SICA e TravelLink foram preenchidos antes de chegar aqui, mas
                   o código/link em si não é salvo — schema ainda não tem campo pra isso (sinalizando
                   em vez de simular dado falso).
                 </div>
