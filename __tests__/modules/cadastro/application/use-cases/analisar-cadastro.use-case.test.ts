@@ -77,6 +77,7 @@ function documentoFake(id: string, gcsPath: string): Documento {
     representanteLegalId: null,
     tipo: "RG_CNPJ",
     fileName: null,
+    descricaoOutro: null,
     mimeType: null,
     gcsPath,
     gcsBucket: "bucket",

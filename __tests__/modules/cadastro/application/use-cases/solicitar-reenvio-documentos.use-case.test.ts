@@ -39,6 +39,7 @@ function documentoFake(): Documento {
     representanteLegalId: null,
     tipo: "CONTRATO_SOCIAL",
     fileName: null,
+    descricaoOutro: null,
     mimeType: null,
     gcsPath: "agencias/12345678000195/contrato-social.pdf",
     gcsBucket: "bucket",

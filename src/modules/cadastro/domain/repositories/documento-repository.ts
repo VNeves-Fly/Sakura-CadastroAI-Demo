@@ -7,6 +7,7 @@ export interface CreateDocumentoData {
   tipo: TipoDocumento;
   fileName?: string | null;
   mimeType?: string | null;
+  descricaoOutro?: string | null;
   gcsPath: string;
   gcsBucket?: string | null;
   gcsSize?: number | null;

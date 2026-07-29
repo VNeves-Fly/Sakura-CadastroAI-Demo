@@ -761,6 +761,109 @@ export function CampoDocumento({
   );
 }
 
+const TIPOS_DOCUMENTO_OUTRO: { valor: TipoDocumento; label: string }[] = [
+  { valor: "CADASTUR", label: "Cadastur" },
+  { valor: "COMPROVANTE_ENDERECO", label: "Comprovante de Endereço" },
+  { valor: "COMPROVANTE_ENDERECO_AGENCIA", label: "Comprovante de Endereço da Agência" },
+  { valor: "CERTIDAO_CASAMENTO", label: "Certidão de Casamento" },
+  { valor: "OUTROS", label: "Outros" },
+];
+
+const CLASSE_CAMPO_UPLOAD_OUTRO =
+  "border-input bg-background text-foreground rounded-lg border px-2.5 py-1.5 text-xs outline-none";
+
+// Upload de documento "extra" (fora dos slots fixos de Contrato Social/RG/
+// Procuração, já cobertos por CampoDocumento) direto do arquivo — tipo,
+// dono (agência ou sócio) e descrição livre (só quando tipo = Outros) são
+// escolhidos no próprio formulário, já que aqui não existe um slot fixo por
+// chamada (ver paraDocumentosOutros em dossie.adapter.ts, que descobre os
+// slots existentes em vez de recebê-los prontos).
+export function UploadDocumentoOutro({
+  agenciaId,
+  representantesLegais,
+  inserirDocumentoArquivoAction,
+}: {
+  agenciaId: string;
+  representantesLegais: { id: string; nome: string }[];
+  inserirDocumentoArquivoAction: InserirDocumentoManualActionFn;
+}) {
+  const [tipo, setTipo] = useState<TipoDocumento>("CADASTUR");
+  const [representanteLegalId, setRepresentanteLegalId] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  return (
+    <form
+      action={async (formData) => {
+        setEnviando(true);
+        try {
+          await inserirDocumentoArquivoAction(
+            agenciaId,
+            tipo,
+            representanteLegalId || null,
+            formData,
+          );
+        } finally {
+          setEnviando(false);
+        }
+      }}
+      className="border-border bg-muted/20 flex flex-col gap-2 rounded-xl border border-dashed p-3"
+    >
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={tipo}
+          onChange={(event) => setTipo(event.target.value as TipoDocumento)}
+          className={CLASSE_CAMPO_UPLOAD_OUTRO}
+        >
+          {TIPOS_DOCUMENTO_OUTRO.map((opcao) => (
+            <option key={opcao.valor} value={opcao.valor}>
+              {opcao.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={representanteLegalId}
+          onChange={(event) => setRepresentanteLegalId(event.target.value)}
+          className={CLASSE_CAMPO_UPLOAD_OUTRO}
+        >
+          <option value="">Agência</option>
+          {representantesLegais.map((socio) => (
+            <option key={socio.id} value={socio.id}>
+              {socio.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {tipo === "OUTROS" ? (
+        <input
+          type="text"
+          name="descricaoOutro"
+          required
+          placeholder="Descreva o que é este documento"
+          className={`${CLASSE_CAMPO_UPLOAD_OUTRO} placeholder:text-muted-foreground`}
+        />
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="file"
+          name="arquivo"
+          required
+          accept="application/pdf,image/jpeg,image/png"
+          className="text-muted-foreground max-w-56 text-xs"
+        />
+        <button
+          type="submit"
+          disabled={enviando}
+          className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1 text-xs font-semibold transition disabled:opacity-50"
+        >
+          {enviando ? "Enviando..." : "Enviar documento"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 const PARECER_DOCUMENTO_CLASSES: Record<string, string> = {
   APROVADO: "bg-success-bg text-success-text",
   REPROVADO: "bg-destructive-bg text-destructive-text",
