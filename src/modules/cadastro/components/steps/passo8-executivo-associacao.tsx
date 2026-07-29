@@ -4,7 +4,6 @@ import { Lock } from "lucide-react";
 import type {
   useCadastroWizardViewModel,
   ExecutivoOption,
-  AssociacaoOption,
 } from "@/modules/cadastro/view-models/use-cadastro-wizard.view-model";
 import {
   Combobox,
@@ -27,7 +26,6 @@ export function Passo8ExecutivoAssociacao({
   executivoTravado,
   associacaoTravado,
   setExecutivoId,
-  setAssociacaoId,
 }: Passo8ExecutivoAssociacaoProps) {
   const executivoSelecionado =
     executivos.find((item) => item.id === executivoIdSelecionado) ?? null;
@@ -70,39 +68,22 @@ export function Passo8ExecutivoAssociacao({
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-foreground text-sm font-bold">Associação</label>
-        {associacaoTravado ? (
-          <>
-            <div className="border-input bg-muted text-muted-foreground flex cursor-not-allowed items-center gap-2 rounded-full border px-4 py-2.5 text-sm">
-              <Lock className="size-4 shrink-0" />
-              {associacaoSelecionada?.nome ?? "Associação do link"}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Esse campo veio preenchido pelo link usado pra acessar o cadastro e não pode ser
-              alterado aqui.
-            </p>
-          </>
-        ) : (
-          <Combobox<AssociacaoOption>
-            items={associacoes}
-            value={associacaoSelecionada}
-            onValueChange={(associacao) => setAssociacaoId(associacao?.id ?? null)}
-            itemToStringLabel={(associacao) => associacao.nome}
-          >
-            <ComboboxInputGroup>
-              <ComboboxInput placeholder="Busque por nome (opcional)" autoComplete="off" />
-            </ComboboxInputGroup>
-            <ComboboxContent>
-              {(associacao: AssociacaoOption) => (
-                <ComboboxItem key={associacao.id} value={associacao}>
-                  {associacao.nome}
-                </ComboboxItem>
-              )}
-            </ComboboxContent>
-          </Combobox>
-        )}
-      </div>
+      {/* Associação só aparece quando vem travada pelo link (?associacao= na
+          URL) — sem isso, o campo fica oculto por completo, sem opção de
+          seleção manual (pedido do usuário, 2026-07-29). */}
+      {associacaoTravado && (
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground text-sm font-bold">Associação</label>
+          <div className="border-input bg-muted text-muted-foreground flex cursor-not-allowed items-center gap-2 rounded-full border px-4 py-2.5 text-sm">
+            <Lock className="size-4 shrink-0" />
+            {associacaoSelecionada?.nome ?? "Associação do link"}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Esse campo veio preenchido pelo link usado pra acessar o cadastro e não pode ser
+            alterado aqui.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
