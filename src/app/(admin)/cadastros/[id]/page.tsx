@@ -46,6 +46,8 @@ import {
 } from "@/modules/admin/components/consulta-amat-sofia";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { EditarSocioForm } from "./editar-socio-form";
+import { NovoSocioForm } from "./novo-socio-form";
+import { RemoverSocioForm } from "./remover-socio-form";
 import { EditarEmpresaForm } from "./editar-empresa-form";
 import { FilaAssinatura } from "./fila-assinatura";
 import { ContratoIdManual } from "./contrato-id-manual";
@@ -85,6 +87,8 @@ import {
   reprovarDocumentoAction,
   inserirDocumentoManualAction,
   editarSocioAction,
+  adicionarSocioAction,
+  removerSocioAction,
   editarEmpresaAction,
   solicitarReenvioDocumentosAction,
   ativarClienteAction,
@@ -630,6 +634,13 @@ export default async function DossieAgenciaPage({
 
               <SecaoColapsavel titulo="Sócios" icon={<Users className="size-4" />}>
                 <div className="flex flex-col gap-3">
+                  <div className="flex justify-end">
+                    <NovoSocioForm
+                      agenciaId={agencia.id}
+                      adicionarSocioAction={adicionarSocioAction}
+                      disabled={!podeAgir}
+                    />
+                  </div>
                   {representantesLegais.map((socio) => (
                     <div
                       key={socio.id}
@@ -659,6 +670,13 @@ export default async function DossieAgenciaPage({
                             socio={socio}
                             historico={historicoEdicoesPorSocioId.get(socio.id) ?? []}
                             editarSocioAction={editarSocioAction}
+                            disabled={!podeAgir}
+                          />
+                          <RemoverSocioForm
+                            agenciaId={agencia.id}
+                            representanteLegalId={socio.id}
+                            nomeSocio={socio.nome}
+                            removerSocioAction={removerSocioAction}
                             disabled={!podeAgir}
                           />
                         </div>

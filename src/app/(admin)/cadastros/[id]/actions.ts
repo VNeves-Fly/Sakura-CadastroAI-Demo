@@ -257,6 +257,59 @@ export async function editarSocioAction(
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+export async function adicionarSocioAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+
+  const novoSocio = await cadastroAdminController.criarRepresentanteLegal({
+    agenciaId,
+    nome: String(formData.get("nome") ?? "").trim(),
+    cpf: String(formData.get("cpf") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    telefone: String(formData.get("telefone") ?? "").trim(),
+    estadoCivil: String(formData.get("estadoCivil") ?? "").trim(),
+    nacionalidade: parseStringOuNull(formData.get("nacionalidade")),
+    rg: parseStringOuNull(formData.get("rg")),
+    rgOrgaoEmissor: parseStringOuNull(formData.get("rgOrgaoEmissor")),
+    dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+    administrativo: formData.get("administrativo") === "true",
+  });
+
+  // Imagem do documento é opcional na hora de adicionar — se enviada,
+  // já entra pelo mesmo caminho de upload manual do dossiê (slot RG/CNH
+  // do sócio recém-criado, ver InserirDocumentoManualUseCase).
+  const arquivo = formData.get("arquivo");
+  if (arquivo instanceof File && arquivo.size > 0) {
+    const erroValidacao = validarArquivoUpload(arquivo, "Documento do sócio");
+    if (erroValidacao) throw new DomainError(erroValidacao);
+
+    const session = await getServerSession(nextAuthOptions);
+    const buffer = Buffer.from(await arquivo.arrayBuffer());
+    await cadastroAdminController.inserirDocumentoManual({
+      agenciaId,
+      representanteLegalId: novoSocio.id,
+      tipo: "RG_CNPJ",
+      arquivo: { buffer, originalName: arquivo.name, mimeType: arquivo.type },
+      inseridoPor: session?.user?.email ?? session?.user?.name ?? "analista não identificado",
+    });
+  }
+
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function removerSocioAction(
+  agenciaId: string,
+  representanteLegalId: string,
+  formData: FormData,
+) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.removerRepresentanteLegal({
+    id: representanteLegalId,
+    justificativa: String(formData.get("justificativa") ?? ""),
+    removidoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function editarEmpresaAction(agenciaId: string, formData: FormData) {
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.editarDadosEmpresa({
