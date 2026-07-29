@@ -31,10 +31,9 @@
     --success-foreground: 0 0% 100%;
     /* #3fd97f — pedido do usuário, 2026-07-28 (mesmo motivo do vermelho
        acima): verde pálido demais nos campos/selos de aprovado. Texto
-       escuro (--success-text original) já contrasta bem contra esse tom
-       mais vívido, sem precisar trocar. */
+       branco, mesmo padrão de --destructive-text acima. */
     --success-bg: 145 67% 55%;
-    --success-text: 95 78% 18%;
+    --success-text: 0 0% 100%;
     --warning: 35 78% 41%;
     --warning-foreground: 0 0% 100%;
     /* #ffca64 — idem, pro amarelo (documento pendente, CONSTA parcial
@@ -104,7 +103,7 @@
     --success: 93 55% 40%;
     --success-foreground: 0 0% 100%;
     --success-bg: 93 30% 16%;
-    --success-text: 93 55% 82%;
+    --success-text: 0 0% 100%;
     --warning: 35 70% 50%;
     --warning-foreground: 0 0% 100%;
     --warning-bg: 35 40% 18%;

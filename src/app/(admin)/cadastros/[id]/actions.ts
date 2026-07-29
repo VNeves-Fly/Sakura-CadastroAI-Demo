@@ -25,22 +25,45 @@ async function analistaIdLogado(): Promise<string> {
 // exige que o analista logado tenha assumido o atendimento da agência
 // antes (decisão do usuário, 2026-07-28). Chamada no início de toda action
 // que muda estado; leitura (visualizar documento etc.) não passa por aqui.
-async function garantirAtendimentoAssumido(agenciaId: string): Promise<void> {
-  await atendimentoController.garantirAtendimentoAssumido(agenciaId, await analistaIdLogado());
+// Devolve `false` (em vez de deixar o ConflictError subir cru) quando outro
+// analista assumiu ou a sessão local ficou desatualizada — a UI já é
+// gated por `podeAgir`/`atendimentoAssumidoPorMim` (ver page.tsx), então a
+// revalidação abaixo é o bastante pra ela mostrar o estado real, sem
+// derrubar a página com o "Application error" genérico do Next.
+async function garantirAtendimentoAssumido(agenciaId: string): Promise<boolean> {
+  try {
+    await atendimentoController.garantirAtendimentoAssumido(agenciaId, await analistaIdLogado());
+    return true;
+  } catch (error) {
+    if (!(error instanceof DomainError)) throw error;
+    revalidatePath(`/cadastros/${agenciaId}`);
+    return false;
+  }
 }
 
 export async function assumirAtendimentoDossieAction(agenciaId: string) {
-  await atendimentoController.assumirAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  try {
+    await atendimentoController.assumirAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  } catch (error) {
+    if (!(error instanceof DomainError)) throw error;
+    // Outro analista assumiu entre o render da página e o clique — a
+    // revalidação abaixo já mostra o estado real (ver podeAssumirAtendimento
+    // em page.tsx), não precisa derrubar a página com um erro genérico.
+  }
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function encerrarAtendimentoDossieAction(agenciaId: string) {
-  await atendimentoController.encerrarAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  try {
+    await atendimentoController.encerrarAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  } catch (error) {
+    if (!(error instanceof DomainError)) throw error;
+  }
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function aprovarComplementarAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.aprovarComplementar({ id, analistaEmail: await analistaLogado() });
   revalidatePath(`/cadastros/${id}`);
 }
@@ -54,7 +77,9 @@ export async function registrarContratoExternoAction(
   | { ok: false; motivo: string }
 > {
   try {
-    await garantirAtendimentoAssumido(agenciaId);
+    if (!(await garantirAtendimentoAssumido(agenciaId))) {
+      return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+    }
     const resultado = await cadastroAdminController.registrarContratoExterno({
       agenciaId,
       contratoId,
@@ -73,37 +98,37 @@ export async function registrarContratoExternoAction(
 }
 
 export async function marcarContratoAssinadoAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.marcarContratoAssinado(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function validarContratoAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.validarContrato(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function ativarClienteAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.ativarCliente(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function recusarCadastroAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.recusarCadastro(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reprocessarAnaliseAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.reprocessarAnalise(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reconsultarCreditoAction(agenciaId: string, fonte: "AMAT" | "SOFIA") {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.reconsultarCredito({
     agenciaId,
     fonte,
@@ -117,7 +142,7 @@ export async function aprovarDocumentoAction(
   documentoId: string,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const session = await getServerSession(nextAuthOptions);
   const motivo = String(formData.get("motivo") ?? "");
 
@@ -134,7 +159,7 @@ export async function reprovarDocumentoAction(
   documentoId: string,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const session = await getServerSession(nextAuthOptions);
   const motivo = String(formData.get("motivo") ?? "");
 
@@ -152,7 +177,7 @@ export async function inserirDocumentoManualAction(
   representanteLegalId: string | null,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const session = await getServerSession(nextAuthOptions);
   const arquivo = formData.get("arquivo");
 
@@ -178,7 +203,7 @@ export async function inserirDocumentoManualAction(
 }
 
 export async function solicitarReenvioDocumentosAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const documentoIds = formData.getAll("documentoIds").map(String);
   const baseUrl = obterUrlBase(headers());
   await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds, baseUrl });
@@ -191,7 +216,7 @@ async function analistaLogado(): Promise<string> {
 }
 
 export async function salvarSicaAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const codigo = String(formData.get("codigo") ?? "");
   await cadastroAdminController.salvarSica({
     agenciaId,
@@ -211,7 +236,7 @@ export async function editarSocioAction(
   representanteLegalId: string,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.atualizarRepresentanteLegal({
     id: representanteLegalId,
     editadoPor: await analistaLogado(),
@@ -233,7 +258,7 @@ export async function editarSocioAction(
 }
 
 export async function editarEmpresaAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.editarDadosEmpresa({
     agenciaId,
     editadoPor: await analistaLogado(),
@@ -254,7 +279,7 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
 }
 
 export async function salvarTravelLinkAction(agenciaId: string, criado: boolean) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.salvarTravelLink({
     agenciaId,
     criado,
@@ -273,7 +298,7 @@ function parseDataIso(valor: string): Date | null {
 }
 
 export async function salvarUsuarioMasterAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const origemRepresentanteLegalId = String(formData.get("origemRepresentanteLegalId") ?? "");
 
   await cadastroAdminController.salvarUsuarioMaster({
