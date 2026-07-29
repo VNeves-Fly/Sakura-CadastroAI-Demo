@@ -30,6 +30,7 @@ import { ListarTemplatesAprovadosUseCase } from "@/modules/atendimento/applicati
 import { ListarTodosTemplatesUseCase } from "@/modules/atendimento/application/use-cases/listar-todos-templates.use-case";
 import { CriarTemplateUseCase } from "@/modules/atendimento/application/use-cases/criar-template.use-case";
 import { ReenviarTemplateUseCase } from "@/modules/atendimento/application/use-cases/reenviar-template.use-case";
+import { AtualizarTemplateMetadataUseCase } from "@/modules/atendimento/application/use-cases/atualizar-template-metadata.use-case";
 import { ListarTextosProntosUseCase } from "@/modules/atendimento/application/use-cases/listar-textos-prontos.use-case";
 import { CriarTextoProntoUseCase } from "@/modules/atendimento/application/use-cases/criar-texto-pronto.use-case";
 import { AtualizarTextoProntoUseCase } from "@/modules/atendimento/application/use-cases/atualizar-texto-pronto.use-case";
@@ -56,6 +57,7 @@ import type { ResponderTransferenciaInput } from "@/modules/atendimento/applicat
 import type { CriarTextoProntoInput } from "@/modules/atendimento/application/dto/criar-texto-pronto.dto";
 import type { AtualizarTextoProntoInput } from "@/modules/atendimento/application/dto/atualizar-texto-pronto.dto";
 import type { CriarTemplateInput } from "@/modules/atendimento/application/dto/criar-template.dto";
+import type { AtualizarTemplateMetadataInput } from "@/modules/atendimento/application/dto/atualizar-template-metadata.dto";
 import type { IniciarConversaInput } from "@/modules/atendimento/application/dto/iniciar-conversa.dto";
 
 // Composition root do módulo atendimento — único lugar que conhece
@@ -152,6 +154,11 @@ export const atendimentoController = {
       whatsAppMessagingService,
     );
     return useCase.execute(id, novoConteudo);
+  },
+
+  atualizarTemplateMetadata(id: string, input: AtualizarTemplateMetadataInput) {
+    const useCase = new AtualizarTemplateMetadataUseCase(templateWhatsAppRepository);
+    return useCase.execute(id, input);
   },
 
   listarTextosProntos() {

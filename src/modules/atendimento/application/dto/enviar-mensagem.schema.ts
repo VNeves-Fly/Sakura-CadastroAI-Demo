@@ -5,4 +5,6 @@ export const enviarMensagemSchema = z.object({
   conteudo: z.string().min(1, "Conteúdo é obrigatório."),
   duracaoSegundos: z.number().int().positive().optional(),
   tamanhoArquivo: z.string().optional(),
+  templateId: z.string().optional(),
+  variaveis: z.array(z.string()).optional(),
 });

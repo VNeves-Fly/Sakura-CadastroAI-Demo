@@ -3,6 +3,7 @@ import type {
   ConfiguracaoWhatsappBusiness,
   TemplateAprovado,
   CriarTemplateInput,
+  AtualizarTemplateMetadataInput,
   ResultadoTesteConexao,
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
@@ -74,6 +75,16 @@ export function useMessengerConfig(analistaAtual: string) {
     setTemplates((atual) => atual.map((template) => (template.id === id ? atualizado : template)));
   }, []);
 
+  const atualizarTemplateMetadata = useCallback(
+    async (id: string, input: AtualizarTemplateMetadataInput) => {
+      const atualizado = await atendimentoApi.atualizarTemplateMetadata(id, input);
+      setTemplates((atual) =>
+        atual.map((template) => (template.id === id ? atualizado : template)),
+      );
+    },
+    [],
+  );
+
   const testarConexao = useCallback(async () => {
     setIsTestandoConexao(true);
     setResultadoTeste(null);
@@ -107,6 +118,7 @@ export function useMessengerConfig(analistaAtual: string) {
     salvarConfiguracao,
     criarTemplate,
     reenviarTemplate,
+    atualizarTemplateMetadata,
     testarConexao,
     sincronizarTemplates,
   };

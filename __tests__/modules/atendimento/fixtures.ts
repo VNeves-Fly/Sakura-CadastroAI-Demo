@@ -148,6 +148,7 @@ export function fakeTemplateWhatsAppRepository(
     obterMetaTemplateId: jest.fn().mockResolvedValue(null),
     criarLocal: jest.fn(),
     atualizarAposReenvio: jest.fn(),
+    atualizarMetadata: jest.fn(),
     upsertPorMetaTemplateId: jest.fn(),
     ...overrides,
   };
