@@ -11,10 +11,10 @@ interface EventoNovoDocumento {
 }
 
 // Sem UI própria — assina /api/notificacoes/documentos e mostra um toast
-// no canto inferior esquerdo por documento novo (upload inicial, reenvio,
-// inserção manual ou mídia do chat vinculada — qualquer origem, ver a
-// rota). Montado no layout do admin (não numa página específica) pra
-// avisar qualquer analista logado, em qualquer tela.
+// no canto superior direito (padrão de toda a app) por documento novo
+// (upload inicial, reenvio, inserção manual ou mídia do chat vinculada —
+// qualquer origem, ver a rota). Montado no layout do admin (não numa
+// página específica) pra avisar qualquer analista logado, em qualquer tela.
 export function NotificacoesDocumentosLive() {
   const mostrarToast = useToastStore((state) => state.mostrarToast);
 
@@ -25,11 +25,9 @@ export function NotificacoesDocumentosLive() {
       try {
         const dados = JSON.parse(event.data) as EventoNovoDocumento;
         const quem = dados.nomeSocio ? ` (${dados.nomeSocio})` : "";
-        mostrarToast(
-          `${dados.agenciaNome} enviou ${dados.tipoDocumento}${quem}.`,
-          "info",
-          "inferior-esquerdo",
-        );
+        mostrarToast(`${dados.agenciaNome}${quem}`, "info", {
+          titulo: `🌸 ${dados.tipoDocumento} enviado`,
+        });
       } catch {
         // payload malformado — ignora, sem toast
       }

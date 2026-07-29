@@ -85,7 +85,7 @@ const FILAS = [
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
     label: "Aguardando validação",
-    sublabel: "contrato assinado, criar SCIA e TravelLink",
+    sublabel: "contrato assinado, criar SICA e TravelLink",
   },
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
