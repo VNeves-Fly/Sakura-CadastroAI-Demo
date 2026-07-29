@@ -41,6 +41,25 @@ function janela24hFechada(conversa: Conversa): boolean {
   return horas > HORAS_JANELA_META;
 }
 
+function rotuloTemplate(template: TemplateAprovado): string {
+  return template.titulo || template.nome;
+}
+
+// Conta quantas variáveis {{1}}, {{2}}... o corpo do template tem — a
+// Meta só garante {{n}} sequencial a partir de 1, então o maior número
+// encontrado já dá a quantidade de campos pra pedir.
+function contarVariaveis(conteudo: string): number {
+  const numeros = [...conteudo.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1]));
+  return numeros.length > 0 ? Math.max(...numeros) : 0;
+}
+
+function substituirVariaveis(conteudo: string, valores: string[]): string {
+  return conteudo.replace(/\{\{(\d+)\}\}/g, (match, indice) => {
+    const valor = valores[Number(indice) - 1];
+    return valor && valor.trim() ? valor.trim() : match;
+  });
+}
+
 function PainelMidia({ conversa, onFechar }: { conversa: Conversa; onFechar: () => void }) {
   const midias = conversa.mensagens.filter((mensagem) => mensagem.tipo !== "texto");
 
@@ -272,7 +291,7 @@ function TemplatesDropdownButton({
   onEnviar,
 }: {
   templatesAprovados: TemplateAprovado[];
-  onEnviar: (conteudo: string) => void;
+  onEnviar: (template: TemplateAprovado) => void;
 }) {
   const [aberto, setAberto] = useState(false);
 
@@ -301,12 +320,14 @@ function TemplatesDropdownButton({
                 key={template.id}
                 type="button"
                 onClick={() => {
-                  onEnviar(template.conteudo);
+                  onEnviar(template);
                   setAberto(false);
                 }}
                 className="hover:bg-accent rounded-lg px-2 py-1.5 text-left"
               >
-                <span className="text-foreground block text-xs font-semibold">{template.nome}</span>
+                <span className="text-foreground block text-xs font-semibold">
+                  {rotuloTemplate(template)}
+                </span>
                 <span className="text-muted-foreground line-clamp-1 block text-xs">
                   {template.conteudo}
                 </span>
@@ -324,7 +345,7 @@ function TemplatesAprovadosPicker({
   onEnviar,
 }: {
   templatesAprovados: TemplateAprovado[];
-  onEnviar: (conteudo: string) => void;
+  onEnviar: (template: TemplateAprovado) => void;
 }) {
   return (
     <div className="border-warning/30 bg-warning/5 flex flex-col gap-2 border-t px-4 py-3">
@@ -346,15 +367,97 @@ function TemplatesAprovadosPicker({
             <button
               key={template.id}
               type="button"
-              onClick={() => onEnviar(template.conteudo)}
+              onClick={() => onEnviar(template)}
               className="border-input bg-card hover:bg-accent rounded-full border px-3 py-1.5 text-left text-xs font-medium"
               title={template.conteudo}
             >
-              {template.nome}
+              {rotuloTemplate(template)}
             </button>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Só aparece quando o template tem {{n}} no corpo — pede um valor por
+// variável antes de mandar, com pré-visualização do texto final.
+function PreencherVariaveisModal({
+  template,
+  onConfirmar,
+  onCancelar,
+}: {
+  template: TemplateAprovado;
+  onConfirmar: (valores: string[]) => void;
+  onCancelar: () => void;
+}) {
+  const totalVariaveis = contarVariaveis(template.conteudo);
+  const [valores, setValores] = useState<string[]>(() => Array(totalVariaveis).fill(""));
+
+  const preview = substituirVariaveis(template.conteudo, valores);
+  const podeEnviar = valores.every((valor) => valor.trim().length > 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-card border-border w-full max-w-md rounded-2xl border p-4 shadow-xl">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span className="text-foreground min-w-0 truncate text-sm font-semibold">
+            Preencher variáveis — {rotuloTemplate(template)}
+          </span>
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {valores.map((valor, indice) => (
+            <label key={indice} className="flex flex-col gap-1">
+              <span className="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">
+                Variável {indice + 1}
+              </span>
+              <input
+                value={valor}
+                autoFocus={indice === 0}
+                onChange={(event) => {
+                  const novosValores = [...valores];
+                  novosValores[indice] = event.target.value;
+                  setValores(novosValores);
+                }}
+                className="border-input bg-background text-foreground rounded-lg border px-3 py-1.5 text-sm outline-none"
+              />
+            </label>
+          ))}
+        </div>
+
+        <div className="border-border bg-muted/30 mt-3 rounded-lg border border-dashed px-3 py-2 text-xs">
+          <span className="text-muted-foreground mb-1 block text-[10px] font-bold tracking-wide uppercase">
+            Pré-visualização
+          </span>
+          <p className="text-foreground">{preview}</p>
+        </div>
+
+        <div className="mt-3 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="border-input rounded-full border px-4 py-1.5 text-xs font-semibold"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!podeEnviar}
+            onClick={() => onConfirmar(valores)}
+            className="bg-primary text-primary-foreground rounded-full px-4 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Enviar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -407,6 +510,9 @@ export function ThreadConversa({
   const [texto, setTexto] = useState("");
   const [mostrarMidia, setMostrarMidia] = useState(false);
   const [mensagensVisiveis, setMensagensVisiveis] = useState(PAGINA_MENSAGENS);
+  const [templateEmPreenchimento, setTemplateEmPreenchimento] = useState<TemplateAprovado | null>(
+    null,
+  );
   const fimDaListaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -417,6 +523,7 @@ export function ThreadConversa({
     setMostrarMidia(false);
     setTexto("");
     setMensagensVisiveis(PAGINA_MENSAGENS);
+    setTemplateEmPreenchimento(null);
   }, [conversa?.id]);
 
   if (!conversa) {
@@ -444,9 +551,35 @@ export function ThreadConversa({
     setTexto("");
   }
 
-  async function enviarTemplate(conteudo: string) {
+  async function enviarTemplateDireto(template: TemplateAprovado) {
     if (!conversa) return;
-    await onEnviarMensagem(conversa.id, { tipo: "texto", conteudo });
+    await onEnviarMensagem(conversa.id, {
+      tipo: "texto",
+      conteudo: template.conteudo,
+      templateId: template.id,
+    });
+  }
+
+  // Templates sem {{n}} mandam direto; com variável, abre o modal de
+  // preenchimento antes (ver PreencherVariaveisModal).
+  function iniciarEnvioTemplate(template: TemplateAprovado) {
+    if (contarVariaveis(template.conteudo) > 0) {
+      setTemplateEmPreenchimento(template);
+    } else {
+      void enviarTemplateDireto(template);
+    }
+  }
+
+  async function confirmarEnvioTemplateComVariaveis(valores: string[]) {
+    if (!conversa || !templateEmPreenchimento) return;
+    const template = templateEmPreenchimento;
+    setTemplateEmPreenchimento(null);
+    await onEnviarMensagem(conversa.id, {
+      tipo: "texto",
+      conteudo: substituirVariaveis(template.conteudo, valores),
+      templateId: template.id,
+      variaveis: valores,
+    });
   }
 
   return (
@@ -543,7 +676,7 @@ export function ThreadConversa({
       ) : janelaFechada ? (
         <TemplatesAprovadosPicker
           templatesAprovados={templatesAprovados}
-          onEnviar={(conteudo) => void enviarTemplate(conteudo)}
+          onEnviar={iniciarEnvioTemplate}
         />
       ) : (
         <div className="border-border flex items-center gap-2 border-t px-4 py-3">
@@ -556,7 +689,7 @@ export function ThreadConversa({
           />
           <TemplatesDropdownButton
             templatesAprovados={templatesAprovados}
-            onEnviar={(conteudo) => void enviarTemplate(conteudo)}
+            onEnviar={iniciarEnvioTemplate}
           />
           <input
             type="text"
@@ -581,6 +714,14 @@ export function ThreadConversa({
           </button>
         </div>
       )}
+
+      {templateEmPreenchimento ? (
+        <PreencherVariaveisModal
+          template={templateEmPreenchimento}
+          onConfirmar={(valores) => void confirmarEnvioTemplateComVariaveis(valores)}
+          onCancelar={() => setTemplateEmPreenchimento(null)}
+        />
+      ) : null}
     </div>
   );
 }

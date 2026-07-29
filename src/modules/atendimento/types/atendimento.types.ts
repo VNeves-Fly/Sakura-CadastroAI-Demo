@@ -113,14 +113,25 @@ export type StatusTemplate = "aprovado" | "pendente_aprovacao" | "rejeitado";
 export interface TemplateAprovado {
   id: string;
   nome: string;
+  // Nome amigável definido localmente — nunca mandado pra Meta. Cai pro
+  // `nome` técnico quando não definido (ver rótuloTemplate no front).
+  titulo: string | null;
   conteudo: string;
   categoria: CategoriaTemplate;
   idioma: string;
   status: StatusTemplate;
+  // Liga/desliga o template só do nosso lado — some do picker de envio
+  // mesmo que continue aprovado na Meta.
+  ativo: boolean;
   // Motivo devolvido pela Meta quando status === "rejeitado" — só existe
   // de verdade depois da revisão deles, nunca inventado aqui.
   motivoRejeicao: string | null;
   criadoEm: string; // ISO string no front
+}
+
+export interface AtualizarTemplateMetadataInput {
+  titulo?: string | null;
+  ativo?: boolean;
 }
 
 // Credenciais do Meta for Developers / WhatsApp Business API — campos
@@ -160,6 +171,10 @@ export interface EnviarMensagemInput {
   conteudo: string;
   duracaoSegundos?: number;
   tamanhoArquivo?: string;
+  // Presentes só quando o envio veio de um template com variáveis
+  // preenchidas (ver PreencherVariaveisModal em thread-conversa.tsx).
+  templateId?: string;
+  variaveis?: string[];
 }
 
 export interface AssumirAtendimentoInput {

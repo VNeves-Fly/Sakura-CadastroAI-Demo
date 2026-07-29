@@ -1138,9 +1138,18 @@ model TemplateWhatsApp {
   id             String                 @id @default(cuid())
   metaTemplateId String                 @unique
   nome           String
+  // Nome amigável definido localmente pro analista reconhecer o template
+  // na lista — `nome` continua sendo o nome técnico real da Meta (não dá
+  // pra mudar, é a chave de envio), `titulo` é só de exibição e nunca é
+  // mandado pra Graph API.
+  titulo         String?
   idioma         String                 @default("pt_BR")
   categoria      String?
   status         StatusTemplateWhatsApp @default(APPROVED)
+  // Liga/desliga o template só do nosso lado (some do picker de envio em
+  // ThreadConversa) sem tocar no status dele na Meta — diferente de
+  // PAUSED, que é decisão da Meta por qualidade, não do analista.
+  ativo          Boolean                @default(true)
   conteudo       String                 @db.Text // texto do componente BODY, com placeholders {{1}}
   // Preenchido pela Meta só quando status = REJECTED (rejected_reason da
   // Business Management API) — nunca inventado localmente.

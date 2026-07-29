@@ -157,7 +157,7 @@ describe("EnviarMensagemUseCase", () => {
     expect(whatsAppMessagingService.enviarTexto).not.toHaveBeenCalled();
   });
 
-  it("com a janela fechada, usa o template quando o conteúdo bate com um aprovado no cache", async () => {
+  it("com a janela fechada, usa o template pelo templateId e manda as variáveis pra Meta", async () => {
     const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
     const {
       useCase,
@@ -171,10 +171,12 @@ describe("EnviarMensagemUseCase", () => {
       {
         id: "tpl-1",
         nome: "boas_vindas",
-        conteudo: "Olá! Recebemos seu cadastro.",
+        titulo: null,
+        conteudo: "Olá {{1}}! Recebemos seu cadastro.",
         categoria: "UTILITY",
         idioma: "pt_BR",
         status: "aprovado",
+        ativo: true,
         motivoRejeicao: null,
         criadoEm: "2026-01-01T00:00:00.000Z",
       },
@@ -184,13 +186,16 @@ describe("EnviarMensagemUseCase", () => {
       conversaId: "conv-1",
       analistaId: "analista-1",
       tipo: "texto",
-      conteudo: "Olá! Recebemos seu cadastro.",
+      conteudo: "Olá Fulano! Recebemos seu cadastro.",
+      templateId: "tpl-1",
+      variaveis: ["Fulano"],
     });
 
     expect(whatsAppMessagingService.enviarTemplate).toHaveBeenCalledWith(
       "5511999999999",
       "boas_vindas",
       "pt_BR",
+      ["Fulano"],
     );
     expect(whatsAppMessagingService.enviarTexto).not.toHaveBeenCalled();
     expect(mensagemRepository.create).toHaveBeenCalledWith(
@@ -198,7 +203,7 @@ describe("EnviarMensagemUseCase", () => {
     );
   });
 
-  it("lança ForaDaJanela24hError quando a janela está fechada e o texto não bate com nenhum template — não persiste nada", async () => {
+  it("lança ForaDaJanela24hError quando a janela está fechada e não veio templateId — não persiste nada", async () => {
     const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
     const {
       useCase,
@@ -208,18 +213,6 @@ describe("EnviarMensagemUseCase", () => {
       templateWhatsAppRepository,
     } = criarUseCase();
     (conversaRepository.findById as jest.Mock).mockResolvedValue(conversa);
-    (templateWhatsAppRepository.findAllAprovados as jest.Mock).mockResolvedValue([
-      {
-        id: "tpl-1",
-        nome: "boas_vindas",
-        conteudo: "Um texto totalmente diferente",
-        categoria: "UTILITY",
-        idioma: "pt_BR",
-        status: "aprovado",
-        motivoRejeicao: null,
-        criadoEm: "2026-01-01T00:00:00.000Z",
-      },
-    ]);
 
     await expect(
       useCase.execute({
@@ -234,6 +227,26 @@ describe("EnviarMensagemUseCase", () => {
     expect(whatsAppMessagingService.enviarTemplate).not.toHaveBeenCalled();
     expect(mensagemRepository.create).not.toHaveBeenCalled();
     expect(conversaRepository.touchLastMessage).not.toHaveBeenCalled();
+  });
+
+  it("lança ForaDaJanela24hError quando o templateId não bate com nenhum template aprovado", async () => {
+    const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
+    const { useCase, conversaRepository, mensagemRepository, templateWhatsAppRepository } =
+      criarUseCase();
+    (conversaRepository.findById as jest.Mock).mockResolvedValue(conversa);
+    (templateWhatsAppRepository.findAllAprovados as jest.Mock).mockResolvedValue([]);
+
+    await expect(
+      useCase.execute({
+        conversaId: "conv-1",
+        analistaId: "a1",
+        tipo: "texto",
+        conteudo: "texto qualquer",
+        templateId: "tpl-inexistente",
+      }),
+    ).rejects.toThrow(ForaDaJanela24hError);
+
+    expect(mensagemRepository.create).not.toHaveBeenCalled();
   });
 
   it("não chama a Meta para mensagens de mídia enviadas pelo analista (sem upload real na UI ainda)", async () => {

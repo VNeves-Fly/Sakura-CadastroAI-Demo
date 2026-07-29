@@ -9,4 +9,11 @@ export interface EnviarMensagemInput {
   conteudo: string;
   duracaoSegundos?: number;
   tamanhoArquivo?: string;
+  // Presentes só quando `conteudo` veio de um template aprovado (picker
+  // de template em ThreadConversa) — `conteudo` já chega com os {{n}}
+  // substituídos pro valor digitado (usado como texto/preview em
+  // qualquer janela); `variaveis` é a lista posicional crua que a Meta
+  // exige nos `parameters` do template quando a janela de 24h tá fechada.
+  templateId?: string;
+  variaveis?: string[];
 }

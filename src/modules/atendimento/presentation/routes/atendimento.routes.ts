@@ -22,6 +22,7 @@ import { solicitarTransferenciaSchema } from "@/modules/atendimento/application/
 import { responderTransferenciaSchema } from "@/modules/atendimento/application/dto/responder-transferencia.schema";
 import { criarTemplateSchema } from "@/modules/atendimento/application/dto/criar-template.schema";
 import { reenviarTemplateSchema } from "@/modules/atendimento/application/dto/reenviar-template.schema";
+import { atualizarTemplateMetadataSchema } from "@/modules/atendimento/application/dto/atualizar-template-metadata.schema";
 import { iniciarConversaSchema } from "@/modules/atendimento/application/dto/iniciar-conversa.schema";
 
 // Ações de analista autenticado — não expostas ao público, mas ainda
@@ -349,6 +350,24 @@ export async function reenviarTemplateRoute(request: Request, id: string) {
     }
 
     const template = await atendimentoController.reenviarTemplate(id, parsed.data.novoConteudo);
+    return httpOk(template);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function atualizarTemplateMetadataRoute(request: Request, id: string) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const body = await request.json();
+    const parsed = atualizarTemplateMetadataSchema.safeParse(body);
+    if (!parsed.success) {
+      return httpError(parsed.error.issues.map((issue) => issue.message).join(" "), 422);
+    }
+
+    const template = await atendimentoController.atualizarTemplateMetadata(id, parsed.data);
     return httpOk(template);
   } catch (error) {
     return mapErrorToResponse(error);

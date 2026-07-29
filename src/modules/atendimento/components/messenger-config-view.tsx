@@ -15,6 +15,7 @@ import { useMessengerConfig } from "@/modules/atendimento/view-models/use-messen
 import type {
   CategoriaTemplate,
   StatusTemplate,
+  TemplateAprovado,
 } from "@/modules/atendimento/types/atendimento.types";
 
 const CATEGORIAS: { valor: CategoriaTemplate; label: string }[] = [
@@ -64,6 +65,34 @@ const FORM_VAZIO: FormConexao = {
   webhookVerifyToken: "",
 };
 
+// Input controlado com estado próprio (não sincroniza de volta com o
+// prop a cada render) — só salva no blur, e só se o valor realmente
+// mudou, pra não disparar um PATCH a cada tecla digitada.
+function TituloTemplateField({
+  template,
+  onAtualizar,
+}: {
+  template: TemplateAprovado;
+  onAtualizar: (id: string, titulo: string | null) => Promise<void>;
+}) {
+  const [valor, setValor] = useState(template.titulo ?? "");
+
+  return (
+    <input
+      value={valor}
+      onChange={(event) => setValor(event.target.value)}
+      onBlur={() => {
+        const novoTitulo = valor.trim() || null;
+        if (novoTitulo !== (template.titulo ?? null)) {
+          void onAtualizar(template.id, novoTitulo);
+        }
+      }}
+      placeholder="Título de exibição (opcional — só aparece aqui e no chat)"
+      className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 w-full rounded-lg border px-2.5 py-1 text-xs outline-none focus:ring-2"
+    />
+  );
+}
+
 export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }) {
   const {
     configuracao,
@@ -77,6 +106,7 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
     salvarConfiguracao,
     criarTemplate,
     reenviarTemplate,
+    atualizarTemplateMetadata,
     testarConexao,
     sincronizarTemplates,
   } = useMessengerConfig(analistaAtual);
@@ -328,10 +358,21 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
               templates.map((template) => (
                 <div
                   key={template.id}
-                  className="border-border bg-muted/30 flex flex-col gap-1.5 rounded-xl border px-4 py-3 text-sm"
+                  className={`border-border bg-muted/30 flex flex-col gap-1.5 rounded-xl border px-4 py-3 text-sm ${
+                    template.ativo ? "" : "opacity-60"
+                  }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-foreground font-mono font-semibold">{template.nome}</span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-foreground font-semibold">
+                        {template.titulo || template.nome}
+                      </span>
+                      {template.titulo ? (
+                        <span className="text-muted-foreground font-mono text-[10px]">
+                          {template.nome}
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
                         {template.categoria}
@@ -344,8 +385,32 @@ export function MessengerConfigView({ analistaAtual }: { analistaAtual: string }
                       >
                         {LABEL_STATUS_TEMPLATE[template.status]}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void atualizarTemplateMetadata(template.id, { ativo: !template.ativo })
+                        }
+                        title={
+                          template.ativo
+                            ? "Ativo — clique pra esconder do envio no chat (não mexe no status na Meta)"
+                            : "Inativo — clique pra liberar de novo no envio do chat"
+                        }
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase transition ${
+                          template.ativo
+                            ? "bg-success-bg text-success-text"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {template.ativo ? "Ativo" : "Inativo"}
+                      </button>
                     </div>
                   </div>
+
+                  <TituloTemplateField
+                    template={template}
+                    onAtualizar={(id, titulo) => atualizarTemplateMetadata(id, { titulo })}
+                  />
+
                   <p className="text-muted-foreground">{template.conteudo}</p>
                   {template.status === "rejeitado" && template.motivoRejeicao ? (
                     <p className="text-destructive text-xs">Motivo: {template.motivoRejeicao}</p>

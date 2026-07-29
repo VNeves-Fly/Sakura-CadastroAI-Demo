@@ -22,6 +22,14 @@ export interface CriarTemplateLocalData {
   categoria: string;
 }
 
+// Metadata local (não muda nada na Meta) — título de exibição e
+// liga/desliga do picker de envio, ambos editáveis a qualquer momento
+// pelo analista.
+export interface AtualizarTemplateMetadataData {
+  titulo?: string | null;
+  ativo?: boolean;
+}
+
 export interface TemplateWhatsAppRepository {
   findAllAprovados(): Promise<TemplateAprovadoEntity[]>;
   // Todos, independente do status — usado pela tela de gestão de
@@ -40,4 +48,10 @@ export interface TemplateWhatsAppRepository {
   // vem da Meta — chave de idempotência é o id do template lá (não muda
   // mesmo se o nome for reaproveitado por outro idioma).
   upsertPorMetaTemplateId(data: TemplateWhatsAppUpsertData): Promise<void>;
+  // Título/ativo são só nossos — nunca sincronizados com a Meta, por isso
+  // vivem numa atualização separada do reenvio (que edita conteúdo lá).
+  atualizarMetadata(
+    id: string,
+    data: AtualizarTemplateMetadataData,
+  ): Promise<TemplateAprovadoEntity>;
 }
