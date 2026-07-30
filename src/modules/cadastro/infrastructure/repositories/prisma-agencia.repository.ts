@@ -23,6 +23,7 @@ import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_ANALISE,
   STATUS_EM_COMPLEMENTAR,
@@ -786,6 +787,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       aguardandoAssinaturaIa,
       aguardandoAssinaturaHumano,
       aguardandoValidacao,
+      aguardandoCadastramento,
       aguardandoAtivacao,
       ativas,
       recusadas,
@@ -818,6 +820,9 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         where: { status: STATUS_AGUARDANDO_VALIDACAO as PrismaStatusAgencia },
       }),
       this.prisma.agencia.count({
+        where: { status: STATUS_AGUARDANDO_CADASTRAMENTO as PrismaStatusAgencia },
+      }),
+      this.prisma.agencia.count({
         where: { status: STATUS_AGUARDANDO_ATIVACAO as PrismaStatusAgencia },
       }),
       this.prisma.agencia.count({ where: { status: STATUS_ATIVO as PrismaStatusAgencia } }),
@@ -833,6 +838,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         humano: aguardandoAssinaturaHumano,
       },
       aguardandoValidacao,
+      aguardandoCadastramento,
       aguardandoAtivacao,
       ativas,
       recusadas,

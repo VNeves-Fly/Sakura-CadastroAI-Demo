@@ -97,15 +97,42 @@ export async function registrarContratoExternoAction(
   }
 }
 
+export async function sincronizarContratoD4SignAction(agenciaId: string): Promise<
+  | {
+      ok: true;
+      statusDocumento: string | null;
+      adicionados: string[];
+      removidos: string[];
+      assinaturasAtualizadas: number;
+      avancouStatus: boolean;
+    }
+  | { ok: false; motivo: string }
+> {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) {
+    return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+  }
+  const resultado = await cadastroAdminController.sincronizarContratoD4Sign(agenciaId);
+  if (resultado.ok) {
+    revalidatePath(`/cadastros/${agenciaId}`);
+  }
+  return resultado;
+}
+
 export async function marcarContratoAssinadoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.marcarContratoAssinado(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
-export async function validarContratoAction(id: string) {
+export async function aprovarValidacaoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.validarContrato(id);
+  await cadastroAdminController.aprovarValidacao(id);
+  revalidatePath(`/cadastros/${id}`);
+}
+
+export async function confirmarCadastramentoAction(id: string) {
+  if (!(await garantirAtendimentoAssumido(id))) return;
+  await cadastroAdminController.confirmarCadastramento(id);
   revalidatePath(`/cadastros/${id}`);
 }
 

@@ -45,6 +45,16 @@ export interface DocumentoD4SignInfo {
   statusName: string | null;
 }
 
+export interface DestinatarioD4Sign {
+  email: string;
+  // Melhor esforço (ver D4SignAdapter.obterDestinatarios) — o formato de
+  // resposta desse endpoint nunca foi confirmado ao vivo pra saber se traz
+  // status por signatário. `null` = não deu pra reconhecer nenhum campo de
+  // status na resposta, não assume "pendente".
+  assinado: boolean | null;
+  assinadoEm: Date | null;
+}
+
 export interface ContratoAssinaturaService {
   gerarEEnviar(input: GerarContratoInput): Promise<GerarContratoResult>;
   // Baixa o PDF atual do documento no D4Sign, qualquer que seja o estágio
@@ -57,10 +67,11 @@ export interface ContratoAssinaturaService {
   // pro caller as duas situações pedem a mesma resposta ("não deu pra
   // confirmar esse ID, confira e tente de novo").
   obterDocumento(provedorId: string): Promise<DocumentoD4SignInfo>;
-  // E-mails dos destinatários cadastrados no documento — usado só pra
-  // validar que o ID colado corresponde à agência certa, não pra
-  // reconstruir ContratoSignatario.
-  obterDestinatarios(provedorId: string): Promise<string[]>;
+  // Destinatários cadastrados no documento, com status de assinatura em
+  // melhor esforço — usado tanto pra validar que o ID colado corresponde à
+  // agência certa (registro de contrato externo) quanto pelo sync manual
+  // com o D4Sign (SincronizarContratoD4SignUseCase).
+  obterDestinatarios(provedorId: string): Promise<DestinatarioD4Sign[]>;
   // Registra nosso endpoint de webhook num documento que não passou por
   // gerarEEnviar (ex.: contrato assinado por fora, registrado depois).
   // `registrado: false` quando D4SIGN_WEBHOOK_URL não está configurada —

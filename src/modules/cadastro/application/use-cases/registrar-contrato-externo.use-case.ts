@@ -57,7 +57,7 @@ export class RegistrarContratoExternoUseCase implements UseCase<
     const destinatarios = await this.contratoAssinaturaService.obterDestinatarios(input.provedorId);
     const avisos: string[] = [];
     if (input.emailsEsperados.length > 0) {
-      const destinatariosSet = new Set(destinatarios.map((email) => email.toLowerCase()));
+      const destinatariosSet = new Set(destinatarios.map((item) => item.email.toLowerCase()));
       const bateAlgum = input.emailsEsperados.some((email) =>
         destinatariosSet.has(email.toLowerCase()),
       );

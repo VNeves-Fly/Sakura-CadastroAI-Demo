@@ -1,6 +1,7 @@
 import type {
   ArquivoContrato,
   ContratoAssinaturaService,
+  DestinatarioD4Sign,
   DocumentoD4SignInfo,
   GerarContratoInput,
   GerarContratoResult,
@@ -179,16 +180,29 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     }
   }
 
-  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign —
-  // não testado ao vivo ainda (ver docs/d4sign.md). Assume uma lista de
-  // objetos com campo `email`, tolerando variação no nome dos demais
-  // campos (não usados aqui).
-  async obterDestinatarios(provedorId: string): Promise<string[]> {
+  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign — não
+  // testado ao vivo ainda (ver docs/d4sign.md). Assume uma lista de objetos
+  // com `email`, tentando reconhecer em melhor esforço um campo de status
+  // por signatário (nomes variam entre integrações reais do D4Sign:
+  // `signed`/`statusId`/`statusName`/`signAt`/`sign_date` são os mais
+  // comuns) — se nenhum bater, `assinado` fica `null` (desconhecido, não
+  // assume "pendente"). Ajustar esse parsing assim que alguém confirmar o
+  // formato real contra uma conta com D4SIGN_TOKEN_API configurada (ver
+  // SincronizarContratoD4SignUseCase).
+  async obterDestinatarios(provedorId: string): Promise<DestinatarioD4Sign[]> {
     const resultado = (await this.request("GET", `/documents/${provedorId}/list`, undefined)) as
-      Array<{ email?: string }> | { list?: Array<{ email?: string }> };
+      Array<Record<string, unknown>> | { list?: Array<Record<string, unknown>> };
 
     const lista = Array.isArray(resultado) ? resultado : (resultado.list ?? []);
-    return lista.map((item) => item.email).filter((email): email is string => Boolean(email));
+    return lista
+      .filter((item): item is Record<string, unknown> & { email: string } =>
+        Boolean(item.email && typeof item.email === "string"),
+      )
+      .map((item) => ({
+        email: item.email,
+        assinado: extrairAssinado(item),
+        assinadoEm: extrairAssinadoEm(item),
+      }));
   }
 
   private async cadastrarSignatarios(
@@ -245,6 +259,30 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     }
     return resultado;
   }
+}
+
+// Melhor esforço: reconhece `signed`/`statusId`/`statusName` como sinal de
+// "já assinou" — `statusId`/`statusName` variam por conta/versão do D4Sign,
+// então só interpreta valores inequívocos ("2"/"assinado"/"signed"), nunca
+// assume "não assinado" por ausência (fica `null`).
+function extrairAssinado(item: Record<string, unknown>): boolean | null {
+  if (typeof item.signed === "boolean") return item.signed;
+  if (typeof item.statusId === "string" || typeof item.statusId === "number") {
+    return String(item.statusId) === "2";
+  }
+  if (typeof item.statusName === "string") {
+    const status = item.statusName.trim().toLowerCase();
+    if (status.includes("assinado") || status === "signed") return true;
+    if (status.includes("pendente") || status.includes("aguardando")) return false;
+  }
+  return null;
+}
+
+function extrairAssinadoEm(item: Record<string, unknown>): Date | null {
+  const bruto = item.signAt ?? item.sign_date ?? item.signedAt;
+  if (typeof bruto !== "string") return null;
+  const data = new Date(bruto);
+  return Number.isNaN(data.getTime()) ? null : data;
 }
 
 function requireEnv(name: string): string {

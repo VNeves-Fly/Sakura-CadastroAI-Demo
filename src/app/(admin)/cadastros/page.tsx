@@ -22,6 +22,7 @@ import {
   STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_ATIVO,
@@ -57,16 +58,18 @@ function extrairCategoria(valores: string[], prefixo: string): string[] {
 // Filas clicáveis — ciclo completo de estados (decisão do usuário,
 // 2026-07-16; "em_analise" adicionado em 2026-07-24 quando o envio do
 // cadastro passou a persistir antes da IA rodar; unificada com o KPI
-// numérico em 2026-07-27, um card só por status): o cadastro é
+// numérico em 2026-07-27, um card só por status; "aguardando_cadastramento"
+// adicionado em 2026-07-30, ver agencia-repository.ts): o cadastro é
 // persistido assim que enviado ("em_analise") e a IA avalia depois, em
 // background; se reprovar (ou a análise falhar tecnicamente) vai pra
 // "em_complementar" (sem contrato ainda). Se aprovar (ou depois que o
 // analista aprovar manualmente na fila Complementar), o contrato é
-// gerado e cai em "aguardando_assinatura". Assinado, vira
-// "aguardando_validacao" (analista confere o contrato assinado);
-// validado, vira "aguardando_ativacao" (só falta SICA/Travel
-// Link/Usuário Master + clicar ativar); ativado vira "ativo", ou a
-// qualquer momento pode ser "recusado".
+// gerado e cai em "aguardando_assinatura". Quando TODOS OS SÓCIOS
+// assinam, vira "aguardando_validacao" (analista valida as evidências de
+// assinatura); validado, vira "aguardando_cadastramento" (falta cadastrar
+// SICA e TravelLink); cadastrado, vira "aguardando_ativacao" (só falta
+// Usuário Master + clicar ativar); ativado vira "ativo", ou a qualquer
+// momento pode ser "recusado".
 // Cor padrão por card (decisão do usuário, 2026-07-30): roxo pra "gerado
 // pela IA" (análise), teal pra etapas conduzidas pelo analista
 // (complementar/validação/ativação), verde pra ativo e vermelho pra
@@ -104,8 +107,15 @@ const FILAS = [
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
+    label: "Validação",
+    sublabel: "sócios assinaram, validar evidências",
+    cor: COR_ORIGEM_HUMANO,
+  },
+  {
+    status: STATUS_AGUARDANDO_CADASTRAMENTO,
+    chave: "aguardandoCadastramento" as const,
     label: "Setor cadastro",
-    sublabel: "contrato assinado, criar SICA e TravelLink",
+    sublabel: "validado, criar SICA e TravelLink",
     cor: COR_ORIGEM_HUMANO,
   },
   {

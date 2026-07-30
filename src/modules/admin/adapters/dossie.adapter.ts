@@ -17,6 +17,7 @@ import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
@@ -228,7 +229,8 @@ export function separarDocumentosPorStatus(documentos: DocumentoRevisao[]): {
 export const ETAPAS_PIPELINE = [
   { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
   { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
-  { status: STATUS_AGUARDANDO_VALIDACAO, label: "SICA/TL" },
+  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
+  { status: STATUS_AGUARDANDO_CADASTRAMENTO, label: "SICA/TL" },
   { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
   { status: STATUS_ATIVO, label: "Ativo" },
 ];

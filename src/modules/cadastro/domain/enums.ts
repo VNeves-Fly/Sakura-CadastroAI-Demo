@@ -7,6 +7,7 @@ export type StatusAgencia =
   | "em_complementar"
   | "aguardando_assinatura"
   | "aguardando_validacao"
+  | "aguardando_cadastramento"
   | "aguardando_ativacao"
   | "ativo"
   | "recusado";

@@ -33,17 +33,23 @@ export interface HistoricoConsultaCreditoItem {
 
 // Ciclo de vida completo da agência (decisão do usuário, 2026-07-16;
 // "em_analise" adicionado em 2026-07-24 quando o envio do cadastro passou
-// a persistir antes da IA rodar — ver AnalisarCadastroUseCase):
-// 0. em_analise             — persistido, aguardando a análise de IA rodar em background.
-// 1. em_complementar        — IA reprovou (ou a análise falhou tecnicamente), sem contrato ainda, analista revisa manualmente.
-// 2. aguardando_assinatura  — contrato gerado (pela IA ou pelo analista) e enviado, aguardando os sócios assinarem.
-// 3. aguardando_validacao   — contrato assinado, analista precisa validar o contrato assinado.
-// 4. aguardando_ativacao    — validado; falta só SICA/TravelLink/Usuário Master (não implementados) e clicar em ativar.
-// 5. ativo / recusado       — estados finais.
+// a persistir antes da IA rodar — ver AnalisarCadastroUseCase;
+// "aguardando_cadastramento" adicionado em 2026-07-30 pra separar a
+// validação das evidências de assinatura do cadastramento em SICA/TravelLink,
+// que antes viviam juntos em "aguardando_validacao" — ver
+// ProcessarWebhookD4SignUseCase):
+// 0. em_analise               — persistido, aguardando a análise de IA rodar em background.
+// 1. em_complementar          — IA reprovou (ou a análise falhou tecnicamente), sem contrato ainda, analista revisa manualmente.
+// 2. aguardando_assinatura    — contrato gerado (pela IA ou pelo analista) e enviado, aguardando TODOS os sócios assinarem.
+// 3. aguardando_validacao     — todos os sócios assinaram; analista precisa validar as evidências de assinatura (selfie/documento/vídeo).
+// 4. aguardando_cadastramento — validado; falta cadastrar a agência no SICA e no TravelLink.
+// 5. aguardando_ativacao      — SICA/TravelLink cadastrados; falta só o Usuário Master e clicar em ativar.
+// 6. ativo / recusado         — estados finais.
 export const STATUS_EM_ANALISE = "em_analise";
 export const STATUS_EM_COMPLEMENTAR = "em_complementar";
 export const STATUS_AGUARDANDO_ASSINATURA = "aguardando_assinatura";
 export const STATUS_AGUARDANDO_VALIDACAO = "aguardando_validacao";
+export const STATUS_AGUARDANDO_CADASTRAMENTO = "aguardando_cadastramento";
 export const STATUS_AGUARDANDO_ATIVACAO = "aguardando_ativacao";
 export const STATUS_ATIVO = "ativo";
 export const STATUS_RECUSADO = "recusado";
@@ -221,6 +227,7 @@ export interface CadastrosKpis {
   // — o próprio card não muda de cor/valor por causa disso.
   aguardandoAssinaturaPorOrigem: { ia: number; humano: number };
   aguardandoValidacao: number;
+  aguardandoCadastramento: number;
   aguardandoAtivacao: number;
   ativas: number;
   recusadas: number;

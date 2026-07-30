@@ -277,28 +277,28 @@ Response — `200 OK`:
 
 Efeito real confirmado no banco: `contrato.status` → `assinado`, `agencia.status` → `aguardando_validacao`.
 
-### 8.1 Aprovação intermediária (`type_post=4`) — não testado ao vivo ainda
+### 8.1 Assinatura individual (`type_post=4`) — não testado ao vivo ainda
 
 Confirmado na doc oficial (`docs/webhook-postback.md`): `type_post=4` = assinatura de **um** signatário específico, com o campo `email` identificando quem foi (a rota agora lê esse campo — `webhook-d4sign.routes.ts`).
 
-O use-case só age se o `email` bater com o signatário fixo de papel `APROVAR` (Jean, estágio 1 — sozinho nesse estágio, já que os sócios do estágio 0 assinam antes dele por causa do `after_position`/`workflow: "1"`, seção 5.1). Quando bate:
+Dois efeitos independentes na mesma execução (mudou em 2026-07-30 — antes só o aprovador disparava o avanço da agência, o que acoplava a validação das evidências dos sócios a esperar o aprovador entrar, às vezes dias depois):
 
-- `contrato.status` → `assinado_agencia` (novo valor do enum `StatusContrato` — nem "aguardando" nem "assinado" de vez, só a agência).
-- `agencia.status` → `aguardando_validacao` — **sem esperar** os signatários fixos restantes (estágio 2: Vivi, Wagner, Jennifer) terminarem.
-
-Se o `email` for de outro signatário (sócio, ou um dos 3 do estágio 2), o evento é reconhecido e ignorado (sem side-effect) — só o aprovador dispara o avanço antecipado.
+- Se o `email` bate com o signatário fixo de papel `APROVAR` (Jean, estágio 1) **e** o contrato ainda não estiver `assinado`: `contrato.status` → `assinado_agencia` (só visibilidade — ver seção "Corrida" abaixo — não decide nada sobre `agencia.status`).
+- Independente de quem assinou: o use-case busca todos os sócios do contrato (`ContratoSignatario`, estágio 0, snapshot congelado no momento da geração) e confere se cada um já tem assinatura registrada em `ContratoAssinatura` (por e-mail normalizado). Só quando **todos** os sócios já assinaram, `agencia.status` avança de `aguardando_assinatura` pra `aguardando_validacao` — não importa se o aprovador ou as testemunhas (estágio 2) já assinaram ou não.
 
 ```
-uuid=doc-uuid-123, type_post=4, email=cadastro@sakuratur.com.br
+uuid=doc-uuid-123, type_post=4, email=socio-ultimo@agencia.com  (último sócio a assinar)
 → { "processado": true }
+   (agencia.status agora é aguardando_validacao, mesmo sem o aprovador ter assinado ainda)
 ```
 
 ```
-uuid=doc-uuid-123, type_post=4, email=wagner.chaves@sakuratur.com.br
-→ { "processado": false, "motivo": "Assinatura individual não é do aprovador — sem ação." }
+uuid=doc-uuid-123, type_post=4, email=cadastro@sakuratur.com.br  (aprovador assina antes dos sócios terminarem)
+→ { "processado": true, "motivo": "Assinatura registrada — ainda faltam sócios assinar." }
+   (contrato.status já é assinado_agencia, mas agencia.status continua aguardando_assinatura)
 ```
 
-Quando o `type_post=1` (documento inteiro finalizado) chega depois disso, o use-case aceita tanto `aguardando_assinatura` quanto `aguardando_validacao` como estado válido da agência (o segundo é o caso comum, já avançado pela aprovação intermediária) — fecha `contrato.status = assinado` e garante `agencia.status = aguardando_validacao` de forma idempotente.
+Quando o `type_post=1` (documento inteiro finalizado) chega depois disso, o use-case aceita tanto `aguardando_assinatura` quanto `aguardando_validacao` como estado válido da agência (o segundo é o caso comum, já avançado por algum "4" anterior) — fecha `contrato.status = assinado` e garante `agencia.status = aguardando_validacao` de forma idempotente.
 
 **⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário. Sem `D4SIGN_WEBHOOK_URL` pública em dev, não há como confirmar o formato exato do `type_post=4` num evento real (a doc oficial não mostra um payload de exemplo completo, só a lista de campos).
 
@@ -341,6 +341,6 @@ Response — `422 Unprocessable Entity`:
 
 Se `D4SIGN_WEBHOOK_SECRET` estiver configurada, a rota valida o header `Content-Hmac: sha256=<hash>` (HMAC-SHA256 do `uuid` do documento com a secret). Sem essa variável: em produção (`NODE_ENV=production`) a rota **bloqueia com 500** — não faz sentido aceitar webhook sem autenticação num ambiente real; fora de produção, aceita sem validar (documentado, só pra não travar o webhook em dev antes da secret existir). Não testado ao vivo contra a conta real ainda.
 
-### Corrida entre "assinatura individual" (aprovador) e "documento finalizado"
+### Corrida entre "assinatura individual" e "documento finalizado"
 
-Os dois eventos (`type_post=4` do aprovador e `type_post=1` do documento inteiro) podem chegar em qualquer ordem, ou quase simultâneos — `ProcessarWebhookD4SignUseCase` não usa transação nem lock entre a leitura e a escrita do status. Pra evitar que uma entrega tardia/atrasada do "4" regrida `contrato.status` de `assinado` (final) de volta pra `assinado_agencia` (intermediário), o handler do "4" confere o status atual do contrato (não só da agência) e não age se ele já estiver `assinado`. Não elimina 100% a corrida (duas leituras exatamente simultâneas antes de qualquer escrita ainda são possíveis), mas cobre o caso prático de entregas próximas, não instantâneas.
+Os dois eventos (`type_post=4` de qualquer signatário e `type_post=1` do documento inteiro) podem chegar em qualquer ordem, ou quase simultâneos — `ProcessarWebhookD4SignUseCase` não usa transação nem lock entre a leitura e a escrita do status. Dois guards independentes cobrem isso: (1) pra não regredir `contrato.status` de `assinado` (final) de volta pra `assinado_agencia` (intermediário) quando o "4" do aprovador chega atrasado, o handler confere o status atual do contrato antes de escrever; (2) pra não reprocessar o avanço de `agencia.status` depois que ela já saiu de `aguardando_assinatura`, o handler confere o status atual da agência antes de rodar a checagem de sócios — tornando repetições (retry do D4Sign, ou o "1" chegando depois de um "4" que já fechou tudo) idempotentes. Não elimina 100% a corrida (duas leituras exatamente simultâneas antes de qualquer escrita ainda são possíveis), mas cobre o caso prático de entregas próximas, não instantâneas.

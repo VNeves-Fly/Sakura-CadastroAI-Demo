@@ -112,6 +112,7 @@ import { ObterArquivoContratoUseCase } from "@/modules/cadastro/application/use-
 import { RegistrarContratoExternoUseCase } from "@/modules/cadastro/application/use-cases/registrar-contrato-externo.use-case";
 import { ProcessarWebhookD4SignUseCase } from "@/modules/cadastro/application/use-cases/processar-webhook-d4sign.use-case";
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
+import { SincronizarContratoD4SignUseCase } from "@/modules/cadastro/application/use-cases/sincronizar-contrato-d4sign.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
 import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-assinaturas-contrato.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
@@ -127,6 +128,7 @@ import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application
 import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import {
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_ATIVO,
   STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
@@ -270,7 +272,16 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  validarContrato(id: string) {
+  // Time de cadastro aprova a validação das evidências de assinatura
+  // (etapa "Validação") — segue pra "aguardando_cadastramento", onde falta
+  // cadastrar a agência no SICA e no TravelLink.
+  aprovarValidacao(id: string) {
+    return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_CADASTRAMENTO });
+  },
+
+  // SICA/TravelLink cadastrados (etapa "SICA/TL") — segue pra
+  // "aguardando_ativacao", onde falta só o Usuário Master.
+  confirmarCadastramento(id: string) {
     return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_ATIVACAO });
   },
 
@@ -408,6 +419,17 @@ export const cadastroAdminController = {
     return useCase.execute(contratoId);
   },
 
+  sincronizarContratoD4Sign(agenciaId: string) {
+    const useCase = new SincronizarContratoD4SignUseCase(
+      agenciaRepository,
+      contratoAssinaturaService,
+      contratoSignatarioRepository,
+      signatarioPadraoRepository,
+      contratoAssinaturaRepository,
+    );
+    return useCase.execute(agenciaId);
+  },
+
   listarEmailsFalhaEntregaContrato(contratoId: string) {
     const useCase = new ListarEmailsFalhaEntregaContratoUseCase(
       contratoEmailFalhaEntregaRepository,
@@ -447,6 +469,7 @@ export const cadastroAdminController = {
       signatarioPadraoRepository,
       contratoEmailFalhaEntregaRepository,
       contratoAssinaturaRepository,
+      contratoSignatarioRepository,
     );
     const useCase = new RegistrarContratoExternoUseCase(
       contratoRepository,

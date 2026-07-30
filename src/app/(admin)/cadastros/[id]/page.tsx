@@ -51,6 +51,7 @@ import { NovoSocioForm } from "./novo-socio-form";
 import { RemoverSocioForm } from "./remover-socio-form";
 import { EditarEmpresaForm } from "./editar-empresa-form";
 import { FilaAssinatura } from "./fila-assinatura";
+import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-button";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
 import { CnpjCopiavel } from "./cnpj-copiavel";
@@ -76,6 +77,7 @@ import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
@@ -97,7 +99,8 @@ import {
   recusarCadastroAction,
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
-  validarContratoAction,
+  aprovarValidacaoAction,
+  confirmarCadastramentoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
@@ -297,6 +300,9 @@ export default async function DossieAgenciaPage({
   );
   const indiceValidacao = ETAPAS_PIPELINE.findIndex(
     (etapa) => etapa.status === STATUS_AGUARDANDO_VALIDACAO,
+  );
+  const indiceCadastramento = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_CADASTRAMENTO,
   );
   const indiceAtivacao = ETAPAS_PIPELINE.findIndex(
     (etapa) => etapa.status === STATUS_AGUARDANDO_ATIVACAO,
@@ -792,6 +798,7 @@ export default async function DossieAgenciaPage({
           {contratoAtual && etapaExibida === indiceAssinatura ? (
             <>
               <FilaAssinatura fila={filaAssinatura} />
+              {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 
               <div className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -918,11 +925,16 @@ export default async function DossieAgenciaPage({
           {etapaExibida === indiceValidacao ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
-                Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
-                {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
-                assinado antes de seguir pra ativação — SICA e TravelLink ficam no bloco
-                &ldquo;SICA/TravelLink&rdquo;, abaixo.
+                Todos os sócios assinaram (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
+                {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}).{" "}
+                {contratoAtual?.origemGeracao === "externo"
+                  ? "Este contrato foi assinado fora da plataforma — não há evidência de selfie/documento/vídeo selfie coletada pelo D4Sign, só o documento em si."
+                  : "Confira as evidências de assinatura (selfie, documento e vídeo selfie de cada sócio) no documento assinado antes de liberar para cadastramento no SICA/TravelLink."}
               </p>
+
+              <FilaAssinatura fila={filaAssinatura} />
+              {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
+
               {contratoAtual ? (
                 <div>
                   <VisualizarDocumento
@@ -934,6 +946,27 @@ export default async function DossieAgenciaPage({
                       Visualizar Documento
                     </span>
                   </VisualizarDocumento>
+                </div>
+              ) : null}
+
+              {podeAgir ? (
+                <div className="flex flex-wrap gap-2">
+                  <form action={aprovarValidacaoAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                    >
+                      Aprovar validação
+                    </button>
+                  </form>
+                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                    <button
+                      type="submit"
+                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    >
+                      Recusar
+                    </button>
+                  </form>
                 </div>
               ) : null}
             </div>
@@ -956,18 +989,18 @@ export default async function DossieAgenciaPage({
       </SecaoColapsavel>
 
       {/* Separado do bloco "Contrato" (decisão do usuário, 2026-07-27) —
-          SICA/TravelLink (etapa Validação) e Usuário Master (etapa
+          SICA/TravelLink (etapa Cadastramento) e Usuário Master (etapa
           Ativação) são credenciais/acessos, não contrato. Só aparece
-          nessas duas etapas; nas outras (Complementar/Assinatura/Ativo)
-          não tem nada pra mostrar aqui. */}
-      {etapaExibida === indiceValidacao || etapaExibida === indiceAtivacao ? (
+          nessas duas etapas; nas outras (Complementar/Assinatura/Validação/
+          Ativo) não tem nada pra mostrar aqui. */}
+      {etapaExibida === indiceCadastramento || etapaExibida === indiceAtivacao ? (
         <SecaoColapsavel
           titulo="SICA/TravelLink"
           icon={<KeyRound className="size-4" />}
           defaultAberta
         >
           <div className="flex flex-col gap-3">
-            {etapaExibida === indiceValidacao ? (
+            {etapaExibida === indiceCadastramento ? (
               <ValidacaoSicaTravelLink
                 agenciaId={agencia.id}
                 razaoSocial={agencia.razaoSocial}
@@ -992,7 +1025,7 @@ export default async function DossieAgenciaPage({
                 travelLinkSalvoEm={agencia.travelLinkSalvoEm}
                 salvarSicaAction={salvarSicaAction}
                 salvarTravelLinkAction={salvarTravelLinkAction}
-                validarContratoAction={validarContratoAction}
+                confirmarCadastramentoAction={confirmarCadastramentoAction}
                 somenteLeitura={!podeAgir}
                 amat={analiseCredito.amat}
                 rawAmat={analiseCredito.rawAmat}
@@ -1008,8 +1041,8 @@ export default async function DossieAgenciaPage({
             {etapaExibida === indiceAtivacao ? (
               <>
                 {/* Contrato/SICA continuam decorativos aqui: chegar
-                    nesta etapa só é possível depois de "Validar
-                    Contrato" — botão que já trava (ver
+                    nesta etapa só é possível depois de "Confirmar
+                    Cadastramento" — botão que já trava (ver
                     ValidacaoSicaTravelLink) até SICA e TravelLink
                     estarem preenchidos. TravelLink, porém, reflete o
                     valor real de agencia.travelLinkCriado (decisão do

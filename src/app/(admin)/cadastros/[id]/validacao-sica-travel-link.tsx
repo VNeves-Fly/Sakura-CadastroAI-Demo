@@ -47,7 +47,7 @@ interface ValidacaoSicaTravelLinkProps {
   travelLinkSalvoEm: Date | null;
   salvarSicaAction: (agenciaId: string, formData: FormData) => Promise<void>;
   salvarTravelLinkAction: (agenciaId: string, criado: boolean) => Promise<void>;
-  validarContratoAction: (id: string) => Promise<void>;
+  confirmarCadastramentoAction: (id: string) => Promise<void>;
   // true quando o analista está revendo esta etapa a partir de uma etapa
   // posterior (ver `etapaExibida` na page) — some com os botões de ação,
   // só sobra a leitura do que foi preenchido.
@@ -95,7 +95,7 @@ export function ValidacaoSicaTravelLink({
   travelLinkSalvoEm,
   salvarSicaAction,
   salvarTravelLinkAction,
-  validarContratoAction,
+  confirmarCadastramentoAction,
   somenteLeitura = false,
   amat,
   rawAmat,
@@ -239,15 +239,15 @@ export function ValidacaoSicaTravelLink({
 
       {!somenteLeitura ? (
         <div className="flex flex-wrap gap-2">
-          <form action={validarContratoAction.bind(null, agenciaId)}>
+          <form action={confirmarCadastramentoAction.bind(null, agenciaId)}>
             <button
               type="submit"
               disabled={!sicaPronta}
               onClick={handleClickValidar}
-              title={!sicaPronta ? "Salve o código SICA antes de validar" : undefined}
+              title={!sicaPronta ? "Salve o código SICA antes de confirmar" : undefined}
               className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Validar Contrato
+              Confirmar Cadastramento
             </button>
           </form>
         </div>

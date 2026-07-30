@@ -452,7 +452,7 @@ describe("D4SignAdapter", () => {
   });
 
   describe("obterDestinatarios", () => {
-    it("extrai os e-mails da lista de signatários (formato array)", async () => {
+    it("extrai os e-mails da lista de signatários (formato array), sem status reconhecido", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce(
         okJson([{ email: "socio@agencia.com" }, { email: "cadastro@sakuratur.com.br" }]),
       );
@@ -461,7 +461,10 @@ describe("D4SignAdapter", () => {
         fakeSignatarioPadraoRepository(),
       ).obterDestinatarios("doc-uuid-1");
 
-      expect(resultado).toEqual(["socio@agencia.com", "cadastro@sakuratur.com.br"]);
+      expect(resultado).toEqual([
+        { email: "socio@agencia.com", assinado: null, assinadoEm: null },
+        { email: "cadastro@sakuratur.com.br", assinado: null, assinadoEm: null },
+      ]);
     });
 
     it("ignora entradas sem e-mail", async () => {
@@ -473,7 +476,47 @@ describe("D4SignAdapter", () => {
         fakeSignatarioPadraoRepository(),
       ).obterDestinatarios("doc-uuid-1");
 
-      expect(resultado).toEqual(["socio@agencia.com"]);
+      expect(resultado).toEqual([{ email: "socio@agencia.com", assinado: null, assinadoEm: null }]);
+    });
+
+    it("reconhece o campo `signed` booleano quando presente", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([
+          { email: "socio1@agencia.com", signed: true },
+          { email: "socio2@agencia.com", signed: false },
+        ]),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual([
+        { email: "socio1@agencia.com", assinado: true, assinadoEm: null },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null },
+      ]);
+    });
+
+    it("reconhece `statusName` textual (assinado/pendente) e `signAt` como data", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([
+          { email: "socio1@agencia.com", statusName: "Assinado", signAt: "2026-07-29T12:00:00Z" },
+          { email: "socio2@agencia.com", statusName: "Aguardando assinatura" },
+        ]),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual([
+        {
+          email: "socio1@agencia.com",
+          assinado: true,
+          assinadoEm: new Date("2026-07-29T12:00:00Z"),
+        },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null },
+      ]);
     });
   });
 });

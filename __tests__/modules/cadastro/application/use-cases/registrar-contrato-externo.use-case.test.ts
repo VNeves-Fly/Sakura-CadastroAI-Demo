@@ -18,6 +18,12 @@ function fakeContratoRepository(overrides: Partial<ContratoRepository> = {}): Co
   };
 }
 
+function paraDestinatarios(
+  emails: string[],
+): Array<{ email: string; assinado: null; assinadoEm: null }> {
+  return emails.map((email) => ({ email, assinado: null, assinadoEm: null }));
+}
+
 function fakeContratoAssinaturaService(
   overrides: Partial<ContratoAssinaturaService> = {},
 ): ContratoAssinaturaService {
@@ -113,7 +119,9 @@ describe("RegistrarContratoExternoUseCase", () => {
       findById: jest.fn().mockResolvedValue(CONTRATO),
     });
     const contratoAssinaturaService = fakeContratoAssinaturaService({
-      obterDestinatarios: jest.fn().mockResolvedValue(["outra-pessoa@outraempresa.com"]),
+      obterDestinatarios: jest
+        .fn()
+        .mockResolvedValue(paraDestinatarios(["outra-pessoa@outraempresa.com"])),
     });
     const useCase = new RegistrarContratoExternoUseCase(
       contratoRepository,
@@ -140,7 +148,7 @@ describe("RegistrarContratoExternoUseCase", () => {
       findById: jest.fn().mockResolvedValue(CONTRATO),
     });
     const contratoAssinaturaService = fakeContratoAssinaturaService({
-      obterDestinatarios: jest.fn().mockResolvedValue(["socio@agencia.com"]),
+      obterDestinatarios: jest.fn().mockResolvedValue(paraDestinatarios(["socio@agencia.com"])),
     });
     const useCase = new RegistrarContratoExternoUseCase(
       contratoRepository,
@@ -169,7 +177,7 @@ describe("RegistrarContratoExternoUseCase", () => {
       findById: jest.fn().mockResolvedValue(CONTRATO),
     });
     const contratoAssinaturaService = fakeContratoAssinaturaService({
-      obterDestinatarios: jest.fn().mockResolvedValue(["qualquer@coisa.com"]),
+      obterDestinatarios: jest.fn().mockResolvedValue(paraDestinatarios(["qualquer@coisa.com"])),
     });
     const useCase = new RegistrarContratoExternoUseCase(
       contratoRepository,
