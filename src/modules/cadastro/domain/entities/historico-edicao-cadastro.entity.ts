@@ -57,4 +57,8 @@ export class HistoricoEdicaoCadastro {
   get createdAt(): Date {
     return this.props.createdAt;
   }
+
+  toJSON(): Omit<HistoricoEdicaoCadastroProps, "createdAt"> & { createdAt: string } {
+    return { ...this.props, createdAt: this.props.createdAt.toISOString() };
+  }
 }
