@@ -13,6 +13,7 @@ import {
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import { FiltroCadastrosField } from "@/modules/admin/components/filtro-cadastros-field";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
 import {
   STATUS_EM_ANALISE,
@@ -62,48 +63,64 @@ function extrairCategoria(valores: string[], prefixo: string): string[] {
 // validado, vira "aguardando_ativacao" (só falta SICA/Travel
 // Link/Usuário Master + clicar ativar); ativado vira "ativo", ou a
 // qualquer momento pode ser "recusado".
+// Cor padrão por card (decisão do usuário, 2026-07-30): roxo pra "gerado
+// pela IA" (análise), teal pra etapas conduzidas pelo analista
+// (complementar/validação/ativação), verde pra ativo e vermelho pra
+// recusado. "Aguardando assinatura" fica sem cor própria — o card não
+// muda, só ganha um hover com o breakdown IA x analista (ver Tooltip
+// abaixo, cores reaproveitadas: COR_ORIGEM_IA/COR_ORIGEM_HUMANO).
+const COR_ORIGEM_IA = "#8A2BE2";
+const COR_ORIGEM_HUMANO = "#008B8B";
+
 const FILAS = [
   {
     status: STATUS_EM_ANALISE,
     chave: "emAnalise" as const,
     label: "Em análise (IA)",
     sublabel: "aguardando a IA avaliar",
+    cor: COR_ORIGEM_IA,
   },
   {
     status: STATUS_EM_COMPLEMENTAR,
     chave: "emComplementar" as const,
     label: "Em complementar",
     sublabel: "IA sinalizou revisão",
+    cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
     chave: "aguardandoAssinatura" as const,
     label: "Aguardando assinatura",
     sublabel: "contrato enviado aos sócios",
+    cor: null,
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
     label: "Aguardando validação",
     sublabel: "contrato assinado, criar SICA e TravelLink",
+    cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
     chave: "aguardandoAtivacao" as const,
-    label: "Aguardando ativação",
+    label: "Setor comercial",
     sublabel: "Usuário master e ativar agência",
+    cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_ATIVO,
     chave: "ativas" as const,
     label: "Ativas",
     sublabel: "agência liberada e operando",
+    cor: "#008000",
   },
   {
     status: STATUS_RECUSADO,
     chave: "recusadas" as const,
     label: "Recusadas",
     sublabel: "cadastro recusado",
+    cor: "#DC143C",
   },
 ];
 
@@ -338,19 +355,63 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
       <div className="flex gap-3 overflow-x-auto pb-1">
         {FILAS.map((fila) => {
           const ativa = searchParams.status === fila.status;
+          const cardClassName = `min-w-[168px] flex-1 shrink-0 rounded-xl border px-4 py-3 shadow-sm transition ${
+            ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
+          }`;
+          const cardStyle = fila.cor
+            ? { borderLeftColor: fila.cor, borderLeftWidth: 4 }
+            : undefined;
+          const cardConteudo = (
+            <>
+              <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide">
+                {fila.label}
+              </span>
+              <p
+                className={`mt-1 text-3xl font-bold ${fila.cor ? "" : "text-foreground"}`}
+                style={fila.cor ? { color: fila.cor } : undefined}
+              >
+                {kpis[fila.chave]}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
+            </>
+          );
+
+          // Único card sem cor própria — em vez disso ganha um hover com o
+          // breakdown de origem do contrato (IA x analista), já que o KPI
+          // agregado do card não distingue as duas origens.
+          if (fila.status === STATUS_AGUARDANDO_ASSINATURA) {
+            const { ia, humano } = kpis.aguardandoAssinaturaPorOrigem;
+            return (
+              <Tooltip key={fila.status}>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      href={construirHref(searchParams, {
+                        status: ativa ? undefined : fila.status,
+                      })}
+                      className={cardClassName}
+                    >
+                      {cardConteudo}
+                    </Link>
+                  }
+                />
+                <TooltipContent>
+                  <span style={{ color: COR_ORIGEM_IA }}>IA: {ia}</span>
+                  {" · "}
+                  <span style={{ color: COR_ORIGEM_HUMANO }}>Analista: {humano}</span>
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
           return (
             <Link
               key={fila.status}
               href={construirHref(searchParams, { status: ativa ? undefined : fila.status })}
-              className={`min-w-[168px] flex-1 shrink-0 rounded-xl border px-4 py-3 shadow-sm transition ${
-                ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
-              }`}
+              className={cardClassName}
+              style={cardStyle}
             >
-              <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide">
-                {fila.label}
-              </span>
-              <p className="text-foreground mt-1 text-3xl font-bold">{kpis[fila.chave]}</p>
-              <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
+              {cardConteudo}
             </Link>
           );
         })}
