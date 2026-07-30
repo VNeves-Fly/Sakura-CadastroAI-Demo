@@ -5,6 +5,7 @@ import type { ConversaRepository } from "@/modules/atendimento/domain/repositori
 import type { MensagemRepository } from "@/modules/atendimento/domain/repositories/mensagem-repository";
 import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
 import type { SolicitacaoTransferenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-transferencia-repository";
+import type { SolicitacaoAtendimentoAgenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-atendimento-agencia-repository";
 import type { TemplateWhatsAppRepository } from "@/modules/atendimento/domain/repositories/template-whatsapp-repository";
 import type { TextoProntoRepository } from "@/modules/atendimento/domain/repositories/texto-pronto-repository";
 import type { WhatsAppMessagingService } from "@/modules/atendimento/domain/services/whatsapp-messaging-service";
@@ -124,6 +125,34 @@ export function fakeSolicitacaoTransferenciaRepository(
   };
 }
 
+export function fakeSolicitacaoAtendimentoAgenciaRepository(
+  overrides: Partial<SolicitacaoAtendimentoAgenciaRepository> = {},
+): SolicitacaoAtendimentoAgenciaRepository {
+  return {
+    criar: jest.fn().mockResolvedValue({
+      id: "solic-agencia-1",
+      agenciaId: "ag-1",
+      agenciaNome: "Agência X",
+      tipo: "transferencia",
+      solicitanteId: "analista-1",
+      solicitanteNome: "Ana Analista",
+      atendenteAtualId: "analista-1",
+      atendenteAtualNome: "Ana Analista",
+      novoAtendenteId: "analista-2",
+      novoAtendenteNome: "Outro Analista",
+      status: "pendente",
+      criadaEm: "2026-01-01T00:00:00.000Z",
+    }),
+    findPendentePorAgencia: jest.fn().mockResolvedValue(null),
+    findPendentesEnvolvendoUsuario: jest.fn().mockResolvedValue([]),
+    findById: jest.fn().mockResolvedValue(null),
+    resolver: jest.fn(),
+    cancelarPendentesPorAgencia: jest.fn(),
+    expirarPendentesVencidas: jest.fn(),
+    ...overrides,
+  };
+}
+
 export function fakeMensagemRepository(
   overrides: Partial<MensagemRepository> = {},
 ): MensagemRepository {
@@ -148,6 +177,7 @@ export function fakeTemplateWhatsAppRepository(
     obterMetaTemplateId: jest.fn().mockResolvedValue(null),
     criarLocal: jest.fn(),
     atualizarAposReenvio: jest.fn(),
+    atualizarMetadata: jest.fn(),
     upsertPorMetaTemplateId: jest.fn(),
     ...overrides,
   };

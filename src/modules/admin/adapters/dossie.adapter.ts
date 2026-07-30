@@ -8,6 +8,7 @@ import type {
   AnaliseIaStage1,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import { maskCep } from "@/modules/cadastro/utils/cep.util";
 import {
   TIPO_CONTA_OPCOES,
   BANCO_PAIS_OPCOES,
@@ -62,6 +63,7 @@ export function labelBancoPais(valor: string): string {
 }
 
 export function formatarEndereco(endereco: {
+  cep: string;
   logradouro: string;
   numero: string;
   complemento: string;
@@ -71,7 +73,8 @@ export function formatarEndereco(endereco: {
 }): string {
   if (!endereco.logradouro) return "—";
   const complemento = endereco.complemento ? `, ${endereco.complemento}` : "";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
+  const cep = endereco.cep ? `, ${maskCep(endereco.cep)}` : "";
+  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}${cep}`;
 }
 
 // Documento real do banco (ou null, se a agência é anterior a essa
@@ -125,6 +128,72 @@ export function historicoDoSlot(
       createdAt: documento.createdAt,
       gcsPath: documento.gcsPath,
     }));
+}
+
+const TIPOS_SLOT_FIXO = new Set<TipoDocumento>(["CONTRATO_SOCIAL", "RG_CNPJ", "PROCURACAO"]);
+
+const LABEL_TIPO_DOCUMENTO_OUTRO: Record<string, string> = {
+  CADASTUR: "Cadastur",
+  COMPROVANTE_ENDERECO: "Comprovante de Endereço",
+  COMPROVANTE_ENDERECO_AGENCIA: "Comprovante de Endereço da Agência",
+  CERTIDAO_CASAMENTO: "Certidão de Casamento",
+  OUTROS: "Outros",
+};
+
+// Documentos fora dos 3 slots fixos já exibidos em Empresa/Sócios (Contrato
+// Social, RG/CNH, Procuração) — tipos "extra" (Cadastur, Comprovante de
+// Endereço, Certidão de Casamento, Outros) que só existem via upload manual
+// direto no arquivo (ver InserirDocumentoManualUseCase, chamado com
+// `ignorarDocumentoVigente`/`aprovarAutomaticamente` a partir de
+// /arquivo/[id]). Agrupado por slot (tipo + representanteLegalId): o mais
+// recente é "o atual", o resto vira histórico — mesmo critério de
+// historicoDoSlot acima, só que descobrindo os slots em vez de recebê-los
+// prontos (aqui não existe uma lista fixa de "qual documento é o atual" pra
+// consultar, como socio.rg/socio.procuracao).
+export function paraDocumentosOutros(
+  todosDocumentos: Documento[],
+  representantesLegais: RepresentanteLegalDetalhe[],
+): DocumentoRevisao[] {
+  const nomePorSocioId = new Map(representantesLegais.map((socio) => [socio.id, socio.nome]));
+
+  const grupos = new Map<string, Documento[]>();
+  for (const documento of todosDocumentos) {
+    if (TIPOS_SLOT_FIXO.has(documento.tipo)) continue;
+    const chave = `${documento.tipo}|${documento.representanteLegalId ?? "agencia"}`;
+    grupos.set(chave, [...(grupos.get(chave) ?? []), documento]);
+  }
+
+  return Array.from(grupos.values()).map((grupo) => {
+    // Nunca vazio: só existe uma entrada em `grupos` quando pelo menos um
+    // documento foi empurrado nela (ver loop acima).
+    const [atual, ...resto] = [...grupo].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    ) as [Documento, ...Documento[]];
+    const nomeSocio = atual.representanteLegalId
+      ? (nomePorSocioId.get(atual.representanteLegalId) ?? null)
+      : null;
+    const rotuloBase =
+      atual.tipo === "OUTROS"
+        ? `Outros — ${atual.descricaoOutro ?? "sem descrição"}`
+        : (LABEL_TIPO_DOCUMENTO_OUTRO[atual.tipo] ?? atual.tipo);
+
+    return {
+      id: atual.id,
+      label: nomeSocio ? `${rotuloBase} — ${nomeSocio}` : rotuloBase,
+      gcsPath: atual.gcsPath,
+      status: atual.status,
+      motivoReprovacao: atual.motivoReprovacao,
+      historico: resto.map((documento) => ({
+        id: documento.id,
+        status: documento.status,
+        motivoReprovacao: documento.motivoReprovacao,
+        reprovadoPor: documento.reprovadoPor,
+        reprovadoEm: documento.reprovadoEm,
+        createdAt: documento.createdAt,
+        gcsPath: documento.gcsPath,
+      })),
+    };
+  });
 }
 
 // "Notificação" de reenvio pendente de revisão — sem tabela de
@@ -208,19 +277,24 @@ export function montarFilaAssinatura(
     statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
     statusContrato === CONTRATO_STATUS_ASSINADO;
 
-  const filaSocios: SignatarioFila[] = representantesLegais.map((socio, index) => {
-    const assinadoEm = assinaturasPorEmail.get(socio.email) ?? null;
-    return {
-      id: socio.id,
-      nome: socio.nome,
-      email: socio.email,
-      grupo: "Agência",
-      ordem: index + 1,
-      assinado: assinadoEm !== null || socioAssinadoInferido,
-      assinadoEm,
-      emailNaoEntregue: emailsNaoEntregues.has(socio.email),
-    };
-  });
+  // `administrativo === false` é a única marca que exclui um sócio da
+  // fila — mesma regra usada na geração real do contrato (ver
+  // AnalisarCadastroUseCase/AprovarCadastroComplementarUseCase).
+  const filaSocios: SignatarioFila[] = representantesLegais
+    .filter((socio) => socio.administrativo !== false)
+    .map((socio, index) => {
+      const assinadoEm = assinaturasPorEmail.get(socio.email) ?? null;
+      return {
+        id: socio.id,
+        nome: socio.nome,
+        email: socio.email,
+        grupo: "Agência",
+        ordem: index + 1,
+        assinado: assinadoEm !== null || socioAssinadoInferido,
+        assinadoEm,
+        emailNaoEntregue: emailsNaoEntregues.has(socio.email),
+      };
+    });
 
   const filaSakura: SignatarioFila[] = [...signatariosPadraoAtivos]
     .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))

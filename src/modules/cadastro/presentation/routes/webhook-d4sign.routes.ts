@@ -48,20 +48,30 @@ export async function processarWebhookD4SignRoute(request: Request) {
     return httpError("Payload de webhook inválido — uuid e type_post são obrigatórios.", 422);
   }
 
-  // Verificação de HMAC roda se D4SIGN_WEBHOOK_SECRET estiver configurada
-  // ("Gerar Secret Key MAC" na área de API do D4Sign). Sem ela: em dev,
-  // aceita sem validar a origem (documentado, não travar o webhook antes
-  // da secret existir); em produção, falha fechado — não faz sentido
-  // aceitar webhook sem autenticação num ambiente real.
+  console.log(
+    `Webhook D4Sign: uuid=${uuidNormalizado} type_post=${typePostNormalizado} content-type="${contentType}".`,
+  );
+
+  // Verificação de assinatura roda se D4SIGN_WEBHOOK_SECRET estiver
+  // configurada ("Gerar Secret Key MAC" na área de API do D4Sign). Sem
+  // ela: em dev, aceita sem validar a origem (documentado, não travar o
+  // webhook antes da secret existir); em produção, falha fechado — não
+  // faz sentido aceitar webhook sem autenticação num ambiente real.
   const secret = process.env.D4SIGN_WEBHOOK_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
+      console.error("D4SIGN_WEBHOOK_SECRET não configurada — webhook bloqueado.");
       return httpError("D4SIGN_WEBHOOK_SECRET não configurada — webhook bloqueado.", 500);
     }
   } else {
-    const assinaturaRecebida = request.headers.get("content-hmac");
-    if (!validarAssinatura(uuidNormalizado, secret, assinaturaRecebida)) {
-      return httpError("Assinatura HMAC inválida.", 401);
+    const signature = request.headers.get("x-signature");
+    if (!validarAssinatura(uuidNormalizado, secret, signature)) {
+      console.error(
+        `Webhook D4Sign: assinatura inválida (uuid=${uuidNormalizado}, header ${
+          signature ? "presente mas não bateu" : "ausente"
+        }).`,
+      );
+      return httpError("Assinatura inválida.", 401);
     }
   }
 
@@ -130,12 +140,25 @@ function extrairMensagemJson(body: Record<string, unknown>): unknown {
   return partes.length > 0 ? partes.join(" — ") : body.message;
 }
 
+// A doc oficial (docapi.d4sign.com.br/docs/webhook-postback, seção HMAC)
+// descreve o header como `Content-Hmac: sha256=<hash>` — mas na conta real
+// (Webhook Cofre + Webhook 2.0 ativados) o que chega de fato é o header
+// `x-signature`, com o hash em hex puro, sem o prefixo `sha256=`.
+// Confirmado ao vivo em 2026-07-28: HMAC-SHA256(key=secret, msg=uuid do
+// documento) bate exatamente com o valor recebido nesse header. Aceita o
+// valor com ou sem o prefixo `sha256=` — não custa nada e evita depender
+// de qual formato a D4Sign decidir usar.
 function validarAssinatura(documentUuid: string, secret: string, header: string | null): boolean {
   if (!header) return false;
 
-  const esperado = `sha256=${createHmac("sha256", secret).update(documentUuid).digest("hex")}`;
-  const recebido = Buffer.from(header);
-  const esperadoBuffer = Buffer.from(esperado);
+  const calculado = createHmac("sha256", secret).update(documentUuid).digest("hex");
+  const recebido = header.startsWith("sha256=") ? header.slice("sha256=".length) : header;
 
-  return recebido.length === esperadoBuffer.length && timingSafeEqual(recebido, esperadoBuffer);
+  const recebidoBuffer = Buffer.from(recebido);
+  const calculadoBuffer = Buffer.from(calculado);
+
+  return (
+    recebidoBuffer.length === calculadoBuffer.length &&
+    timingSafeEqual(recebidoBuffer, calculadoBuffer)
+  );
 }

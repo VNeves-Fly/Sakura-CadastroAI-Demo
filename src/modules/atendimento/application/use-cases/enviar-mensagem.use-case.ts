@@ -52,19 +52,20 @@ export class EnviarMensagemUseCase {
         .find((mensagem) => mensagem.autor === "cliente");
 
       if (janela24hFechada(ultimaMsgCliente?.createdAt ?? null)) {
-        // A UI só mostra templates aprovados quando a janela está fechada
-        // (TemplatesAprovadosPicker) e manda o corpo do template como
-        // `conteudo` — sem nome/parâmetros. Recuperamos qual template é
-        // pelo texto batendo com o cache local; se não achar (ex.: texto
-        // livre digitado por engano), recusa com ForaDaJanela24hError.
+        // Janela fechada só aceita mensagem de template (regra da Meta) —
+        // `templateId` vem do picker de template em ThreadConversa;
+        // texto livre (sem templateId) é recusado com ForaDaJanela24hError.
+        if (!input.templateId) throw new ForaDaJanela24hError();
+
         const templates = await this.templateWhatsAppRepository.findAllAprovados();
-        const template = templates.find((item) => item.conteudo === input.conteudo);
+        const template = templates.find((item) => item.id === input.templateId);
         if (!template) throw new ForaDaJanela24hError();
 
         const resultado = await this.whatsAppMessagingService.enviarTemplate(
           conversa.membro.telefone,
           template.nome,
-          "pt_BR",
+          template.idioma,
+          input.variaveis,
         );
         waMessageId = resultado.waMessageId;
       } else {

@@ -38,7 +38,7 @@ export interface HistoricoConsultaCreditoItem {
 // 1. em_complementar        — IA reprovou (ou a análise falhou tecnicamente), sem contrato ainda, analista revisa manualmente.
 // 2. aguardando_assinatura  — contrato gerado (pela IA ou pelo analista) e enviado, aguardando os sócios assinarem.
 // 3. aguardando_validacao   — contrato assinado, analista precisa validar o contrato assinado.
-// 4. aguardando_ativacao    — validado; falta só SICA/Travel Link/Usuário Master (não implementados) e clicar em ativar.
+// 4. aguardando_ativacao    — validado; falta só SICA/TravelLink/Usuário Master (não implementados) e clicar em ativar.
 // 5. ativo / recusado       — estados finais.
 export const STATUS_EM_ANALISE = "em_analise";
 export const STATUS_EM_COMPLEMENTAR = "em_complementar";
@@ -192,10 +192,13 @@ export interface ListarCadastrosItem {
   // associacaoNome. Null quando não há atribuição.
   executivoNome: string | null;
   eventoNome: string | null;
-  // Base(s) e gestor do executivo (PromotorBase.baseSigla/Promotor.gestor)
-  // — um executivo pode atender várias bases; exibido já concatenado
-  // ("SAO, FOR, MAO") quando houver mais de uma.
-  executivoBase: string | null;
+  // Sempre null (decisão do usuário, 2026-07-28): cada agência pertence a
+  // UMA base só, mas isso nunca foi capturado no cadastro — o executivo
+  // atribuído pode atender várias bases (PromotorBase), então mostrar
+  // "todas as bases do executivo" como se fosse "a base da agência" é
+  // ambíguo/errado. Mantido no tipo (em vez de removido) até existir uma
+  // fonte real de base por agência.
+  executivoBase: null;
   executivoGestor: string | null;
 }
 
@@ -208,6 +211,10 @@ export interface CadastrosKpis {
   emAnalise: number;
   emComplementar: number;
   aguardandoAssinatura: number;
+  // Breakdown do card "Aguardando assinatura" por origem do contrato
+  // (contrato gerado pela IA x pelo analista), usado só no hover do card
+  // — o próprio card não muda de cor/valor por causa disso.
+  aguardandoAssinaturaPorOrigem: { ia: number; humano: number };
   aguardandoValidacao: number;
   aguardandoAtivacao: number;
   ativas: number;

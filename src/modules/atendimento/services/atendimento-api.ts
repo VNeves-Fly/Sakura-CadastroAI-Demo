@@ -11,6 +11,7 @@ import type {
   SolicitarTransferenciaInput,
   ResponderTransferenciaInput,
   CriarTemplateInput,
+  AtualizarTemplateMetadataInput,
   SalvarConfiguracaoWhatsappInput,
   ResultadoTesteConexao,
   DocumentosPendentesOutput,
@@ -118,6 +119,18 @@ export const atendimentoApi = {
     return fetchJson<TemplateAprovado>(`/api/atendimento/templates/${id}/reenviar`, {
       method: "POST",
       body: JSON.stringify({ novoConteudo }),
+    });
+  },
+
+  // Título/ativo são só nossos — nunca sincronizados com a Meta (PATCH
+  // dedicado, separado do reenvio que edita conteúdo lá).
+  async atualizarTemplateMetadata(
+    id: string,
+    input: AtualizarTemplateMetadataInput,
+  ): Promise<TemplateAprovado> {
+    return fetchJson<TemplateAprovado>(`/api/atendimento/templates/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
     });
   },
 

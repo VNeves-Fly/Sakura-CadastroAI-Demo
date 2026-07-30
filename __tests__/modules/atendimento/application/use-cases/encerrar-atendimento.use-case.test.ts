@@ -7,6 +7,7 @@ import {
   fakeConversaRepository,
   fakeResumoFichaClienteRepository,
   fakeSolicitacaoTransferenciaRepository,
+  fakeSolicitacaoAtendimentoAgenciaRepository,
 } from "../../fixtures";
 
 function criarUseCase() {
@@ -15,6 +16,7 @@ function criarUseCase() {
   const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
   const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
   const atendimentoAgenciaRepository = fakeAtendimentoAgenciaRepository();
+  const solicitacaoAtendimentoAgenciaRepository = fakeSolicitacaoAtendimentoAgenciaRepository();
 
   const useCase = new EncerrarAtendimentoUseCase(
     assumirAtendimentoRepository,
@@ -22,6 +24,7 @@ function criarUseCase() {
     resumoFichaClienteRepository,
     solicitacaoTransferenciaRepository,
     atendimentoAgenciaRepository,
+    solicitacaoAtendimentoAgenciaRepository,
   );
 
   return {

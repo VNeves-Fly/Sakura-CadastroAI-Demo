@@ -14,34 +14,63 @@ export interface AtendimentoEvento {
   conversaId: string;
 }
 
+// Pedido de transferência/assunção de atendimento do CADASTRO da agência
+// (SolicitacaoAtendimentoAgencia) — canal próprio, distinto de
+// AtendimentoEvento (chat/Conversa).
+export interface SolicitacaoAtendimentoAgenciaEvento {
+  solicitacaoId: string;
+  agenciaId: string;
+  tipo: "TRANSFERENCIA" | "ASSUNCAO";
+  status: "PENDENTE" | "ACEITA" | "CANCELADA";
+  solicitanteId: string;
+  atendenteAtualId: string;
+  novoAtendenteId: string;
+}
+
 type Unsubscribe = () => void;
 
 const CANAL_CADASTRO = "cadastro_eventos";
 const CANAL_ATENDIMENTO = "atendimento_eventos";
+const CANAL_SOLICITACAO_ATENDIMENTO_AGENCIA = "solicitacao_atendimento_agencia_eventos";
+const CANAIS = [CANAL_CADASTRO, CANAL_ATENDIMENTO, CANAL_SOLICITACAO_ATENDIMENTO_AGENCIA] as const;
+type Canal = (typeof CANAIS)[number];
+
 const RECONEXAO_INICIAL_MS = 1_000;
 const RECONEXAO_MAXIMA_MS = 30_000;
 
 // Conexão dedicada de LISTEN (fora do pool do Prisma) que alimenta as rotas
-// SSE de /api/cadastros/eventos, /api/cadastros/[id]/eventos e
-// /api/atendimento/eventos. Fica ociosa (sem reconectar) enquanto não há
-// nenhum assinante — só conecta quando a primeira rota SSE assina.
+// SSE de /api/cadastros/eventos, /api/cadastros/[id]/eventos,
+// /api/atendimento/eventos e /api/atendimento/solicitacoes/eventos. Fica
+// ociosa (sem reconectar) enquanto não há nenhum assinante — só conecta
+// quando o primeiro assinante (de qualquer canal) aparece.
 class PostgresRealtimeListener {
   private client: Client | null = null;
   private conectando = false;
   private atrasoReconexaoMs = RECONEXAO_INICIAL_MS;
-  private readonly cadastroHandlers = new Set<(evento: CadastroEvento) => void>();
-  private readonly atendimentoHandlers = new Set<(evento: AtendimentoEvento) => void>();
+  private readonly handlersPorCanal = new Map<Canal, Set<(evento: unknown) => void>>(
+    CANAIS.map((canal) => [canal, new Set<(evento: unknown) => void>()]),
+  );
+
+  private subscribe<T>(canal: Canal, handler: (evento: T) => void): Unsubscribe {
+    const handlers = this.handlersPorCanal.get(canal)!;
+    const handlerGenerico = handler as (evento: unknown) => void;
+    handlers.add(handlerGenerico);
+    this.conectar();
+    return () => handlers.delete(handlerGenerico);
+  }
 
   subscribeCadastroEventos(handler: (evento: CadastroEvento) => void): Unsubscribe {
-    this.cadastroHandlers.add(handler);
-    this.conectar();
-    return () => this.cadastroHandlers.delete(handler);
+    return this.subscribe(CANAL_CADASTRO, handler);
   }
 
   subscribeAtendimentoEventos(handler: (evento: AtendimentoEvento) => void): Unsubscribe {
-    this.atendimentoHandlers.add(handler);
-    this.conectar();
-    return () => this.atendimentoHandlers.delete(handler);
+    return this.subscribe(CANAL_ATENDIMENTO, handler);
+  }
+
+  subscribeSolicitacaoAtendimentoAgenciaEventos(
+    handler: (evento: SolicitacaoAtendimentoAgenciaEvento) => void,
+  ): Unsubscribe {
+    return this.subscribe(CANAL_SOLICITACAO_ATENDIMENTO_AGENCIA, handler);
   }
 
   private conectar(): void {
@@ -68,12 +97,11 @@ class PostgresRealtimeListener {
 
     client
       .connect()
-      .then(() =>
-        Promise.all([
-          client.query(`LISTEN ${CANAL_CADASTRO}`),
-          client.query(`LISTEN ${CANAL_ATENDIMENTO}`),
-        ]),
-      )
+      // Uma só query (não Promise.all): client é um pg.Client dedicado, não
+      // um Pool — chamadas concorrentes no mesmo Client disparam warning de
+      // depreciação (e vai virar erro no pg@9). Sem parâmetros, então o
+      // protocolo simple query aceita os LISTEN separados por ";".
+      .then(() => client.query(CANAIS.map((canal) => `LISTEN ${canal}`).join("; ")))
       .then(() => {
         this.client = client;
         this.conectando = false;
@@ -96,11 +124,8 @@ class PostgresRealtimeListener {
       return;
     }
 
-    if (mensagem.channel === CANAL_CADASTRO) {
-      this.cadastroHandlers.forEach((handler) => handler(payload as CadastroEvento));
-    } else if (mensagem.channel === CANAL_ATENDIMENTO) {
-      this.atendimentoHandlers.forEach((handler) => handler(payload as AtendimentoEvento));
-    }
+    const canal = mensagem.channel as Canal;
+    this.handlersPorCanal.get(canal)?.forEach((handler) => handler(payload));
   }
 
   private desconectar(): void {
@@ -109,13 +134,18 @@ class PostgresRealtimeListener {
     this.agendarReconexao();
   }
 
+  private temAssinante(): boolean {
+    for (const handlers of this.handlersPorCanal.values()) {
+      if (handlers.size > 0) return true;
+    }
+    return false;
+  }
+
   private agendarReconexao(): void {
     const atraso = this.atrasoReconexaoMs;
     this.atrasoReconexaoMs = Math.min(this.atrasoReconexaoMs * 2, RECONEXAO_MAXIMA_MS);
     setTimeout(() => {
-      if (this.cadastroHandlers.size > 0 || this.atendimentoHandlers.size > 0) {
-        this.conectar();
-      }
+      if (this.temAssinante()) this.conectar();
     }, atraso);
   }
 }

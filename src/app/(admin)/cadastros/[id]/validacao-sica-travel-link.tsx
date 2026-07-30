@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
-import { TravelLinkSecao } from "./travel-link-secao";
+import { DadosEmpresaSecao } from "./dados-empresa-secao";
+import { TravelLinkSwitch } from "./travel-link-switch";
 import { AlertaTravelLinkModal } from "./alerta-travel-link-modal";
 import {
   ConsultaAmatCard,
@@ -47,14 +48,13 @@ interface ValidacaoSicaTravelLinkProps {
   salvarSicaAction: (agenciaId: string, formData: FormData) => Promise<void>;
   salvarTravelLinkAction: (agenciaId: string, criado: boolean) => Promise<void>;
   validarContratoAction: (id: string) => Promise<void>;
-  recusarCadastroAction: (id: string) => Promise<void>;
   // true quando o analista está revendo esta etapa a partir de uma etapa
   // posterior (ver `etapaExibida` na page) — some com os botões de ação,
   // só sobra a leitura do que foi preenchido.
   somenteLeitura?: boolean;
   // AMAT/SOFIA repetidos aqui (mesmos dados/ações da seção Complementar,
   // ver page.tsx) — decisão do usuário, 2026-07-27: o analista que já
-  // está validando SICA/Travel Link não devia precisar voltar pra etapa
+  // está validando SICA/TravelLink não devia precisar voltar pra etapa
   // anterior só pra reconferir crédito.
   amat: AnaliseIaAmat | null;
   rawAmat: AnaliseIaRawToolCall[];
@@ -66,7 +66,7 @@ interface ValidacaoSicaTravelLinkProps {
   reconsultarSofia?: () => Promise<void>;
 }
 
-// SICA e Travel Link salvos de verdade em Agencia (sicaCodigo/
+// SICA e TravelLink salvos de verdade em Agencia (sicaCodigo/
 // sicaSalvoPor/sicaSalvoEm, travelLinkCriado/travelLinkSalvoPor/
 // travelLinkSalvoEm) — sobrevivem a recarregar a página e ficam visíveis
 // pra qualquer analista que abrir o dossiê depois, com quem confirmou e
@@ -96,7 +96,6 @@ export function ValidacaoSicaTravelLink({
   salvarSicaAction,
   salvarTravelLinkAction,
   validarContratoAction,
-  recusarCadastroAction,
   somenteLeitura = false,
   amat,
   rawAmat,
@@ -115,7 +114,7 @@ export function ValidacaoSicaTravelLink({
   const sicaPronta = sicaCodigo !== null;
   const mostrarInputSica = editandoSica || sicaCodigo === null;
 
-  // SICA pronto mas Travel Link ainda não criado: em vez de só desabilitar
+  // SICA pronto mas TravelLink ainda não criado: em vez de só desabilitar
   // o botão (fácil de ignorar), avisa com um alerta que some sozinho em
   // 5s (decisão do usuário, 2026-07-27) — deixa o botão clicável pra dar
   // pra mostrar o alerta.
@@ -149,6 +148,23 @@ export function ValidacaoSicaTravelLink({
           reconsultar={somenteLeitura ? undefined : reconsultarSofia}
         />
       </div>
+
+      <DadosEmpresaSecao
+        razaoSocial={razaoSocial}
+        cnpj={cnpj}
+        enderecoFormatado={enderecoFormatado}
+        telefoneContato={telefoneContato}
+        telefoneComercial={telefoneComercial}
+        associacaoNome={associacaoNome}
+        promotorNome={promotorNome}
+        nomeContato={nomeContato}
+        emailContato={emailContato}
+        bancoLabel={bancoLabel}
+        bancoAgencia={bancoAgencia}
+        bancoConta={bancoConta}
+        favorecidoNome={favorecidoNome}
+        favorecidoDoc={favorecidoDoc}
+      />
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="sica" className="text-foreground text-sm font-bold">
@@ -212,22 +228,8 @@ export function ValidacaoSicaTravelLink({
         ) : null}
       </div>
 
-      <TravelLinkSecao
+      <TravelLinkSwitch
         agenciaId={agenciaId}
-        razaoSocial={razaoSocial}
-        cnpj={cnpj}
-        enderecoFormatado={enderecoFormatado}
-        telefoneContato={telefoneContato}
-        telefoneComercial={telefoneComercial}
-        associacaoNome={associacaoNome}
-        promotorNome={promotorNome}
-        nomeContato={nomeContato}
-        emailContato={emailContato}
-        bancoLabel={bancoLabel}
-        bancoAgencia={bancoAgencia}
-        bancoConta={bancoConta}
-        favorecidoNome={favorecidoNome}
-        favorecidoDoc={favorecidoDoc}
         travelLinkCriado={travelLinkCriado}
         travelLinkSalvoPor={travelLinkSalvoPor}
         travelLinkSalvoEm={travelLinkSalvoEm}
@@ -246,14 +248,6 @@ export function ValidacaoSicaTravelLink({
               className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Validar Contrato
-            </button>
-          </form>
-          <form action={recusarCadastroAction.bind(null, agenciaId)}>
-            <button
-              type="submit"
-              className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
-            >
-              Recusar
             </button>
           </form>
         </div>

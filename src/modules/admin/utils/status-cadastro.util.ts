@@ -26,12 +26,19 @@ export function labelStatus(status: string): string {
 // ainda está em andamento/depende de ação, verde pra estado final
 // positivo, vermelho pra estado final negativo — rosa (marca) fica
 // reservado pra elementos de identidade/ação primária, não pra status.
+// Fundo/texto pálidos "congelados" nos valores originais de --warning-bg/
+// --warning-text (não usa mais a variável direto: ela virou o amarelo
+// vívido #ffca64 usado nos campos de documento/veredito — ver
+// globals.css — e uma borda da mesma cor do fundo ficaria invisível
+// aqui). Borda vívida por cima, pedido do usuário, 2026-07-28.
+const BADGE_AMARELO = "bg-[hsl(38,76%,92%)] text-[hsl(32,89%,21%)] border border-[#ffca64]";
+
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
   [STATUS_EM_ANALISE]: "bg-muted text-foreground",
-  [STATUS_EM_COMPLEMENTAR]: "bg-warning-bg text-warning-text",
-  [STATUS_AGUARDANDO_ASSINATURA]: "bg-warning-bg text-warning-text",
-  [STATUS_AGUARDANDO_VALIDACAO]: "bg-warning-bg text-warning-text",
-  [STATUS_AGUARDANDO_ATIVACAO]: "bg-warning-bg text-warning-text",
+  [STATUS_EM_COMPLEMENTAR]: BADGE_AMARELO,
+  [STATUS_AGUARDANDO_ASSINATURA]: BADGE_AMARELO,
+  [STATUS_AGUARDANDO_VALIDACAO]: BADGE_AMARELO,
+  [STATUS_AGUARDANDO_ATIVACAO]: BADGE_AMARELO,
   [STATUS_ATIVO]: "bg-success-bg text-success-text",
   [STATUS_RECUSADO]: "bg-destructive-bg text-destructive-text",
 };

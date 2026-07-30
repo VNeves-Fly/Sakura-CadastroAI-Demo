@@ -119,7 +119,7 @@ documentada também em `agencia-repository.ts`:
    no submit.
 4. `aguardando_validacao` — contrato assinado; analista precisa validar o
    contrato assinado antes de liberar a ativação.
-5. `aguardando_ativacao` — validado; falta só SICA/Travel Link/Usuário
+5. `aguardando_ativacao` — validado; falta só SICA/TravelLink/Usuário
    Master (roadmap, não implementados) e clicar em ativar.
 6. `ativo` / `recusado` — estados finais.
 

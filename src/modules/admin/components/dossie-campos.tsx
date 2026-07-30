@@ -26,6 +26,8 @@ import type {
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
+import { formatarEndereco } from "@/modules/admin/adapters/dossie.adapter";
+import { maskCep } from "@/modules/cadastro/utils/cep.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
 // (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
@@ -124,6 +126,76 @@ export function SubsecaoLabel({ children }: { children: ReactNode }) {
     <span className="text-muted-foreground text-[10px] font-bold tracking-wide uppercase">
       {children}
     </span>
+  );
+}
+
+interface CampoEnderecoValor {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}
+
+// Endereço de sócio/agência: linha única formatada por padrão (o que o
+// analista precisa pra bater o olho) com os campos separados (CEP,
+// logradouro, número...) escondidos atrás de um <details> — mesmo padrão
+// de CnaesDetalhe/CamposDetalhe abaixo — pra consultar só quando precisar
+// conferir um campo específico (ex.: preencher o TravelLink).
+export function CampoEndereco({
+  label,
+  endereco,
+}: {
+  label: string;
+  endereco: CampoEnderecoValor;
+}) {
+  return (
+    <Campo label={label} className="sm:col-span-2">
+      <div className="flex flex-col gap-1.5">
+        <span>{formatarEndereco(endereco)}</span>
+        {endereco.logradouro ? (
+          <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs">
+            <summary className="text-primary cursor-pointer font-semibold">
+              Ver campos separados
+            </summary>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3">
+              <div>
+                <dt className="text-muted-foreground">CEP</dt>
+                <dd className="text-foreground font-medium">
+                  {endereco.cep ? maskCep(endereco.cep) : "—"}
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Logradouro</dt>
+                <dd className="text-foreground font-medium">{endereco.logradouro}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Número</dt>
+                <dd className="text-foreground font-medium">{endereco.numero || "s/n"}</dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Complemento</dt>
+                <dd className="text-foreground font-medium">{endereco.complemento || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Bairro</dt>
+                <dd className="text-foreground font-medium">{endereco.bairro || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Cidade</dt>
+                <dd className="text-foreground font-medium">{endereco.cidade || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">UF</dt>
+                <dd className="text-foreground font-medium">{endereco.uf || "—"}</dd>
+              </div>
+            </dl>
+          </details>
+        ) : null}
+      </div>
+    </Campo>
   );
 }
 
@@ -758,6 +830,109 @@ export function CampoDocumento({
       somenteLeitura={somenteLeitura}
       reenviado={reenviado}
     />
+  );
+}
+
+const TIPOS_DOCUMENTO_OUTRO: { valor: TipoDocumento; label: string }[] = [
+  { valor: "CADASTUR", label: "Cadastur" },
+  { valor: "COMPROVANTE_ENDERECO", label: "Comprovante de Endereço" },
+  { valor: "COMPROVANTE_ENDERECO_AGENCIA", label: "Comprovante de Endereço da Agência" },
+  { valor: "CERTIDAO_CASAMENTO", label: "Certidão de Casamento" },
+  { valor: "OUTROS", label: "Outros" },
+];
+
+const CLASSE_CAMPO_UPLOAD_OUTRO =
+  "border-input bg-background text-foreground rounded-lg border px-2.5 py-1.5 text-xs outline-none";
+
+// Upload de documento "extra" (fora dos slots fixos de Contrato Social/RG/
+// Procuração, já cobertos por CampoDocumento) direto do arquivo — tipo,
+// dono (agência ou sócio) e descrição livre (só quando tipo = Outros) são
+// escolhidos no próprio formulário, já que aqui não existe um slot fixo por
+// chamada (ver paraDocumentosOutros em dossie.adapter.ts, que descobre os
+// slots existentes em vez de recebê-los prontos).
+export function UploadDocumentoOutro({
+  agenciaId,
+  representantesLegais,
+  inserirDocumentoArquivoAction,
+}: {
+  agenciaId: string;
+  representantesLegais: { id: string; nome: string }[];
+  inserirDocumentoArquivoAction: InserirDocumentoManualActionFn;
+}) {
+  const [tipo, setTipo] = useState<TipoDocumento>("CADASTUR");
+  const [representanteLegalId, setRepresentanteLegalId] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  return (
+    <form
+      action={async (formData) => {
+        setEnviando(true);
+        try {
+          await inserirDocumentoArquivoAction(
+            agenciaId,
+            tipo,
+            representanteLegalId || null,
+            formData,
+          );
+        } finally {
+          setEnviando(false);
+        }
+      }}
+      className="border-border bg-muted/20 flex flex-col gap-2 rounded-xl border border-dashed p-3"
+    >
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={tipo}
+          onChange={(event) => setTipo(event.target.value as TipoDocumento)}
+          className={CLASSE_CAMPO_UPLOAD_OUTRO}
+        >
+          {TIPOS_DOCUMENTO_OUTRO.map((opcao) => (
+            <option key={opcao.valor} value={opcao.valor}>
+              {opcao.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={representanteLegalId}
+          onChange={(event) => setRepresentanteLegalId(event.target.value)}
+          className={CLASSE_CAMPO_UPLOAD_OUTRO}
+        >
+          <option value="">Agência</option>
+          {representantesLegais.map((socio) => (
+            <option key={socio.id} value={socio.id}>
+              {socio.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {tipo === "OUTROS" ? (
+        <input
+          type="text"
+          name="descricaoOutro"
+          required
+          placeholder="Descreva o que é este documento"
+          className={`${CLASSE_CAMPO_UPLOAD_OUTRO} placeholder:text-muted-foreground`}
+        />
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="file"
+          name="arquivo"
+          required
+          accept="application/pdf,image/jpeg,image/png"
+          className="text-muted-foreground max-w-56 text-xs"
+        />
+        <button
+          type="submit"
+          disabled={enviando}
+          className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1 text-xs font-semibold transition disabled:opacity-50"
+        >
+          {enviando ? "Enviando..." : "Enviar documento"}
+        </button>
+      </div>
+    </form>
   );
 }
 

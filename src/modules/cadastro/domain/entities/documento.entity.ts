@@ -8,6 +8,7 @@ export interface DocumentoProps {
   tipo: TipoDocumento;
   fileName: string | null;
   mimeType: string | null;
+  descricaoOutro: string | null;
 
   gcsPath: string;
   gcsBucket: string | null;
@@ -57,6 +58,10 @@ export class Documento {
 
   get mimeType(): string | null {
     return this.props.mimeType;
+  }
+
+  get descricaoOutro(): string | null {
+    return this.props.descricaoOutro;
   }
 
   get gcsPath(): string {

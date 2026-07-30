@@ -9,6 +9,7 @@ import {
   podeAssumirAtendimento,
 } from "@/modules/atendimento/services/atendimento-api";
 import { formatarTempoDecorrido } from "@/modules/atendimento/utils/atendimento-formato.util";
+import { useSegundosRestantes } from "@/modules/atendimento/hooks/use-segundos-restantes";
 
 interface AnalistaOpcao {
   id: string;
@@ -29,23 +30,12 @@ const BOTAO =
   "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition";
 
 function SegundosRestantes({ criadaEm }: { criadaEm: string }) {
-  const [restante, setRestante] = useState(() =>
-    Math.max(0, TIMEOUT_TRANSFERENCIA_MS - (Date.now() - new Date(criadaEm).getTime())),
-  );
-
-  useEffect(() => {
-    const intervalo = setInterval(() => {
-      setRestante(
-        Math.max(0, TIMEOUT_TRANSFERENCIA_MS - (Date.now() - new Date(criadaEm).getTime())),
-      );
-    }, 1000);
-    return () => clearInterval(intervalo);
-  }, [criadaEm]);
+  const segundos = useSegundosRestantes(criadaEm, TIMEOUT_TRANSFERENCIA_MS);
 
   return (
     <span className="text-muted-foreground flex items-center gap-1 text-xs">
       <Clock className="size-3.5" />
-      {Math.ceil(restante / 1000)}s
+      {segundos}s
     </span>
   );
 }

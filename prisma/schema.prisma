@@ -43,6 +43,10 @@ model User {
   transferenciasRecebidas SolicitacaoTransferencia[]   @relation("TransferenciaParaAnalista")
   passwordResetTokens     PasswordResetToken[]
 
+  solicitacoesAgenciaFeitas             SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaSolicitante")
+  solicitacoesAgenciaComoAtendenteAtual SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaAtendenteAtual")
+  solicitacoesAgenciaComoNovoAtendente  SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaNovoAtendente")
+
   @@map("users")
 }
 
@@ -127,6 +131,7 @@ enum TipoDocumento {
   COMPROVANTE_ENDERECO_AGENCIA
   CERTIDAO_CASAMENTO
   PROCURACAO
+  OUTROS
 }
 
 enum StatusDocumento {
@@ -213,6 +218,7 @@ model Agencia {
   historicoEdicoes          HistoricoEdicaoCadastro[]
   historicoConsultasCredito HistoricoConsultaCredito[]
   atendimentosAgencia       AtendimentoAgencia[]
+  solicitacoesAtendimento   SolicitacaoAtendimentoAgencia[]
 
   @@map("agencias")
 }
@@ -478,9 +484,12 @@ model Documento {
   representanteLegalId String?
   representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
 
-  tipo     TipoDocumento
-  fileName String?
-  mimeType String?
+  tipo           TipoDocumento
+  fileName       String?
+  mimeType       String?
+  // Descrição livre digitada pelo analista — só preenchida quando
+  // tipo = OUTROS (documento sem slot fixo no dossiê).
+  descricaoOutro String?
 
   // Caminho retornado pelo FileStorage (local hoje, GCS futuramente).
   // Bucket/tamanho/hash ficam nullable porque o LocalFileStorage atual
@@ -1116,6 +1125,60 @@ model AtendimentoAgencia {
   @@map("atendimentos_agencia")
 }
 
+enum TipoSolicitacaoAtendimentoAgencia {
+  TRANSFERENCIA
+  ASSUNCAO
+}
+
+enum StatusSolicitacaoAtendimentoAgencia {
+  PENDENTE
+  ACEITA
+  CANCELADA
+}
+
+// Pedido de troca do responsável pelo CADASTRO da agência (AtendimentoAgencia
+// acima) — não confundir com SolicitacaoTransferencia, que é do chat/Conversa.
+// Dois tipos: TRANSFERENCIA (só quem atende pode abrir, escolhe o destino) e
+// ASSUNCAO (só quem NÃO atende pode abrir, contra quem atende agora, sem
+// escolher destino — é sempre quem pediu). Em ambos, o efeito de ACEITA é
+// sempre o mesmo: liberar atendenteAtualId e criar um AtendimentoAgencia novo
+// pra novoAtendenteId — nunca inverter isso entre os dois tipos, é o que evita
+// trocar os polos. "Tempo esgotar sem cancelar" = sucesso (ACEITA), por isso
+// não existe status EXPIRADA — resolvidaPorExpiracao só registra COMO chegou
+// a ACEITA (auditoria/exibição, não muda o efeito).
+model SolicitacaoAtendimentoAgencia {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  tipo TipoSolicitacaoAtendimentoAgencia
+
+  // Quem abriu o pedido — sempre tem botão Cancelar.
+  solicitanteId String
+  solicitante   User   @relation("SolicitacaoAgenciaSolicitante", fields: [solicitanteId], references: [id])
+
+  // Quem está atendendo no momento da criação — liberado se ACEITA.
+  atendenteAtualId String
+  atendenteAtual   User   @relation("SolicitacaoAgenciaAtendenteAtual", fields: [atendenteAtualId], references: [id])
+
+  // Quem fica atendendo se ACEITA — destino escolhido (TRANSFERENCIA) ou o
+  // próprio solicitante (ASSUNCAO, sempre === solicitanteId nesse caso).
+  novoAtendenteId String
+  novoAtendente   User   @relation("SolicitacaoAgenciaNovoAtendente", fields: [novoAtendenteId], references: [id])
+
+  status   StatusSolicitacaoAtendimentoAgencia @default(PENDENTE)
+  criadaEm DateTime                            @default(now())
+
+  resolvidaEm           DateTime?
+  resolvidaPorExpiracao Boolean   @default(false)
+
+  @@index([agenciaId])
+  @@index([solicitanteId])
+  @@index([atendenteAtualId])
+  @@index([novoAtendenteId])
+  @@map("solicitacoes_atendimento_agencia")
+}
+
 // Textos prontos (respostas rápidas) — globais, CRUD simples.
 model TextoPronto {
   id          String   @id @default(cuid())
@@ -1138,9 +1201,18 @@ model TemplateWhatsApp {
   id             String                 @id @default(cuid())
   metaTemplateId String                 @unique
   nome           String
+  // Nome amigável definido localmente pro analista reconhecer o template
+  // na lista — `nome` continua sendo o nome técnico real da Meta (não dá
+  // pra mudar, é a chave de envio), `titulo` é só de exibição e nunca é
+  // mandado pra Graph API.
+  titulo         String?
   idioma         String                 @default("pt_BR")
   categoria      String?
   status         StatusTemplateWhatsApp @default(APPROVED)
+  // Liga/desliga o template só do nosso lado (some do picker de envio em
+  // ThreadConversa) sem tocar no status dele na Meta — diferente de
+  // PAUSED, que é decisão da Meta por qualidade, não do analista.
+  ativo          Boolean                @default(true)
   conteudo       String                 @db.Text // texto do componente BODY, com placeholders {{1}}
   // Preenchido pela Meta só quando status = REJECTED (rejected_reason da
   // Business Management API) — nunca inventado localmente.

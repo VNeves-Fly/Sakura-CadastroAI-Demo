@@ -19,6 +19,7 @@ import type { Documento } from "@/modules/cadastro/domain/entities/documento.ent
 import { documentoRecordToDomain } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import {
   CONTRATO_STATUS_ASSINADO,
+  CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
@@ -340,7 +341,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       where: { id },
       include: {
         complementar: { include: { enderecoAgencia: true } },
-        representantesLegais: { include: { endereco: true } },
+        // Sócio removido pelo analista (ver RemoverRepresentanteLegalUseCase)
+        // some da ficha e de qualquer decisão de negócio derivada daqui
+        // (fila de assinatura, geração de contrato, Usuário Master,
+        // reconsulta de crédito etc.) — a linha continua no banco só pro
+        // histórico de edição (auditoria), fora deste `include`.
+        representantesLegais: { where: { ativo: true }, include: { endereco: true } },
         // Todos os documentos da agência numa lista só (sócios +
         // contrato social) — mais barato que incluir por sócio, e
         // `documentoAtual` já filtra por representanteLegalId na hora
@@ -739,7 +745,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
           executivo: {
-            select: { nome: true, gestor: true, bases: { select: { baseSigla: true } } },
+            select: { nome: true, gestor: true },
           },
           evento: { select: { nome: true } },
         },
@@ -754,10 +760,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         associacaoNome: record.associacao?.nome ?? null,
         executivoNome: record.executivo?.nome ?? null,
         eventoNome: record.evento?.nome ?? null,
-        executivoBase:
-          record.executivo && record.executivo.bases.length > 0
-            ? record.executivo.bases.map((base) => base.baseSigla).join(", ")
-            : null,
+        // Cada agência pertence a UMA base só, mas isso nunca foi capturado
+        // no cadastro — o promotor responsável pode atender várias bases
+        // (ver PromotorBase), então listar todas elas aqui como se fossem
+        // "a base da agência" está errado (decisão do usuário, 2026-07-28:
+        // melhor deixar em branco do que mostrar um dado ambíguo/errado).
+        executivoBase: null,
         executivoGestor: record.executivo?.gestor ?? null,
       })),
       total,
@@ -769,6 +777,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       emAnalise,
       emComplementar,
       aguardandoAssinatura,
+      aguardandoAssinaturaIa,
+      aguardandoAssinaturaHumano,
       aguardandoValidacao,
       aguardandoAtivacao,
       ativas,
@@ -782,6 +792,21 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       }),
       this.prisma.agencia.count({
         where: { status: STATUS_AGUARDANDO_ASSINATURA as PrismaStatusAgencia },
+      }),
+      // Breakdown por origem (IA x analista) do card "Aguardando
+      // assinatura" — usado só no hover, contado pelo contrato em si (não
+      // pela agência) porque é ele que carrega origemGeracao.
+      this.prisma.contrato.count({
+        where: {
+          status: CONTRATO_STATUS_AGUARDANDO_ASSINATURA as PrismaStatusContrato,
+          origemGeracao: "ia",
+        },
+      }),
+      this.prisma.contrato.count({
+        where: {
+          status: CONTRATO_STATUS_AGUARDANDO_ASSINATURA as PrismaStatusContrato,
+          origemGeracao: "humano",
+        },
       }),
       this.prisma.agencia.count({
         where: { status: STATUS_AGUARDANDO_VALIDACAO as PrismaStatusAgencia },
@@ -797,6 +822,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       emAnalise,
       emComplementar,
       aguardandoAssinatura,
+      aguardandoAssinaturaPorOrigem: {
+        ia: aguardandoAssinaturaIa,
+        humano: aguardandoAssinaturaHumano,
+      },
       aguardandoValidacao,
       aguardandoAtivacao,
       ativas,

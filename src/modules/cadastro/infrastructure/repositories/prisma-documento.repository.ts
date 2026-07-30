@@ -18,6 +18,7 @@ export function documentoRecordToDomain(record: DocumentoRecord): Documento {
     tipo: record.tipo,
     fileName: record.fileName,
     mimeType: record.mimeType,
+    descricaoOutro: record.descricaoOutro,
     gcsPath: record.gcsPath,
     gcsBucket: record.gcsBucket,
     gcsSize: record.gcsSize,

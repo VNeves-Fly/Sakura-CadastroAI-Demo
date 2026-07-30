@@ -1,5 +1,6 @@
 import { StatusTemplateWhatsApp, type PrismaClient } from "@prisma/client";
 import type {
+  AtualizarTemplateMetadataData,
   CriarTemplateLocalData,
   TemplateWhatsAppRepository,
   TemplateWhatsAppUpsertData,
@@ -42,20 +43,24 @@ function categoriaEntity(categoria: string | null): CategoriaTemplateEntity {
 function toDomain(record: {
   id: string;
   nome: string;
+  titulo: string | null;
   conteudo: string;
   idioma: string;
   categoria: string | null;
   status: StatusTemplateWhatsApp;
+  ativo: boolean;
   motivoRejeicao: string | null;
   sincronizadoEm: Date;
 }): TemplateAprovadoEntity {
   return {
     id: record.id,
     nome: record.nome,
+    titulo: record.titulo,
     conteudo: record.conteudo,
     categoria: categoriaEntity(record.categoria),
     idioma: record.idioma,
     status: STATUS_TO_ENTITY[record.status],
+    ativo: record.ativo,
     motivoRejeicao: record.motivoRejeicao,
     criadoEm: record.sincronizadoEm.toISOString(),
   };
@@ -65,8 +70,10 @@ export class PrismaTemplateWhatsAppRepository implements TemplateWhatsAppReposit
   constructor(private readonly prisma: PrismaClient) {}
 
   async findAllAprovados(): Promise<TemplateAprovadoEntity[]> {
+    // Usado pelo picker de envio (ThreadConversa) — `ativo: false` some
+    // daqui mesmo que a Meta ainda considere o template aprovado.
     const records = await this.prisma.templateWhatsApp.findMany({
-      where: { status: StatusTemplateWhatsApp.APPROVED },
+      where: { status: StatusTemplateWhatsApp.APPROVED, ativo: true },
       orderBy: { nome: "asc" },
     });
     return records.map(toDomain);
@@ -115,6 +122,20 @@ export class PrismaTemplateWhatsAppRepository implements TemplateWhatsAppReposit
         status: StatusTemplateWhatsApp.PENDING,
         motivoRejeicao: null,
         sincronizadoEm: new Date(),
+      },
+    });
+    return toDomain(record);
+  }
+
+  async atualizarMetadata(
+    id: string,
+    data: AtualizarTemplateMetadataData,
+  ): Promise<TemplateAprovadoEntity> {
+    const record = await this.prisma.templateWhatsApp.update({
+      where: { id },
+      data: {
+        ...(data.titulo !== undefined ? { titulo: data.titulo } : {}),
+        ...(data.ativo !== undefined ? { ativo: data.ativo } : {}),
       },
     });
     return toDomain(record);

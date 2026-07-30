@@ -22,7 +22,8 @@ export type TipoDocumento =
   | "COMPROVANTE_ENDERECO"
   | "COMPROVANTE_ENDERECO_AGENCIA"
   | "CERTIDAO_CASAMENTO"
-  | "PROCURACAO";
+  | "PROCURACAO"
+  | "OUTROS";
 
 export type StatusDocumento = "PENDENTE" | "APROVADO" | "REPROVADO";
 

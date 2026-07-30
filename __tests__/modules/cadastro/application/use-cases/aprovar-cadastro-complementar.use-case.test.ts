@@ -55,6 +55,7 @@ function documentoFake(status: StatusDocumento, id = "doc-1"): Documento {
     representanteLegalId: null,
     tipo: "RG_CNPJ",
     fileName: null,
+    descricaoOutro: null,
     mimeType: null,
     gcsPath: "agencias/12345678000195/doc.pdf",
     gcsBucket: "bucket",

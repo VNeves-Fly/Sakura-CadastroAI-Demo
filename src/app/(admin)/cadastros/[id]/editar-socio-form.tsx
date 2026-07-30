@@ -33,14 +33,14 @@ const LABEL_CAMPO: Record<string, string> = {
   administrativo: "Assina o contrato",
 };
 
-const INPUT_CLASSES =
+export const INPUT_CLASSES =
   "border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring/30 rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2";
 
 function dataParaInput(data: Date | null): string {
   return data ? data.toISOString().slice(0, 10) : "";
 }
 
-function CampoForm({ label, children }: { label: string; children: ReactNode }) {
+export function CampoForm({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-bold tracking-wide text-neutral-500 uppercase">

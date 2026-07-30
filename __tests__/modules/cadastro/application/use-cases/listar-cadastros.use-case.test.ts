@@ -16,6 +16,7 @@ const KPIS_VAZIOS: CadastrosKpis = {
   emAnalise: 0,
   emComplementar: 0,
   aguardandoAssinatura: 0,
+  aguardandoAssinaturaPorOrigem: { ia: 0, humano: 0 },
   aguardandoValidacao: 0,
   aguardandoAtivacao: 0,
   ativas: 0,

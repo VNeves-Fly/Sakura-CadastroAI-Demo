@@ -25,22 +25,45 @@ async function analistaIdLogado(): Promise<string> {
 // exige que o analista logado tenha assumido o atendimento da agência
 // antes (decisão do usuário, 2026-07-28). Chamada no início de toda action
 // que muda estado; leitura (visualizar documento etc.) não passa por aqui.
-async function garantirAtendimentoAssumido(agenciaId: string): Promise<void> {
-  await atendimentoController.garantirAtendimentoAssumido(agenciaId, await analistaIdLogado());
+// Devolve `false` (em vez de deixar o ConflictError subir cru) quando outro
+// analista assumiu ou a sessão local ficou desatualizada — a UI já é
+// gated por `podeAgir`/`atendimentoAssumidoPorMim` (ver page.tsx), então a
+// revalidação abaixo é o bastante pra ela mostrar o estado real, sem
+// derrubar a página com o "Application error" genérico do Next.
+async function garantirAtendimentoAssumido(agenciaId: string): Promise<boolean> {
+  try {
+    await atendimentoController.garantirAtendimentoAssumido(agenciaId, await analistaIdLogado());
+    return true;
+  } catch (error) {
+    if (!(error instanceof DomainError)) throw error;
+    revalidatePath(`/cadastros/${agenciaId}`);
+    return false;
+  }
 }
 
 export async function assumirAtendimentoDossieAction(agenciaId: string) {
-  await atendimentoController.assumirAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  try {
+    await atendimentoController.assumirAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  } catch (error) {
+    if (!(error instanceof DomainError)) throw error;
+    // Outro analista assumiu entre o render da página e o clique — a
+    // revalidação abaixo já mostra o estado real (ver podeAssumirAtendimento
+    // em page.tsx), não precisa derrubar a página com um erro genérico.
+  }
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function encerrarAtendimentoDossieAction(agenciaId: string) {
-  await atendimentoController.encerrarAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  try {
+    await atendimentoController.encerrarAtendimentoAgencia(agenciaId, await analistaIdLogado());
+  } catch (error) {
+    if (!(error instanceof DomainError)) throw error;
+  }
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function aprovarComplementarAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.aprovarComplementar({ id, analistaEmail: await analistaLogado() });
   revalidatePath(`/cadastros/${id}`);
 }
@@ -54,7 +77,9 @@ export async function registrarContratoExternoAction(
   | { ok: false; motivo: string }
 > {
   try {
-    await garantirAtendimentoAssumido(agenciaId);
+    if (!(await garantirAtendimentoAssumido(agenciaId))) {
+      return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+    }
     const resultado = await cadastroAdminController.registrarContratoExterno({
       agenciaId,
       contratoId,
@@ -73,37 +98,37 @@ export async function registrarContratoExternoAction(
 }
 
 export async function marcarContratoAssinadoAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.marcarContratoAssinado(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function validarContratoAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.validarContrato(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function ativarClienteAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.ativarCliente(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function recusarCadastroAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.recusarCadastro(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reprocessarAnaliseAction(id: string) {
-  await garantirAtendimentoAssumido(id);
+  if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.reprocessarAnalise(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reconsultarCreditoAction(agenciaId: string, fonte: "AMAT" | "SOFIA") {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.reconsultarCredito({
     agenciaId,
     fonte,
@@ -117,7 +142,7 @@ export async function aprovarDocumentoAction(
   documentoId: string,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const session = await getServerSession(nextAuthOptions);
   const motivo = String(formData.get("motivo") ?? "");
 
@@ -134,7 +159,7 @@ export async function reprovarDocumentoAction(
   documentoId: string,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const session = await getServerSession(nextAuthOptions);
   const motivo = String(formData.get("motivo") ?? "");
 
@@ -152,7 +177,7 @@ export async function inserirDocumentoManualAction(
   representanteLegalId: string | null,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const session = await getServerSession(nextAuthOptions);
   const arquivo = formData.get("arquivo");
 
@@ -178,7 +203,7 @@ export async function inserirDocumentoManualAction(
 }
 
 export async function solicitarReenvioDocumentosAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const documentoIds = formData.getAll("documentoIds").map(String);
   const baseUrl = obterUrlBase(headers());
   await cadastroAdminController.solicitarReenvioDocumentos({ agenciaId, documentoIds, baseUrl });
@@ -191,7 +216,7 @@ async function analistaLogado(): Promise<string> {
 }
 
 export async function salvarSicaAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const codigo = String(formData.get("codigo") ?? "");
   await cadastroAdminController.salvarSica({
     agenciaId,
@@ -211,7 +236,7 @@ export async function editarSocioAction(
   representanteLegalId: string,
   formData: FormData,
 ) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.atualizarRepresentanteLegal({
     id: representanteLegalId,
     editadoPor: await analistaLogado(),
@@ -232,8 +257,61 @@ export async function editarSocioAction(
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+export async function adicionarSocioAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+
+  const novoSocio = await cadastroAdminController.criarRepresentanteLegal({
+    agenciaId,
+    nome: String(formData.get("nome") ?? "").trim(),
+    cpf: String(formData.get("cpf") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    telefone: String(formData.get("telefone") ?? "").trim(),
+    estadoCivil: String(formData.get("estadoCivil") ?? "").trim(),
+    nacionalidade: parseStringOuNull(formData.get("nacionalidade")),
+    rg: parseStringOuNull(formData.get("rg")),
+    rgOrgaoEmissor: parseStringOuNull(formData.get("rgOrgaoEmissor")),
+    dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+    administrativo: formData.get("administrativo") === "true",
+  });
+
+  // Imagem do documento é opcional na hora de adicionar — se enviada,
+  // já entra pelo mesmo caminho de upload manual do dossiê (slot RG/CNH
+  // do sócio recém-criado, ver InserirDocumentoManualUseCase).
+  const arquivo = formData.get("arquivo");
+  if (arquivo instanceof File && arquivo.size > 0) {
+    const erroValidacao = validarArquivoUpload(arquivo, "Documento do sócio");
+    if (erroValidacao) throw new DomainError(erroValidacao);
+
+    const session = await getServerSession(nextAuthOptions);
+    const buffer = Buffer.from(await arquivo.arrayBuffer());
+    await cadastroAdminController.inserirDocumentoManual({
+      agenciaId,
+      representanteLegalId: novoSocio.id,
+      tipo: "RG_CNPJ",
+      arquivo: { buffer, originalName: arquivo.name, mimeType: arquivo.type },
+      inseridoPor: session?.user?.email ?? session?.user?.name ?? "analista não identificado",
+    });
+  }
+
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function removerSocioAction(
+  agenciaId: string,
+  representanteLegalId: string,
+  formData: FormData,
+) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.removerRepresentanteLegal({
+    id: representanteLegalId,
+    justificativa: String(formData.get("justificativa") ?? ""),
+    removidoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function editarEmpresaAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.editarDadosEmpresa({
     agenciaId,
     editadoPor: await analistaLogado(),
@@ -254,7 +332,7 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
 }
 
 export async function salvarTravelLinkAction(agenciaId: string, criado: boolean) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.salvarTravelLink({
     agenciaId,
     criado,
@@ -273,19 +351,37 @@ function parseDataIso(valor: string): Date | null {
 }
 
 export async function salvarUsuarioMasterAction(agenciaId: string, formData: FormData) {
-  await garantirAtendimentoAssumido(agenciaId);
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const origemRepresentanteLegalId = String(formData.get("origemRepresentanteLegalId") ?? "");
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const cpf = String(formData.get("cpf") ?? "").trim();
+  const telefone = String(formData.get("telefone") ?? "").trim();
+  const rg = String(formData.get("rg") ?? "").trim();
+  const rgOrgaoEmissor = String(formData.get("rgOrgaoEmissor") ?? "").trim();
+  const rgUf = String(formData.get("rgUf") ?? "").trim();
+  const dataNascimento = parseDataIso(String(formData.get("dataNascimento") ?? ""));
+
+  // Trava real (backend, não só UI) — o botão Salvar já vem desabilitado
+  // do client enquanto faltar campo (ver usuario-master.tsx), mas sem essa
+  // checagem aqui um Usuário Master incompleto passava batido: salvava com
+  // "" nos campos vazios e só travava o "Ativar cliente" depois, sem
+  // avisar o motivo (caso real 2026-07-29, agência com UF do RG em branco).
+  if (!nome || !email || !cpf || !telefone || !rg || !rgOrgaoEmissor || !rgUf || !dataNascimento) {
+    throw new DomainError("Preencha todos os campos do Usuário Master antes de salvar.");
+  }
 
   await cadastroAdminController.salvarUsuarioMaster({
     agenciaId,
-    nome: String(formData.get("nome") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    cpf: String(formData.get("cpf") ?? ""),
-    telefone: String(formData.get("telefone") ?? ""),
-    rg: String(formData.get("rg") ?? ""),
-    rgOrgaoEmissor: String(formData.get("rgOrgaoEmissor") ?? ""),
-    rgUf: String(formData.get("rgUf") ?? ""),
-    dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+    nome,
+    email,
+    cpf,
+    telefone,
+    rg,
+    rgOrgaoEmissor,
+    rgUf,
+    dataNascimento,
     origemRepresentanteLegalId: origemRepresentanteLegalId || null,
     salvoPor: await analistaLogado(),
   });

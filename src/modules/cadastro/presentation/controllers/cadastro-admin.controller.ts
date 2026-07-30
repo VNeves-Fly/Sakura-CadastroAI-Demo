@@ -75,6 +75,14 @@ import {
   type AtualizarRepresentanteLegalInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-representante-legal.use-case";
 import {
+  CriarRepresentanteLegalUseCase,
+  type CriarRepresentanteLegalInput,
+} from "@/modules/cadastro/application/use-cases/criar-representante-legal.use-case";
+import {
+  RemoverRepresentanteLegalUseCase,
+  type RemoverRepresentanteLegalInput,
+} from "@/modules/cadastro/application/use-cases/remover-representante-legal.use-case";
+import {
   ObterEnderecoUseCase,
   type ObterEnderecoInput,
 } from "@/modules/cadastro/application/use-cases/obter-endereco.use-case";
@@ -302,6 +310,19 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
+  criarRepresentanteLegal(input: CriarRepresentanteLegalInput) {
+    const useCase = new CriarRepresentanteLegalUseCase(representanteLegalRepository);
+    return useCase.execute(input);
+  },
+
+  removerRepresentanteLegal(input: RemoverRepresentanteLegalInput) {
+    const useCase = new RemoverRepresentanteLegalUseCase(
+      representanteLegalRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
+  },
+
   obterEndereco(input: ObterEnderecoInput) {
     const useCase = new ObterEnderecoUseCase(enderecoRepository);
     return useCase.execute(input);
@@ -413,7 +434,9 @@ export const cadastroAdminController = {
       signatarioPadraoRepository.findAtivos(),
     ]);
     const emailsEsperados = [
-      ...(detalhe?.representantesLegais.map((socio) => socio.email) ?? []),
+      ...(detalhe?.representantesLegais
+        .filter((socio) => socio.administrativo !== false)
+        .map((socio) => socio.email) ?? []),
       ...signatariosPadraoAtivos
         .filter((padrao) => padrao.email)
         .map((padrao) => padrao.email as string),

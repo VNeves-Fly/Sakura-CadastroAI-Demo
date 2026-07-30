@@ -1,13 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  useToastStore,
-  type CantoToast,
-  type Toast,
-  type TipoToast,
-} from "@/modules/shared/stores/toast.store";
+import { useToastStore, type TipoToast } from "@/modules/shared/stores/toast.store";
 
 const CLASSES_POR_TIPO: Record<TipoToast, string> = {
   info: "border-border bg-card text-foreground",
@@ -15,26 +11,14 @@ const CLASSES_POR_TIPO: Record<TipoToast, string> = {
   erro: "border-destructive-text/20 bg-destructive-bg text-destructive-text",
 };
 
-const CLASSES_POR_CANTO: Record<CantoToast, string> = {
-  "superior-direito": "top-4 right-4",
-  "inferior-esquerdo": "bottom-4 left-4",
-};
+export function ToastViewport() {
+  const toasts = useToastStore((state) => state.toasts);
+  const removerToast = useToastStore((state) => state.removerToast);
 
-function GrupoToasts({
-  canto,
-  toasts,
-  removerToast,
-}: {
-  canto: CantoToast;
-  toasts: Toast[];
-  removerToast: (id: string) => void;
-}) {
   if (toasts.length === 0) return null;
 
   return (
-    <div
-      className={cn("fixed z-[100] flex w-full max-w-sm flex-col gap-2", CLASSES_POR_CANTO[canto])}
-    >
+    <div className="fixed top-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2">
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -44,7 +28,23 @@ function GrupoToasts({
             CLASSES_POR_TIPO[toast.tipo],
           )}
         >
-          <p className="leading-snug">{toast.mensagem}</p>
+          <div className="flex flex-1 flex-col gap-1">
+            {toast.titulo && (
+              <div className="flex items-center justify-between gap-3">
+                <p className="leading-snug font-medium">{toast.titulo}</p>
+                {toast.acao && (
+                  <Link
+                    href={toast.acao.href}
+                    onClick={() => removerToast(toast.id)}
+                    className="shrink-0 rounded-md border border-current/30 px-2 py-0.5 text-xs font-semibold transition hover:bg-current/10"
+                  >
+                    {toast.acao.label}
+                  </Link>
+                )}
+              </div>
+            )}
+            <p className="leading-snug">{toast.mensagem}</p>
+          </div>
           <button
             type="button"
             onClick={() => removerToast(toast.id)}
@@ -56,32 +56,5 @@ function GrupoToasts({
         </div>
       ))}
     </div>
-  );
-}
-
-export function ToastViewport() {
-  const toasts = useToastStore((state) => state.toasts);
-  const removerToast = useToastStore((state) => state.removerToast);
-
-  if (toasts.length === 0) return null;
-
-  const toastsPorCanto: Record<CantoToast, Toast[]> = {
-    "superior-direito": toasts.filter((toast) => toast.canto === "superior-direito"),
-    "inferior-esquerdo": toasts.filter((toast) => toast.canto === "inferior-esquerdo"),
-  };
-
-  return (
-    <>
-      <GrupoToasts
-        canto="superior-direito"
-        toasts={toastsPorCanto["superior-direito"]}
-        removerToast={removerToast}
-      />
-      <GrupoToasts
-        canto="inferior-esquerdo"
-        toasts={toastsPorCanto["inferior-esquerdo"]}
-        removerToast={removerToast}
-      />
-    </>
   );
 }

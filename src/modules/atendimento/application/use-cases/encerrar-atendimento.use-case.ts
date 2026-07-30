@@ -5,6 +5,7 @@ import type { AtendimentoAgenciaRepository } from "@/modules/atendimento/domain/
 import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
 import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
 import type { SolicitacaoTransferenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-transferencia-repository";
+import type { SolicitacaoAtendimentoAgenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-atendimento-agencia-repository";
 import { completarConversa } from "@/modules/atendimento/application/shared/completar-conversa";
 import { EncerrarAtendimentoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/encerrar-atendimento-agencia.use-case";
 import type { EncerrarAtendimentoInput } from "@/modules/atendimento/application/dto/encerrar-atendimento.dto";
@@ -16,6 +17,7 @@ export class EncerrarAtendimentoUseCase {
     private readonly resumoFichaClienteRepository: ResumoFichaClienteRepository,
     private readonly solicitacaoTransferenciaRepository: SolicitacaoTransferenciaRepository,
     private readonly atendimentoAgenciaRepository: AtendimentoAgenciaRepository,
+    private readonly solicitacaoAtendimentoAgenciaRepository: SolicitacaoAtendimentoAgenciaRepository,
   ) {}
 
   async execute(input: EncerrarAtendimentoInput): Promise<ConversaEntity> {
@@ -36,10 +38,10 @@ export class EncerrarAtendimentoUseCase {
     // Melhor esforço: ver comentário equivalente em AssumirAtendimentoUseCase.
     if (conversa.agenciaId) {
       try {
-        await new EncerrarAtendimentoAgenciaUseCase(this.atendimentoAgenciaRepository).execute(
-          conversa.agenciaId,
-          input.analistaId,
-        );
+        await new EncerrarAtendimentoAgenciaUseCase(
+          this.atendimentoAgenciaRepository,
+          this.solicitacaoAtendimentoAgenciaRepository,
+        ).execute(conversa.agenciaId, input.analistaId);
       } catch {
         // Ignorado de propósito — ver comentário acima.
       }

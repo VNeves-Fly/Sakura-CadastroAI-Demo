@@ -189,7 +189,7 @@ na vez / quem aguarda), dados da empresa e bancários usados no contrato,
 seção de signatários da própria agência (Fase 1) e depois da Sakura (Fase
 2, só libera depois da Fase 1 completa), histórico de contratos gerados
 (incluindo cancelados), PDF assinado pra download quando existir, e um
-checkbox **"Travel Link Criado"**.
+checkbox **"TravelLink Criado"**.
 
 **Botões:**
 
@@ -199,14 +199,14 @@ checkbox **"Travel Link Criado"**.
 - **Revisar e Enviar** → **Enviar para assinatura** (D4Sign).
 - **Atualizar status** / **Cancelar** (assinatura no D4Sign).
 - **Extrair Todos** — extrai dados dos signatários via IA.
-- **Marcar/desmarcar "Travel Link Criado"**.
+- **Marcar/desmarcar "TravelLink Criado"**.
 - **Avançar para Credenciais** — só normal se o contrato estiver
   totalmente assinado.
 - **Forçar avanço** (Diretor/Admin).
 
 **Regra de transição (3→4), explícita e importante:** o botão normal de
-avançar exige `contrato assinado` **E** `Travel Link Criado` marcado.
-**O "Travel Link Criado" é obrigatório mesmo no Forçar avanço** — esse
+avançar exige `contrato assinado` **E** `TravelLink Criado` marcado.
+**O "TravelLink Criado" é obrigatório mesmo no Forçar avanço** — esse
 caminho só dispensa a exigência de assinatura completa, nunca a do Travel
 Link (isso está comentado explicitamente no código original como uma
 regra de negócio deliberada).
@@ -251,7 +251,7 @@ original: contrato assinado e documentos pendentes **não** bloqueiam mais
 aqui, isso já foi resolvido nas etapas anteriores):
 
 1. Código **SICA** preenchido.
-2. **Travel Link Criado** marcado.
+2. **TravelLink Criado** marcado.
 3. **Usuário Master** com dados salvos.
 
 **Botão "Ativar agência":** sempre clicável — abre um checklist mostrando
