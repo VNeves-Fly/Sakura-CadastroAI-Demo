@@ -737,6 +737,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     const eventoCondicao = condicaoFiltroIn(filtros.eventoId);
     if (eventoCondicao !== undefined) where.eventoId = eventoCondicao;
 
+    if (filtros.atendenteAtivoId) {
+      where.atendimentosAgencia = {
+        some: { analistaId: filtros.atendenteAtivoId, liberadoEm: null },
+      };
+    }
+
     const [records, total] = await Promise.all([
       this.prisma.agencia.findMany({
         where,

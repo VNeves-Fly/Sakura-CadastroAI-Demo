@@ -176,6 +176,11 @@ export interface ListarCadastrosFiltros {
   // filtrado via relação com Agencia.executivo.
   base?: string | string[];
   gestor?: string | string[];
+  // Id do analista logado, quando o switch "Meus atendimentos" está
+  // ativo — filtra pelas agências onde esse analista é o atendente ATIVO
+  // no momento (AtendimentoAgencia.liberadoEm null), via
+  // Agencia.atendimentosAgencia.
+  atendenteAtivoId?: string;
 }
 
 export interface ListarCadastrosItem {

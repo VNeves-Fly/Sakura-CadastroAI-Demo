@@ -35,6 +35,7 @@ interface CadastrosPageProps {
     sort?: string;
     dir?: string;
     filtro?: string | string[];
+    meusAtendimentos?: string;
   };
 }
 
@@ -74,6 +75,7 @@ function extrairCategoria(valores: string[], prefixo: string): string[] {
 // abaixo, cores reaproveitadas: COR_ORIGEM_IA/COR_ORIGEM_HUMANO).
 const COR_ORIGEM_IA = "#8A2BE2";
 const COR_ORIGEM_HUMANO = "#008B8B";
+const COR_CLIENTE = "#f013b1e2";
 
 const FILAS = [
   {
@@ -95,7 +97,7 @@ const FILAS = [
     chave: "aguardandoAssinatura" as const,
     label: "Aguardando assinatura",
     sublabel: "contrato enviado aos sócios",
-    cor: null,
+    cor: COR_CLIENTE,
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
@@ -221,6 +223,10 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const associacaoDoFiltro = extrairCategoria(valoresFiltro, "associacao");
   const statusDoFiltro = extrairCategoria(valoresFiltro, "status");
   const statusCombinado = [...new Set([...paraArray(searchParams.status), ...statusDoFiltro])];
+  // Switch "Meus atendimentos" (decisão do usuário, 2026-07-30): filtra
+  // no banco pelas agências onde o analista logado é o atendente ATIVO —
+  // sem sessão não há o que filtrar, então o switch é ignorado.
+  const meusAtendimentosAtivo = searchParams.meusAtendimentos === "1" && !!analistaId;
 
   const [{ items, total, kpis }, analise, promotores, associacoesTodas] = await Promise.all([
     cadastroAdminController.listarCadastros({
@@ -232,6 +238,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
       associacaoId: associacaoDoFiltro,
       base: baseDoFiltro,
       gestor: gestorDoFiltro,
+      atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
     }),
     ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
     atribuicoesAdminController.listarPromotores(),
@@ -344,6 +351,17 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             options={opcoesFiltro}
           />
         </div>
+        <label className="flex shrink-0 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="meusAtendimentos"
+            value="1"
+            defaultChecked={searchParams.meusAtendimentos === "1"}
+            className="peer sr-only"
+          />
+          <span className="peer-checked:bg-primary bg-input relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:left-0.5 before:size-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:content-[''] peer-checked:before:translate-x-5" />
+          <span className="text-foreground font-medium whitespace-nowrap">Meus atendimentos</span>
+        </label>
         <button
           type="submit"
           className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"

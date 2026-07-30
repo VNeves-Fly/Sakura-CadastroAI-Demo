@@ -845,15 +845,6 @@ export default async function DossieAgenciaPage({
                   ) : null}
                 </dl>
 
-                <div className="border-border bg-muted/40 text-muted-foreground mt-4 rounded-xl border border-dashed px-4 py-3 text-xs">
-                  <strong className="text-foreground">
-                    Log de geração/revisão/envio indisponível:
-                  </strong>{" "}
-                  o histórico de auditoria (quem gerou, quem revisou e quem enviou o contrato, com
-                  data/hora) não existe no schema hoje — sinalizando aqui em vez de simular um log
-                  falso.
-                </div>
-
                 {podeAgir && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
                   <div className="mt-4 flex flex-col gap-3">
                     <p className="text-muted-foreground text-sm">
