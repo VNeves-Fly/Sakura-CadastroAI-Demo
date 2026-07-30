@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
-import { HORAS_LIMITE_ASSUMIR } from "@/modules/atendimento/domain/atendimento.constants";
+import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import {
   Building2,
   Users,
@@ -235,16 +235,6 @@ export default async function DossieAgenciaPage({
   ]);
   const atendimentoAssumidoPorMim = atendimentoAtual?.analistaId === analistaId;
   const atendidoPorOutro = !!atendimentoAtual && !atendimentoAssumidoPorMim;
-  const horasDesdeAtendimentoAtual = atendimentoAtual
-    ? (Date.now() - atendimentoAtual.assumidoEm.getTime()) / (1000 * 60 * 60)
-    : null;
-  // "Assumir" quando ninguém atende ou o atendimento já passou das 2h de
-  // outro analista; "Puxar" é só rótulo diferente pro mesmo botão nesse
-  // segundo caso (mesma regra de HORAS_LIMITE_ASSUMIR do chat).
-  const podeAssumirAtendimento =
-    !atendimentoAtual ||
-    atendimentoAssumidoPorMim ||
-    (horasDesdeAtendimentoAtual ?? 0) > HORAS_LIMITE_ASSUMIR;
 
   const {
     agencia,
@@ -354,16 +344,21 @@ export default async function DossieAgenciaPage({
                 Encerrar atendimento
               </button>
             </form>
-          ) : (
+          ) : !atendimentoAtual ? (
             <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
               <button
                 type="submit"
                 className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1.5 text-xs font-semibold transition"
               >
-                {podeAssumirAtendimento ? "Assumir atendimento" : "Puxar atendimento"}
+                Iniciar atendimento
               </button>
             </form>
-          )}
+          ) : null}
+          <AtendimentoAgenciaAcoes
+            agenciaId={agencia.id}
+            analistaId={analistaId ?? ""}
+            atendimentoAtual={atendimentoAtual}
+          />
           <HistoricoAtendimentoAgencia historico={historicoAtendimento} />
           <AtendimentoButton agenciaId={agencia.id} />
         </div>
@@ -483,14 +478,22 @@ export default async function DossieAgenciaPage({
               ? `${atendimentoAtual?.analistaNome} está atendendo este cadastro agora — assuma o atendimento pra poder agir.`
               : "Assuma o atendimento pra poder agir neste cadastro. Visualização de documentos continua liberada."}
           </span>
-          <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
-            <button
-              type="submit"
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
-            >
-              {podeAssumirAtendimento ? "Assumir atendimento" : "Puxar atendimento"}
-            </button>
-          </form>
+          {atendidoPorOutro ? (
+            <AtendimentoAgenciaAcoes
+              agenciaId={agencia.id}
+              analistaId={analistaId ?? ""}
+              atendimentoAtual={atendimentoAtual}
+            />
+          ) : (
+            <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+              >
+                Iniciar atendimento
+              </button>
+            </form>
+          )}
         </div>
       ) : null}
 

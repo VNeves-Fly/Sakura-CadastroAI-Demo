@@ -13,3 +13,11 @@ export const HORAS_JANELA_ATENDIMENTO_META = 24;
 // desse tempo sem resposta (contada como recusa). Movido de
 // atendimento-api.ts (era só client-side) — agora reimportado por lá.
 export const TIMEOUT_TRANSFERENCIA_MS = 60_000;
+
+// Mesmo valor de TIMEOUT_TRANSFERENCIA_MS hoje, mas desacoplado de
+// propósito — este é do atendimento do CADASTRO (SolicitacaoAtendimentoAgencia,
+// dossiê/listagem), aquele é do chat (Conversa). Aqui "tempo esgotar sem
+// cancelar" é SUCESSO (efetiva a troca), diferente do chat onde vencer o
+// prazo conta como recusa — por isso não dá pra reaproveitar a mesma
+// constante sem arriscar acoplar as duas semânticas.
+export const TIMEOUT_SOLICITACAO_ATENDIMENTO_AGENCIA_MS = 60_000;

@@ -43,6 +43,10 @@ model User {
   transferenciasRecebidas SolicitacaoTransferencia[]   @relation("TransferenciaParaAnalista")
   passwordResetTokens     PasswordResetToken[]
 
+  solicitacoesAgenciaFeitas             SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaSolicitante")
+  solicitacoesAgenciaComoAtendenteAtual SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaAtendenteAtual")
+  solicitacoesAgenciaComoNovoAtendente  SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaNovoAtendente")
+
   @@map("users")
 }
 
@@ -214,6 +218,7 @@ model Agencia {
   historicoEdicoes          HistoricoEdicaoCadastro[]
   historicoConsultasCredito HistoricoConsultaCredito[]
   atendimentosAgencia       AtendimentoAgencia[]
+  solicitacoesAtendimento   SolicitacaoAtendimentoAgencia[]
 
   @@map("agencias")
 }
@@ -479,9 +484,9 @@ model Documento {
   representanteLegalId String?
   representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
 
-  tipo     TipoDocumento
-  fileName String?
-  mimeType String?
+  tipo           TipoDocumento
+  fileName       String?
+  mimeType       String?
   // Descrição livre digitada pelo analista — só preenchida quando
   // tipo = OUTROS (documento sem slot fixo no dossiê).
   descricaoOutro String?
@@ -1118,6 +1123,60 @@ model AtendimentoAgencia {
 
   @@index([agenciaId])
   @@map("atendimentos_agencia")
+}
+
+enum TipoSolicitacaoAtendimentoAgencia {
+  TRANSFERENCIA
+  ASSUNCAO
+}
+
+enum StatusSolicitacaoAtendimentoAgencia {
+  PENDENTE
+  ACEITA
+  CANCELADA
+}
+
+// Pedido de troca do responsável pelo CADASTRO da agência (AtendimentoAgencia
+// acima) — não confundir com SolicitacaoTransferencia, que é do chat/Conversa.
+// Dois tipos: TRANSFERENCIA (só quem atende pode abrir, escolhe o destino) e
+// ASSUNCAO (só quem NÃO atende pode abrir, contra quem atende agora, sem
+// escolher destino — é sempre quem pediu). Em ambos, o efeito de ACEITA é
+// sempre o mesmo: liberar atendenteAtualId e criar um AtendimentoAgencia novo
+// pra novoAtendenteId — nunca inverter isso entre os dois tipos, é o que evita
+// trocar os polos. "Tempo esgotar sem cancelar" = sucesso (ACEITA), por isso
+// não existe status EXPIRADA — resolvidaPorExpiracao só registra COMO chegou
+// a ACEITA (auditoria/exibição, não muda o efeito).
+model SolicitacaoAtendimentoAgencia {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  tipo TipoSolicitacaoAtendimentoAgencia
+
+  // Quem abriu o pedido — sempre tem botão Cancelar.
+  solicitanteId String
+  solicitante   User   @relation("SolicitacaoAgenciaSolicitante", fields: [solicitanteId], references: [id])
+
+  // Quem está atendendo no momento da criação — liberado se ACEITA.
+  atendenteAtualId String
+  atendenteAtual   User   @relation("SolicitacaoAgenciaAtendenteAtual", fields: [atendenteAtualId], references: [id])
+
+  // Quem fica atendendo se ACEITA — destino escolhido (TRANSFERENCIA) ou o
+  // próprio solicitante (ASSUNCAO, sempre === solicitanteId nesse caso).
+  novoAtendenteId String
+  novoAtendente   User   @relation("SolicitacaoAgenciaNovoAtendente", fields: [novoAtendenteId], references: [id])
+
+  status   StatusSolicitacaoAtendimentoAgencia @default(PENDENTE)
+  criadaEm DateTime                            @default(now())
+
+  resolvidaEm           DateTime?
+  resolvidaPorExpiracao Boolean   @default(false)
+
+  @@index([agenciaId])
+  @@index([solicitanteId])
+  @@index([atendenteAtualId])
+  @@index([novoAtendenteId])
+  @@map("solicitacoes_atendimento_agencia")
 }
 
 // Textos prontos (respostas rápidas) — globais, CRUD simples.

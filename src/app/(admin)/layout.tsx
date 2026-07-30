@@ -7,6 +7,7 @@ import { ToastViewport } from "@/components/ui/toast-viewport";
 import { AdminSidebar } from "@/modules/admin/components/admin-sidebar";
 import { AdminHeader } from "@/modules/admin/components/admin-header";
 import { NotificacoesDocumentosLive } from "@/modules/admin/components/notificacoes-documentos-live";
+import { SolicitacoesAtendimentoAgenciaLive } from "@/modules/atendimento/components/solicitacoes-atendimento-agencia-live";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(nextAuthOptions);
@@ -19,6 +20,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <SidebarProvider className="h-svh overflow-hidden">
       <ToastViewport />
       <NotificacoesDocumentosLive />
+      <SolicitacoesAtendimentoAgenciaLive />
       <AdminSidebar />
       <SidebarInset className="h-full min-h-0 overflow-hidden">
         <AdminHeader
