@@ -8,6 +8,7 @@ import type {
   AnaliseIaStage1,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import { ESTADO_CIVIL_OPCOES } from "@/modules/cadastro/types/socio-wizard.types";
+import { maskCep } from "@/modules/cadastro/utils/cep.util";
 import {
   TIPO_CONTA_OPCOES,
   BANCO_PAIS_OPCOES,
@@ -62,6 +63,7 @@ export function labelBancoPais(valor: string): string {
 }
 
 export function formatarEndereco(endereco: {
+  cep: string;
   logradouro: string;
   numero: string;
   complemento: string;
@@ -71,7 +73,8 @@ export function formatarEndereco(endereco: {
 }): string {
   if (!endereco.logradouro) return "—";
   const complemento = endereco.complemento ? `, ${endereco.complemento}` : "";
-  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}`;
+  const cep = endereco.cep ? `, ${maskCep(endereco.cep)}` : "";
+  return `${endereco.logradouro}, ${endereco.numero || "s/n"}${complemento} — ${endereco.bairro}, ${endereco.cidade}/${endereco.uf}${cep}`;
 }
 
 // Documento real do banco (ou null, se a agência é anterior a essa

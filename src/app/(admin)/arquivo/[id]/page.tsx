@@ -14,6 +14,7 @@ import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import {
   Campo,
   CamposGrid,
+  CampoEndereco,
   SubsecaoLabel,
   SituacaoCadastralBadge,
   CnaesDetalhe,
@@ -41,7 +42,6 @@ import {
   labelEstadoCivil,
   labelTipoConta,
   labelBancoPais,
-  formatarEndereco,
   labelOrigemContrato,
   labelStatusContrato,
 } from "@/modules/admin/adapters/dossie.adapter";
@@ -355,9 +355,7 @@ export default async function ArquivoDossiePage({
                         <Campo label="E-mail">{socio.email}</Campo>
                         <Campo label="Telefone">{socio.telefone}</Campo>
                         <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
-                        <Campo label="Endereço" className="sm:col-span-2">
-                          {formatarEndereco(socio.endereco)}
-                        </Campo>
+                        <CampoEndereco label="Endereço" endereco={socio.endereco} />
                         <Campo label="RG/CNH" corFundo={corFundoDocumento(socio.rg)}>
                           <CampoDocumento
                             documento={socio.rg}
@@ -389,9 +387,10 @@ export default async function ArquivoDossiePage({
 
               <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
                 <CamposGrid>
-                  <Campo label="Endereço da Agência" className="sm:col-span-2">
-                    {formatarEndereco(complementar.enderecoAgencia)}
-                  </Campo>
+                  <CampoEndereco
+                    label="Endereço da Agência"
+                    endereco={complementar.enderecoAgencia}
+                  />
                   <Campo label="Banco">
                     {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
                     {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})

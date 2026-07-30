@@ -24,6 +24,7 @@ import { VisualizarDocumento } from "@/modules/admin/components/visualizar-docum
 import {
   Campo,
   CamposGrid,
+  CampoEndereco,
   SubsecaoLabel,
   SituacaoCadastralBadge,
   CnaesDetalhe,
@@ -690,9 +691,7 @@ export default async function DossieAgenciaPage({
                         <Campo label="Telefone">{socio.telefone}</Campo>
                         <Campo label="Estado Civil">{labelEstadoCivil(socio.estadoCivil)}</Campo>
                         <Campo label="Nacionalidade">{socio.nacionalidade || "—"}</Campo>
-                        <Campo label="Endereço" className="sm:col-span-2">
-                          {formatarEndereco(socio.endereco)}
-                        </Campo>
+                        <CampoEndereco label="Endereço" endereco={socio.endereco} />
                         <Campo label="RG/CNH" corFundo={corFundoDocumento(socio.rg)}>
                           <CampoDocumento
                             documento={socio.rg}
@@ -740,9 +739,10 @@ export default async function DossieAgenciaPage({
 
               <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
                 <CamposGrid>
-                  <Campo label="Endereço da Agência" className="sm:col-span-2">
-                    {formatarEndereco(complementar.enderecoAgencia)}
-                  </Campo>
+                  <CampoEndereco
+                    label="Endereço da Agência"
+                    endereco={complementar.enderecoAgencia}
+                  />
                   <Campo label="Banco">
                     {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
                     {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})

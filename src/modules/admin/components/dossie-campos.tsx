@@ -26,6 +26,8 @@ import type {
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
 import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
+import { formatarEndereco } from "@/modules/admin/adapters/dossie.adapter";
+import { maskCep } from "@/modules/cadastro/utils/cep.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
 // (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
@@ -124,6 +126,76 @@ export function SubsecaoLabel({ children }: { children: ReactNode }) {
     <span className="text-muted-foreground text-[10px] font-bold tracking-wide uppercase">
       {children}
     </span>
+  );
+}
+
+interface CampoEnderecoValor {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}
+
+// Endereço de sócio/agência: linha única formatada por padrão (o que o
+// analista precisa pra bater o olho) com os campos separados (CEP,
+// logradouro, número...) escondidos atrás de um <details> — mesmo padrão
+// de CnaesDetalhe/CamposDetalhe abaixo — pra consultar só quando precisar
+// conferir um campo específico (ex.: preencher o TravelLink).
+export function CampoEndereco({
+  label,
+  endereco,
+}: {
+  label: string;
+  endereco: CampoEnderecoValor;
+}) {
+  return (
+    <Campo label={label} className="sm:col-span-2">
+      <div className="flex flex-col gap-1.5">
+        <span>{formatarEndereco(endereco)}</span>
+        {endereco.logradouro ? (
+          <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs">
+            <summary className="text-primary cursor-pointer font-semibold">
+              Ver campos separados
+            </summary>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3">
+              <div>
+                <dt className="text-muted-foreground">CEP</dt>
+                <dd className="text-foreground font-medium">
+                  {endereco.cep ? maskCep(endereco.cep) : "—"}
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Logradouro</dt>
+                <dd className="text-foreground font-medium">{endereco.logradouro}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Número</dt>
+                <dd className="text-foreground font-medium">{endereco.numero || "s/n"}</dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Complemento</dt>
+                <dd className="text-foreground font-medium">{endereco.complemento || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Bairro</dt>
+                <dd className="text-foreground font-medium">{endereco.bairro || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Cidade</dt>
+                <dd className="text-foreground font-medium">{endereco.cidade || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">UF</dt>
+                <dd className="text-foreground font-medium">{endereco.uf || "—"}</dd>
+              </div>
+            </dl>
+          </details>
+        ) : null}
+      </div>
+    </Campo>
   );
 }
 
