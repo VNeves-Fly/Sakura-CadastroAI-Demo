@@ -19,6 +19,7 @@ import type { Documento } from "@/modules/cadastro/domain/entities/documento.ent
 import { documentoRecordToDomain } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import {
   CONTRATO_STATUS_ASSINADO,
+  CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
@@ -771,6 +772,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       emAnalise,
       emComplementar,
       aguardandoAssinatura,
+      aguardandoAssinaturaIa,
+      aguardandoAssinaturaHumano,
       aguardandoValidacao,
       aguardandoAtivacao,
       ativas,
@@ -784,6 +787,21 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       }),
       this.prisma.agencia.count({
         where: { status: STATUS_AGUARDANDO_ASSINATURA as PrismaStatusAgencia },
+      }),
+      // Breakdown por origem (IA x analista) do card "Aguardando
+      // assinatura" — usado só no hover, contado pelo contrato em si (não
+      // pela agência) porque é ele que carrega origemGeracao.
+      this.prisma.contrato.count({
+        where: {
+          status: CONTRATO_STATUS_AGUARDANDO_ASSINATURA as PrismaStatusContrato,
+          origemGeracao: "ia",
+        },
+      }),
+      this.prisma.contrato.count({
+        where: {
+          status: CONTRATO_STATUS_AGUARDANDO_ASSINATURA as PrismaStatusContrato,
+          origemGeracao: "humano",
+        },
       }),
       this.prisma.agencia.count({
         where: { status: STATUS_AGUARDANDO_VALIDACAO as PrismaStatusAgencia },
@@ -799,6 +817,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       emAnalise,
       emComplementar,
       aguardandoAssinatura,
+      aguardandoAssinaturaPorOrigem: {
+        ia: aguardandoAssinaturaIa,
+        humano: aguardandoAssinaturaHumano,
+      },
       aguardandoValidacao,
       aguardandoAtivacao,
       ativas,

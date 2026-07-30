@@ -211,6 +211,10 @@ export interface CadastrosKpis {
   emAnalise: number;
   emComplementar: number;
   aguardandoAssinatura: number;
+  // Breakdown do card "Aguardando assinatura" por origem do contrato
+  // (contrato gerado pela IA x pelo analista), usado só no hover do card
+  // — o próprio card não muda de cor/valor por causa disso.
+  aguardandoAssinaturaPorOrigem: { ia: number; humano: number };
   aguardandoValidacao: number;
   aguardandoAtivacao: number;
   ativas: number;
