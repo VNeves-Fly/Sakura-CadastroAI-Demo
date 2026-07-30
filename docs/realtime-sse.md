@@ -24,11 +24,23 @@ cada mutação manualmente.
      `assumir_atendimento_registros`, `solicitacoes_transferencia`. Payload:
      `{ conversaId }` (o front sempre refaz `listarConversas()` inteiro ao
      receber, igual ao polling que este canal substituiu).
+   - Canal `solicitacao_atendimento_agencia_eventos` (migração
+     `20260730124700_add_solicitacao_atendimento_agencia_trigger`) —
+     `AFTER INSERT OR UPDATE` em `solicitacoes_atendimento_agencia` (pedido
+     de transferência/assunção do atendimento do CADASTRO — dossiê/
+     listagem, distinto do chat). Payload: `{ solicitacaoId, agenciaId,
+tipo, status, solicitanteId, atendenteAtualId, novoAtendenteId }`.
+     Diferente dos outros dois canais, este é **pessoal**: a rota
+     (`/api/atendimento/solicitacoes/eventos`) só repassa pro client se
+     `session.user.id` estiver entre os 3 ids envolvidos — quem não faz
+     parte do pedido não recebe nada.
 
 2. **Listener compartilhado** —
    `src/modules/shared/infrastructure/realtime/postgres-listener.ts`. Uma
    única conexão `pg.Client` dedicada (fora do pool do Prisma) fazendo
-   `LISTEN` nos dois canais, com reconexão exponencial (1s → 30s) em
+   `LISTEN` nos três canais (`Map<canal, Set<handler>>` genérico — cada novo
+   canal só precisa de uma constante + um `subscribeXEventos` novo, ver
+   seção "Estendendo" abaixo), com reconexão exponencial (1s → 30s) em
    `error`/`end`. Só conecta quando o primeiro assinante aparece; singleton
    via `globalThis` (mesmo truque do `prismaGlobal` em
    `src/modules/shared/infrastructure/prisma/client.ts`) pra sobreviver ao
@@ -43,14 +55,19 @@ cada mutação manualmente.
    cliente (aba fechada).
 
 4. **Rotas** — `src/app/api/cadastros/eventos`,
-   `src/app/api/cadastros/[id]/eventos`, `src/app/api/atendimento/eventos`.
-   Todas `runtime = "nodejs"` (precisa de socket TCP de verdade pro `pg`,
-   não roda em edge), todas checam sessão via `getServerSession` (o
-   `middleware.ts` só cobre páginas, não `/api/**`).
+   `src/app/api/cadastros/[id]/eventos`, `src/app/api/atendimento/eventos`,
+   `src/app/api/atendimento/solicitacoes/eventos`. Todas `runtime = "nodejs"`
+   (precisa de socket TCP de verdade pro `pg`, não roda em edge), todas
+   checam sessão via `getServerSession` (o `middleware.ts` só cobre
+   páginas, não `/api/**`).
 
 5. **Client** — `EventSource` nativo (reconecta sozinho em erro/timeout) em
    cada tela consumidora; ver `cadastros-live.tsx`,
-   `cadastro-detalhe-live.tsx` e o hook `use-atendimento.view-model.ts`.
+   `cadastro-detalhe-live.tsx`, o hook `use-atendimento.view-model.ts` e
+   `solicitacoes-atendimento-agencia-live.tsx` (este último montado uma
+   única vez em `(admin)/layout.tsx`, não numa página específica — o toast
+   de transferência/assunção precisa aparecer em qualquer tela do admin,
+   sem abrir uma conexão nova por navegação).
 
 ## Múltiplas instâncias — por que não precisa de Redis
 

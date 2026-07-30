@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { UserCog } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { CadastrosLive } from "./cadastros-live";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
+import { assumirAtendimentoDossieAction } from "./[id]/actions";
+import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import {
   labelStatus,
@@ -201,6 +205,9 @@ function labelOrigemContrato(origem: "ia" | "humano" | "externo" | null): string
 const ANALISE_HABILITADA = false;
 
 export default async function CadastrosPage({ searchParams }: CadastrosPageProps) {
+  const session = await getServerSession(nextAuthOptions);
+  const analistaId = session?.user?.id ?? "";
+
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
 
@@ -508,18 +515,43 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               <p className="text-muted-foreground mt-1 text-xs">
                                 Iniciado: {formatarDataHora(atendimentoAtivo.assumidoEm)}
                               </p>
-                            </>
-                          ) : ultimoEncerrado ? (
-                            <>
-                              <p className="text-foreground font-medium">
-                                {ultimoEncerrado.analistaNome}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                Finalizado: {formatarDataHora(ultimoEncerrado.liberadoEm)}
-                              </p>
+                              <div className="mt-1.5">
+                                <AtendimentoAgenciaAcoes
+                                  agenciaId={agencia.id}
+                                  analistaId={analistaId}
+                                  atendimentoAtual={{
+                                    analistaId: atendimentoAtivo.analistaId,
+                                    analistaNome: atendimentoAtivo.analistaNome,
+                                  }}
+                                />
+                              </div>
                             </>
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <>
+                              {ultimoEncerrado ? (
+                                <>
+                                  <p className="text-foreground font-medium">
+                                    {ultimoEncerrado.analistaNome}
+                                  </p>
+                                  <p className="text-muted-foreground text-xs">
+                                    Finalizado: {formatarDataHora(ultimoEncerrado.liberadoEm)}
+                                  </p>
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                              <form
+                                action={assumirAtendimentoDossieAction.bind(null, agencia.id)}
+                                className="mt-1.5"
+                              >
+                                <button
+                                  type="submit"
+                                  className="border-input text-foreground hover:bg-accent rounded-full border px-2.5 py-1 text-[11px] font-medium transition"
+                                >
+                                  Iniciar atendimento
+                                </button>
+                              </form>
+                            </>
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
