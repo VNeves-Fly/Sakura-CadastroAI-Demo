@@ -76,6 +76,8 @@ function extrairCategoria(valores: string[], prefixo: string): string[] {
 const COR_ORIGEM_IA = "#8A2BE2";
 const COR_ORIGEM_HUMANO = "#008B8B";
 const COR_CLIENTE = "#f013b1e2";
+const COR_ATIVO = "#008000";
+const COR_RECUSADO = "#DC143C";
 
 const FILAS = [
   {
@@ -118,14 +120,14 @@ const FILAS = [
     chave: "ativas" as const,
     label: "Ativas",
     sublabel: "agência liberada e operando",
-    cor: "#008000",
+    cor: COR_ATIVO,
   },
   {
     status: STATUS_RECUSADO,
     chave: "recusadas" as const,
     label: "Recusadas",
     sublabel: "cadastro recusado",
-    cor: "#DC143C",
+    cor: COR_RECUSADO,
   },
 ];
 
