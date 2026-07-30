@@ -257,6 +257,59 @@ export async function editarSocioAction(
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+export async function adicionarSocioAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+
+  const novoSocio = await cadastroAdminController.criarRepresentanteLegal({
+    agenciaId,
+    nome: String(formData.get("nome") ?? "").trim(),
+    cpf: String(formData.get("cpf") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    telefone: String(formData.get("telefone") ?? "").trim(),
+    estadoCivil: String(formData.get("estadoCivil") ?? "").trim(),
+    nacionalidade: parseStringOuNull(formData.get("nacionalidade")),
+    rg: parseStringOuNull(formData.get("rg")),
+    rgOrgaoEmissor: parseStringOuNull(formData.get("rgOrgaoEmissor")),
+    dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+    administrativo: formData.get("administrativo") === "true",
+  });
+
+  // Imagem do documento é opcional na hora de adicionar — se enviada,
+  // já entra pelo mesmo caminho de upload manual do dossiê (slot RG/CNH
+  // do sócio recém-criado, ver InserirDocumentoManualUseCase).
+  const arquivo = formData.get("arquivo");
+  if (arquivo instanceof File && arquivo.size > 0) {
+    const erroValidacao = validarArquivoUpload(arquivo, "Documento do sócio");
+    if (erroValidacao) throw new DomainError(erroValidacao);
+
+    const session = await getServerSession(nextAuthOptions);
+    const buffer = Buffer.from(await arquivo.arrayBuffer());
+    await cadastroAdminController.inserirDocumentoManual({
+      agenciaId,
+      representanteLegalId: novoSocio.id,
+      tipo: "RG_CNPJ",
+      arquivo: { buffer, originalName: arquivo.name, mimeType: arquivo.type },
+      inseridoPor: session?.user?.email ?? session?.user?.name ?? "analista não identificado",
+    });
+  }
+
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function removerSocioAction(
+  agenciaId: string,
+  representanteLegalId: string,
+  formData: FormData,
+) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.removerRepresentanteLegal({
+    id: representanteLegalId,
+    justificativa: String(formData.get("justificativa") ?? ""),
+    removidoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function editarEmpresaAction(agenciaId: string, formData: FormData) {
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.editarDadosEmpresa({
@@ -301,16 +354,34 @@ export async function salvarUsuarioMasterAction(agenciaId: string, formData: For
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const origemRepresentanteLegalId = String(formData.get("origemRepresentanteLegalId") ?? "");
 
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const cpf = String(formData.get("cpf") ?? "").trim();
+  const telefone = String(formData.get("telefone") ?? "").trim();
+  const rg = String(formData.get("rg") ?? "").trim();
+  const rgOrgaoEmissor = String(formData.get("rgOrgaoEmissor") ?? "").trim();
+  const rgUf = String(formData.get("rgUf") ?? "").trim();
+  const dataNascimento = parseDataIso(String(formData.get("dataNascimento") ?? ""));
+
+  // Trava real (backend, não só UI) — o botão Salvar já vem desabilitado
+  // do client enquanto faltar campo (ver usuario-master.tsx), mas sem essa
+  // checagem aqui um Usuário Master incompleto passava batido: salvava com
+  // "" nos campos vazios e só travava o "Ativar cliente" depois, sem
+  // avisar o motivo (caso real 2026-07-29, agência com UF do RG em branco).
+  if (!nome || !email || !cpf || !telefone || !rg || !rgOrgaoEmissor || !rgUf || !dataNascimento) {
+    throw new DomainError("Preencha todos os campos do Usuário Master antes de salvar.");
+  }
+
   await cadastroAdminController.salvarUsuarioMaster({
     agenciaId,
-    nome: String(formData.get("nome") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    cpf: String(formData.get("cpf") ?? ""),
-    telefone: String(formData.get("telefone") ?? ""),
-    rg: String(formData.get("rg") ?? ""),
-    rgOrgaoEmissor: String(formData.get("rgOrgaoEmissor") ?? ""),
-    rgUf: String(formData.get("rgUf") ?? ""),
-    dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
+    nome,
+    email,
+    cpf,
+    telefone,
+    rg,
+    rgOrgaoEmissor,
+    rgUf,
+    dataNascimento,
     origemRepresentanteLegalId: origemRepresentanteLegalId || null,
     salvoPor: await analistaLogado(),
   });

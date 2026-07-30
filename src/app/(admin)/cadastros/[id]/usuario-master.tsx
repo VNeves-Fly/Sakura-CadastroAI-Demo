@@ -496,7 +496,12 @@ export function UsuarioMaster({
                   />
                   <button
                     type="submit"
-                    disabled={salvando}
+                    disabled={salvando || !todosOsCamposPreenchidos}
+                    title={
+                      !todosOsCamposPreenchidos
+                        ? "Preencha todos os campos antes de salvar"
+                        : undefined
+                    }
                     className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {salvando ? "Salvando..." : "Salvar"}

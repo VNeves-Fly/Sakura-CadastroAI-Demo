@@ -274,19 +274,24 @@ export function montarFilaAssinatura(
     statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
     statusContrato === CONTRATO_STATUS_ASSINADO;
 
-  const filaSocios: SignatarioFila[] = representantesLegais.map((socio, index) => {
-    const assinadoEm = assinaturasPorEmail.get(socio.email) ?? null;
-    return {
-      id: socio.id,
-      nome: socio.nome,
-      email: socio.email,
-      grupo: "Agência",
-      ordem: index + 1,
-      assinado: assinadoEm !== null || socioAssinadoInferido,
-      assinadoEm,
-      emailNaoEntregue: emailsNaoEntregues.has(socio.email),
-    };
-  });
+  // `administrativo === false` é a única marca que exclui um sócio da
+  // fila — mesma regra usada na geração real do contrato (ver
+  // AnalisarCadastroUseCase/AprovarCadastroComplementarUseCase).
+  const filaSocios: SignatarioFila[] = representantesLegais
+    .filter((socio) => socio.administrativo !== false)
+    .map((socio, index) => {
+      const assinadoEm = assinaturasPorEmail.get(socio.email) ?? null;
+      return {
+        id: socio.id,
+        nome: socio.nome,
+        email: socio.email,
+        grupo: "Agência",
+        ordem: index + 1,
+        assinado: assinadoEm !== null || socioAssinadoInferido,
+        assinadoEm,
+        emailNaoEntregue: emailsNaoEntregues.has(socio.email),
+      };
+    });
 
   const filaSakura: SignatarioFila[] = [...signatariosPadraoAtivos]
     .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))

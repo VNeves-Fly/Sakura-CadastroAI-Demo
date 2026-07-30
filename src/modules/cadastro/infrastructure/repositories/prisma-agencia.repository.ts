@@ -340,7 +340,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       where: { id },
       include: {
         complementar: { include: { enderecoAgencia: true } },
-        representantesLegais: { include: { endereco: true } },
+        // Sócio removido pelo analista (ver RemoverRepresentanteLegalUseCase)
+        // some da ficha e de qualquer decisão de negócio derivada daqui
+        // (fila de assinatura, geração de contrato, Usuário Master,
+        // reconsulta de crédito etc.) — a linha continua no banco só pro
+        // histórico de edição (auditoria), fora deste `include`.
+        representantesLegais: { where: { ativo: true }, include: { endereco: true } },
         // Todos os documentos da agência numa lista só (sócios +
         // contrato social) — mais barato que incluir por sócio, e
         // `documentoAtual` já filtra por representanteLegalId na hora
