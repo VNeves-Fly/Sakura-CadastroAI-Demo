@@ -101,7 +101,7 @@ const FILAS = [
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
-    label: "Aguardando validação",
+    label: "Setor cadastro",
     sublabel: "contrato assinado, criar SICA e TravelLink",
     cor: COR_ORIGEM_HUMANO,
   },
