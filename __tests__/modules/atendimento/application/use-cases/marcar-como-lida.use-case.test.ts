@@ -5,20 +5,17 @@ import {
   fakeConversaRepository,
   fakeMensagemRepository,
   fakeResumoFichaClienteRepository,
-  fakeSolicitacaoTransferenciaRepository,
 } from "../../fixtures";
 
 function criarUseCase() {
   const conversaRepository = fakeConversaRepository();
   const mensagemRepository = fakeMensagemRepository();
   const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
-  const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
 
   const useCase = new MarcarComoLidaUseCase(
     conversaRepository,
     mensagemRepository,
     resumoFichaClienteRepository,
-    solicitacaoTransferenciaRepository,
   );
   return { useCase, conversaRepository, mensagemRepository, resumoFichaClienteRepository };
 }

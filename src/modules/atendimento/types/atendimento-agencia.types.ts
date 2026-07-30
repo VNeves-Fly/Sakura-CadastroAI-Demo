@@ -8,6 +8,15 @@ export type TipoSolicitacaoAtendimentoAgencia = "transferencia" | "assuncao";
 export type StatusSolicitacaoAtendimentoAgencia = "pendente" | "aceita" | "cancelada";
 export type PapelSolicitacaoAtendimentoAgencia = "solicitante" | "destinatario" | null;
 
+// Retorno de Iniciar/Encerrar (POST .../iniciar, .../encerrar) — mesmo
+// formato de RegistroAtendimentoAgenciaAtual no backend.
+export interface AtendimentoAgenciaAtual {
+  id: string;
+  analistaId: string;
+  analistaNome: string;
+  assumidoEm: string;
+}
+
 export interface SolicitacaoAtendimentoAgencia {
   id: string;
   agenciaId: string;

@@ -18,8 +18,6 @@ import { cadastroAdminController } from "@/modules/cadastro/presentation/control
 import { enviarMensagemSchema } from "@/modules/atendimento/application/dto/enviar-mensagem.schema";
 import { criarTextoProntoSchema } from "@/modules/atendimento/application/dto/criar-texto-pronto.schema";
 import { atualizarTextoProntoSchema } from "@/modules/atendimento/application/dto/atualizar-texto-pronto.schema";
-import { solicitarTransferenciaSchema } from "@/modules/atendimento/application/dto/solicitar-transferencia.schema";
-import { responderTransferenciaSchema } from "@/modules/atendimento/application/dto/responder-transferencia.schema";
 import { criarTemplateSchema } from "@/modules/atendimento/application/dto/criar-template.schema";
 import { reenviarTemplateSchema } from "@/modules/atendimento/application/dto/reenviar-template.schema";
 import { atualizarTemplateMetadataSchema } from "@/modules/atendimento/application/dto/atualizar-template-metadata.schema";
@@ -172,101 +170,6 @@ export async function obterArquivoMidiaRoute(_request: Request, midiaId: string)
         "Content-Disposition": `inline; filename="${fileName}"`,
       },
     });
-  } catch (error) {
-    return mapErrorToResponse(error);
-  }
-}
-
-export async function assumirAtendimentoRoute(_request: Request, conversaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
-
-  try {
-    const chaveRateLimit = `atendimento-escrita:${analistaId}`;
-    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ESCRITA)) throw new RateLimitError();
-
-    const conversa = await atendimentoController.assumirAtendimento({ conversaId, analistaId });
-    return httpOk(conversa);
-  } catch (error) {
-    return mapErrorToResponse(error);
-  }
-}
-
-export async function encerrarAtendimentoRoute(_request: Request, conversaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
-
-  try {
-    const chaveRateLimit = `atendimento-escrita:${analistaId}`;
-    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ESCRITA)) throw new RateLimitError();
-
-    const conversa = await atendimentoController.encerrarAtendimento({ conversaId, analistaId });
-    return httpOk(conversa);
-  } catch (error) {
-    return mapErrorToResponse(error);
-  }
-}
-
-export async function solicitarTransferenciaRoute(request: Request, conversaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
-
-  try {
-    const chaveRateLimit = `atendimento-escrita:${analistaId}`;
-    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ESCRITA)) throw new RateLimitError();
-
-    const body = await request.json();
-    const parsed = solicitarTransferenciaSchema.safeParse(body);
-    if (!parsed.success) {
-      return httpError(parsed.error.issues.map((issue) => issue.message).join(" "), 422);
-    }
-
-    // `deAnalista` que o front manda no body é ignorado — quem pede a
-    // transferência é sempre o analista da sessão. `paraAnalista` é o id
-    // do analista de destino (escolhido pelo SeletorTransferencia).
-    const conversa = await atendimentoController.solicitarTransferencia({
-      conversaId,
-      deAnalistaId: analistaId,
-      paraAnalistaId: parsed.data.paraAnalista,
-    });
-    return httpOk(conversa);
-  } catch (error) {
-    return mapErrorToResponse(error);
-  }
-}
-
-export async function responderTransferenciaRoute(request: Request, conversaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
-
-  try {
-    const chaveRateLimit = `atendimento-escrita:${analistaId}`;
-    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ESCRITA)) throw new RateLimitError();
-
-    const body = await request.json();
-    const parsed = responderTransferenciaSchema.safeParse(body);
-    if (!parsed.success) {
-      return httpError(parsed.error.issues.map((issue) => issue.message).join(" "), 422);
-    }
-
-    const conversa = await atendimentoController.responderTransferencia({
-      conversaId,
-      analistaId,
-      aceita: parsed.data.aceita,
-    });
-    return httpOk(conversa);
-  } catch (error) {
-    return mapErrorToResponse(error);
-  }
-}
-
-export async function limparSolicitacaoTransferenciaRoute(_request: Request, conversaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
-
-  try {
-    const conversa = await atendimentoController.limparSolicitacaoTransferencia(conversaId);
-    return httpOk(conversa);
   } catch (error) {
     return mapErrorToResponse(error);
   }

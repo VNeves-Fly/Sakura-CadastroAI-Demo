@@ -7,9 +7,7 @@ import { GcsDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/ad
 import { PrismaUserRepository } from "@/modules/users/infrastructure/repositories/prisma-user.repository";
 import { PrismaConversaRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-conversa.repository";
 import { PrismaMensagemRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-mensagem.repository";
-import { PrismaAssumirAtendimentoRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-assumir-atendimento.repository";
 import { PrismaAtendimentoAgenciaRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-atendimento-agencia.repository";
-import { PrismaSolicitacaoTransferenciaRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-solicitacao-transferencia.repository";
 import { PrismaSolicitacaoAtendimentoAgenciaRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-solicitacao-atendimento-agencia.repository";
 import { PrismaTextoProntoRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-texto-pronto.repository";
 import { PrismaTemplateWhatsAppRepository } from "@/modules/atendimento/infrastructure/repositories/prisma-template-whatsapp.repository";
@@ -20,8 +18,6 @@ import { MockWhatsAppMessagingAdapter } from "@/modules/atendimento/infrastructu
 import { WhatsAppContactMatcherAdapter } from "@/modules/atendimento/infrastructure/adapters/whatsapp-contact-matcher.adapter";
 import { ListarConversasUseCase } from "@/modules/atendimento/application/use-cases/listar-conversas.use-case";
 import { ListarConversasPorAgenciaUseCase } from "@/modules/atendimento/application/use-cases/listar-conversas-por-agencia.use-case";
-import { ListarAtendimentosAtivosPorAgenciasUseCase } from "@/modules/atendimento/application/use-cases/listar-atendimentos-ativos-por-agencias.use-case";
-import { ListarUltimoAtendimentoEncerradoPorAgenciasUseCase } from "@/modules/atendimento/application/use-cases/listar-ultimo-atendimento-encerrado-por-agencias.use-case";
 import { AssumirAtendimentoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/assumir-atendimento-agencia.use-case";
 import { EncerrarAtendimentoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/encerrar-atendimento-agencia.use-case";
 import { SolicitarTransferenciaAtendimentoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/solicitar-transferencia-atendimento-agencia.use-case";
@@ -42,11 +38,6 @@ import { AtualizarTextoProntoUseCase } from "@/modules/atendimento/application/u
 import { RemoverTextoProntoUseCase } from "@/modules/atendimento/application/use-cases/remover-texto-pronto.use-case";
 import { MarcarComoLidaUseCase } from "@/modules/atendimento/application/use-cases/marcar-como-lida.use-case";
 import { EnviarMensagemUseCase } from "@/modules/atendimento/application/use-cases/enviar-mensagem.use-case";
-import { AssumirAtendimentoUseCase } from "@/modules/atendimento/application/use-cases/assumir-atendimento.use-case";
-import { EncerrarAtendimentoUseCase } from "@/modules/atendimento/application/use-cases/encerrar-atendimento.use-case";
-import { SolicitarTransferenciaUseCase } from "@/modules/atendimento/application/use-cases/solicitar-transferencia.use-case";
-import { ResponderTransferenciaUseCase } from "@/modules/atendimento/application/use-cases/responder-transferencia.use-case";
-import { LimparSolicitacaoTransferenciaUseCase } from "@/modules/atendimento/application/use-cases/limpar-solicitacao-transferencia.use-case";
 import { SincronizarTemplatesWhatsAppUseCase } from "@/modules/atendimento/application/use-cases/sincronizar-templates-whatsapp.use-case";
 import { ObterArquivoMidiaUseCase } from "@/modules/atendimento/application/use-cases/obter-arquivo-midia.use-case";
 import { ObterConfiguracaoWhatsappUseCase } from "@/modules/atendimento/application/use-cases/obter-configuracao-whatsapp.use-case";
@@ -55,10 +46,6 @@ import { ListarContatosUseCase } from "@/modules/atendimento/application/use-cas
 import { ObterContatoAgenciaUseCase } from "@/modules/atendimento/application/use-cases/obter-contato-agencia.use-case";
 import { IniciarConversaUseCase } from "@/modules/atendimento/application/use-cases/iniciar-conversa.use-case";
 import type { EnviarMensagemInput } from "@/modules/atendimento/application/dto/enviar-mensagem.dto";
-import type { AssumirAtendimentoInput } from "@/modules/atendimento/application/dto/assumir-atendimento.dto";
-import type { EncerrarAtendimentoInput } from "@/modules/atendimento/application/dto/encerrar-atendimento.dto";
-import type { SolicitarTransferenciaInput } from "@/modules/atendimento/application/dto/solicitar-transferencia.dto";
-import type { ResponderTransferenciaInput } from "@/modules/atendimento/application/dto/responder-transferencia.dto";
 import type { SolicitarTransferenciaAtendimentoAgenciaInput } from "@/modules/atendimento/application/dto/solicitar-transferencia-atendimento-agencia.dto";
 import type { SolicitarAssuncaoAtendimentoAgenciaInput } from "@/modules/atendimento/application/dto/solicitar-assuncao-atendimento-agencia.dto";
 import type { ResolverSolicitacaoAtendimentoAgenciaInput } from "@/modules/atendimento/application/dto/resolver-solicitacao-atendimento-agencia.dto";
@@ -77,9 +64,7 @@ import type { IniciarConversaInput } from "@/modules/atendimento/application/dto
 // WHATSAPP_ACCESS_TOKEN está configurada, senão cai pro mock.
 const conversaRepository = new PrismaConversaRepository(prisma);
 const mensagemRepository = new PrismaMensagemRepository(prisma);
-const assumirAtendimentoRepository = new PrismaAssumirAtendimentoRepository(prisma);
 const atendimentoAgenciaRepository = new PrismaAtendimentoAgenciaRepository(prisma);
-const solicitacaoTransferenciaRepository = new PrismaSolicitacaoTransferenciaRepository(prisma);
 const solicitacaoAtendimentoAgenciaRepository = new PrismaSolicitacaoAtendimentoAgenciaRepository(
   prisma,
   atendimentoAgenciaRepository,
@@ -100,29 +85,13 @@ const whatsAppMessagingService = process.env.WHATSAPP_ACCESS_TOKEN
 
 export const atendimentoController = {
   listarConversas() {
-    const useCase = new ListarConversasUseCase(
-      conversaRepository,
-      resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
-    );
+    const useCase = new ListarConversasUseCase(conversaRepository, resumoFichaClienteRepository);
     return useCase.execute();
   },
 
   listarConversasPorAgencia(agenciaId: string) {
     const useCase = new ListarConversasPorAgenciaUseCase(conversaRepository);
     return useCase.execute(agenciaId);
-  },
-
-  listarAtendimentosAtivosPorAgencias(agenciaIds: string[]) {
-    const useCase = new ListarAtendimentosAtivosPorAgenciasUseCase(assumirAtendimentoRepository);
-    return useCase.execute(agenciaIds);
-  },
-
-  listarUltimoAtendimentoEncerradoPorAgencias(agenciaIds: string[]) {
-    const useCase = new ListarUltimoAtendimentoEncerradoPorAgenciasUseCase(
-      assumirAtendimentoRepository,
-    );
-    return useCase.execute(agenciaIds);
   },
 
   listarContatos(input: { busca?: string }) {
@@ -139,7 +108,6 @@ export const atendimentoController = {
     const useCase = new IniciarConversaUseCase(
       conversaRepository,
       resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
       atendimentoAgenciaRepository,
     );
     return useCase.execute(input);
@@ -198,7 +166,6 @@ export const atendimentoController = {
       conversaRepository,
       mensagemRepository,
       resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
     );
     return useCase.execute(conversaId);
   },
@@ -210,29 +177,6 @@ export const atendimentoController = {
       templateWhatsAppRepository,
       whatsAppMessagingService,
       atendimentoAgenciaRepository,
-    );
-    return useCase.execute(input);
-  },
-
-  assumirAtendimento(input: AssumirAtendimentoInput) {
-    const useCase = new AssumirAtendimentoUseCase(
-      assumirAtendimentoRepository,
-      conversaRepository,
-      resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
-      atendimentoAgenciaRepository,
-    );
-    return useCase.execute(input);
-  },
-
-  encerrarAtendimento(input: EncerrarAtendimentoInput) {
-    const useCase = new EncerrarAtendimentoUseCase(
-      assumirAtendimentoRepository,
-      conversaRepository,
-      resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
-      atendimentoAgenciaRepository,
-      solicitacaoAtendimentoAgenciaRepository,
     );
     return useCase.execute(input);
   },
@@ -328,36 +272,6 @@ export const atendimentoController = {
   // nomes/status atuais antes de mandar pro client.
   obterSolicitacaoAtendimentoAgencia(id: string) {
     return solicitacaoAtendimentoAgenciaRepository.findById(id);
-  },
-
-  solicitarTransferencia(input: SolicitarTransferenciaInput) {
-    const useCase = new SolicitarTransferenciaUseCase(
-      assumirAtendimentoRepository,
-      solicitacaoTransferenciaRepository,
-      conversaRepository,
-      resumoFichaClienteRepository,
-      userRepository,
-    );
-    return useCase.execute(input);
-  },
-
-  responderTransferencia(input: ResponderTransferenciaInput) {
-    const useCase = new ResponderTransferenciaUseCase(
-      solicitacaoTransferenciaRepository,
-      assumirAtendimentoRepository,
-      conversaRepository,
-      resumoFichaClienteRepository,
-    );
-    return useCase.execute(input);
-  },
-
-  limparSolicitacaoTransferencia(conversaId: string) {
-    const useCase = new LimparSolicitacaoTransferenciaUseCase(
-      solicitacaoTransferenciaRepository,
-      conversaRepository,
-      resumoFichaClienteRepository,
-    );
-    return useCase.execute(conversaId);
   },
 
   sincronizarTemplates() {

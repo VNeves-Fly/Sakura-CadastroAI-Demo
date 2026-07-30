@@ -41,27 +41,6 @@ async function garantirAtendimentoAssumido(agenciaId: string): Promise<boolean> 
   }
 }
 
-export async function assumirAtendimentoDossieAction(agenciaId: string) {
-  try {
-    await atendimentoController.assumirAtendimentoAgencia(agenciaId, await analistaIdLogado());
-  } catch (error) {
-    if (!(error instanceof DomainError)) throw error;
-    // Outro analista assumiu entre o render da página e o clique — a
-    // revalidação abaixo já mostra o estado real (ver podeAssumirAtendimento
-    // em page.tsx), não precisa derrubar a página com um erro genérico.
-  }
-  revalidatePath(`/cadastros/${agenciaId}`);
-}
-
-export async function encerrarAtendimentoDossieAction(agenciaId: string) {
-  try {
-    await atendimentoController.encerrarAtendimentoAgencia(agenciaId, await analistaIdLogado());
-  } catch (error) {
-    if (!(error instanceof DomainError)) throw error;
-  }
-  revalidatePath(`/cadastros/${agenciaId}`);
-}
-
 export async function aprovarComplementarAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.aprovarComplementar({ id, analistaEmail: await analistaLogado() });

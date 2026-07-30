@@ -19,9 +19,7 @@ export interface ModalEscolhaContato {
 
 // Rede de segurança bem espaçada — cobre o caso raro da conexão SSE cair
 // silenciosamente sem disparar "onerror" (o EventSource já reconecta
-// sozinho em erro; isso aqui é só um fallback). Também é o que garante que
-// uma transferência expirada "preguiçosamente" (sem nenhum evento novo no
-// banco) apareça na tela mesmo sem push nenhum.
+// sozinho em erro; isso aqui é só um fallback).
 const INTERVALO_POLLING_SEGURANCA_MS = 60_000;
 
 // Hook central do módulo — mesmo formato de useChatSession.ts (trazido
@@ -29,8 +27,16 @@ const INTERVALO_POLLING_SEGURANCA_MS = 60_000;
 // expõe ações que chamam esse mesmo service, guarda loading/erro. Troque
 // o service internamente quando o back-end existir; este hook e os
 // componentes que o consomem não precisam mudar.
+//
+// Ações de atendimento (Iniciar/Encerrar/Transferir/Assumir) não vivem
+// mais aqui — atendimento é sempre da AGÊNCIA (AtendimentoAgencia), não da
+// conversa, e é gerenciado por AtendimentoAgenciaAcoes/
+// useAtendimentoAgenciaAcoes (compartilhado com o dossiê/listagem de
+// cadastros), chaveado por conversa.agenciaId. `analistaId` é a chave de
+// identidade real (comparações "sou eu"); `analistaNome` é só exibição.
 export function useAtendimento(
-  analistaAtual: string,
+  analistaId: string,
+  analistaNome: string,
   telefoneInicial?: string,
   agenciaIdInicial?: string,
 ) {
@@ -94,10 +100,13 @@ export function useAtendimento(
     void carregarTudo();
   }, [carregarTudo]);
 
-  // Push real via SSE — o servidor avisa (mensagem nova, atendimento
-  // assumido/liberado, transferência solicitada/respondida) e aqui só
+  // Push real via SSE — o servidor avisa (mensagem nova) e aqui só
   // refazemos listarConversas() por completo, igual o polling que isso
-  // substituiu. O EventSource reconecta sozinho em erro/timeout.
+  // substituiu. O EventSource reconecta sozinho em erro/timeout. Mudança
+  // de atendimento (Iniciar/Encerrar/Transferir/Assumir) chega por um
+  // canal à parte (ver SolicitacoesAtendimentoAgenciaLive, montado no
+  // layout do admin), que já dispara router.refresh() — esse aqui é só
+  // pra mensagem nova/lida.
   useEffect(() => {
     const eventSource = new EventSource("/api/atendimento/eventos");
     eventSource.onmessage = () => {
@@ -119,20 +128,18 @@ export function useAtendimento(
   // decisão explícita do usuário (2026-07-23): abrir uma conversa que
   // ninguém assumiu (ou que é de outro analista) NÃO pode fazer o badge
   // de não lidas sumir sozinho, senão dá pra "espiar" sem realmente
-  // assumir a responsabilidade de atender. Quem já é dono e reabre a
-  // conversa continua vendo o badge sumir normalmente (marcarComoLida
-  // também roda de novo em assumirAtendimento, ver abaixo).
+  // assumir a responsabilidade de atender.
   const selecionarConversa = useCallback(
     (id: string) => {
       setConversaSelecionadaId(id);
       const conversa = conversas.find((item) => item.id === id);
-      if (conversa?.atendimentoAtual?.analistaNome !== analistaAtual) return;
+      if (conversa?.atendimentoAtual?.analistaId !== analistaId) return;
 
       void atendimentoApi.marcarComoLida(id).then((conversaAtualizada) => {
         setConversas((atual) => atual.map((item) => (item.id === id ? conversaAtualizada : item)));
       });
     },
-    [conversas, analistaAtual],
+    [conversas, analistaId],
   );
 
   const enviarMensagem = useCallback(
@@ -140,7 +147,7 @@ export function useAtendimento(
       setIsSending(true);
       acaoEmAndamentoRef.current = true;
       try {
-        const mensagem = await atendimentoApi.enviarMensagem(conversaId, analistaAtual, input);
+        const mensagem = await atendimentoApi.enviarMensagem(conversaId, analistaNome, input);
         setConversas((atual) =>
           atual.map((conversa) =>
             conversa.id === conversaId
@@ -157,25 +164,12 @@ export function useAtendimento(
         acaoEmAndamentoRef.current = false;
       }
     },
-    [analistaAtual],
+    [analistaNome],
   );
 
-  const assumirAtendimento = useCallback(
-    async (conversaId: string) => {
-      await atendimentoApi.assumirAtendimento(conversaId, { analistaNome: analistaAtual });
-      // Assumir já conta como "vi tudo que tinha" — some o badge de não
-      // lidas na mesma ação, sem precisar reabrir a conversa de novo.
-      const conversaLida = await atendimentoApi.marcarComoLida(conversaId);
-      setConversas((atual) =>
-        atual.map((conversa) => (conversa.id === conversaId ? conversaLida : conversa)),
-      );
-    },
-    [analistaAtual],
-  );
-
-  // Insere ou substitui — diferente do `.map` usado pelas outras ações
-  // acima, que assumem a conversa já está em `conversas`. Uma conversa
-  // recém-criada pela lista de Contatos ainda não está na lista local.
+  // Insere ou substitui — diferente do `.map` usado por selecionarConversa,
+  // que assume a conversa já está em `conversas`. Uma conversa recém-criada
+  // pela lista de Contatos ainda não está na lista local.
   const upsertConversa = useCallback((conversa: Conversa) => {
     setConversas((atual) => {
       const existe = atual.some((item) => item.id === conversa.id);
@@ -185,36 +179,41 @@ export function useAtendimento(
     });
   }, []);
 
-  // Fluxo único pros dois casos (ver plano): número já com Conversa
-  // materializada ou número que nunca trocou mensagem. Em ambos, termina
-  // chamando assumirAtendimento — mesma trava de 2h de sempre, e a mesma
-  // regra de "assumir já marca como lida".
+  // Fluxo único pros dois casos: número já com Conversa materializada ou
+  // número que nunca trocou mensagem (cria via iniciarConversa — exige
+  // atendimento da agência já assumido, ver IniciarConversaUseCase). Não
+  // força mais "assumir" a conversa depois de criá-la/selecioná-la — quem
+  // atende a agência é decidido só por AtendimentoAgenciaAcoes, exibido na
+  // própria thread; aqui só marca como lida se quem está selecionando já é
+  // o dono.
   const selecionarNumeroContato = useCallback(
     async (numero: NumeroContato) => {
       setModalEscolha(null);
       acaoEmAndamentoRef.current = true;
       try {
-        let conversaId = numero.conversaId;
-        if (!conversaId) {
-          const criada = await atendimentoApi.iniciarConversa({
+        let conversa = conversas.find((item) => item.id === numero.conversaId);
+        if (!conversa) {
+          conversa = await atendimentoApi.iniciarConversa({
             agenciaId: numero.agenciaId,
             telefoneWhatsapp: paraWhatsappId(numero.telefone),
             representanteLegalId: numero.representanteLegalId,
             membroNome: numero.label,
             membroPapel: numero.papel,
           });
-          conversaId = criada.id;
+          upsertConversa(conversa);
         }
-        await atendimentoApi.assumirAtendimento(conversaId, { analistaNome: analistaAtual });
-        const conversaLida = await atendimentoApi.marcarComoLida(conversaId);
-        upsertConversa(conversaLida);
-        setConversaSelecionadaId(conversaLida.id);
+        setConversaSelecionadaId(conversa.id);
         setAbaListaLateral("conversas");
+
+        if (conversa.atendimentoAtual?.analistaId === analistaId) {
+          const conversaLida = await atendimentoApi.marcarComoLida(conversa.id);
+          upsertConversa(conversaLida);
+        }
       } finally {
         acaoEmAndamentoRef.current = false;
       }
     },
-    [analistaAtual, upsertConversa],
+    [conversas, upsertConversa, analistaId],
   );
 
   // Só 1 número → escolhe direto, sem incomodar com modal (mesmo critério
@@ -268,40 +267,6 @@ export function useAtendimento(
       .catch(() => setHasError(true));
   }, [agenciaIdInicial, abrirEscolhaContato]);
 
-  const encerrarAtendimento = useCallback(async (conversaId: string) => {
-    const conversaAtualizada = await atendimentoApi.encerrarAtendimento(conversaId);
-    setConversas((atual) =>
-      atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
-    );
-  }, []);
-
-  const solicitarTransferencia = useCallback(
-    async (conversaId: string, paraAnalista: string) => {
-      const conversaAtualizada = await atendimentoApi.solicitarTransferencia(conversaId, {
-        deAnalista: analistaAtual,
-        paraAnalista,
-      });
-      setConversas((atual) =>
-        atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
-      );
-    },
-    [analistaAtual],
-  );
-
-  const responderTransferencia = useCallback(async (conversaId: string, aceita: boolean) => {
-    const conversaAtualizada = await atendimentoApi.responderTransferencia(conversaId, { aceita });
-    setConversas((atual) =>
-      atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
-    );
-  }, []);
-
-  const limparSolicitacaoResolvida = useCallback(async (conversaId: string) => {
-    const conversaAtualizada = await atendimentoApi.limparSolicitacaoResolvida(conversaId);
-    setConversas((atual) =>
-      atual.map((conversa) => (conversa.id === conversaId ? conversaAtualizada : conversa)),
-    );
-  }, []);
-
   const criarTextoPronto = useCallback(async (titulo: string, conteudo: string) => {
     const novoTexto = await atendimentoApi.criarTextoPronto({ titulo, conteudo });
     setTextosProntos((atual) => [...atual, novoTexto]);
@@ -327,11 +292,6 @@ export function useAtendimento(
     hasError,
     selecionarConversa,
     enviarMensagem,
-    assumirAtendimento,
-    encerrarAtendimento,
-    solicitarTransferencia,
-    responderTransferencia,
-    limparSolicitacaoResolvida,
     criarTextoPronto,
     atualizarTextoPronto,
     removerTextoPronto,

@@ -3,7 +3,6 @@ import {
   fakeConversa,
   fakeConversaRepository,
   fakeResumoFichaClienteRepository,
-  fakeSolicitacaoTransferenciaRepository,
 } from "../../fixtures";
 
 describe("ListarConversasUseCase", () => {
@@ -21,12 +20,7 @@ describe("ListarConversasUseCase", () => {
         amatSofiaConsultado: true,
       }),
     });
-    const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
-    const useCase = new ListarConversasUseCase(
-      conversaRepository,
-      resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
-    );
+    const useCase = new ListarConversasUseCase(conversaRepository, resumoFichaClienteRepository);
 
     const resultado = await useCase.execute();
     const conversa = resultado[0]!;
@@ -43,12 +37,7 @@ describe("ListarConversasUseCase", () => {
         .mockResolvedValue([fakeConversa({ agenciaId: null, tipoContato: "nao_identificado" })]),
     });
     const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
-    const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
-    const useCase = new ListarConversasUseCase(
-      conversaRepository,
-      resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
-    );
+    const useCase = new ListarConversasUseCase(conversaRepository, resumoFichaClienteRepository);
 
     const resultado = await useCase.execute();
     const conversa = resultado[0]!;
@@ -65,44 +54,10 @@ describe("ListarConversasUseCase", () => {
     });
   });
 
-  it("sobrescreve solicitacaoTransferenciaPendente com o que o repositório devolve", async () => {
-    const conversaRepository = fakeConversaRepository({
-      findAll: jest.fn().mockResolvedValue([fakeConversa()]),
-    });
-    const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
-    const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository({
-      findVisivelPorConversa: jest.fn().mockResolvedValue({
-        id: "transf-1",
-        conversaId: "conv-1",
-        deAnalista: "Ana",
-        paraAnalista: "Beto",
-        status: "pendente",
-        criadaEm: "2026-01-01T00:00:00.000Z",
-      }),
-    });
-    const useCase = new ListarConversasUseCase(
-      conversaRepository,
-      resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
-    );
-
-    const [conversa] = await useCase.execute();
-
-    expect(solicitacaoTransferenciaRepository.findVisivelPorConversa).toHaveBeenCalledWith(
-      "conv-1",
-    );
-    expect(conversa?.solicitacaoTransferenciaPendente?.status).toBe("pendente");
-  });
-
   it("devolve lista vazia sem chamar o repositório de ficha", async () => {
     const conversaRepository = fakeConversaRepository({ findAll: jest.fn().mockResolvedValue([]) });
     const resumoFichaClienteRepository = fakeResumoFichaClienteRepository();
-    const solicitacaoTransferenciaRepository = fakeSolicitacaoTransferenciaRepository();
-    const useCase = new ListarConversasUseCase(
-      conversaRepository,
-      resumoFichaClienteRepository,
-      solicitacaoTransferenciaRepository,
-    );
+    const useCase = new ListarConversasUseCase(conversaRepository, resumoFichaClienteRepository);
 
     const resultado = await useCase.execute();
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Repeat, UserCog } from "lucide-react";
+import { LogOut, Repeat, UserCog } from "lucide-react";
 import { useAtendimentoAgenciaAcoes } from "@/modules/atendimento/hooks/use-atendimento-agencia-acoes";
 
 interface AnalistaOpcao {
@@ -92,34 +92,70 @@ function SeletorAnalista({
   );
 }
 
-// Ações de Transferir/Assumir do atendimento do CADASTRO — usado tanto no
-// dossiê (/cadastros/[id]) quanto na coluna "Atendimento" da listagem
-// (/cadastros). "Iniciar atendimento" (quando ninguém atende) e "Encerrar
-// atendimento" continuam via Server Action direto no form, sem passar por
-// aqui — só entram em jogo quando JÁ existe um atendimento ativo.
+// Ações de Iniciar/Encerrar/Transferir/Assumir do atendimento do CADASTRO
+// — único componente pra dossiê (/cadastros/[id]), listagem (/cadastros)
+// e chat (/atendimento), sempre chaveado por agenciaId. Mesmo backend em
+// qualquer canal (decisão do usuário: "o que temos no WhatsApp e o que
+// temos no sistema são uma coisa só").
 export function AtendimentoAgenciaAcoes({
   agenciaId,
   analistaId,
-  atendimentoAtual,
+  atendimentoAtual: atendimentoAtualProp,
 }: AtendimentoAgenciaAcoesProps) {
-  const { pendente, enviando, solicitarTransferencia, solicitarAssuncao } =
-    useAtendimentoAgenciaAcoes(agenciaId);
+  const {
+    pendente,
+    enviando,
+    atendimentoAtualOverride,
+    iniciar,
+    encerrar,
+    solicitarTransferencia,
+    solicitarAssuncao,
+  } = useAtendimentoAgenciaAcoes(agenciaId);
+
+  // Iniciar/Encerrar não têm canal SSE próprio — sobrescreve localmente até
+  // o dossiê/listagem revalidar (router.refresh(), já disparado pelo hook)
+  // ou o chat reler a lista de conversas.
+  const atendimentoAtual =
+    atendimentoAtualOverride !== undefined ? atendimentoAtualOverride : atendimentoAtualProp;
 
   if (pendente) {
     return <span className="text-muted-foreground text-xs">Aguardando resposta…</span>;
   }
 
-  if (!atendimentoAtual) return null;
+  if (!atendimentoAtual) {
+    return (
+      <button
+        type="button"
+        disabled={enviando}
+        onClick={() => void iniciar()}
+        className={`${BOTAO} bg-primary text-primary-foreground hover:bg-sakura-600`}
+      >
+        <UserCog className="size-3.5" />
+        Iniciar atendimento
+      </button>
+    );
+  }
 
   const souEu = atendimentoAtual.analistaId === analistaId;
 
   if (souEu) {
     return (
-      <SeletorAnalista
-        analistaAtualNome={atendimentoAtual.analistaNome}
-        disabled={enviando}
-        onEscolher={solicitarTransferencia}
-      />
+      <div className="flex items-center gap-2">
+        <SeletorAnalista
+          analistaAtualNome={atendimentoAtual.analistaNome}
+          disabled={enviando}
+          onEscolher={solicitarTransferencia}
+        />
+        <button
+          type="button"
+          disabled={enviando}
+          onClick={() => void encerrar()}
+          className={`${BOTAO} border-destructive/40 text-destructive hover:bg-destructive/10 border`}
+        >
+          <LogOut className="size-3.5" />
+          Encerrar atendimento
+        </button>
+      </div>
     );
   }
 

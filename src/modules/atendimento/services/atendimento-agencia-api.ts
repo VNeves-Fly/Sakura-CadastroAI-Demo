@@ -1,4 +1,7 @@
-import type { SolicitacaoAtendimentoAgencia } from "@/modules/atendimento/types/atendimento-agencia.types";
+import type {
+  AtendimentoAgenciaAtual,
+  SolicitacaoAtendimentoAgencia,
+} from "@/modules/atendimento/types/atendimento-agencia.types";
 import { TIMEOUT_SOLICITACAO_ATENDIMENTO_AGENCIA_MS } from "@/modules/atendimento/domain/atendimento.constants";
 
 export { TIMEOUT_SOLICITACAO_ATENDIMENTO_AGENCIA_MS };
@@ -21,6 +24,21 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
 // do CADASTRO da agência (dossiê/listagem), distinto de atendimento-api.ts
 // (chat/Conversa).
 export const atendimentoAgenciaApi = {
+  // Só funciona quando ninguém está atendendo (ver AssumirAtendimentoAgenciaUseCase).
+  async iniciar(agenciaId: string): Promise<AtendimentoAgenciaAtual | null> {
+    return fetchJson<AtendimentoAgenciaAtual | null>(
+      `/api/atendimento/agencias/${agenciaId}/iniciar`,
+      { method: "POST" },
+    );
+  },
+
+  async encerrar(agenciaId: string): Promise<AtendimentoAgenciaAtual | null> {
+    return fetchJson<AtendimentoAgenciaAtual | null>(
+      `/api/atendimento/agencias/${agenciaId}/encerrar`,
+      { method: "POST" },
+    );
+  },
+
   async solicitarTransferencia(
     agenciaId: string,
     paraAnalistaId: string,

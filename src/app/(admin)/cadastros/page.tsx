@@ -16,7 +16,6 @@ import {
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import { FiltroCadastrosField } from "@/modules/admin/components/filtro-cadastros-field";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
 import {
   STATUS_EM_ANALISE,
@@ -155,11 +154,18 @@ function diasAtras(data: Date): string {
 }
 
 function formatarData(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
 }
 
 function formatarDataHora(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
 }
 
 function construirHref(
@@ -416,27 +422,16 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           // breakdown de origem do contrato (IA x analista), já que o KPI
           // agregado do card não distingue as duas origens.
           if (fila.status === STATUS_AGUARDANDO_ASSINATURA) {
-            const { ia, humano } = kpis.aguardandoAssinaturaPorOrigem;
             return (
-              <Tooltip key={fila.status}>
-                <TooltipTrigger
-                  render={
-                    <Link
-                      href={construirHref(searchParams, {
-                        status: ativa ? undefined : fila.status,
-                      })}
-                      className={cardClassName}
-                    >
-                      {cardConteudo}
-                    </Link>
-                  }
-                />
-                <TooltipContent>
-                  <span style={{ color: COR_ORIGEM_IA }}>IA: {ia}</span>
-                  {" · "}
-                  <span style={{ color: COR_ORIGEM_HUMANO }}>Analista: {humano}</span>
-                </TooltipContent>
-              </Tooltip>
+              <Link
+                key={fila.status}
+                href={construirHref(searchParams, {
+                  status: ativa ? undefined : fila.status,
+                })}
+                className={cardClassName}
+              >
+                {cardConteudo}
+              </Link>
             );
           }
 
@@ -569,6 +564,13 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
+                              <div className="mt-1.5">
+                                <AtendimentoAgenciaAcoes
+                                  agenciaId={agencia.id}
+                                  analistaId={analistaId}
+                                  atendimentoAtual={null}
+                                />
+                              </div>
                             </>
                           )}
                         </td>

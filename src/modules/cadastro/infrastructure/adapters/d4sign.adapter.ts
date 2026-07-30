@@ -180,20 +180,27 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     }
   }
 
-  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign — não
-  // testado ao vivo ainda (ver docs/d4sign.md). Assume uma lista de objetos
-  // com `email`, tentando reconhecer em melhor esforço um campo de status
-  // por signatário (nomes variam entre integrações reais do D4Sign:
-  // `signed`/`statusId`/`statusName`/`signAt`/`sign_date` são os mais
-  // comuns) — se nenhum bater, `assinado` fica `null` (desconhecido, não
-  // assume "pendente"). Ajustar esse parsing assim que alguém confirmar o
-  // formato real contra uma conta com D4SIGN_TOKEN_API configurada (ver
-  // SincronizarContratoD4SignUseCase).
+  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign — só
+  // confirmado indiretamente (fontes de terceiros, nunca a doc oficial, que
+  // devolve schema vazio pra esse endpoint). Tenta reconhecer, em ordem:
+  // array na raiz, `{ list: [...] }`, e um objeto com chaves numéricas
+  // (`{"0": {...}, "1": {...}}` — comum em APIs com backend PHP serializando
+  // um array associativo). Ver `extrairListaDestinatarios` e
+  // `extrairAssinado`. Se nada disso resultar numa lista não vazia, loga a
+  // resposta crua (só nesse caso, pra não poluir o log em uso normal) —
+  // ajustar esse parsing assim que o log real aparecer, ou quando alguém
+  // confirmar o formato contra a conta com D4SIGN_TOKEN_API configurada
+  // (ver SincronizarContratoD4SignUseCase).
   async obterDestinatarios(provedorId: string): Promise<DestinatarioD4Sign[]> {
-    const resultado = (await this.request("GET", `/documents/${provedorId}/list`, undefined)) as
-      Array<Record<string, unknown>> | { list?: Array<Record<string, unknown>> };
+    const resultado = await this.request("GET", `/documents/${provedorId}/list`, undefined);
+    const lista = extrairListaDestinatarios(resultado);
 
-    const lista = Array.isArray(resultado) ? resultado : (resultado.list ?? []);
+    if (lista.length === 0) {
+      console.error(
+        `D4SignAdapter.obterDestinatarios: lista vazia ou em formato não reconhecido pra provedorId=${provedorId}. Resposta crua: ${JSON.stringify(resultado)}`,
+      );
+    }
+
     return lista
       .filter((item): item is Record<string, unknown> & { email: string } =>
         Boolean(item.email && typeof item.email === "string"),
@@ -261,12 +268,46 @@ export class D4SignAdapter implements ContratoAssinaturaService {
   }
 }
 
-// Melhor esforço: reconhece `signed`/`statusId`/`statusName` como sinal de
-// "já assinou" — `statusId`/`statusName` variam por conta/versão do D4Sign,
-// então só interpreta valores inequívocos ("2"/"assinado"/"signed"), nunca
-// assume "não assinado" por ausência (fica `null`).
+// Melhor esforço: o `GET /documents/{uuid}/list` do D4Sign não tem schema
+// documentado publicamente (a página oficial de referência devolve um
+// schema vazio) — variações relatadas por integrações reais incluem tanto
+// array na raiz quanto `{ list: [...] }`, e um objeto com chaves numéricas
+// (`{"0": {...}, "1": {...}}`, comum quando o backend deles serializa um
+// array associativo do PHP). Tenta as três formas, nessa ordem; se nenhuma
+// resultar numa lista, devolve `[]` (o caller loga a resposta crua nesse
+// caso — ver obterDestinatarios).
+function extrairListaDestinatarios(resultado: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(resultado)) {
+    return resultado as Array<Record<string, unknown>>;
+  }
+  if (resultado && typeof resultado === "object") {
+    const objeto = resultado as Record<string, unknown>;
+    if (Array.isArray(objeto.list)) {
+      return objeto.list as Array<Record<string, unknown>>;
+    }
+    // Objeto com chaves tipo "0", "1", "2"... — pega só os valores que
+    // parecem um signatário (têm `email`), ignorando chaves de metadado
+    // tipo `message`/`success` que às vezes vêm junto.
+    const valores = Object.values(objeto);
+    const candidatos = valores.filter(
+      (valor): valor is Record<string, unknown> =>
+        Boolean(valor) && typeof valor === "object" && "email" in (valor as object),
+    );
+    if (candidatos.length > 0) return candidatos;
+  }
+  return [];
+}
+
+// `signed` já foi visto tanto como boolean quanto como string ("1"/"0") em
+// integrações reais do D4Sign — trata os dois. `statusId`/`statusName`
+// variam por conta/versão, então só interpreta valores inequívocos
+// ("2"/"assinado"/"signed"), nunca assume "não assinado" por ausência
+// (fica `null`).
 function extrairAssinado(item: Record<string, unknown>): boolean | null {
   if (typeof item.signed === "boolean") return item.signed;
+  if (typeof item.signed === "string" && (item.signed === "1" || item.signed === "0")) {
+    return item.signed === "1";
+  }
   if (typeof item.statusId === "string" || typeof item.statusId === "number") {
     return String(item.statusId) === "2";
   }

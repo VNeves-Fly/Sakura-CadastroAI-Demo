@@ -30,9 +30,9 @@ export type RegistrarContratoExternoOutput =
 // agência, registra nosso webhook nele (pra ele passar a seguir o mesmo
 // pipeline automático dos contratos gerados por nós) e persiste
 // localmente. Nunca lança pra falhas esperadas (documento não encontrado,
-// destinatários não batem) — mesmo padrão de
-// assumirAtendimentoDossieAction, que devolve { ok:false, motivo } em vez
-// de estourar um erro sem tratamento no client.
+// destinatários não batem) — devolve { ok:false, motivo } em vez de
+// estourar um erro sem tratamento no client (ver registrarContratoExternoAction
+// em actions.ts).
 export class RegistrarContratoExternoUseCase implements UseCase<
   RegistrarContratoExternoInput,
   RegistrarContratoExternoOutput

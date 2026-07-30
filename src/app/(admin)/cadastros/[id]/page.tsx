@@ -55,6 +55,7 @@ import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-b
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
 import { CnpjCopiavel } from "./cnpj-copiavel";
+import { AprovarComplementarModal } from "./aprovar-complementar-modal";
 import { VoltarButton } from "./voltar-button";
 import { AtendimentoButton } from "./atendimento-button";
 import { CadastroDetalheLive } from "./cadastro-detalhe-live";
@@ -104,8 +105,6 @@ import {
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
-  assumirAtendimentoDossieAction,
-  encerrarAtendimentoDossieAction,
 } from "./actions";
 
 // `concluida` default true — Contrato/SICA continuam decorativos (chegar
@@ -342,25 +341,6 @@ export default async function DossieAgenciaPage({
               "Ninguém atendendo este cadastro"
             )}
           </span>
-          {atendimentoAssumidoPorMim ? (
-            <form action={encerrarAtendimentoDossieAction.bind(null, agencia.id)}>
-              <button
-                type="submit"
-                className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-medium transition"
-              >
-                Encerrar atendimento
-              </button>
-            </form>
-          ) : !atendimentoAtual ? (
-            <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
-              <button
-                type="submit"
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1.5 text-xs font-semibold transition"
-              >
-                Iniciar atendimento
-              </button>
-            </form>
-          ) : null}
           <AtendimentoAgenciaAcoes
             agenciaId={agencia.id}
             analistaId={analistaId ?? ""}
@@ -485,22 +465,11 @@ export default async function DossieAgenciaPage({
               ? `${atendimentoAtual?.analistaNome} está atendendo este cadastro agora — assuma o atendimento pra poder agir.`
               : "Assuma o atendimento pra poder agir neste cadastro. Visualização de documentos continua liberada."}
           </span>
-          {atendidoPorOutro ? (
-            <AtendimentoAgenciaAcoes
-              agenciaId={agencia.id}
-              analistaId={analistaId ?? ""}
-              atendimentoAtual={atendimentoAtual}
-            />
-          ) : (
-            <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
-              <button
-                type="submit"
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
-              >
-                Iniciar atendimento
-              </button>
-            </form>
-          )}
+          <AtendimentoAgenciaAcoes
+            agenciaId={agencia.id}
+            analistaId={analistaId ?? ""}
+            atendimentoAtual={atendimentoAtual}
+          />
         </div>
       ) : null}
 
@@ -892,15 +861,16 @@ export default async function DossieAgenciaPage({
 
               {podeAgir ? (
                 <div className="flex flex-wrap gap-2">
-                  <form action={aprovarComplementarAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
+                  {complementar ? (
+                    <AprovarComplementarModal
+                      razaoSocial={agencia.razaoSocial}
+                      cnpj={agencia.cnpj}
+                      enderecoAgencia={complementar.enderecoAgencia}
+                      representantesLegais={representantesLegais}
+                      aprovarComplementarAction={aprovarComplementarAction.bind(null, agencia.id)}
                       disabled={documentosNaoAprovados.length > 0}
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Aprovar e Enviar Contrato
-                    </button>
-                  </form>
+                    />
+                  ) : null}
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
                     <button
                       type="submit"

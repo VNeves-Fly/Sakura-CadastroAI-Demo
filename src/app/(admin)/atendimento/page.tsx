@@ -8,6 +8,7 @@ export default async function AtendimentoPage({
   searchParams: { telefone?: string; agenciaId?: string };
 }) {
   const session = await getServerSession(nextAuthOptions);
+  const analistaId = session?.user?.id ?? "";
   const analistaAtual = session?.user?.name ?? session?.user?.email ?? "Analista";
 
   return (
@@ -26,6 +27,7 @@ export default async function AtendimentoPage({
       </div>
 
       <AtendimentoView
+        analistaId={analistaId}
         analistaAtual={analistaAtual}
         telefoneInicial={searchParams.telefone}
         agenciaIdInicial={searchParams.agenciaId}

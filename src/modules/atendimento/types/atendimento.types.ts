@@ -32,25 +32,16 @@ export interface Mensagem {
   createdAt: string; // ISO string no front
 }
 
-export interface AssumirAtendimentoRegistro {
+// Atendimento é sempre da AGÊNCIA (AtendimentoAgencia), não da conversa —
+// duas conversas da mesma agência compartilham o mesmo atendimentoAtual/
+// historicoAtendimento. Pedido de transferência/assunção pendente não é
+// mais parte da Conversa — vive só no store/toast globais
+// (useSolicitacoesAtendimentoAgenciaStore), chaveado por agenciaId.
+export interface AtendimentoAtual {
+  analistaId: string;
   analistaNome: string;
   assumidoEm: string; // ISO string no front
   liberadoEm: string | null;
-}
-
-export type StatusSolicitacaoTransferencia = "pendente" | "aceita" | "recusada" | "expirada";
-
-// Transferência de atendimento entre analistas — pedido explícito (não
-// depende da regra de 2h de inatividade, que é só pra "puxar" de quem
-// sumiu). Expira sozinha em 60s sem resposta (ver
-// TIMEOUT_TRANSFERENCIA_MS em atendimento-api.ts), contada como recusa.
-export interface SolicitacaoTransferencia {
-  id: string;
-  conversaId: string;
-  deAnalista: string;
-  paraAnalista: string;
-  status: StatusSolicitacaoTransferencia;
-  criadaEm: string; // ISO string no front
 }
 
 // Resumo da ficha do cliente mostrado na coluna de informações — reflete
@@ -86,12 +77,8 @@ export interface Conversa {
   agenciaCnpj: string;
   membro: MembroAgencia;
   mensagens: Mensagem[];
-  atendimentoAtual: AssumirAtendimentoRegistro | null;
-  historicoAtendimento: AssumirAtendimentoRegistro[];
-  // Só existe uma pendente por vez por conversa — pedir uma nova
-  // enquanto existe outra pendente não é permitido (ver
-  // solicitarTransferencia em atendimento-api.ts).
-  solicitacaoTransferenciaPendente: SolicitacaoTransferencia | null;
+  atendimentoAtual: AtendimentoAtual | null;
+  historicoAtendimento: AtendimentoAtual[];
   resumoFicha: ResumoFichaCliente;
   createdAt: string;
   updatedAt: string;
@@ -177,22 +164,9 @@ export interface EnviarMensagemInput {
   variaveis?: string[];
 }
 
-export interface AssumirAtendimentoInput {
-  analistaNome: string;
-}
-
 export interface CriarTextoProntoInput {
   titulo: string;
   conteudo: string;
-}
-
-export interface SolicitarTransferenciaInput {
-  deAnalista: string;
-  paraAnalista: string;
-}
-
-export interface ResponderTransferenciaInput {
-  aceita: boolean;
 }
 
 export interface CriarTemplateInput {

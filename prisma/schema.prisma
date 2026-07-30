@@ -35,13 +35,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  mensagensEnviadas       Mensagem[]
-  atendimentosAssumidos   AssumirAtendimentoRegistro[]
-  atendimentosAgencia     AtendimentoAgencia[]
-  textosProntosCriados    TextoPronto[]
-  transferenciasFeitas    SolicitacaoTransferencia[]   @relation("TransferenciaFeitaPor")
-  transferenciasRecebidas SolicitacaoTransferencia[]   @relation("TransferenciaParaAnalista")
-  passwordResetTokens     PasswordResetToken[]
+  mensagensEnviadas    Mensagem[]
+  atendimentosAgencia  AtendimentoAgencia[]
+  textosProntosCriados TextoPronto[]
+  passwordResetTokens  PasswordResetToken[]
 
   solicitacoesAgenciaFeitas             SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaSolicitante")
   solicitacoesAgenciaComoAtendenteAtual SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaAtendenteAtual")
@@ -981,9 +978,7 @@ model Conversa {
   representanteLegalId String?
   representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
 
-  mensagens                 Mensagem[]
-  atendimentos              AssumirAtendimentoRegistro[]
-  solicitacoesTransferencia SolicitacaoTransferencia[]
+  mensagens Mensagem[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -992,42 +987,6 @@ model Conversa {
   @@index([agenciaId])
   @@index([tipoContato])
   @@map("conversas")
-}
-
-enum StatusSolicitacaoTransferencia {
-  PENDENTE
-  ACEITA
-  RECUSADA
-  EXPIRADA
-}
-
-// Transferência de atendimento entre analistas — pedido explícito (não
-// depende da regra de 2h de HORAS_LIMITE_ASSUMIR, que é só pra "puxar" de
-// quem sumiu). Expira sozinha depois de TIMEOUT_TRANSFERENCIA_MS sem
-// resposta (contada como recusa) — a transição pra EXPIRADA é feita de
-// forma preguiçosa na leitura (ver PrismaConversaRepository), não por job
-// em background. `limpaEm` marca que o solicitante já viu o resultado
-// (recusada/expirada) e dispensou o aviso — depois disso a conversa
-// aparece sem solicitacaoTransferenciaPendente, liberando um novo pedido.
-model SolicitacaoTransferencia {
-  id         String   @id @default(cuid())
-  conversaId String
-  conversa   Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-
-  deAnalistaId String
-  deAnalista   User   @relation("TransferenciaFeitaPor", fields: [deAnalistaId], references: [id])
-
-  paraAnalistaId String
-  paraAnalista   User   @relation("TransferenciaParaAnalista", fields: [paraAnalistaId], references: [id])
-
-  status   StatusSolicitacaoTransferencia @default(PENDENTE)
-  criadaEm DateTime                       @default(now())
-
-  resolvidaEm DateTime?
-  limpaEm     DateTime?
-
-  @@index([conversaId])
-  @@map("solicitacoes_transferencia")
 }
 
 model Mensagem {
@@ -1086,31 +1045,14 @@ model MensagemMidia {
   @@map("mensagens_midia")
 }
 
-// Histórico de "assumir atendimento" — cada linha é um período em que um
-// analista específico esteve responsável pela conversa. liberadoEm null =
-// é o registro atual (no máximo um por conversa, garantido pela use-case).
-model AssumirAtendimentoRegistro {
-  id         String   @id @default(cuid())
-  conversaId String
-  conversa   Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-
-  analistaId String
-  analista   User   @relation(fields: [analistaId], references: [id])
-
-  assumidoEm DateTime  @default(now())
-  liberadoEm DateTime?
-
-  @@index([conversaId])
-  @@map("assumir_atendimento_registros")
-}
-
 // Responsabilidade sobre a AGÊNCIA (o cadastro em si) — independente de
 // conversa de WhatsApp existir ou não (ex.: analista revisando um dossiê
 // reprovado pela IA, sem nunca ter falado com o cliente). É o registro que
 // trava ações de edição/aprovação/reprovação no dossiê e de iniciar/enviar
-// mensagem no atendimento — decisão do usuário, 2026-07-28. Espelhado a
-// partir de AssumirAtendimentoRegistro (chat) quando a conversa tem
-// agenciaId, pra assumir em qualquer um dos dois lugares refletir no outro.
+// mensagem no atendimento — decisão do usuário, 2026-07-28. Atendimento é
+// sempre da agência, em qualquer canal (chat ou dossiê) — unificado em
+// 2026-07-30 (antes o chat tinha seu próprio registro por conversa,
+// AssumirAtendimentoRegistro, removido nessa unificação).
 model AtendimentoAgencia {
   id        String  @id @default(cuid())
   agenciaId String
@@ -1137,9 +1079,9 @@ enum StatusSolicitacaoAtendimentoAgencia {
   CANCELADA
 }
 
-// Pedido de troca do responsável pelo CADASTRO da agência (AtendimentoAgencia
-// acima) — não confundir com SolicitacaoTransferencia, que é do chat/Conversa.
-// Dois tipos: TRANSFERENCIA (só quem atende pode abrir, escolhe o destino) e
+// Pedido de troca do responsável pelo atendimento da agência (AtendimentoAgencia
+// acima) — vale pra qualquer canal (chat ou dossiê), atendimento é sempre
+// da agência. Dois tipos: TRANSFERENCIA (só quem atende pode abrir, escolhe o destino) e
 // ASSUNCAO (só quem NÃO atende pode abrir, contra quem atende agora, sem
 // escolher destino — é sempre quem pediu). Em ambos, o efeito de ACEITA é
 // sempre o mesmo: liberar atendenteAtualId e criar um AtendimentoAgencia novo

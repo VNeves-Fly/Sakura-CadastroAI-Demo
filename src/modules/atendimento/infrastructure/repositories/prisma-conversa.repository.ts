@@ -37,21 +37,36 @@ const PAPEL_MEMBRO_TO_PRISMA: Record<PapelMembroEntity, PapelMembroConversa> = {
 };
 
 const CONVERSA_INCLUDE = {
-  agencia: { select: { razaoSocial: true, cnpj: true } },
+  agencia: {
+    select: {
+      razaoSocial: true,
+      cnpj: true,
+      // Atendimento é sempre da AGÊNCIA, não da conversa — duas conversas
+      // da mesma agência compartilham o mesmo atendimentoAtual/histórico
+      // (ver AtendimentoAgencia). Conversa "não identificada" (agencia
+      // null) nunca tem atendimento.
+      atendimentosAgencia: {
+        orderBy: { assumidoEm: "desc" },
+        select: {
+          analistaId: true,
+          assumidoEm: true,
+          liberadoEm: true,
+          analista: { select: { name: true } },
+        },
+      },
+    },
+  },
   mensagens: {
     orderBy: { createdAt: "asc" },
     include: { analista: { select: { name: true } }, midia: true },
-  },
-  atendimentos: {
-    orderBy: { assumidoEm: "asc" },
-    include: { analista: { select: { name: true } } },
   },
 } satisfies Prisma.ConversaInclude;
 
 type ConversaComRelacoes = Prisma.ConversaGetPayload<{ include: typeof CONVERSA_INCLUDE }>;
 
 function toDomain(record: ConversaComRelacoes): ConversaEntity {
-  const atendimentoAtual = record.atendimentos.find((item) => item.liberadoEm === null) ?? null;
+  const atendimentosAgencia = record.agencia?.atendimentosAgencia ?? [];
+  const atendimentoAtual = atendimentosAgencia.find((item) => item.liberadoEm === null) ?? null;
 
   return {
     id: record.id,
@@ -68,20 +83,18 @@ function toDomain(record: ConversaComRelacoes): ConversaEntity {
     mensagens: record.mensagens.map(mensagemToDomain),
     atendimentoAtual: atendimentoAtual
       ? {
+          analistaId: atendimentoAtual.analistaId,
           analistaNome: atendimentoAtual.analista.name,
           assumidoEm: atendimentoAtual.assumidoEm.toISOString(),
           liberadoEm: null,
         }
       : null,
-    historicoAtendimento: record.atendimentos.map((item) => ({
+    historicoAtendimento: atendimentosAgencia.map((item) => ({
+      analistaId: item.analistaId,
       analistaNome: item.analista.name,
       assumidoEm: item.assumidoEm.toISOString(),
       liberadoEm: item.liberadoEm?.toISOString() ?? null,
     })),
-    // Placeholder — sobrescrito pela use-case via completarConversa()
-    // (SolicitacaoTransferenciaRepository), que também trata a
-    // auto-expiração depois de TIMEOUT_TRANSFERENCIA_MS.
-    solicitacaoTransferenciaPendente: null,
     // Placeholder — sobrescrito pela use-case via ResumoFichaClienteRepository
     // (esta camada não tem acesso a esses dados sem um agenciaId concreto).
     resumoFicha: {
