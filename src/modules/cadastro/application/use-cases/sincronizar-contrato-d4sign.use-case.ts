@@ -76,6 +76,20 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
         .filter((padrao) => padrao.email)
         .map((padrao) => padrao.email as string),
     ];
+
+    // Lista vazia com destinatários esperados > 0 é sinal de falha de
+    // leitura (formato de resposta do D4Sign não reconhecido, ver
+    // D4SignAdapter.obterDestinatarios) muito mais provável que "todo mundo
+    // foi removido de verdade" — reportar isso como "removidos" seria um
+    // alarme falso perigoso. Não avança nada nesse caso.
+    if (destinatariosD4Sign.length === 0 && emailsEsperados.length > 0) {
+      return {
+        ok: false,
+        motivo:
+          "O D4Sign não retornou nenhum destinatário pra esse documento — provavelmente falha de leitura da API (formato de resposta não reconhecido), não uma remoção real. Nada foi alterado; avise o time técnico.",
+      };
+    }
+
     const esperadosNormalizados = new Set(emailsEsperados.map(normalizarEmail));
     const destinatariosNormalizados = new Set(
       destinatariosD4Sign.map((item) => normalizarEmail(item.email)),

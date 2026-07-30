@@ -320,7 +320,12 @@ function extrairAssinado(item: Record<string, unknown>): boolean | null {
 }
 
 function extrairAssinadoEm(item: Record<string, unknown>): Date | null {
-  const bruto = item.signAt ?? item.sign_date ?? item.signedAt;
+  const signInfo =
+    item.sign_info && typeof item.sign_info === "object"
+      ? (item.sign_info as Record<string, unknown>)
+      : null;
+  const bruto =
+    item.signAt ?? item.sign_date ?? item.signedAt ?? signInfo?.date_signed ?? signInfo?.dateSigned;
   if (typeof bruto !== "string") return null;
   const data = new Date(bruto);
   return Number.isNaN(data.getTime()) ? null : data;
