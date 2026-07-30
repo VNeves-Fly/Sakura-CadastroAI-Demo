@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
+  LayoutDashboard,
   ClipboardList,
   Users,
   MessageCircle,
@@ -40,6 +41,10 @@ interface AdminNavGrupo {
 // tem página construída aqui ainda; os demais aparecem (pra bater com a
 // referência) mas ficam desabilitados até cada módulo existir de fato.
 const GRUPOS_NAV: AdminNavGrupo[] = [
+  {
+    label: "Painéis",
+    itens: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+  },
   {
     label: "Onboarding",
     itens: [
