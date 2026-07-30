@@ -104,7 +104,7 @@ const FILAS = [
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
     chave: "aguardandoAtivacao" as const,
-    label: "Aguardando ativação",
+    label: "Setor comercial",
     sublabel: "Usuário master e ativar agência",
     cor: COR_ORIGEM_HUMANO,
   },

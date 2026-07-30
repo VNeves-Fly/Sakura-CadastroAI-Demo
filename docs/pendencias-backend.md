@@ -1,13 +1,11 @@
 # Pendências do backend
 
-## 1. Mock de `CadastrosKpis` desatualizado no teste de `listar-cadastros`
+Nenhuma pendência em aberto no momento — `bun run typecheck` limpo. Histórico do que já foi resolvido:
 
-`__tests__/modules/cadastro/application/use-cases/listar-cadastros.use-case.test.ts:15` declara um `KPIS_VAZIOS: CadastrosKpis` que não inclui o campo `aguardandoAssinaturaPorOrigem` (adicionado em `agencia-repository.ts` pra alimentar o hover do card "Aguardando assinatura" com o breakdown IA x analista). Isso quebra o `bun run typecheck`.
+## 1. ~~Mock de `CadastrosKpis` desatualizado no teste de `listar-cadastros`~~ (resolvido)
 
-Falta: adicionar `aguardandoAssinaturaPorOrigem: { ia: 0, humano: 0 }` no objeto `KPIS_VAZIOS`.
+`__tests__/modules/cadastro/application/use-cases/listar-cadastros.use-case.test.ts:15` declarava um `KPIS_VAZIOS: CadastrosKpis` sem o campo `aguardandoAssinaturaPorOrigem` (adicionado em `agencia-repository.ts` pra alimentar o hover do card "Aguardando assinatura" com o breakdown IA x analista). Corrigido adicionando `aguardandoAssinaturaPorOrigem: { ia: 0, humano: 0 }` no objeto.
 
-## 2. Erros de tipo pré-existentes em `prisma-template-whatsapp.repository.ts`
+## 2. ~~Erros de tipo em `prisma-template-whatsapp.repository.ts`~~ (resolvido)
 
-`bun run typecheck` acusa 7 erros nesse arquivo (`ativo`/`titulo` não existem no tipo esperado pelo Prisma Client, incompatibilidade de shape entre o `select` da query e o record repassado pro mapeamento pra `TemplateAprovadoEntity`). Confirmado via `git stash` que já existiam antes de qualquer mudança desta sessão — não relacionado ao trabalho de cores dos cards de `/cadastros`.
-
-Falta: investigar se o schema Prisma (campos `ativo`/`titulo` do model de template WhatsApp) está dessincronizado do client gerado (rodar `prisma generate`?) ou se o `select`/mapeamento do repositório precisa ser ajustado pros campos reais do model.
+`bun run typecheck` acusava 7 erros nesse arquivo (`ativo`/`titulo` ausentes no tipo do Prisma Client). Causa: a migration `20260729120153_add_titulo_ativo_template_whatsapp` já tinha rodado no banco, mas o client gerado (`node_modules/@prisma/client`) era anterior a ela — `$TemplateWhatsAppPayload` não incluía os dois campos novos. Resolvido rodando `bun run db:generate` (`prisma generate`).
