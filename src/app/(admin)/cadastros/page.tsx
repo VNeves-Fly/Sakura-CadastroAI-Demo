@@ -6,7 +6,6 @@ import { CadastrosLive } from "./cadastros-live";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
-import { assumirAtendimentoDossieAction } from "./[id]/actions";
 import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import {
@@ -540,17 +539,6 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
-                              <form
-                                action={assumirAtendimentoDossieAction.bind(null, agencia.id)}
-                                className="mt-1.5"
-                              >
-                                <button
-                                  type="submit"
-                                  className="border-input text-foreground hover:bg-accent rounded-full border px-2.5 py-1 text-[11px] font-medium transition"
-                                >
-                                  Iniciar atendimento
-                                </button>
-                              </form>
                             </>
                           )}
                         </td>
