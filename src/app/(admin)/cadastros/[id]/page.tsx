@@ -49,6 +49,7 @@ import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { EditarSocioForm } from "./editar-socio-form";
 import { NovoSocioForm } from "./novo-socio-form";
 import { RemoverSocioForm } from "./remover-socio-form";
+import { ForcarAvancoModal } from "./forcar-avanco-modal";
 import { EditarEmpresaForm } from "./editar-empresa-form";
 import { FilaAssinatura } from "./fila-assinatura";
 import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-button";
@@ -101,6 +102,7 @@ import {
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
   confirmarCadastramentoAction,
+  forcarAvancoStatusAction,
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
@@ -836,6 +838,11 @@ export default async function DossieAgenciaPage({
                           Registrar assinatura
                         </button>
                       </form>
+                      <ForcarAvancoModal
+                        agenciaId={agencia.id}
+                        proximaEtapaLabel="Validação"
+                        forcarAvancoStatusAction={forcarAvancoStatusAction}
+                      />
                     </div>
                   </div>
                 ) : null}
@@ -920,6 +927,11 @@ export default async function DossieAgenciaPage({
 
               {podeAgir ? (
                 <div className="flex flex-wrap gap-2">
+                  <ForcarAvancoModal
+                    agenciaId={agencia.id}
+                    proximaEtapaLabel="Cadastramento"
+                    forcarAvancoStatusAction={forcarAvancoStatusAction}
+                  />
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
                     <button
                       type="submit"

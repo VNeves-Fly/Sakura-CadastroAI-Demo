@@ -1,6 +1,7 @@
 import { SincronizarContratoD4SignUseCase } from "@/modules/cadastro/application/use-cases/sincronizar-contrato-d4sign.use-case";
 import {
   STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
@@ -15,6 +16,18 @@ import type {
 
 const SOCIO_1 = "socio1@agencia.com";
 const SOCIO_2 = "socio2@agencia.com";
+
+const JEAN = SignatarioPadrao.create({
+  id: "sig-jean",
+  nome: "Jean",
+  cargo: "Time Cadastro",
+  email: "cadastro@sakuratur.com.br",
+  telefone: null,
+  deletedAt: null,
+  ordem: 1,
+  papel: "APROVAR",
+  estagio: 1,
+});
 
 function fakeAgenciaRepository(overrides: Partial<AgenciaRepository> = {}): AgenciaRepository {
   return {
@@ -83,16 +96,33 @@ function fakeSignatarioPadraoRepository(
 }
 
 function fakeContratoAssinaturaRepository(
-  assinaturas: Array<{ email: string }> = [],
+  assinaturas: Array<{
+    email: string;
+    assinadoEm?: Date | null;
+    removidoDoDocumentoEm?: Date | null;
+  }> = [],
 ): ContratoAssinaturaRepository {
   return {
     registrar: jest.fn(),
-    findByContratoId: jest.fn().mockResolvedValue(assinaturas),
+    registrarDestinatario: jest.fn(),
+    marcarRemocaoDoDocumento: jest.fn(),
+    findByContratoId: jest.fn().mockResolvedValue(
+      assinaturas.map((a) => ({
+        assinadoEm: null,
+        removidoDoDocumentoEm: null,
+        keySigner: null,
+        ...a,
+      })),
+    ),
   } as unknown as ContratoAssinaturaRepository;
 }
 
-function destinatario(email: string, assinado: boolean | null = null): DestinatarioD4Sign {
-  return { email, assinado, assinadoEm: null };
+function destinatario(
+  email: string,
+  assinado: boolean | null = null,
+  keySigner: string | null = null,
+): DestinatarioD4Sign {
+  return { email, assinado, assinadoEm: null, keySigner };
 }
 
 const AGENCIA_DETALHE_BASE = {
@@ -251,8 +281,8 @@ describe("SincronizarContratoD4SignUseCase", () => {
 
     const resultado = await useCase.execute("ag-1");
 
-    expect(contratoAssinaturaRepository.registrar).toHaveBeenCalledWith("ct-1", SOCIO_1);
-    expect(contratoAssinaturaRepository.registrar).toHaveBeenCalledWith("ct-1", SOCIO_2);
+    expect(contratoAssinaturaRepository.registrar).toHaveBeenCalledWith("ct-1", SOCIO_1, null);
+    expect(contratoAssinaturaRepository.registrar).toHaveBeenCalledWith("ct-1", SOCIO_2, null);
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "ag-1",
       STATUS_AGUARDANDO_VALIDACAO,
@@ -265,5 +295,135 @@ describe("SincronizarContratoD4SignUseCase", () => {
       assinaturasAtualizadas: 2,
       avancouStatus: true,
     });
+  });
+
+  it("registra destinatário sem assinatura (só o keySigner) quando alguém ainda não assinou", async () => {
+    const contratoAssinaturaRepository = fakeContratoAssinaturaRepository([]);
+    const useCase = new SincronizarContratoD4SignUseCase(
+      fakeAgenciaRepository({ obterDetalhe: jest.fn().mockResolvedValue(AGENCIA_DETALHE_BASE) }),
+      fakeContratoAssinaturaService({
+        obterDestinatarios: jest.fn().mockResolvedValue([destinatario(SOCIO_1, false, "key-abc")]),
+      }),
+      fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+      fakeSignatarioPadraoRepository([]),
+      contratoAssinaturaRepository,
+    );
+
+    await useCase.execute("ag-1");
+
+    expect(contratoAssinaturaRepository.registrarDestinatario).toHaveBeenCalledWith(
+      "ct-1",
+      SOCIO_1,
+      "key-abc",
+    );
+    expect(contratoAssinaturaRepository.registrar).not.toHaveBeenCalled();
+  });
+
+  it("avança aguardando_validacao para aguardando_cadastramento quando o aprovador assinou (via sync)", async () => {
+    const agenciaRepository = fakeAgenciaRepository({
+      obterDetalhe: jest.fn().mockResolvedValue({
+        agencia: { status: STATUS_AGUARDANDO_VALIDACAO },
+        contratos: [{ id: "ct-1", provedorId: "doc-1", status: STATUS_AGUARDANDO_VALIDACAO }],
+      }),
+    });
+    const useCase = new SincronizarContratoD4SignUseCase(
+      agenciaRepository,
+      fakeContratoAssinaturaService({
+        obterDestinatarios: jest
+          .fn()
+          .mockResolvedValue([
+            destinatario(SOCIO_1, true),
+            destinatario("cadastro@sakuratur.com.br", true),
+          ]),
+      }),
+      fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+      fakeSignatarioPadraoRepository([JEAN]),
+      fakeContratoAssinaturaRepository([{ email: SOCIO_1, assinadoEm: new Date() }]),
+    );
+
+    const resultado = await useCase.execute("ag-1");
+
+    expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
+      "ag-1",
+      STATUS_AGUARDANDO_CADASTRAMENTO,
+    );
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) expect(resultado.avancouStatus).toBe(true);
+  });
+
+  it("não avança de aguardando_validacao se o aprovador ainda não assinou (nem antes, nem agora)", async () => {
+    const agenciaRepository = fakeAgenciaRepository({
+      obterDetalhe: jest.fn().mockResolvedValue({
+        agencia: { status: STATUS_AGUARDANDO_VALIDACAO },
+        contratos: [{ id: "ct-1", provedorId: "doc-1", status: STATUS_AGUARDANDO_VALIDACAO }],
+      }),
+    });
+    const useCase = new SincronizarContratoD4SignUseCase(
+      agenciaRepository,
+      fakeContratoAssinaturaService({
+        obterDestinatarios: jest
+          .fn()
+          .mockResolvedValue([
+            destinatario(SOCIO_1, true),
+            destinatario("cadastro@sakuratur.com.br", false),
+          ]),
+      }),
+      fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+      fakeSignatarioPadraoRepository([JEAN]),
+      fakeContratoAssinaturaRepository([{ email: SOCIO_1, assinadoEm: new Date() }]),
+    );
+
+    const resultado = await useCase.execute("ag-1");
+
+    expect(agenciaRepository.atualizarStatus).not.toHaveBeenCalled();
+    expect(resultado.ok && resultado.avancouStatus).toBe(false);
+  });
+
+  it("marca remoção do documento pra quem já tinha assinatura e sumiu da lista do D4Sign", async () => {
+    const contratoAssinaturaRepository = fakeContratoAssinaturaRepository([
+      { email: SOCIO_1, assinadoEm: new Date() },
+      { email: SOCIO_2, assinadoEm: new Date() },
+    ]);
+    const useCase = new SincronizarContratoD4SignUseCase(
+      fakeAgenciaRepository({ obterDetalhe: jest.fn().mockResolvedValue(AGENCIA_DETALHE_BASE) }),
+      fakeContratoAssinaturaService({
+        // SOCIO_2 sumiu da lista do D4Sign
+        obterDestinatarios: jest.fn().mockResolvedValue([destinatario(SOCIO_1, true)]),
+      }),
+      fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+      fakeSignatarioPadraoRepository([]),
+      contratoAssinaturaRepository,
+    );
+
+    await useCase.execute("ag-1");
+
+    expect(contratoAssinaturaRepository.marcarRemocaoDoDocumento).toHaveBeenCalledWith(
+      "ct-1",
+      SOCIO_2,
+      true,
+    );
+  });
+
+  it("limpa a marca de removido quando o destinatário reaparece na lista do D4Sign", async () => {
+    const contratoAssinaturaRepository = fakeContratoAssinaturaRepository([
+      { email: SOCIO_1, assinadoEm: new Date(), removidoDoDocumentoEm: new Date() },
+    ]);
+    const useCase = new SincronizarContratoD4SignUseCase(
+      fakeAgenciaRepository({ obterDetalhe: jest.fn().mockResolvedValue(AGENCIA_DETALHE_BASE) }),
+      fakeContratoAssinaturaService({
+        obterDestinatarios: jest.fn().mockResolvedValue([destinatario(SOCIO_1, true)]),
+      }),
+      fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+      fakeSignatarioPadraoRepository([]),
+      contratoAssinaturaRepository,
+    );
+
+    await useCase.execute("ag-1");
+
+    expect(contratoAssinaturaRepository.marcarRemocaoDoDocumento).toHaveBeenCalledWith(
+      "ct-1",
+      SOCIO_1,
+      false,
+    );
   });
 });

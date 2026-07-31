@@ -185,6 +185,25 @@ describe("D4SignAdapter", () => {
     expect(JSON.parse(envioOpts.body)).toEqual({ skip_email: "0", workflow: "1" });
   });
 
+  // Regressão real de produção (2026-07-31): uma checagem genérica de erro
+  // em `request()` (baseada só na presença de `message`) tratava esse
+  // `{ message: "success" }` — retorno normal do `makedocumentbytemplateword`
+  // no caminho feliz — como se fosse erro, e derrubava a geração do
+  // contrato antes de cadastrar os signatários. A checagem de erro real
+  // (ver obterDestinatarios) agora exige `message` E `mensagem_pt` juntos,
+  // e só nesse método — não mais genérica em `request()`.
+  it('não trata { message: "success" } do makedocumentbytemplateword como erro', async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123", message: "success" }))
+      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(okJson({}));
+
+    const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
+
+    expect(resultado).toEqual({ provedorId: "doc-uuid-123", status: "aguardando_assinatura" });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
   it("pluraliza a indicação e concatena as cláusulas com 'e' quando há mais de um signatário", async () => {
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
@@ -498,8 +517,18 @@ describe("D4SignAdapter", () => {
       ).obterDestinatarios("doc-uuid-1");
 
       expect(resultado).toEqual([
-        { email: "socio@agencia.com", assinado: false, assinadoEm: null },
-        { email: "cadastro@sakuratur.com.br", assinado: false, assinadoEm: null },
+        {
+          email: "socio@agencia.com",
+          assinado: false,
+          assinadoEm: null,
+          keySigner: "MjIyMjc5NzYz",
+        },
+        {
+          email: "cadastro@sakuratur.com.br",
+          assinado: false,
+          assinadoEm: null,
+          keySigner: "MjIyMjc5NzY0",
+        },
       ]);
     });
 
@@ -513,8 +542,8 @@ describe("D4SignAdapter", () => {
       ).obterDestinatarios("doc-uuid-1");
 
       expect(resultado).toEqual([
-        { email: "socio@agencia.com", assinado: null, assinadoEm: null },
-        { email: "cadastro@sakuratur.com.br", assinado: null, assinadoEm: null },
+        { email: "socio@agencia.com", assinado: null, assinadoEm: null, keySigner: null },
+        { email: "cadastro@sakuratur.com.br", assinado: null, assinadoEm: null, keySigner: null },
       ]);
     });
 
@@ -527,7 +556,9 @@ describe("D4SignAdapter", () => {
         fakeSignatarioPadraoRepository(),
       ).obterDestinatarios("doc-uuid-1");
 
-      expect(resultado).toEqual([{ email: "socio@agencia.com", assinado: null, assinadoEm: null }]);
+      expect(resultado).toEqual([
+        { email: "socio@agencia.com", assinado: null, assinadoEm: null, keySigner: null },
+      ]);
     });
 
     it("reconhece o campo `signed` booleano quando presente", async () => {
@@ -543,8 +574,8 @@ describe("D4SignAdapter", () => {
       ).obterDestinatarios("doc-uuid-1");
 
       expect(resultado).toEqual([
-        { email: "socio1@agencia.com", assinado: true, assinadoEm: null },
-        { email: "socio2@agencia.com", assinado: false, assinadoEm: null },
+        { email: "socio1@agencia.com", assinado: true, assinadoEm: null, keySigner: null },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null, keySigner: null },
       ]);
     });
 
@@ -565,8 +596,9 @@ describe("D4SignAdapter", () => {
           email: "socio1@agencia.com",
           assinado: true,
           assinadoEm: new Date("2026-07-29T12:00:00Z"),
+          keySigner: null,
         },
-        { email: "socio2@agencia.com", assinado: false, assinadoEm: null },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null, keySigner: null },
       ]);
     });
 
@@ -583,8 +615,8 @@ describe("D4SignAdapter", () => {
       ).obterDestinatarios("doc-uuid-1");
 
       expect(resultado).toEqual([
-        { email: "socio1@agencia.com", assinado: true, assinadoEm: null },
-        { email: "socio2@agencia.com", assinado: false, assinadoEm: null },
+        { email: "socio1@agencia.com", assinado: true, assinadoEm: null, keySigner: null },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null, keySigner: null },
       ]);
     });
 

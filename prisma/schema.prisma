@@ -703,12 +703,32 @@ model Contrato {
 // signatários fixos da Sakura sem depender de CPF. @@unique pra upsert
 // idempotente em retries do D4Sign — mas aqui o assinadoEm ORIGINAL é
 // preservado (retry não reescreve a data da assinatura).
+// Linha = "destinatário conhecido deste contrato" (não necessariamente já
+// assinado — ver assinadoEm). `registrar` (assinatura de verdade, webhook
+// ou sync) seta assinadoEm; `registrarDestinatario` (sync, alguém que o
+// D4Sign já lista mas ainda não assinou) só grava email/keySigner, nunca
+// mexe em assinadoEm. Todo código que lê esta tabela pra decidir "quem já
+// assinou" precisa filtrar por `assinadoEm != null` explicitamente — ver
+// assinatura-socios.util.ts.
 model ContratoAssinatura {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   contratoId String
-  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  contrato   Contrato  @relation(fields: [contratoId], references: [id], onDelete: Cascade)
   email      String
-  assinadoEm DateTime @default(now())
+  assinadoEm DateTime?
+
+  // ID do signatário no D4Sign (`key_signer` na resposta de
+  // GET /documents/{uuid}/list, e também do POST .../createlist — vem
+  // pra todo destinatário desde o cadastro, antes de qualquer assinatura).
+  // Pré-requisito pra futuramente buscar o link de assinatura individual:
+  // GET /documents/{uuid}/signaturelink/{id}, onde {id} é o key_signer
+  // DECODIFICADO DE BASE64 (não o valor cru salvo aqui) — confirmado na
+  // doc oficial do D4Sign, 2026-07-31. Busca do link em si é escopo futuro.
+  keySigner String?
+
+  // Setado pelo sync quando esse destinatário some da lista do D4Sign —
+  // não apaga o registro, só sinaliza. Limpo de volta (null) se reaparecer.
+  removidoDoDocumentoEm DateTime?
 
   @@unique([contratoId, email])
   @@map("contrato_assinaturas")

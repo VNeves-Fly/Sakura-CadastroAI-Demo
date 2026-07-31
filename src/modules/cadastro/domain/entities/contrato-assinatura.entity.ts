@@ -2,7 +2,13 @@ export interface ContratoAssinaturaProps {
   id: string;
   contratoId: string;
   email: string;
-  assinadoEm: Date;
+  // null = destinatário conhecido (o D4Sign já listou, via createlist ou
+  // /list) mas ainda não assinou — ver registrarDestinatario no
+  // repositório. Todo código que decide "quem já assinou" precisa checar
+  // `assinadoEm !== null`, nunca inferir isso só da linha existir.
+  assinadoEm: Date | null;
+  keySigner: string | null;
+  removidoDoDocumentoEm: Date | null;
 }
 
 export class ContratoAssinatura {
@@ -24,11 +30,26 @@ export class ContratoAssinatura {
     return this.props.email;
   }
 
-  get assinadoEm(): Date {
+  get assinadoEm(): Date | null {
     return this.props.assinadoEm;
   }
 
-  toJSON(): Omit<ContratoAssinaturaProps, "assinadoEm"> & { assinadoEm: string } {
-    return { ...this.props, assinadoEm: this.props.assinadoEm.toISOString() };
+  get keySigner(): string | null {
+    return this.props.keySigner;
+  }
+
+  get removidoDoDocumentoEm(): Date | null {
+    return this.props.removidoDoDocumentoEm;
+  }
+
+  toJSON(): Omit<ContratoAssinaturaProps, "assinadoEm" | "removidoDoDocumentoEm"> & {
+    assinadoEm: string | null;
+    removidoDoDocumentoEm: string | null;
+  } {
+    return {
+      ...this.props,
+      assinadoEm: this.props.assinadoEm?.toISOString() ?? null,
+      removidoDoDocumentoEm: this.props.removidoDoDocumentoEm?.toISOString() ?? null,
+    };
   }
 }

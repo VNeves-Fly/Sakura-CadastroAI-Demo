@@ -1,6 +1,7 @@
 import type { UseCase } from "@/modules/shared/application/use-case";
 import {
   STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
@@ -31,9 +32,10 @@ function normalizarEmail(email: string): string {
 // (type_post 1/2/3/4), então sem esse botão não temos como perceber que a
 // lista de destinatários mudou por fora. Também serve de rede de segurança
 // se um webhook individual se perder: reconsulta o D4Sign, backfilla
-// ContratoAssinatura com o que ele reportar como assinado (melhor esforço,
-// ver D4SignAdapter.obterDestinatarios) e roda a mesma checagem de "todos
-// os sócios assinaram" que o webhook usa.
+// ContratoAssinatura com o que ele reportar (assinado ou não — ver
+// registrar/registrarDestinatario no repositório) e roda as mesmas
+// checagens de avanço de status que o webhook usa, pras duas transições
+// (todos os sócios assinaram; aprovador assinou com a validação pendente).
 export class SincronizarContratoD4SignUseCase implements UseCase<
   string,
   SincronizarContratoD4SignOutput
@@ -114,31 +116,97 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
       (email) => !destinatariosNormalizados.has(normalizarEmail(email)),
     );
 
-    const assinadosAntesNormalizados = new Set(
-      assinaturasAntes.map((a) => normalizarEmail(a.email)),
+    const assinaturaAnteriorPorEmail = new Map(
+      assinaturasAntes.map((a) => [normalizarEmail(a.email), a]),
     );
-    const novosAssinados = destinatariosD4Sign.filter(
-      (item) =>
-        item.assinado === true && !assinadosAntesNormalizados.has(normalizarEmail(item.email)),
-    );
-    for (const item of novosAssinados) {
-      await this.contratoAssinaturaRepository.registrar(contratoAtual.id, item.email);
+
+    // Atualiza no nosso sistema TODO destinatário que o D4Sign reportar
+    // agora — não só quem assinou. `registrar` marca assinatura de
+    // verdade (assinadoEm); `registrarDestinatario` só garante que
+    // conhecemos a pessoa e o keySigner dela, sem mexer em assinadoEm
+    // (necessário pra, no futuro, buscar o link de assinatura de quem
+    // ainda não assinou — o D4Sign já devolve o key_signer de todo mundo
+    // desde o createlist).
+    let assinaturasAtualizadas = 0;
+    for (const item of destinatariosD4Sign) {
+      const emailNormalizado = normalizarEmail(item.email);
+      const anterior = assinaturaAnteriorPorEmail.get(emailNormalizado);
+      const jaAssinadoAntes = anterior?.assinadoEm != null;
+
+      if (item.assinado === true) {
+        if (!jaAssinadoAntes) assinaturasAtualizadas++;
+        await this.contratoAssinaturaRepository.registrar(
+          contratoAtual.id,
+          item.email,
+          item.keySigner,
+        );
+      } else {
+        await this.contratoAssinaturaRepository.registrarDestinatario(
+          contratoAtual.id,
+          item.email,
+          item.keySigner,
+        );
+      }
+
+      if (anterior?.removidoDoDocumentoEm) {
+        await this.contratoAssinaturaRepository.marcarRemocaoDoDocumento(
+          contratoAtual.id,
+          item.email,
+          false,
+        );
+      }
+    }
+
+    // Quem já era conhecido (tinha linha) e sumiu da lista atual do D4Sign
+    // — sinaliza sem apagar o histórico de quem assinou.
+    for (const email of removidos) {
+      const anterior = assinaturaAnteriorPorEmail.get(normalizarEmail(email));
+      if (anterior && !anterior.removidoDoDocumentoEm) {
+        await this.contratoAssinaturaRepository.marcarRemocaoDoDocumento(
+          contratoAtual.id,
+          email,
+          true,
+        );
+      }
     }
 
     let avancouStatus = false;
     if (detalhe.agencia.status === STATUS_AGUARDANDO_ASSINATURA) {
-      const emailsAssinados = [
-        ...assinaturasAntes.map((a) => a.email),
-        ...novosAssinados.map((item) => item.email),
-      ];
+      // assinadoEm !== null é obrigatório: uma linha em ContratoAssinatura
+      // não significa mais "assinou" por si só (ver registrarDestinatario).
+      const emailsAssinadosHistorico = assinaturasAntes
+        .filter((a) => a.assinadoEm !== null)
+        .map((a) => a.email);
+      const emailsAssinadosAgora = destinatariosD4Sign
+        .filter((item) => item.assinado === true)
+        .map((item) => item.email);
+
       if (
         todosSociosAssinaram(
           socios.map((s) => s.email),
-          emailsAssinados,
+          [...emailsAssinadosHistorico, ...emailsAssinadosAgora],
         )
       ) {
         await this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_VALIDACAO);
         avancouStatus = true;
+      }
+    } else if (detalhe.agencia.status === STATUS_AGUARDANDO_VALIDACAO) {
+      // Mesma regra do webhook: a assinatura do aprovador com a validação
+      // pendente é, em si, a aprovação formal do time de cadastro.
+      const aprovador = signatariosPadraoAtivos.find((padrao) => padrao.papel === "APROVAR");
+      if (aprovador?.email) {
+        const emailAprovadorNormalizado = normalizarEmail(aprovador.email);
+        const aprovadorJaAssinado =
+          assinaturaAnteriorPorEmail.get(emailAprovadorNormalizado)?.assinadoEm != null;
+        const aprovadorAssinouAgora = destinatariosD4Sign.some(
+          (item) =>
+            normalizarEmail(item.email) === emailAprovadorNormalizado && item.assinado === true,
+        );
+
+        if (aprovadorJaAssinado || aprovadorAssinouAgora) {
+          await this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_CADASTRAMENTO);
+          avancouStatus = true;
+        }
       }
     }
 
@@ -147,7 +215,7 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
       statusDocumento: documento.statusName,
       adicionados,
       removidos,
-      assinaturasAtualizadas: novosAssinados.length,
+      assinaturasAtualizadas,
       avancouStatus,
     };
   }

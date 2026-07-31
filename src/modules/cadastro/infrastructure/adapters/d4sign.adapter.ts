@@ -190,6 +190,28 @@ export class D4SignAdapter implements ContratoAssinaturaService {
   // "0" pros signatários fixos, como esperado. Ver extrairListaDestinatarios.
   async obterDestinatarios(provedorId: string): Promise<DestinatarioD4Sign[]> {
     const resultado = await this.request("GET", `/documents/${provedorId}/list`, undefined);
+
+    // Confirmado ao vivo (2026-07-30) só pra ESTE endpoint: o D4Sign às
+    // vezes devolve um erro (token/cryptKey inválido, permissão
+    // insuficiente etc.) com HTTP 200 e corpo `{ message, mensagem_pt }`.
+    // ⚠️ Isso já foi tentado como checagem genérica em `request()` e
+    // quebrou a geração de contrato em produção (2026-07-31): o
+    // `makedocumentbytemplateword` devolve `{ message: "success", ... }`
+    // no CAMINHO FELIZ, então `message` sozinho não é sinal confiável de
+    // erro. Exige as DUAS chaves juntas (só confirmado nesse formato aqui)
+    // — não generalizar pra `request()` de novo sem testar contra os
+    // outros endpoints.
+    if (
+      resultado &&
+      typeof resultado === "object" &&
+      typeof (resultado as Record<string, unknown>).message === "string" &&
+      typeof (resultado as Record<string, unknown>).mensagem_pt === "string"
+    ) {
+      throw new Error(
+        `D4Sign /documents/${provedorId}/list devolveu erro: ${(resultado as Record<string, unknown>).mensagem_pt}`,
+      );
+    }
+
     const lista = extrairListaDestinatarios(resultado);
 
     if (lista.length === 0) {
@@ -206,6 +228,7 @@ export class D4SignAdapter implements ContratoAssinaturaService {
         email: item.email,
         assinado: extrairAssinado(item),
         assinadoEm: extrairAssinadoEm(item),
+        keySigner: typeof item.key_signer === "string" ? item.key_signer : null,
       }));
   }
 
@@ -260,24 +283,6 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     const resultado = await response.json().catch(() => null);
     if (!response.ok) {
       throw new Error(`D4Sign ${path} respondeu ${response.status}: ${JSON.stringify(resultado)}`);
-    }
-
-    // Confirmado ao vivo (2026-07-30): o D4Sign às vezes devolve um erro
-    // (token/cryptKey inválido, permissão insuficiente pro endpoint etc.)
-    // com HTTP 200 e corpo `{ message, mensagem_pt }` em vez de um status
-    // de erro de verdade — sem essa checagem, isso passava batido como
-    // "resposta vazia" pros callers que esperam lista/objeto de dado (ver
-    // obterDestinatarios). Nenhum endpoint usado aqui tem `message` como
-    // campo de dado válido, então a presença dele já basta como sinal.
-    if (
-      resultado &&
-      typeof resultado === "object" &&
-      typeof (resultado as Record<string, unknown>).message === "string"
-    ) {
-      const mensagemErro =
-        (resultado as Record<string, unknown>).mensagem_pt ??
-        (resultado as Record<string, unknown>).message;
-      throw new Error(`D4Sign ${path} devolveu erro: ${String(mensagemErro)}`);
     }
 
     return resultado;

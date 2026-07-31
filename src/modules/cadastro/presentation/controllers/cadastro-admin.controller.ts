@@ -60,6 +60,10 @@ import {
   type AtualizarStatusCadastroInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-status-cadastro.use-case";
 import {
+  ForcarAvancoStatusUseCase,
+  type ForcarAvancoStatusInput,
+} from "@/modules/cadastro/application/use-cases/forcar-avanco-status.use-case";
+import {
   SalvarSicaUseCase,
   type SalvarSicaInput,
 } from "@/modules/cadastro/application/use-cases/salvar-sica.use-case";
@@ -275,6 +279,17 @@ export const cadastroAdminController = {
   // "aguardando_ativacao", onde falta só o Usuário Master.
   confirmarCadastramento(id: string) {
     return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_ATIVACAO });
+  },
+
+  // Via de escape auditada pras duas transições que normalmente só
+  // acontecem via webhook do D4Sign (ver ForcarAvancoStatusUseCase) —
+  // pra quando a plataforma não conseguir fazer isso sozinha.
+  forcarAvancoStatus(input: ForcarAvancoStatusInput) {
+    const useCase = new ForcarAvancoStatusUseCase(
+      agenciaRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
   },
 
   ativarCliente(id: string) {

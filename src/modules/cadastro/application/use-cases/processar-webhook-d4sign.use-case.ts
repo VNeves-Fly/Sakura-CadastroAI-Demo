@@ -177,10 +177,13 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       referencia.contratoId,
     );
 
+    // assinadoEm !== null é obrigatório aqui: uma linha em ContratoAssinatura
+    // não significa mais "assinou" por si só — pode ser só um destinatário
+    // conhecido pelo sync (ver registrarDestinatario).
     if (
       !todosSociosAssinaram(
         socios.map((s) => s.email),
-        assinaturas.map((a) => a.email),
+        assinaturas.filter((a) => a.assinadoEm !== null).map((a) => a.email),
       )
     ) {
       return {

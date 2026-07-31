@@ -47,12 +47,15 @@ export interface DocumentoD4SignInfo {
 
 export interface DestinatarioD4Sign {
   email: string;
-  // Melhor esforço (ver D4SignAdapter.obterDestinatarios) — o formato de
-  // resposta desse endpoint nunca foi confirmado ao vivo pra saber se traz
-  // status por signatário. `null` = não deu pra reconhecer nenhum campo de
-  // status na resposta, não assume "pendente".
+  // Confirmado ao vivo (2026-07-30) — `signed` vem como string "1"/"0" na
+  // resposta real. `null` só resta se o formato variar por conta/versão e
+  // nenhum campo reconhecido bater (ver D4SignAdapter.obterDestinatarios) —
+  // nunca assume "pendente" nesse caso.
   assinado: boolean | null;
   assinadoEm: Date | null;
+  // ID do signatário no D4Sign (`key_signer`) — confirmado ao vivo que
+  // vem pra TODO destinatário, mesmo quem ainda não assinou.
+  keySigner: string | null;
 }
 
 export interface ContratoAssinaturaService {

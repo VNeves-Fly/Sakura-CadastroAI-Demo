@@ -259,8 +259,11 @@ export function calcularProgressoTrilha(
 // testemunhas — ver seeds/signatarios-padrao.ts e
 // processar-webhook-d4sign.use-case.ts). Status por linha:
 // - `assinaturasPorEmail` (ContratoAssinatura, gravado pelo webhook
-//   type_post=4) é o dado real — quem tem registro assinou naquela data.
-// - Sem registro, cai no fallback inferido do status agregado do
+//   type_post=4 ou pelo sync manual) é o dado real quando o valor não é
+//   null — quem tem data assinou naquela data. Uma linha pode existir com
+//   valor null (destinatário só "conhecido" pelo sync, ainda não assinou,
+//   ver registrarDestinatario) — tratado igual a "sem registro" abaixo.
+// - Sem registro (ou com data null), cai no fallback inferido do status agregado do
 //   Contrato (contratos anteriores ao log existir, ou fechados direto
 //   pelo type_post=1, que não traz e-mail individual), seguindo a ordem
 //   de fila do D4Sign documentada no use-case do webhook:
@@ -273,7 +276,7 @@ export function montarFilaAssinatura(
   signatariosPadraoAtivos: SignatarioPadrao[],
   statusContrato: string | null,
   emailsNaoEntregues: Set<string>,
-  assinaturasPorEmail: Map<string, Date>,
+  assinaturasPorEmail: Map<string, Date | null>,
 ): SignatarioFila[] {
   const socioAssinadoInferido =
     statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||

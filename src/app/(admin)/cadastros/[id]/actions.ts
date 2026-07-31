@@ -109,6 +109,16 @@ export async function confirmarCadastramentoAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
+export async function forcarAvancoStatusAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.forcarAvancoStatus({
+    agenciaId,
+    justificativa: String(formData.get("justificativa") ?? ""),
+    forcadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function ativarClienteAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.ativarCliente(id);
