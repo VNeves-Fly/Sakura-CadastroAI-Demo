@@ -6,7 +6,6 @@ import { CadastrosLive } from "./cadastros-live";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
-import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import {
   labelStatus,
@@ -539,39 +538,18 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               <p className="text-muted-foreground mt-1 text-xs">
                                 Iniciado: {formatarDataHora(atendimentoAtivo.assumidoEm)}
                               </p>
-                              <div className="mt-1.5">
-                                <AtendimentoAgenciaAcoes
-                                  agenciaId={agencia.id}
-                                  analistaId={analistaId}
-                                  atendimentoAtual={{
-                                    analistaId: atendimentoAtivo.analistaId,
-                                    analistaNome: atendimentoAtivo.analistaNome,
-                                  }}
-                                />
-                              </div>
+                            </>
+                          ) : ultimoEncerrado ? (
+                            <>
+                              <p className="text-foreground font-medium">
+                                {ultimoEncerrado.analistaNome}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                Finalizado: {formatarDataHora(ultimoEncerrado.liberadoEm)}
+                              </p>
                             </>
                           ) : (
-                            <>
-                              {ultimoEncerrado ? (
-                                <>
-                                  <p className="text-foreground font-medium">
-                                    {ultimoEncerrado.analistaNome}
-                                  </p>
-                                  <p className="text-muted-foreground text-xs">
-                                    Finalizado: {formatarDataHora(ultimoEncerrado.liberadoEm)}
-                                  </p>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                              <div className="mt-1.5">
-                                <AtendimentoAgenciaAcoes
-                                  agenciaId={agencia.id}
-                                  analistaId={analistaId}
-                                  atendimentoAtual={null}
-                                />
-                              </div>
-                            </>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
