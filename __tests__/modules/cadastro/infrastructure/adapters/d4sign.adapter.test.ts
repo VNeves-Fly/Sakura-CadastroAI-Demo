@@ -630,4 +630,39 @@ describe("D4SignAdapter", () => {
       ).rejects.toThrow("Chave de API inválida.");
     });
   });
+
+  describe("cancelarDocumento", () => {
+    it("cancela o documento com o motivo no corpo (POST /documents/{uuid}/cancel)", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(okJson({}));
+
+      await new D4SignAdapter(fakeSignatarioPadraoRepository()).cancelarDocumento(
+        "doc-uuid-1",
+        "sócio pediu pra recomeçar o cadastro",
+      );
+
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe(
+        "https://api.teste.d4sign/documents/doc-uuid-1/cancel?tokenAPI=token-teste&cryptKey=crypt-teste",
+      );
+      expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body)).toEqual({
+        comment: "sócio pediu pra recomeçar o cadastro",
+      });
+    });
+
+    it("lança erro descritivo se o cancelamento falhar", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ message: "Documento já cancelado" }),
+      });
+
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).cancelarDocumento(
+          "doc-uuid-1",
+          "motivo",
+        ),
+      ).rejects.toThrow("D4Sign /documents/doc-uuid-1/cancel respondeu 400");
+    });
+  });
 });

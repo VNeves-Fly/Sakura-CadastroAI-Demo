@@ -110,6 +110,10 @@ enum StatusContrato {
   // (estágio 2, testemunhas) pra fechar; não bloqueia o avanço da agência.
   assinado_agencia
   assinado
+  // Cancelado pelo analista (CancelarContratoUseCase, 2026-07-31) — a
+  // Agencia volta pra em_complementar; se aprovarem de novo depois, gera
+  // um Contrato NOVO (o registro cancelado fica só como histórico).
+  cancelado
 }
 
 enum OrigemGeracaoContrato {

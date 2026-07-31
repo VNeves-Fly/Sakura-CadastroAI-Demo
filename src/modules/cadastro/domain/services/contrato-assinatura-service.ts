@@ -81,4 +81,7 @@ export interface ContratoAssinaturaService {
   // diferente de gerarEEnviar (que pula em silêncio), aqui o caller
   // precisa saber pra avisar o analista.
   registrarWebhook(provedorId: string): Promise<{ registrado: boolean }>;
+  // Cancela o documento no D4Sign — usado por CancelarContratoUseCase
+  // quando o analista cancela um contrato ainda em Assinatura/Validação.
+  cancelarDocumento(provedorId: string, motivo: string): Promise<void>;
 }

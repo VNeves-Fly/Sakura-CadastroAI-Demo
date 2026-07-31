@@ -62,6 +62,16 @@ export const STATUS_RECUSADO = "recusado";
 export const CONTRATO_STATUS_AGUARDANDO_ASSINATURA = "aguardando_assinatura";
 export const CONTRATO_STATUS_ASSINADO_AGENCIA = "assinado_agencia";
 export const CONTRATO_STATUS_ASSINADO = "assinado";
+// Cancelado pelo analista (CancelarContratoUseCase) — a Agencia volta pra
+// em_complementar; este registro fica só como histórico.
+export const CONTRATO_STATUS_CANCELADO = "cancelado";
+
+// Sentinela reconhecível (nunca um uuid real do D4Sign) — usado quando o
+// analista aprova sem gerar contrato automaticamente (checkbox no modal de
+// Aprovar Complementar, ver AprovarCadastroComplementarUseCase) pra
+// sinalizar na UI (ContratoIdManual, via origemGeracao "externo") que
+// falta colar o ID de um documento de verdade.
+export const CONTRATO_PROVEDOR_ID_PENDENTE = "pendente";
 
 export interface ContratoSignatarioData {
   nome: string;

@@ -50,6 +50,7 @@ import { EditarSocioForm } from "./editar-socio-form";
 import { NovoSocioForm } from "./novo-socio-form";
 import { RemoverSocioForm } from "./remover-socio-form";
 import { ForcarAvancoModal } from "./forcar-avanco-modal";
+import { CancelarContratoModal } from "./cancelar-contrato-modal";
 import { EditarEmpresaForm } from "./editar-empresa-form";
 import { FilaAssinatura } from "./fila-assinatura";
 import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-button";
@@ -85,6 +86,7 @@ import {
   STATUS_RECUSADO,
   CONTRATO_STATUS_ASSINADO,
   CONTRATO_STATUS_ASSINADO_AGENCIA,
+  CONTRATO_STATUS_CANCELADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import {
   aprovarComplementarAction,
@@ -103,6 +105,7 @@ import {
   reconsultarCreditoAction,
   confirmarCadastramentoAction,
   forcarAvancoStatusAction,
+  cancelarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
@@ -843,6 +846,10 @@ export default async function DossieAgenciaPage({
                         proximaEtapaLabel="Validação"
                         forcarAvancoStatusAction={forcarAvancoStatusAction}
                       />
+                      <CancelarContratoModal
+                        agenciaId={agencia.id}
+                        cancelarContratoAction={cancelarContratoAction}
+                      />
                     </div>
                   </div>
                 ) : null}
@@ -850,11 +857,13 @@ export default async function DossieAgenciaPage({
             </>
           ) : null}
 
-          {etapaExibida === indiceComplementar && !contratoAtual ? (
+          {etapaExibida === indiceComplementar &&
+          (!contratoAtual || contratoAtual.status === CONTRATO_STATUS_CANCELADO) ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
-                A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
-                contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
+                {contratoAtual
+                  ? "O contrato anterior foi cancelado — aprove de novo pra gerar um contrato novo. Veja o motivo no histórico de edições, logo acima."
+                  : "A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima."}
               </p>
 
               {documentosNaoAprovados.length > 0 ? (
@@ -931,6 +940,10 @@ export default async function DossieAgenciaPage({
                     agenciaId={agencia.id}
                     proximaEtapaLabel="Cadastramento"
                     forcarAvancoStatusAction={forcarAvancoStatusAction}
+                  />
+                  <CancelarContratoModal
+                    agenciaId={agencia.id}
+                    cancelarContratoAction={cancelarContratoAction}
                   />
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
                     <button

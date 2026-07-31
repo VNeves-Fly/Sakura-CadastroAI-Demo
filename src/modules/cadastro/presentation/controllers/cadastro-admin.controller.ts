@@ -64,6 +64,10 @@ import {
   type ForcarAvancoStatusInput,
 } from "@/modules/cadastro/application/use-cases/forcar-avanco-status.use-case";
 import {
+  CancelarContratoUseCase,
+  type CancelarContratoInput,
+} from "@/modules/cadastro/application/use-cases/cancelar-contrato.use-case";
+import {
   SalvarSicaUseCase,
   type SalvarSicaInput,
 } from "@/modules/cadastro/application/use-cases/salvar-sica.use-case";
@@ -287,6 +291,18 @@ export const cadastroAdminController = {
   forcarAvancoStatus(input: ForcarAvancoStatusInput) {
     const useCase = new ForcarAvancoStatusUseCase(
       agenciaRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
+  },
+
+  // Analista desiste do contrato atual (dados errados, sócio pediu pra
+  // recomeçar etc.) — cancela também no D4Sign e devolve pra complementar
+  // (ver CancelarContratoUseCase).
+  cancelarContrato(input: CancelarContratoInput) {
+    const useCase = new CancelarContratoUseCase(
+      agenciaRepository,
+      contratoAssinaturaService,
       historicoEdicaoCadastroRepository,
     );
     return useCase.execute(input);

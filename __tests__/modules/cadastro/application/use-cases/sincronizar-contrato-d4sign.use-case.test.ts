@@ -57,6 +57,7 @@ function fakeContratoAssinaturaService(
       .mockResolvedValue({ existe: true, nomeDocumento: "Contrato", statusName: "Aguardando" }),
     obterDestinatarios: jest.fn().mockResolvedValue([]),
     registrarWebhook: jest.fn().mockResolvedValue({ registrado: true }),
+    cancelarDocumento: jest.fn(),
     ...overrides,
   };
 }

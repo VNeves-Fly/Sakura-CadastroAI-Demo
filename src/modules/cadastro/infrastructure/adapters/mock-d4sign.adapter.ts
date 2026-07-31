@@ -44,4 +44,8 @@ export class MockD4SignService implements ContratoAssinaturaService {
   async registrarWebhook(): Promise<{ registrado: boolean }> {
     return { registrado: true };
   }
+
+  async cancelarDocumento(): Promise<void> {
+    return;
+  }
 }

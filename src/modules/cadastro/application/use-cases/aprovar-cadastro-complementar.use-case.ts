@@ -1,6 +1,7 @@
 import type { UseCase } from "@/modules/shared/application/use-case";
 import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
 import {
+  CONTRATO_PROVEDOR_ID_PENDENTE,
   CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_EM_COMPLEMENTAR,
@@ -23,11 +24,6 @@ export interface AprovarCadastroComplementarInput {
   // documento órfão no D4Sign sem duplicar a geração.
   gerarContratoAutomaticamente?: boolean;
 }
-
-// Sentinela reconhecível (nunca um uuid real do D4Sign) — sinaliza na UI
-// (ContratoIdManual, via origemGeracao "externo") que falta colar o ID de
-// um documento de verdade.
-export const CONTRATO_PROVEDOR_ID_PENDENTE = "pendente";
 
 // Só entram aqui documentos que EXISTEM (slot != null) — sócio sem RG
 // enviado ainda é um problema de completude, não desta regra (ver

@@ -24,6 +24,7 @@ import {
   CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
   CONTRATO_STATUS_ASSINADO_AGENCIA,
   CONTRATO_STATUS_ASSINADO,
+  CONTRATO_STATUS_CANCELADO,
   type RepresentanteLegalDetalhe,
   type AnaliseIaAgenciaDetalhe,
   type HistoricoConsultaCreditoItem,
@@ -329,6 +330,7 @@ export function labelStatusContrato(status: string | null): string {
   if (status === CONTRATO_STATUS_ASSINADO) return "Assinado";
   if (status === CONTRATO_STATUS_ASSINADO_AGENCIA) return "Sócios assinaram — aguardando Sakura";
   if (status === CONTRATO_STATUS_AGUARDANDO_ASSINATURA) return "Aguardando assinaturas";
+  if (status === CONTRATO_STATUS_CANCELADO) return "Cancelado";
   return "—";
 }
 

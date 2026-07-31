@@ -232,6 +232,13 @@ export class D4SignAdapter implements ContratoAssinaturaService {
       }));
   }
 
+  // Confirmado no SDK oficial PHP do D4Sign (`cancel($documentKey, $comment)`):
+  // POST /documents/{uuid}/cancel com body `{ comment }`. Sem resposta útil
+  // além do status HTTP — `request()` já lança se não for 2xx.
+  async cancelarDocumento(provedorId: string, motivo: string): Promise<void> {
+    await this.request("POST", `/documents/${provedorId}/cancel`, { comment: motivo });
+  }
+
   private async cadastrarSignatarios(
     documentUuid: string,
     signatarios: GerarContratoInput["signatarios"],

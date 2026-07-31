@@ -12,7 +12,8 @@ export type StatusAgencia =
   | "ativo"
   | "recusado";
 
-export type StatusContrato = "aguardando_assinatura" | "assinado_agencia" | "assinado";
+export type StatusContrato =
+  "aguardando_assinatura" | "assinado_agencia" | "assinado" | "cancelado";
 
 export type OrigemGeracaoContrato = "ia" | "humano" | "externo";
 
