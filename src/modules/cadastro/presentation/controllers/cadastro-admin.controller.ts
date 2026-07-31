@@ -128,7 +128,6 @@ import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application
 import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import {
   STATUS_AGUARDANDO_ATIVACAO,
-  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_ATIVO,
   STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
@@ -270,13 +269,6 @@ export const cadastroAdminController = {
   salvarTravelLink(input: SalvarTravelLinkInput) {
     const useCase = new SalvarTravelLinkUseCase(agenciaRepository);
     return useCase.execute(input);
-  },
-
-  // Time de cadastro aprova a validação das evidências de assinatura
-  // (etapa "Validação") — segue pra "aguardando_cadastramento", onde falta
-  // cadastrar a agência no SICA e no TravelLink.
-  aprovarValidacao(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_CADASTRAMENTO });
   },
 
   // SICA/TravelLink cadastrados (etapa "SICA/TL") — segue pra

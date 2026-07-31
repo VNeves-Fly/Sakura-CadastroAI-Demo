@@ -52,8 +52,9 @@ export interface ProcessarWebhookD4SignOutput {
 //     entrar, às vezes dias depois).
 //   - aguardando_validacao → aguardando_cadastramento: quando o APROVADOR
 //     (Jean) assina — a assinatura dele em si é a aprovação formal do time
-//     de cadastro (2026-07-31, alternativa automática ao botão manual
-//     "Aprovar validação" no dossiê — o que acontecer primeiro vale).
+//     de cadastro (2026-07-31, único gatilho — não existe mais botão manual
+//     pra essa transição, decisão do usuário: o webhook é a fonte da
+//     verdade).
 // - "1" (documento finalizado): fecha o contrato como assinado de vez —
 //   nesse ponto necessariamente todos já assinaram (o D4Sign só fecha o
 //   documento depois do último signatário, incluindo o aprovador), então
@@ -154,9 +155,8 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
 
     // Aprovação formal do time de cadastro: o Jean assinando (aprovador)
     // com a agência já em aguardando_validacao é, em si, a aprovação da
-    // validação de evidências — avança pra aguardando_cadastramento sem
-    // depender do analista clicar em "Aprovar validação" (o que acontecer
-    // primeiro vale; idempotente, só age se ainda estiver nesse status).
+    // validação de evidências — único gatilho pra aguardando_cadastramento
+    // (idempotente, só age se ainda estiver nesse status).
     if (ehAprovador && agencia?.agencia.status === STATUS_AGUARDANDO_VALIDACAO) {
       await this.agenciaRepository.atualizarStatus(
         referencia.agenciaId,

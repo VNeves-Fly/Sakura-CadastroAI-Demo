@@ -100,7 +100,6 @@ import {
   recusarCadastroAction,
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
-  aprovarValidacaoAction,
   confirmarCadastramentoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
@@ -899,7 +898,7 @@ export default async function DossieAgenciaPage({
                 {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}).{" "}
                 {contratoAtual?.origemGeracao === "externo"
                   ? "Este contrato foi assinado fora da plataforma — não há evidência de selfie/documento/vídeo selfie coletada pelo D4Sign, só o documento em si."
-                  : "Confira as evidências de assinatura (selfie, documento e vídeo selfie de cada sócio) no documento assinado antes de liberar para cadastramento no SICA/TravelLink."}
+                  : "Confira as evidências de assinatura (selfie, documento e vídeo selfie de cada sócio) no documento assinado. Assim que o aprovador do time de cadastro assinar no D4Sign, o cadastro avança sozinho para Cadastramento."}
               </p>
 
               <FilaAssinatura fila={filaAssinatura} />
@@ -921,14 +920,6 @@ export default async function DossieAgenciaPage({
 
               {podeAgir ? (
                 <div className="flex flex-wrap gap-2">
-                  <form action={aprovarValidacaoAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-                    >
-                      Aprovar validação
-                    </button>
-                  </form>
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
                     <button
                       type="submit"

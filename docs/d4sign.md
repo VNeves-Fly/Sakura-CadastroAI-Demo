@@ -285,7 +285,7 @@ Três efeitos possíveis na mesma execução (mudou em 2026-07-30 — antes só 
 
 - Se o `email` bate com o signatário fixo de papel `APROVAR` (Jean, estágio 1) **e** o contrato ainda não estiver `assinado`: `contrato.status` → `assinado_agencia` (só visibilidade — ver seção "Corrida" abaixo — não decide nada sobre `agencia.status`).
 - Independente de quem assinou: o use-case busca todos os sócios do contrato (`ContratoSignatario`, estágio 0, snapshot congelado no momento da geração) e confere se cada um já tem assinatura registrada em `ContratoAssinatura` (por e-mail normalizado). Só quando **todos** os sócios já assinaram, `agencia.status` avança de `aguardando_assinatura` pra `aguardando_validacao` — não importa se o aprovador ou as testemunhas (estágio 2) já assinaram ou não.
-- Se o `email` é do aprovador **e** a agência já está em `aguardando_validacao`: a assinatura dele em si é a aprovação formal do time de cadastro — `agencia.status` avança pra `aguardando_cadastramento`, sem precisar do analista clicar em "Aprovar validação" no dossiê (2026-07-31 — o que acontecer primeiro entre os dois vale; o botão manual continua existindo como via alternativa, mesmo padrão do botão "Registrar assinatura" pro caso de a integração falhar).
+- Se o `email` é do aprovador **e** a agência já está em `aguardando_validacao`: a assinatura dele em si é a aprovação formal do time de cadastro — `agencia.status` avança pra `aguardando_cadastramento` (2026-07-31 — único gatilho; decisão do usuário de remover o botão manual "Aprovar validação" que existia antes, o webhook é a fonte da verdade dessa transição).
 
 ```
 uuid=doc-uuid-123, type_post=4, email=socio-ultimo@agencia.com  (último sócio a assinar)

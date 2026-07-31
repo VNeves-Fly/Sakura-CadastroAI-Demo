@@ -103,12 +103,6 @@ export async function marcarContratoAssinadoAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
-export async function aprovarValidacaoAction(id: string) {
-  if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.aprovarValidacao(id);
-  revalidatePath(`/cadastros/${id}`);
-}
-
 export async function confirmarCadastramentoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.confirmarCadastramento(id);
