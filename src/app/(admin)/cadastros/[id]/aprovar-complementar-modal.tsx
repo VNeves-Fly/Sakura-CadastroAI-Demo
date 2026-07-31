@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { Campo, CamposGrid, CampoEndereco } from "@/modules/admin/components/dossie-campos";
 import { labelEstadoCivil } from "@/modules/admin/adapters/dossie.adapter";
 import type {
@@ -157,6 +157,15 @@ export function AprovarComplementarModal({
                 </span>
               </label>
 
+              {enviando ? (
+                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {gerarContrato
+                    ? "Gerando e enviando o contrato no D4Sign — pode levar alguns segundos, não feche esta janela."
+                    : "Avançando o cadastro — não feche esta janela."}
+                </p>
+              ) : null}
+
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -169,8 +178,10 @@ export function AprovarComplementarModal({
                 <button
                   type="submit"
                   disabled={enviando}
-                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-busy={enviando}
+                  className="bg-primary text-primary-foreground hover:bg-sakura-600 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70"
                 >
+                  {enviando ? <Loader2 className="size-4 animate-spin" /> : null}
                   {enviando
                     ? "Enviando..."
                     : gerarContrato
