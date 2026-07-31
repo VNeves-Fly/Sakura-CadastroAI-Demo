@@ -62,13 +62,25 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
       return { ok: false, motivo: "Documento não encontrado no D4Sign." };
     }
 
-    const [destinatariosD4Sign, socios, signatariosPadraoAtivos, assinaturasAntes] =
-      await Promise.all([
+    let destinatariosD4Sign;
+    let socios;
+    let signatariosPadraoAtivos;
+    let assinaturasAntes;
+    try {
+      [destinatariosD4Sign, socios, signatariosPadraoAtivos, assinaturasAntes] = await Promise.all([
         this.contratoAssinaturaService.obterDestinatarios(contratoAtual.provedorId),
         this.contratoSignatarioRepository.findByContratoId(contratoAtual.id),
         this.signatarioPadraoRepository.findAtivos(),
         this.contratoAssinaturaRepository.findByContratoId(contratoAtual.id),
       ]);
+    } catch (error) {
+      // D4SignAdapter.request lança quando o D4Sign devolve um erro (ex.:
+      // credenciais/permissão inválidas — confirmado ao vivo 2026-07-30)
+      // mesmo com HTTP 200. Não deixa isso virar um "lista vazia" (que o
+      // guard abaixo trataria como falha silenciosa de parsing) nem um 500
+      // sem tratamento — devolve o motivo real pro analista.
+      return { ok: false, motivo: `Erro ao consultar o D4Sign: ${String(error)}` };
+    }
 
     const emailsEsperados = [
       ...socios.map((socio) => socio.email),

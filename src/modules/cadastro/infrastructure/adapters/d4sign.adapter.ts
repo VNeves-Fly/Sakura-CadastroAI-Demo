@@ -180,17 +180,14 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     }
   }
 
-  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign — só
-  // confirmado indiretamente (fontes de terceiros, nunca a doc oficial, que
-  // devolve schema vazio pra esse endpoint). Tenta reconhecer, em ordem:
-  // array na raiz, `{ list: [...] }`, e um objeto com chaves numéricas
-  // (`{"0": {...}, "1": {...}}` — comum em APIs com backend PHP serializando
-  // um array associativo). Ver `extrairListaDestinatarios` e
-  // `extrairAssinado`. Se nada disso resultar numa lista não vazia, loga a
-  // resposta crua (só nesse caso, pra não poluir o log em uso normal) —
-  // ajustar esse parsing assim que o log real aparecer, ou quando alguém
-  // confirmar o formato contra a conta com D4SIGN_TOKEN_API configurada
-  // (ver SincronizarContratoD4SignUseCase).
+  // Confirmado ao vivo em 2026-07-30: a resposta é um ARRAY com um único
+  // objeto de documento (mesmo formato de GET /documents/{uuid} — uuidDoc/
+  // nameDoc/statusName), que carrega os signatários de verdade dentro de
+  // `list`. Cada item de `list` tem `email`, `signed` (string "1"/"0") e
+  // `type`/`nomenclatura` espelhando o `act` que mandamos em createlist
+  // (confirma ACT_POR_PAPEL: "1" Assinar, "2" Aprovar, "4" Assinar como
+  // parte, "5" testemunha) — e `docauthandselfie` bate "1" só pro sócio,
+  // "0" pros signatários fixos, como esperado. Ver extrairListaDestinatarios.
   async obterDestinatarios(provedorId: string): Promise<DestinatarioD4Sign[]> {
     const resultado = await this.request("GET", `/documents/${provedorId}/list`, undefined);
     const lista = extrairListaDestinatarios(resultado);
@@ -264,6 +261,25 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     if (!response.ok) {
       throw new Error(`D4Sign ${path} respondeu ${response.status}: ${JSON.stringify(resultado)}`);
     }
+
+    // Confirmado ao vivo (2026-07-30): o D4Sign às vezes devolve um erro
+    // (token/cryptKey inválido, permissão insuficiente pro endpoint etc.)
+    // com HTTP 200 e corpo `{ message, mensagem_pt }` em vez de um status
+    // de erro de verdade — sem essa checagem, isso passava batido como
+    // "resposta vazia" pros callers que esperam lista/objeto de dado (ver
+    // obterDestinatarios). Nenhum endpoint usado aqui tem `message` como
+    // campo de dado válido, então a presença dele já basta como sinal.
+    if (
+      resultado &&
+      typeof resultado === "object" &&
+      typeof (resultado as Record<string, unknown>).message === "string"
+    ) {
+      const mensagemErro =
+        (resultado as Record<string, unknown>).mensagem_pt ??
+        (resultado as Record<string, unknown>).message;
+      throw new Error(`D4Sign ${path} devolveu erro: ${String(mensagemErro)}`);
+    }
+
     return resultado;
   }
 }
@@ -278,6 +294,21 @@ export class D4SignAdapter implements ContratoAssinaturaService {
 // caso — ver obterDestinatarios).
 function extrairListaDestinatarios(resultado: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(resultado)) {
+    // Formato real (confirmado ao vivo 2026-07-30): array com UM objeto de
+    // documento, que tem os signatários dentro de `list` — não é o array
+    // em si que lista os signatários (bug original: um array de 1 "não
+    // signatário" passava no `Array.isArray`, e o filtro por `email`
+    // descartava tudo, resultando numa lista "vazia").
+    const primeiroItem = resultado[0];
+    if (
+      primeiroItem &&
+      typeof primeiroItem === "object" &&
+      Array.isArray((primeiroItem as Record<string, unknown>).list)
+    ) {
+      return (primeiroItem as Record<string, unknown>).list as Array<Record<string, unknown>>;
+    }
+    // Fallback defensivo (não confirmado, mantido por precaução caso o
+    // formato mude): array já sendo a lista de signatários.
     return resultado as Array<Record<string, unknown>>;
   }
   if (resultado && typeof resultado === "object") {
@@ -285,9 +316,8 @@ function extrairListaDestinatarios(resultado: unknown): Array<Record<string, unk
     if (Array.isArray(objeto.list)) {
       return objeto.list as Array<Record<string, unknown>>;
     }
-    // Objeto com chaves tipo "0", "1", "2"... — pega só os valores que
-    // parecem um signatário (têm `email`), ignorando chaves de metadado
-    // tipo `message`/`success` que às vezes vêm junto.
+    // Fallback defensivo: objeto com chaves tipo "0", "1", "2"... — pega
+    // só os valores que parecem um signatário (têm `email`).
     const valores = Object.values(objeto);
     const candidatos = valores.filter(
       (valor): valor is Record<string, unknown> =>
@@ -298,9 +328,10 @@ function extrairListaDestinatarios(resultado: unknown): Array<Record<string, unk
   return [];
 }
 
-// `signed` já foi visto tanto como boolean quanto como string ("1"/"0") em
-// integrações reais do D4Sign — trata os dois. `statusId`/`statusName`
-// variam por conta/versão, então só interpreta valores inequívocos
+// `signed` como string "1"/"0" é o formato confirmado ao vivo (2026-07-30);
+// mantém o caso boolean por precaução (SDKs de terceiros mostraram as duas
+// formas). `statusId`/`statusName` são fallback especulativo, não
+// confirmado nesse endpoint — só interpreta valores inequívocos
 // ("2"/"assinado"/"signed"), nunca assume "não assinado" por ausência
 // (fica `null`).
 function extrairAssinado(item: Record<string, unknown>): boolean | null {
@@ -319,6 +350,11 @@ function extrairAssinado(item: Record<string, unknown>): boolean | null {
   return null;
 }
 
+// ⚠️ Ainda especulativo — o payload real confirmado (2026-07-30) só tinha
+// signatários pendentes (`signed: "0"`), então não dá pra saber qual campo
+// carrega a data de quando alguém assina (`date`/`date_trigger` existem,
+// mas parecem ser data de criação/disparo do convite, não de assinatura).
+// Ajustar assim que um payload real com `signed: "1"` for observado.
 function extrairAssinadoEm(item: Record<string, unknown>): Date | null {
   const signInfo =
     item.sign_info && typeof item.sign_info === "object"
