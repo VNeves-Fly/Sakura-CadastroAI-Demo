@@ -35,6 +35,7 @@ export function AprovarComplementarModal({
 }: AprovarComplementarModalProps) {
   const [aberto, setAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [gerarContrato, setGerarContrato] = useState(true);
 
   return (
     <>
@@ -73,8 +74,9 @@ export function AprovarComplementarModal({
 
             <div className="flex flex-col gap-4 overflow-y-auto px-6 py-4">
               <p className="text-muted-foreground text-sm">
-                Confira os dados abaixo antes de gerar e enviar o contrato para assinatura no D4Sign
-                — essa ação não pode ser desfeita.
+                {gerarContrato
+                  ? "Confira os dados abaixo antes de gerar e enviar o contrato para assinatura no D4Sign — essa ação não pode ser desfeita."
+                  : 'Confira os dados abaixo. O cadastro avança pra Assinatura sem gerar um contrato novo no D4Sign — use quando for anexar um documento já existente depois, em "Contrato assinado por fora da plataforma".'}
               </p>
 
               <div className="flex flex-col gap-2">
@@ -135,23 +137,47 @@ export function AprovarComplementarModal({
                   setEnviando(false);
                 }
               }}
-              className="border-border flex justify-end gap-2 border-t px-6 py-4"
+              className="border-border flex flex-col gap-3 border-t px-6 py-4"
             >
-              <button
-                type="button"
-                onClick={() => setAberto(false)}
-                disabled={enviando}
-                className="border-input text-foreground hover:bg-accent rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Voltar e revisar
-              </button>
-              <button
-                type="submit"
-                disabled={enviando}
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {enviando ? "Enviando..." : "Confirmar e Enviar Contrato"}
-              </button>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="gerarContrato"
+                  checked={gerarContrato}
+                  onChange={(event) => setGerarContrato(event.target.checked)}
+                  disabled={enviando}
+                  className="mt-0.5 size-4 shrink-0"
+                />
+                <span className="text-foreground">
+                  Gerar contrato automaticamente
+                  <span className="text-muted-foreground block text-xs">
+                    Desmarcado, o cadastro avança sem gerar contrato — anexe um documento existente
+                    depois em &ldquo;Contrato assinado por fora da plataforma&rdquo;.
+                  </span>
+                </span>
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAberto(false)}
+                  disabled={enviando}
+                  className="border-input text-foreground hover:bg-accent rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Voltar e revisar
+                </button>
+                <button
+                  type="submit"
+                  disabled={enviando}
+                  className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {enviando
+                    ? "Enviando..."
+                    : gerarContrato
+                      ? "Confirmar e Enviar Contrato"
+                      : "Confirmar sem gerar contrato"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

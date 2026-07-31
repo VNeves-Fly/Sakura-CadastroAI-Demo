@@ -41,9 +41,13 @@ async function garantirAtendimentoAssumido(agenciaId: string): Promise<boolean> 
   }
 }
 
-export async function aprovarComplementarAction(id: string) {
+export async function aprovarComplementarAction(id: string, formData: FormData) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.aprovarComplementar({ id, analistaEmail: await analistaLogado() });
+  await cadastroAdminController.aprovarComplementar({
+    id,
+    analistaEmail: await analistaLogado(),
+    gerarContratoAutomaticamente: formData.get("gerarContrato") !== null,
+  });
   revalidatePath(`/cadastros/${id}`);
 }
 

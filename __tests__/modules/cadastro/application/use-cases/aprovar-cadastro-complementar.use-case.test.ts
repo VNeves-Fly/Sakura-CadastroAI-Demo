@@ -353,6 +353,25 @@ describe("AprovarCadastroComplementarUseCase", () => {
     expect(contratoAssinaturaService.gerarEEnviar).toHaveBeenCalled();
   });
 
+  it("com gerarContratoAutomaticamente:false, não chama o D4Sign e cria um Contrato-placeholder", async () => {
+    const { useCase, contratoAssinaturaService, agenciaRepository } = criarUseCase();
+
+    const resultado = await useCase.execute({ ...INPUT, gerarContratoAutomaticamente: false });
+
+    expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
+    expect(agenciaRepository.criarContrato).toHaveBeenCalledWith("agencia-1", {
+      provedorId: "pendente",
+      status: "aguardando_assinatura",
+      origemGeracao: "externo",
+      signatarios: expect.any(Array),
+    });
+    expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
+      "agencia-1",
+      STATUS_AGUARDANDO_ASSINATURA,
+    );
+    expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
+  });
+
   it("não interrompe o fluxo (nem lança) se a gravação da DecisaoHumana falhar", async () => {
     const { useCase, agenciaRepository } = criarUseCase({
       decisaoHumanaRepository: criarDecisaoHumanaFake({
