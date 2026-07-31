@@ -3,6 +3,7 @@ import {
   CONTRATO_STATUS_ASSINADO,
   CONTRATO_STATUS_ASSINADO_AGENCIA,
   STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   type AgenciaRepository,
@@ -513,13 +514,43 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       expect(resultado).toEqual({ processado: true });
     });
 
-    it("não avança de novo se a agência já passou dessa etapa (idempotente/retry do D4Sign)", async () => {
+    it("avança pra aguardando_cadastramento quando o aprovador assina com a agência em aguardando_validacao (aprovação formal do time de cadastro)", async () => {
       const repo = criarRepositorioFake({
         findByContratoProvedorId: jest
           .fn()
           .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
         obterDetalhe: jest.fn().mockResolvedValue({
           agencia: { status: STATUS_AGUARDANDO_VALIDACAO },
+          contratos: [{ id: "ct-1", status: CONTRATO_STATUS_ASSINADO_AGENCIA }],
+        } as never),
+      });
+      const assinaturaRepo = fakeContratoAssinaturaRepository([{ email: SOCIO_1 }]);
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository([JEAN]),
+        fakeContratoEmailFalhaEntregaRepository(),
+        assinaturaRepo,
+        fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+      );
+
+      const resultado = await useCase.execute({
+        provedorId: "doc-1",
+        typePost: "4",
+        email: "cadastro@sakuratur.com.br",
+      });
+
+      expect(assinaturaRepo.registrar).toHaveBeenCalledWith("ct-1", "cadastro@sakuratur.com.br");
+      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO);
+      expect(resultado).toEqual({ processado: true });
+    });
+
+    it("não avança de novo se a agência já passou dessa etapa (idempotente/retry do D4Sign)", async () => {
+      const repo = criarRepositorioFake({
+        findByContratoProvedorId: jest
+          .fn()
+          .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+        obterDetalhe: jest.fn().mockResolvedValue({
+          agencia: { status: STATUS_AGUARDANDO_CADASTRAMENTO },
           contratos: [{ id: "ct-1", status: CONTRATO_STATUS_ASSINADO_AGENCIA }],
         } as never),
       });
@@ -547,7 +578,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
     });
   });
 
-  it("fecha o contrato como assinado quando o documento finaliza depois da aprovação intermediária (agência já em aguardando_validacao)", async () => {
+  it("fecha o contrato como assinado e alcança aguardando_cadastramento quando o documento finaliza com a agência ainda em aguardando_validacao (webhook fora de ordem)", async () => {
     const repo = criarRepositorioFake({
       findByContratoProvedorId: jest
         .fn()
@@ -567,7 +598,31 @@ describe("ProcessarWebhookD4SignUseCase", () => {
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
 
     expect(repo.atualizarStatusContrato).toHaveBeenCalledWith("ct-1", CONTRATO_STATUS_ASSINADO);
-    expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO);
+    expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO);
+    expect(resultado).toEqual({ processado: true });
+  });
+
+  it("fecha o contrato como assinado sem mexer no status da agência quando ela já está em aguardando_cadastramento", async () => {
+    const repo = criarRepositorioFake({
+      findByContratoProvedorId: jest
+        .fn()
+        .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+      obterDetalhe: jest
+        .fn()
+        .mockResolvedValue({ agencia: { status: STATUS_AGUARDANDO_CADASTRAMENTO } } as never),
+    });
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+      fakeContratoAssinaturaRepository(),
+      fakeContratoSignatarioRepository(),
+    );
+
+    const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
+
+    expect(repo.atualizarStatusContrato).toHaveBeenCalledWith("ct-1", CONTRATO_STATUS_ASSINADO);
+    expect(repo.atualizarStatus).not.toHaveBeenCalled();
     expect(resultado).toEqual({ processado: true });
   });
 });

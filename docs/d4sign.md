@@ -281,10 +281,11 @@ Efeito real confirmado no banco: `contrato.status` → `assinado`, `agencia.stat
 
 Confirmado na doc oficial (`docs/webhook-postback.md`): `type_post=4` = assinatura de **um** signatário específico, com o campo `email` identificando quem foi (a rota agora lê esse campo — `webhook-d4sign.routes.ts`).
 
-Dois efeitos independentes na mesma execução (mudou em 2026-07-30 — antes só o aprovador disparava o avanço da agência, o que acoplava a validação das evidências dos sócios a esperar o aprovador entrar, às vezes dias depois):
+Três efeitos possíveis na mesma execução (mudou em 2026-07-30 — antes só o aprovador disparava o avanço da agência, o que acoplava a validação das evidências dos sócios a esperar o aprovador entrar, às vezes dias depois; mudou de novo em 2026-07-31 — ver terceiro item):
 
 - Se o `email` bate com o signatário fixo de papel `APROVAR` (Jean, estágio 1) **e** o contrato ainda não estiver `assinado`: `contrato.status` → `assinado_agencia` (só visibilidade — ver seção "Corrida" abaixo — não decide nada sobre `agencia.status`).
 - Independente de quem assinou: o use-case busca todos os sócios do contrato (`ContratoSignatario`, estágio 0, snapshot congelado no momento da geração) e confere se cada um já tem assinatura registrada em `ContratoAssinatura` (por e-mail normalizado). Só quando **todos** os sócios já assinaram, `agencia.status` avança de `aguardando_assinatura` pra `aguardando_validacao` — não importa se o aprovador ou as testemunhas (estágio 2) já assinaram ou não.
+- Se o `email` é do aprovador **e** a agência já está em `aguardando_validacao`: a assinatura dele em si é a aprovação formal do time de cadastro — `agencia.status` avança pra `aguardando_cadastramento`, sem precisar do analista clicar em "Aprovar validação" no dossiê (2026-07-31 — o que acontecer primeiro entre os dois vale; o botão manual continua existindo como via alternativa, mesmo padrão do botão "Registrar assinatura" pro caso de a integração falhar).
 
 ```
 uuid=doc-uuid-123, type_post=4, email=socio-ultimo@agencia.com  (último sócio a assinar)
@@ -298,7 +299,13 @@ uuid=doc-uuid-123, type_post=4, email=cadastro@sakuratur.com.br  (aprovador assi
    (contrato.status já é assinado_agencia, mas agencia.status continua aguardando_assinatura)
 ```
 
-Quando o `type_post=1` (documento inteiro finalizado) chega depois disso, o use-case aceita tanto `aguardando_assinatura` quanto `aguardando_validacao` como estado válido da agência (o segundo é o caso comum, já avançado por algum "4" anterior) — fecha `contrato.status = assinado` e garante `agencia.status = aguardando_validacao` de forma idempotente.
+```
+uuid=doc-uuid-123, type_post=4, email=cadastro@sakuratur.com.br  (aprovador assina com a agência já em aguardando_validacao)
+→ { "processado": true }
+   (agencia.status agora é aguardando_cadastramento)
+```
+
+Quando o `type_post=1` (documento inteiro finalizado) chega depois disso, o use-case aceita `aguardando_assinatura`, `aguardando_validacao` ou `aguardando_cadastramento` como estado válido da agência — fecha `contrato.status = assinado` sempre, e "alcança" o próximo estágio (`aguardando_validacao` ou `aguardando_cadastramento`, conforme onde a agência estiver) só se ela ainda não tiver avançado sozinha via os "4" individuais — nunca regride.
 
 **⚠️ Ainda não exercido contra a conta real** — só coberto por teste unitário. Sem `D4SIGN_WEBHOOK_URL` pública em dev, não há como confirmar o formato exato do `type_post=4` num evento real (a doc oficial não mostra um payload de exemplo completo, só a lista de campos).
 
