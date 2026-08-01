@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
+import { BotaoSubmitComLoading } from "./botao-submit-loading";
 import { DadosEmpresaSecao } from "./dados-empresa-secao";
 import { TravelLinkSwitch } from "./travel-link-switch";
 import { AlertaTravelLinkModal } from "./alerta-travel-link-modal";
@@ -240,15 +241,15 @@ export function ValidacaoSicaTravelLink({
       {!somenteLeitura ? (
         <div className="flex flex-wrap gap-2">
           <form action={confirmarCadastramentoAction.bind(null, agenciaId)}>
-            <button
-              type="submit"
+            <BotaoSubmitComLoading
+              labelCarregando="Confirmando..."
               disabled={!sicaPronta}
               onClick={handleClickValidar}
               title={!sicaPronta ? "Salve o código SICA antes de confirmar" : undefined}
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirmar Cadastramento
-            </button>
+            </BotaoSubmitComLoading>
           </form>
         </div>
       ) : null}

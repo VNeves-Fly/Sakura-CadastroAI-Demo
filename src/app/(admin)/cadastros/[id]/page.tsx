@@ -49,6 +49,7 @@ import {
   ConsultaSofiaCard,
 } from "@/modules/admin/components/consulta-amat-sofia";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
+import { BotaoSubmitComLoading } from "./botao-submit-loading";
 import { EditarSocioForm } from "./editar-socio-form";
 import { NovoSocioForm } from "./novo-socio-form";
 import { RemoverSocioForm } from "./remover-socio-form";
@@ -433,18 +434,18 @@ export default async function DossieAgenciaPage({
             tecnicamente — use o botão ao lado pra rodar de novo.
           </span>
           <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
-            <button
-              type="submit"
+            <BotaoSubmitComLoading
+              labelCarregando="Reprocessando..."
               disabled={!atendimentoAssumidoPorMim}
               title={
                 atendimentoAssumidoPorMim
                   ? undefined
                   : "Assuma o atendimento deste cadastro pra poder reprocessar"
               }
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reprocessar análise
-            </button>
+            </BotaoSubmitComLoading>
           </form>
         </div>
       ) : null}
@@ -882,12 +883,12 @@ export default async function DossieAgenciaPage({
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <form action={marcarContratoAssinadoAction.bind(null, agencia.id)}>
-                        <button
-                          type="submit"
-                          className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                        <BotaoSubmitComLoading
+                          labelCarregando="Registrando..."
+                          className="bg-primary text-primary-foreground hover:bg-sakura-600 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70"
                         >
                           Registrar assinatura
-                        </button>
+                        </BotaoSubmitComLoading>
                       </form>
                       <ForcarAvancoModal
                         agenciaId={agencia.id}
@@ -935,20 +936,20 @@ export default async function DossieAgenciaPage({
                     />
                   ) : null}
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    <BotaoSubmitComLoading
+                      labelCarregando="Recusando..."
+                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       Recusar
-                    </button>
+                    </BotaoSubmitComLoading>
                   </form>
                   <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    <BotaoSubmitComLoading
+                      labelCarregando="Reprocessando..."
+                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       Reprocessar análise de IA
-                    </button>
+                    </BotaoSubmitComLoading>
                   </form>
                 </div>
               ) : null}
@@ -994,12 +995,12 @@ export default async function DossieAgenciaPage({
                     cancelarContratoAction={cancelarContratoAction}
                   />
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    <BotaoSubmitComLoading
+                      labelCarregando="Recusando..."
+                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       Recusar
-                    </button>
+                    </BotaoSubmitComLoading>
                   </form>
                 </div>
               ) : null}
@@ -1108,26 +1109,26 @@ export default async function DossieAgenciaPage({
                 {podeAgir ? (
                   <div className="flex flex-wrap gap-2">
                     <form action={ativarClienteAction.bind(null, agencia.id)}>
-                      <button
-                        type="submit"
+                      <BotaoSubmitComLoading
+                        labelCarregando="Ativando..."
                         disabled={!usuarioMasterEstaCompleto(usuarioMasterView)}
                         title={
                           usuarioMasterEstaCompleto(usuarioMasterView)
                             ? undefined
                             : "Salve o Usuário Master completo antes de ativar o cliente"
                         }
-                        className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                        className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Ativar cliente
-                      </button>
+                      </BotaoSubmitComLoading>
                     </form>
                     <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                      <button
-                        type="submit"
-                        className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                      <BotaoSubmitComLoading
+                        labelCarregando="Recusando..."
+                        className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         Recusar
-                      </button>
+                      </BotaoSubmitComLoading>
                     </form>
                   </div>
                 ) : null}
