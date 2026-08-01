@@ -42,6 +42,7 @@ export interface RawAnaliseContratoSocialResponse {
   alertas: string[];
   confianca: number;
   razaoSocialExtraida: string | null;
+  nomeFantasiaExtraida: string | null;
   capitalSocial: number | null;
   enderecoEmpresa: RawEnderecoContratoSocial | null;
   objetoSocial: string | null;

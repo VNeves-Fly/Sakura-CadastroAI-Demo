@@ -14,6 +14,7 @@ function agenciaFake(): Agencia {
   return Agencia.create({
     id: "agencia-1",
     razaoSocial: "Empresa Teste Ltda",
+    nomeFantasia: null,
     cnpj: "12345678000195",
     etapaAtual: 1,
     status: "em_complementar",

@@ -549,6 +549,7 @@ export const cadastroAdminController = {
     const useCase = new EditarDadosEmpresaUseCase(
       agenciaRepository,
       cadastroComplementarRepository,
+      enderecoRepository,
       historicoEdicaoCadastroRepository,
     );
     return useCase.execute(input);

@@ -10,6 +10,7 @@ import {
   paraAnaliseCreditoView,
   paraVerificacaoCadastralView,
   paraDocumentosOutros,
+  paraEmpresaExtraidoView,
 } from "@/modules/admin/adapters/dossie.adapter";
 
 // Orquestra tudo que a página do dossiê precisa numa chamada só: busca
@@ -105,6 +106,7 @@ export async function obterDossieView(id: string) {
     assinaturasContrato.map((assinatura) => [assinatura.email, assinatura.assinadoEm]),
   );
   const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
+  const empresaExtraido = paraEmpresaExtraidoView(analiseIaContratoSocial);
   const analiseIaPorSocioId = new Map(
     representantesLegais.map((socio, index) => [
       socio.id,
@@ -196,6 +198,7 @@ export async function obterDossieView(id: string) {
     parecerIa,
     analiseCredito,
     verificacaoCadastral,
+    empresaExtraido,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,

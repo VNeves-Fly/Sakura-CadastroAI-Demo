@@ -31,6 +31,9 @@ import {
   CampoDocumento,
   ParecerIa,
   VerificacaoCadastral,
+  ComparacaoEmpresaCampo,
+  ComparacaoEnderecoEmpresa,
+  CampoEmailContato,
   HistoricoAtendimentoAgencia,
 } from "@/modules/admin/components/dossie-campos";
 import {
@@ -263,6 +266,7 @@ export default async function DossieAgenciaPage({
     parecerIa,
     analiseCredito,
     verificacaoCadastral,
+    empresaExtraido,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,
@@ -523,29 +527,81 @@ export default async function DossieAgenciaPage({
                     disabled={!podeAgir}
                   />
                 </div>
-                <CamposGrid>
-                  <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
-                  <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
-                  <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
-                  <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
-                  <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
-                  <Campo label="Contrato Social" corFundo={corFundoDocumento(contratoSocial)}>
-                    <CampoDocumento
-                      documento={contratoSocial}
-                      analise={analiseIaContratoSocial}
-                      agenciaId={agencia.id}
-                      tipo="CONTRATO_SOCIAL"
-                      representanteLegalId={null}
-                      aprovarDocumentoAction={aprovarDocumentoAction}
-                      reprovarDocumentoAction={reprovarDocumentoAction}
-                      inserirDocumentoManualAction={inserirDocumentoManualAction}
-                      somenteLeitura={!podeAgir}
-                      reenviado={
-                        contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
-                      }
-                    />
-                  </Campo>
-                </CamposGrid>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Identificação</SubsecaoLabel>
+                    <CamposGrid>
+                      <ComparacaoEmpresaCampo
+                        label="Razão Social"
+                        cadastro={agencia.razaoSocial}
+                        extraido={empresaExtraido.razaoSocial}
+                        oficial={verificacaoCadastral?.razaoSocial?.oficial ?? null}
+                        confere={verificacaoCadastral?.razaoSocial?.confere}
+                      />
+                      <ComparacaoEmpresaCampo
+                        label="Nome Fantasia"
+                        cadastro={agencia.nomeFantasia}
+                        extraido={empresaExtraido.nomeFantasia}
+                        oficial={verificacaoCadastral?.nomeFantasia?.oficial ?? null}
+                      />
+                    </CamposGrid>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Endereço</SubsecaoLabel>
+                    <CamposGrid>
+                      <ComparacaoEnderecoEmpresa
+                        cadastro={complementar.enderecoAgencia}
+                        extraido={empresaExtraido.endereco}
+                        oficial={dadosReceita?.endereco ?? null}
+                      />
+                    </CamposGrid>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Contato</SubsecaoLabel>
+                    <CamposGrid>
+                      <CampoEmailContato
+                        email={agencia.emailContato}
+                        emailInfo={verificacaoCadastral?.email ?? null}
+                      />
+                      <Campo label="Telefone Comercial">
+                        {complementar.telefoneComercial || "—"}
+                      </Campo>
+                      <Campo label="E-mail Operacional">
+                        {complementar.emailOperacional || "—"}
+                      </Campo>
+                      <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
+                      <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
+                    </CamposGrid>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Documento</SubsecaoLabel>
+                    <CamposGrid>
+                      <Campo
+                        label="Contrato Social"
+                        corFundo={corFundoDocumento(contratoSocial)}
+                        className="sm:col-span-2"
+                      >
+                        <CampoDocumento
+                          documento={contratoSocial}
+                          analise={analiseIaContratoSocial}
+                          agenciaId={agencia.id}
+                          tipo="CONTRATO_SOCIAL"
+                          representanteLegalId={null}
+                          aprovarDocumentoAction={aprovarDocumentoAction}
+                          reprovarDocumentoAction={reprovarDocumentoAction}
+                          inserirDocumentoManualAction={inserirDocumentoManualAction}
+                          somenteLeitura={!podeAgir}
+                          reenviado={
+                            contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
+                          }
+                        />
+                      </Campo>
+                    </CamposGrid>
+                  </div>
+                </div>
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
@@ -716,12 +772,8 @@ export default async function DossieAgenciaPage({
                 </div>
               </SecaoColapsavel>
 
-              <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
+              <SecaoColapsavel titulo="Banco" icon={<Landmark className="size-4" />}>
                 <CamposGrid>
-                  <CampoEndereco
-                    label="Endereço da Agência"
-                    endereco={complementar.enderecoAgencia}
-                  />
                   <Campo label="Banco">
                     {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
                     {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})

@@ -457,6 +457,63 @@ export function paraVerificacaoCadastralView(
   return analiseIa?.stage1 ?? null;
 }
 
+export interface EmpresaExtraidoEndereco {
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+}
+
+export interface EmpresaExtraidoView {
+  razaoSocial: string | null;
+  nomeFantasia: string | null;
+  endereco: EmpresaExtraidoEndereco | null;
+}
+
+function extrairTextoCampoExtraido(valor: unknown): string | null {
+  return typeof valor === "string" && valor.length > 0 ? valor : null;
+}
+
+function extrairEnderecoCampoExtraido(valor: unknown): EmpresaExtraidoEndereco | null {
+  if (typeof valor !== "object" || valor === null) return null;
+  const registro = valor as Record<string, unknown>;
+
+  const endereco: EmpresaExtraidoEndereco = {
+    cep: extrairTextoCampoExtraido(registro.cep),
+    logradouro: extrairTextoCampoExtraido(registro.logradouro),
+    numero: extrairTextoCampoExtraido(registro.numero),
+    complemento: extrairTextoCampoExtraido(registro.complemento),
+    bairro: extrairTextoCampoExtraido(registro.bairro),
+    cidade: extrairTextoCampoExtraido(registro.municipio),
+    uf: extrairTextoCampoExtraido(registro.uf)?.toUpperCase() ?? null,
+  };
+
+  return Object.values(endereco).some((campo) => campo !== null) ? endereco : null;
+}
+
+// Dados que a IA extraiu do Contrato Social (OCR) — coluna "Extraído" do
+// bloco Empresa (ver ComparacaoEmpresaCampo/ComparacaoEnderecoEmpresa em
+// dossie-campos.tsx). Vem do mesmo `camposExtraidos` já persistido pelo
+// AnalisarCadastroUseCase (nenhuma chamada nova à IA) — os nomes de campo
+// ali são controlados pelo agente externo e não documentados formalmente
+// (mesmo aviso de AnaliseIaDetalhe em dossie-campos.tsx), então a extração
+// é sempre defensiva: chave ausente ou em formato inesperado vira null,
+// nunca lança erro. `nomeFantasia` pode nunca vir preenchido (o contrato
+// social nem sempre imprime esse dado) — isso é esperado, não um bug.
+export function paraEmpresaExtraidoView(
+  analiseContratoSocial: AnaliseIaResumo | null,
+): EmpresaExtraidoView {
+  const campos = analiseContratoSocial?.camposExtraidos ?? {};
+  return {
+    razaoSocial: extrairTextoCampoExtraido(campos.razao_social),
+    nomeFantasia: extrairTextoCampoExtraido(campos.nome_fantasia),
+    endereco: extrairEnderecoCampoExtraido(campos.endereco),
+  };
+}
+
 // AMAT/SOFIA reais pro dossiê (ver ConsultaAmatCard/ConsultaSofiaCard) —
 // null/vazio tanto em cadastros anteriores a esta funcionalidade quanto
 // em cadastros que já passaram pela IA mas cujo agente não populou

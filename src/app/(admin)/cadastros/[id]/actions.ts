@@ -342,6 +342,7 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
     justificativa: String(formData.get("justificativa") ?? ""),
     dadosAgencia: {
       razaoSocial: String(formData.get("razaoSocial") ?? "").trim(),
+      nomeFantasia: parseStringOuNull(formData.get("nomeFantasia")),
       emailContato: String(formData.get("emailContato") ?? "").trim(),
       telefoneContato: String(formData.get("telefoneContato") ?? "").trim(),
     },
@@ -350,6 +351,15 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
       emailOperacional: parseStringOuNull(formData.get("emailOperacional")),
       emailComercial: parseStringOuNull(formData.get("emailComercial")),
       emailFinanceiro: parseStringOuNull(formData.get("emailFinanceiro")),
+    },
+    enderecoAgencia: {
+      cep: String(formData.get("cep") ?? "").trim(),
+      logradouro: String(formData.get("logradouro") ?? "").trim(),
+      numero: String(formData.get("numero") ?? "").trim(),
+      complemento: String(formData.get("complemento") ?? "").trim(),
+      bairro: String(formData.get("bairro") ?? "").trim(),
+      cidade: String(formData.get("cidade") ?? "").trim(),
+      uf: String(formData.get("uf") ?? "").trim(),
     },
   });
   revalidatePath(`/cadastros/${agenciaId}`);

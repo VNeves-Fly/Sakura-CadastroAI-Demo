@@ -166,6 +166,11 @@ enum ResultadoDecisao {
 model Agencia {
   id                 String        @id @default(cuid())
   razaoSocial        String
+  // Opcional (nem toda empresa tem nome fantasia distinto da razão
+  // social) — coletado no wizard (Passo 2) e editável pelo analista, é a
+  // versão "Cadastro" comparada contra stage1.nomeFantasia (Oficial) no
+  // dossiê.
+  nomeFantasia       String?
   cnpj               String        @unique
   etapaAtual         Int           @default(1)
   status             StatusAgencia @default(em_analise)

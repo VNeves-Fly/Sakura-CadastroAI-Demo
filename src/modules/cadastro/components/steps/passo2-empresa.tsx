@@ -23,6 +23,8 @@ const INPUT_CLASSNAME =
 // Componente apenas de renderização: recebe estado e callbacks do
 // ViewModel do wizard via props.
 export function Passo2Empresa({
+  razaoSocial,
+  nomeFantasia,
   telefoneComercial,
   telefoneComercialPais,
   semTelefoneComercial,
@@ -36,6 +38,8 @@ export function Passo2Empresa({
   empresaCamposDesbloqueados,
   camposFaltantesEmpresa,
   secoesTentativaFalhou,
+  setRazaoSocial,
+  setNomeFantasia,
   setTelefoneComercial,
   setTelefoneComercialPais,
   setEmailOperacional,
@@ -57,6 +61,40 @@ export function Passo2Empresa({
           ler dele pra ajudar a preencher.
         </p>
       ) : null}
+
+      <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4">
+        <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+          Dados da empresa
+        </span>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground text-sm font-bold">Razão Social</label>
+          <input
+            type="text"
+            autoComplete="off"
+            data-campo="razaoSocial"
+            value={razaoSocial}
+            disabled={bloqueado}
+            onChange={(event) => setRazaoSocial(event.target.value)}
+            className={cn(INPUT_CLASSNAME, comErro("razaoSocial") && "campo-erro-pulsante")}
+            placeholder="Razão social da empresa"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground text-sm font-bold">Nome Fantasia</label>
+          <input
+            type="text"
+            autoComplete="off"
+            data-campo="nomeFantasia"
+            value={nomeFantasia}
+            disabled={bloqueado}
+            onChange={(event) => setNomeFantasia(event.target.value)}
+            className={INPUT_CLASSNAME}
+            placeholder="Nome fantasia (se houver)"
+          />
+        </div>
+      </div>
 
       <div className="flex flex-col gap-1">
         <label className="text-foreground text-sm font-bold">

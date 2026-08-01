@@ -83,6 +83,7 @@ function inputFake(overrides: Partial<FinalizarCadastroInput> = {}): FinalizarCa
   return {
     cnpj: "12345678000195",
     razaoSocial: "Empresa Teste Ltda",
+    nomeFantasia: "",
     contratoSocial: ARQUIVO,
     origem: null,
     executivoId: null,
@@ -109,6 +110,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
         Agencia.create({
           id: "agencia-1",
           razaoSocial: data.razaoSocial,
+          nomeFantasia: data.nomeFantasia,
           cnpj: data.cnpj,
           etapaAtual: 1,
           status: data.status,
@@ -166,6 +168,7 @@ describe("FinalizarCadastroUseCase", () => {
         Agencia.create({
           id: "existente",
           razaoSocial: "Já Existe Ltda",
+          nomeFantasia: null,
           cnpj: "12345678000195",
           etapaAtual: 1,
           status: STATUS_EM_ANALISE,

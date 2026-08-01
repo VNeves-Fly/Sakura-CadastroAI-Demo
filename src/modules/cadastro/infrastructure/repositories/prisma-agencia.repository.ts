@@ -51,6 +51,7 @@ import {
 interface AgenciaRecord {
   id: string;
   razaoSocial: string;
+  nomeFantasia: string | null;
   cnpj: string;
   etapaAtual: number;
   status: string;
@@ -398,6 +399,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       const agencia = await tx.agencia.create({
         data: {
           razaoSocial: data.razaoSocial,
+          nomeFantasia: data.nomeFantasia,
           cnpj: data.cnpj,
           status: data.status as PrismaStatusAgencia,
           contratoSocialPath: data.contratoSocialPath,
@@ -620,7 +622,12 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
 
   async atualizarDadosCadastrais(
     id: string,
-    data: { razaoSocial?: string; emailContato?: string; telefoneContato?: string },
+    data: {
+      razaoSocial?: string;
+      nomeFantasia?: string | null;
+      emailContato?: string;
+      telefoneContato?: string;
+    },
   ): Promise<Agencia> {
     const record = await this.prisma.agencia.update({
       where: { id },
@@ -905,6 +912,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return Agencia.create({
       id: record.id,
       razaoSocial: record.razaoSocial,
+      nomeFantasia: record.nomeFantasia,
       cnpj: record.cnpj,
       etapaAtual: record.etapaAtual,
       status: record.status,

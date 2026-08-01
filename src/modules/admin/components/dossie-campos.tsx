@@ -19,8 +19,8 @@ import type {
 } from "@/modules/admin/types/dossie.types";
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type {
-  AnaliseIaCampoComparado,
   AnaliseIaCnaePrincipal,
+  AnaliseIaEmailInfo,
   AnaliseIaStage1,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
@@ -258,43 +258,6 @@ export function CnaesDetalhe({ cnaes }: { cnaes: DadosReceitaCnae[] }) {
   );
 }
 
-// Comparação fornecido x oficial de um campo de stage1 (razão social, nome
-// fantasia) — mesma linguagem visual de ComparacaoOficialDetalhe (✓/✗/—
-// conforme `confere`), mas como linha de Campo normal em vez de escondida
-// atrás de <details>: aqui são só 2-3 campos, não uma lista longa.
-function CampoComparado({
-  label,
-  campo,
-}: {
-  label: string;
-  campo: AnaliseIaCampoComparado | null;
-}) {
-  if (!campo) return <Campo label={label}>—</Campo>;
-  return (
-    <Campo label={label}>
-      <span className="flex items-start gap-1.5">
-        <span
-          className={
-            campo.confere === true
-              ? "text-success"
-              : campo.confere === false
-                ? "text-destructive"
-                : "text-muted-foreground"
-          }
-        >
-          {campo.confere === true ? "✓" : campo.confere === false ? "✗" : "—"}
-        </span>
-        <span>
-          <span className="text-foreground">{campo.fornecido ?? "—"}</span>
-          {campo.oficial && campo.oficial !== campo.fornecido ? (
-            <span className="text-muted-foreground"> (oficial: {campo.oficial})</span>
-          ) : null}
-        </span>
-      </span>
-    </Campo>
-  );
-}
-
 // CNAEs do stage1 (com compatibilidade de turismo) — mesmo layout de
 // CnaesDetalhe (destaque do principal, secundários atrás de <details>), mas
 // com um badge extra por item indicando se a atividade é compatível com o
@@ -343,12 +306,15 @@ function CnaesStage1Detalhe({
 }
 
 // Verificação cadastral (stage1) — comparação fornecido x oficial que o
-// agente já calcula na avaliação (razão social, nome fantasia, e-mail,
-// sócios) mais CNAEs com compatibilidade de turismo. Decisão do usuário
-// (2026-07-27): mostrar esse dado no dossiê em vez de descartá-lo depois de
-// calculado (ver paraVerificacaoCadastralView em dossie.adapter.ts). null
-// tanto em cadastros anteriores a essa funcionalidade quanto quando o
-// agente não trouxe stage1 (ex.: mock local sem AGENCY_ANALYSIS_API_KEY).
+// agente já calcula na avaliação (e-mail, sócios) mais CNAEs com
+// compatibilidade de turismo. Razão Social/Nome Fantasia (também stage1)
+// saíram daqui e foram pro bloco Empresa (ver ComparacaoEmpresaCampo em
+// vez de duplicar a mesma comparação em duas seções, decisão do usuário
+// 2026-08-01). Decisão do usuário (2026-07-27): mostrar esse dado no
+// dossiê em vez de descartá-lo depois de calculado (ver
+// paraVerificacaoCadastralView em dossie.adapter.ts). null tanto em
+// cadastros anteriores a essa funcionalidade quanto quando o agente não
+// trouxe stage1 (ex.: mock local sem AGENCY_ANALYSIS_API_KEY).
 export function VerificacaoCadastral({ stage1 }: { stage1: AnaliseIaStage1 | null }) {
   if (!stage1) {
     return (
@@ -362,8 +328,6 @@ export function VerificacaoCadastral({ stage1 }: { stage1: AnaliseIaStage1 | nul
   return (
     <div className="flex flex-col gap-4">
       <CamposGrid>
-        <CampoComparado label="Razão Social" campo={stage1.razaoSocial} />
-        <CampoComparado label="Nome Fantasia" campo={stage1.nomeFantasia} />
         <Campo label="E-mail">
           {stage1.email ? (
             <span className="flex flex-col gap-1">
@@ -416,6 +380,158 @@ export function VerificacaoCadastral({ stage1 }: { stage1: AnaliseIaStage1 | nul
         </div>
       ) : null}
     </div>
+  );
+}
+
+// Bloco "Empresa" — Cadastro (o que vale pro contrato D4Sign, único valor
+// editável por aqui, ver EditarEmpresaForm) ao lado do que a IA extraiu do
+// Contrato Social (OCR, "Extraído") e do Oficial (Receita/Cadastur), com o
+// parecer da IA (✓ confere/✗ diverge, mesma linguagem visual de
+// ComparacaoOficialDetalhe) quando existir — hoje só pra Razão Social.
+// Nome Fantasia não recebe `confere` (a IA não avalia isso estruturalmente
+// pra esse campo aqui, decisão do usuário 2026-08-01: não fabricar um
+// parecer nosso).
+export function ComparacaoEmpresaCampo({
+  label,
+  cadastro,
+  extraido,
+  oficial,
+  confere,
+}: {
+  label: string;
+  cadastro: string | null;
+  extraido: string | null;
+  oficial: string | null;
+  confere?: boolean | null;
+}) {
+  return (
+    <Campo label={label}>
+      <div className="flex flex-col gap-1">
+        <span className="flex items-center gap-1.5">
+          {cadastro || "—"}
+          {confere !== undefined ? (
+            <span
+              className={
+                confere === true
+                  ? "text-success"
+                  : confere === false
+                    ? "text-destructive"
+                    : "text-muted-foreground"
+              }
+            >
+              {confere === true ? "✓" : confere === false ? "✗" : "—"}
+            </span>
+          ) : null}
+        </span>
+        {extraido ? (
+          <span className="text-muted-foreground text-xs">
+            Extraído (contrato social): <span className="font-medium">{extraido}</span>
+          </span>
+        ) : null}
+        {oficial ? (
+          <span className="text-muted-foreground text-xs">
+            Oficial (Receita): <span className="font-medium">{oficial}</span>
+          </span>
+        ) : null}
+      </div>
+    </Campo>
+  );
+}
+
+interface FonteEnderecoComparado {
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+}
+
+const CAMPOS_ENDERECO_COMPARADO: Array<{ campo: keyof FonteEnderecoComparado; label: string }> = [
+  { campo: "cep", label: "CEP" },
+  { campo: "logradouro", label: "Logradouro" },
+  { campo: "numero", label: "Número" },
+  { campo: "complemento", label: "Complemento" },
+  { campo: "bairro", label: "Bairro" },
+  { campo: "cidade", label: "Cidade" },
+  { campo: "uf", label: "UF" },
+];
+
+function valorEnderecoComparado(
+  endereco: FonteEnderecoComparado | null,
+  campo: keyof FonteEnderecoComparado,
+): string {
+  const bruto = endereco?.[campo];
+  if (!bruto) return "—";
+  return campo === "cep" ? maskCep(bruto) : bruto;
+}
+
+// Endereço da empresa nas 3 fontes (Cadastro | Extraído do contrato social
+// | Oficial da Receita) — sem Parecer (a IA não avalia endereço
+// estruturalmente, nem no stage1 nem na comparação por documento, decisão
+// do usuário 2026-08-01: não fabricar uma comparação nossa). Mesmo padrão
+// "linha única + <details> com os campos separados" de CampoEndereco, só
+// que comparando as 3 fontes campo a campo em vez de mostrar só uma.
+export function ComparacaoEnderecoEmpresa({
+  cadastro,
+  extraido,
+  oficial,
+}: {
+  cadastro: CampoEnderecoValor;
+  extraido: FonteEnderecoComparado | null;
+  oficial: FonteEnderecoComparado | null;
+}) {
+  return (
+    <Campo label="Endereço" className="sm:col-span-2">
+      <div className="flex flex-col gap-1.5">
+        <span>{formatarEndereco(cadastro)}</span>
+        <details className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs">
+          <summary className="text-primary cursor-pointer font-semibold">
+            Ver Cadastro × Extraído × Oficial
+          </summary>
+          <ul className="mt-2 flex flex-col gap-1">
+            {CAMPOS_ENDERECO_COMPARADO.map(({ campo, label }) => (
+              <li key={campo}>
+                <span className="text-foreground font-semibold">{label}:</span>{" "}
+                <span className="text-muted-foreground">
+                  Cadastro &quot;{valorEnderecoComparado(cadastro, campo)}&quot;, Extraído &quot;
+                  {valorEnderecoComparado(extraido, campo)}&quot;, Oficial &quot;
+                  {valorEnderecoComparado(oficial, campo)}&quot;
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </div>
+    </Campo>
+  );
+}
+
+// E-mail de Contato com MX/Corporativo quando a IA tiver avaliado — é o
+// único e-mail da empresa que hoje é mandado pra análise
+// (AnalisarCadastroUseCase manda só `agencia.emailContato`); Operacional/
+// Comercial/Financeiro nunca passaram por essa checagem, por isso não
+// recebem esse componente.
+export function CampoEmailContato({
+  email,
+  emailInfo,
+}: {
+  email: string;
+  emailInfo: AnaliseIaEmailInfo | null;
+}) {
+  return (
+    <Campo label="E-mail de Contato">
+      <div className="flex flex-col gap-1">
+        <span>{email || "—"}</span>
+        {emailInfo ? (
+          <span className="flex flex-wrap gap-1.5">
+            <ChecagemBadge label="MX" valor={emailInfo.hasMx} />
+            <ChecagemBadge label="Corporativo" valor={emailInfo.corporativo} />
+          </span>
+        ) : null}
+      </div>
+    </Campo>
   );
 }
 

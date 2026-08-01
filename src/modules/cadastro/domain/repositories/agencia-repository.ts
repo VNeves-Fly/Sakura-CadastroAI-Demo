@@ -150,6 +150,7 @@ export interface EnderecoBancoData {
 
 export interface CreateAgenciaData {
   razaoSocial: string;
+  nomeFantasia: string | null;
   cnpj: string;
   status: string;
   contratoSocialPath: string;
@@ -410,7 +411,12 @@ export interface AgenciaRepository {
   // método.
   atualizarDadosCadastrais(
     id: string,
-    data: { razaoSocial?: string; emailContato?: string; telefoneContato?: string },
+    data: {
+      razaoSocial?: string;
+      nomeFantasia?: string | null;
+      emailContato?: string;
+      telefoneContato?: string;
+    },
   ): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
   salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;

@@ -55,6 +55,7 @@ export interface AnalisarContratoSocialOutput {
   // eram descartados (só o cnpj e qsa viravam saída) — nunca lançam erro
   // quando a IA não encontra o campo ou devolve algo no formato errado.
   razaoSocialExtraida: string | null;
+  nomeFantasiaExtraida: string | null;
   capitalSocial: number | null;
   enderecoEmpresa: EnderecoContratoSocial | null;
   objetoSocial: string | null;
