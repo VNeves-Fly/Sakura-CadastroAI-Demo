@@ -9,6 +9,10 @@ import type {
   AnaliseIaStage1,
   AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type {
+  SicaConsultaResultado,
+  SicaEmpresaStatus,
+} from "@/modules/cadastro/domain/services/sst-service";
 
 export type { OrigemGeracaoContrato, ResultadoAnaliseIa };
 
@@ -28,6 +32,28 @@ export interface HistoricoConsultaCreditoItem {
   sucesso: boolean;
   erro: string | null;
   consultadoPor: string;
+  createdAt: Date;
+}
+
+// Uma linha por consulta ao SST (ver ConsultaSst no schema) — a mais
+// recente é "o valor atual" (não há sobrescrita, ver comentário do
+// modelo). `consultadoPor: null` = disparada automaticamente pelo
+// pipeline (AnalisarCadastroUseCase); preenchido = analista (reconsulta
+// manual ou confirmação do código SICA, ver SalvarSicaUseCase).
+export interface ConsultaSstItem {
+  id: string;
+  sucesso: boolean;
+  erro: string | null;
+  metodo: "cnpj" | "codigo_empresa";
+  encontrado: boolean;
+  codigoEmpresa: number | null;
+  nomeEmpresa: string | null;
+  telefone: string | null;
+  email: string | null;
+  empresaStatus: SicaEmpresaStatus | null;
+  codigoExecutivo: number | null;
+  nomeExecutivo: string | null;
+  consultadoPor: string | null;
   createdAt: Date;
 }
 
@@ -181,6 +207,11 @@ export interface CreateAgenciaData {
   enderecoBanco: EnderecoBancoData;
 }
 
+// Tamanho fixo de página da listagem de cadastros (não configurável pelo
+// usuário) — usado tanto pelo repositório (skip/take) quanto pela página
+// (calcular o total de páginas), ver PrismaAgenciaRepository.listar.
+export const TAMANHO_PAGINA_CADASTROS = 20;
+
 export interface ListarCadastrosFiltros {
   busca?: string;
   status?: string | string[];
@@ -198,6 +229,10 @@ export interface ListarCadastrosFiltros {
   // no momento (AtendimentoAgencia.liberadoEm null), via
   // Agencia.atendimentosAgencia.
   atendenteAtivoId?: string;
+  // 1-based — já validada/normalizada (inteiro >= 1) por quem chama (a
+  // page, que é a fronteira real de confiança pra esse parâmetro vindo da
+  // querystring).
+  pagina?: number;
 }
 
 export interface ListarCadastrosItem {
@@ -222,6 +257,9 @@ export interface ListarCadastrosItem {
   // fonte real de base por agência.
   executivoBase: null;
   executivoGestor: string | null;
+  // Consulta mais recente ao SST (qualquer método) — badge da coluna SICA
+  // em /cadastros. null = nunca consultado (ou toda tentativa falhou).
+  consultaSicaMaisRecente: ConsultaSstItem | null;
 }
 
 export interface ListarCadastrosResult {
@@ -336,6 +374,9 @@ export interface AgenciaDetalhe {
   analiseIa: AnaliseIaAgenciaDetalhe | null;
   // Auditoria das reconsultas manuais de AMAT/SOFIA, mais recente primeiro.
   historicoConsultaCredito: HistoricoConsultaCreditoItem[];
+  // Consultas ao SST (SICA), mais recente primeiro — a primeira com
+  // sucesso=true é "o valor atual" (ver ConsultarSicaUseCase/SalvarSicaUseCase).
+  consultasSst: ConsultaSstItem[];
   // Origem da agência, já resolvida — mesma lógica de ListarCadastrosItem
   // (ver comentário lá), exposta aqui pro dossiê mostrar as 3 badges.
   executivoNome: string | null;
@@ -404,6 +445,19 @@ export interface AgenciaRepository {
       stage2: AnaliseIaStage2 | null;
       rawData: AnaliseIaRawData | null;
       consultadoPor: string;
+    },
+  ): Promise<void>;
+  // Grava uma linha de auditoria da consulta ao SST (quem/quando/sucesso +
+  // o que foi encontrado) — nunca sobrescreve a linha anterior (ver
+  // ConsultaSst no schema). `resultado: null` só quando `sucesso: false`.
+  registrarConsultaSst(
+    agenciaId: string,
+    data: {
+      sucesso: boolean;
+      erro: string | null;
+      metodo: "cnpj" | "codigo_empresa";
+      resultado: SicaConsultaResultado | null;
+      consultadoPor: string | null;
     },
   ): Promise<void>;
   // Edição em lote pelo analista (ver EditarDadosEmpresaUseCase) — nunca

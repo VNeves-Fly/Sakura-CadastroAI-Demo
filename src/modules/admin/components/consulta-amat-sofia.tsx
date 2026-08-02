@@ -121,7 +121,7 @@ function BotaoVerTudo({ onClick }: { onClick: () => void }) {
 // funciona dentro do form que ele referencia, por isso é um componente
 // separado (mesmo padrão recomendado pela doc do React) em vez de um
 // `useState` de loading controlado manualmente.
-function BotaoReconsultar() {
+export function BotaoReconsultar() {
   const { pending } = useFormStatus();
   return (
     <button
@@ -138,7 +138,7 @@ function BotaoReconsultar() {
 // Auditoria de quem reconsultou e quando (ver HistoricoConsultaCredito) —
 // mesma lista pros dois cards, só os dados mudam. Mais recente primeiro
 // (já vem ordenado do repositório).
-function HistoricoConsultas({ historico }: { historico: HistoricoConsultaCreditoView[] }) {
+export function HistoricoConsultas({ historico }: { historico: HistoricoConsultaCreditoView[] }) {
   if (historico.length === 0) return null;
 
   return (

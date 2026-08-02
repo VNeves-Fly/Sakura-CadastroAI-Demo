@@ -4,6 +4,7 @@ import type {
   AnaliseIaAmat,
   AnaliseIaRawToolCall,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type { SicaEmpresaStatus } from "@/modules/cadastro/domain/services/sst-service";
 
 // Versão antiga (já substituída) de um documento — reprovada ou não,
 // preservada só pra auditoria/histórico. Nunca é "a atual" do slot (ver
@@ -138,4 +139,27 @@ export interface AnaliseCreditoView {
   rawSofia: AnaliseIaRawToolCall[];
   historicoAmat: HistoricoConsultaCreditoView[];
   historicoSofia: HistoricoConsultaCreditoView[];
+}
+
+// "Atual" = a consulta mais recente ao SST com sucesso=true (ver
+// paraConsultaSicaView) — null quando nunca consultado, ou toda tentativa
+// falhou tecnicamente. `metodo` distingue a checagem automática por CNPJ
+// (ao finalizar o cadastro) da confirmação manual por código (ao salvar o
+// SICA), pro dossiê dar contexto de como esse dado apareceu.
+export interface ConsultaSicaAtualView {
+  encontrado: boolean;
+  empresaStatus: SicaEmpresaStatus | null;
+  nomeEmpresa: string | null;
+  codigoEmpresa: number | null;
+  telefone: string | null;
+  email: string | null;
+  codigoExecutivo: number | null;
+  nomeExecutivo: string | null;
+  metodo: "cnpj" | "codigo_empresa";
+  consultadoEm: Date;
+}
+
+export interface ConsultaSicaView {
+  atual: ConsultaSicaAtualView | null;
+  historico: HistoricoConsultaCreditoView[];
 }

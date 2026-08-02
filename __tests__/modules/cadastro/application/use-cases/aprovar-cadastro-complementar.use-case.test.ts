@@ -106,6 +106,7 @@ function detalheFake(overrides: Partial<AgenciaDetalhe> = {}): AgenciaDetalhe {
     contratos: [],
     analiseIa: null,
     historicoConsultaCredito: [],
+    consultasSst: [],
     executivoNome: null,
     associacaoNome: null,
     eventoNome: null,

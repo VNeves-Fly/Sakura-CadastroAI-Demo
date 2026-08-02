@@ -13,6 +13,8 @@ import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters
 import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter";
 import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
+import { MockSstService } from "@/modules/cadastro/infrastructure/adapters/mock-sst.adapter";
+import { FlysakuraSstAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst.adapter";
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
 import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
 import { VerificarCnpjCadastradoUseCase } from "@/modules/cadastro/application/use-cases/verificar-cnpj-cadastrado.use-case";
@@ -56,6 +58,9 @@ const analiseIaService = process.env.AGENCY_ANALYSIS_API_KEY
 const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraDocumentAnalysisAdapter()
   : new MockDocumentAnalysisService();
+// Domínio/credencial separados de agents.flysakura.com — verifica se a
+// empresa já está no SICA (ver AnalisarCadastroUseCase).
+const sstService = process.env.SST_API_KEY ? new FlysakuraSstAdapter() : new MockSstService();
 
 export const cadastroPublicoController = {
   finalizarCadastro(input: FinalizarCadastroInput) {
@@ -74,6 +79,7 @@ export const cadastroPublicoController = {
       documentAnalysisService,
       dadosReceitaRepository,
       documentoRepository,
+      sstService,
     );
     return useCase.execute({ agenciaId });
   },

@@ -15,6 +15,7 @@ import {
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import { FiltroCadastrosField } from "@/modules/admin/components/filtro-cadastros-field";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
 import {
   STATUS_EM_ANALISE,
@@ -25,6 +26,7 @@ import {
   STATUS_EM_COMPLEMENTAR,
   STATUS_ATIVO,
   STATUS_RECUSADO,
+  TAMANHO_PAGINA_CADASTROS,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface CadastrosPageProps {
@@ -35,6 +37,7 @@ interface CadastrosPageProps {
     dir?: string;
     filtro?: string | string[];
     meusAtendimentos?: string;
+    page?: string;
   };
 }
 
@@ -199,7 +202,7 @@ function ThOrdenavel({
   return (
     <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
       <Link
-        href={construirHref(searchParams, { sort: coluna.chave, dir: proximaDir })}
+        href={construirHref(searchParams, { sort: coluna.chave, dir: proximaDir, page: undefined })}
         className="hover:text-foreground flex items-center gap-1"
       >
         {coluna.label}
@@ -228,6 +231,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
 
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
+  const paginaAtual = Math.max(1, Math.trunc(Number(searchParams.page)) || 1);
 
   // Filtro único (ver FiltroCadastrosField) — cada categoria vem
   // prefixada dentro de searchParams.filtro; Status também pode chegar
@@ -256,11 +260,13 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
       base: baseDoFiltro,
       gestor: gestorDoFiltro,
       atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
+      pagina: paginaAtual,
     }),
     ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
     atribuicoesAdminController.listarPromotores(),
     atribuicoesAdminController.listarAssociacoes(),
   ]);
+  const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA_CADASTROS));
 
   const associacoesAtivas = associacoesTodas.filter((associacao) => associacao.ativo);
 
@@ -426,6 +432,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                 key={fila.status}
                 href={construirHref(searchParams, {
                   status: ativa ? undefined : fila.status,
+                  page: undefined,
                 })}
                 className={cardClassName}
               >
@@ -437,7 +444,10 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           return (
             <Link
               key={fila.status}
-              href={construirHref(searchParams, { status: ativa ? undefined : fila.status })}
+              href={construirHref(searchParams, {
+                status: ativa ? undefined : fila.status,
+                page: undefined,
+              })}
               className={cardClassName}
               style={cardStyle}
             >
@@ -467,6 +477,9 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     sortDir={sortDir}
                     searchParams={searchParams}
                   />
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    SICA
+                  </th>
                   <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
                     Atendimento
                   </th>
@@ -503,6 +516,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     executivoBase,
                     executivoGestor,
                     eventoNome,
+                    consultaSicaMaisRecente,
                   }) => {
                     const atendimentoAtivo = atendimentoAtivoPorAgencia.get(agencia.id);
                     const ultimoEncerrado = ultimoEncerradoPorAgencia.get(agencia.id);
@@ -527,6 +541,46 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               </span>
                             ) : null}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {consultaSicaMaisRecente?.encontrado ? (
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <span
+                                    className={`cursor-default rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
+                                      consultaSicaMaisRecente.empresaStatus === "ativo"
+                                        ? "bg-success/15 text-success"
+                                        : "bg-warning/15 text-warning"
+                                    }`}
+                                  >
+                                    {consultaSicaMaisRecente.empresaStatus ?? "—"}
+                                  </span>
+                                }
+                              />
+                              <TooltipContent className="flex flex-col gap-0.5">
+                                <span>
+                                  {consultaSicaMaisRecente.nomeEmpresa ?? "—"}
+                                  {consultaSicaMaisRecente.codigoEmpresa
+                                    ? ` (#${consultaSicaMaisRecente.codigoEmpresa})`
+                                    : ""}
+                                </span>
+                                <span>Tel: {consultaSicaMaisRecente.telefone ?? "—"}</span>
+                                <span>E-mail: {consultaSicaMaisRecente.email ?? "—"}</span>
+                                <span>
+                                  Executivo: {consultaSicaMaisRecente.nomeExecutivo ?? "—"}
+                                  {consultaSicaMaisRecente.codigoExecutivo
+                                    ? ` (#${consultaSicaMaisRecente.codigoExecutivo})`
+                                    : ""}
+                                </span>
+                                <span>
+                                  Consultado em {formatarData(consultaSicaMaisRecente.createdAt)}
+                                </span>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {atendimentoAtivo ? (
@@ -590,7 +644,37 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         )}
       </div>
 
-      <p className="text-muted-foreground text-xs">{total} agência(s) encontrada(s).</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-muted-foreground text-xs">
+          {total} agência(s) encontrada(s) — página {paginaAtual} de {totalPaginas}
+        </p>
+        <div className="flex items-center gap-2">
+          {paginaAtual > 1 ? (
+            <Link
+              href={construirHref(searchParams, { page: String(paginaAtual - 1) })}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+            >
+              ← Anterior
+            </Link>
+          ) : (
+            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
+              ← Anterior
+            </span>
+          )}
+          {paginaAtual < totalPaginas ? (
+            <Link
+              href={construirHref(searchParams, { page: String(paginaAtual + 1) })}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+            >
+              Próxima →
+            </Link>
+          ) : (
+            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
+              Próxima →
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

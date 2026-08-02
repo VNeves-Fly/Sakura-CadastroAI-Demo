@@ -28,6 +28,7 @@ import {
   type RepresentanteLegalDetalhe,
   type AnaliseIaAgenciaDetalhe,
   type HistoricoConsultaCreditoItem,
+  type ConsultaSstItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type {
   DocumentoRevisao,
@@ -39,6 +40,7 @@ import type {
   ParecerIaChecklistGrupo,
   AnaliseCreditoView,
   HistoricoConsultaCreditoView,
+  ConsultaSicaView,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -546,6 +548,46 @@ export function paraAnaliseCreditoView(
     historicoSofia: historicoConsultaCredito
       .filter((item) => item.fonte === "SOFIA")
       .map(paraHistoricoConsultaCreditoView),
+  };
+}
+
+// Mesmo shape de HistoricoConsultaCreditoView (não precisa de um tipo
+// próprio só pra trocar `consultadoPor` de string por string|null) —
+// `null` (checagem automática, ver AnalisarCadastroUseCase) vira um rótulo
+// legível em vez de aparecer em branco no histórico.
+function paraConsultaSicaHistoricoView(item: ConsultaSstItem): HistoricoConsultaCreditoView {
+  return {
+    id: item.id,
+    sucesso: item.sucesso,
+    erro: item.erro,
+    consultadoPor: item.consultadoPor ?? "Sistema (automático)",
+    consultadoEm: item.createdAt,
+  };
+}
+
+// "Atual" = a consulta mais recente ao SST com sucesso=true — uma falha
+// técnica não vira "atual" (mantém o último dado válido visível em vez de
+// escondê-lo atrás de um erro passageiro), mas ainda entra no histórico
+// completo. Pode ter vindo da checagem automática por CNPJ ou da
+// confirmação manual por código (ver ConsultaSicaAtualView.metodo).
+export function paraConsultaSicaView(consultas: ConsultaSstItem[]): ConsultaSicaView {
+  const maisRecenteComSucesso = consultas.find((item) => item.sucesso);
+  return {
+    atual: maisRecenteComSucesso
+      ? {
+          encontrado: maisRecenteComSucesso.encontrado,
+          empresaStatus: maisRecenteComSucesso.empresaStatus,
+          nomeEmpresa: maisRecenteComSucesso.nomeEmpresa,
+          codigoEmpresa: maisRecenteComSucesso.codigoEmpresa,
+          telefone: maisRecenteComSucesso.telefone,
+          email: maisRecenteComSucesso.email,
+          codigoExecutivo: maisRecenteComSucesso.codigoExecutivo,
+          nomeExecutivo: maisRecenteComSucesso.nomeExecutivo,
+          metodo: maisRecenteComSucesso.metodo,
+          consultadoEm: maisRecenteComSucesso.createdAt,
+        }
+      : null,
+    historico: consultas.map(paraConsultaSicaHistoricoView),
   };
 }
 

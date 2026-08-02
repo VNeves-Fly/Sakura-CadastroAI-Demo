@@ -48,6 +48,7 @@ import {
   ConsultaAmatCard,
   ConsultaSofiaCard,
 } from "@/modules/admin/components/consulta-amat-sofia";
+import { ConsultaSicaCard } from "@/modules/admin/components/consulta-sica";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
 import { BotaoSubmitComLoading } from "./botao-submit-loading";
 import { EditarSocioForm } from "./editar-socio-form";
@@ -107,6 +108,7 @@ import {
   recusarCadastroAction,
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
+  consultarSicaAction,
   confirmarCadastramentoAction,
   forcarAvancoStatusAction,
   cancelarContratoAction,
@@ -267,6 +269,7 @@ export default async function DossieAgenciaPage({
     parecerIa,
     analiseCredito,
     verificacaoCadastral,
+    consultaSica,
     empresaExtraido,
     dadosReceita,
     usuarioMaster,
@@ -513,6 +516,10 @@ export default async function DossieAgenciaPage({
                   reconsultar={
                     podeAgir ? reconsultarCreditoAction.bind(null, agencia.id, "SOFIA") : undefined
                   }
+                />
+                <ConsultaSicaCard
+                  consulta={consultaSica}
+                  reconsultar={podeAgir ? consultarSicaAction.bind(null, agencia.id) : undefined}
                 />
               </div>
 
@@ -1070,6 +1077,8 @@ export default async function DossieAgenciaPage({
                 historicoSofia={analiseCredito.historicoSofia}
                 reconsultarAmat={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
                 reconsultarSofia={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
+                consultaSica={consultaSica}
+                reconsultarSica={consultarSicaAction.bind(null, agencia.id)}
               />
             ) : null}
 

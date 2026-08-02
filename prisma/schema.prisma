@@ -224,6 +224,7 @@ model Agencia {
   conversas                 Conversa[]
   historicoEdicoes          HistoricoEdicaoCadastro[]
   historicoConsultasCredito HistoricoConsultaCredito[]
+  consultasSst              ConsultaSst[]
   atendimentosAgencia       AtendimentoAgencia[]
   solicitacoesAtendimento   SolicitacaoAtendimentoAgencia[]
 
@@ -620,6 +621,56 @@ model HistoricoConsultaCredito {
 
   @@index([agenciaId, fonte])
   @@map("historico_consultas_credito")
+}
+
+enum SicaEmpresaStatus {
+  ativo
+  inativo
+}
+
+enum SicaMetodoConsulta {
+  cnpj
+  codigo_empresa
+}
+
+// Consulta ao SST (sst.flysakura.com — Sica/Sigot/TravelLink) — verifica se
+// a empresa já está cadastrada no SICA. Mesma checagem, disparada em
+// momentos diferentes: automática por CNPJ ao finalizar o cadastro (ver
+// AnalisarCadastroUseCase — cadastro novo normalmente não tem SICA ainda;
+// achar algo aqui é sinal de recadastro), ou manual por código quando o
+// analista confirma o SICA (ver SalvarSicaUseCase — cruza o CNPJ retornado
+// contra o da agência pra evitar salvar o código de outra empresa por
+// engano). Uma linha por consulta (nunca sobrescreve) — a mais recente é
+// "o valor atual", histórico completo preservado sem precisar de tabela
+// separada (mesmo espírito de HistoricoConsultaCredito, mas sem a
+// duplicação current+histórico: aqui não existe um "AnaliseIaAgencia" pra
+// esse dado morar dentro).
+model ConsultaSst {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  sucesso Boolean // false = a chamada ao SST falhou tecnicamente
+  erro    String?
+  metodo  SicaMetodoConsulta
+
+  encontrado      Boolean
+  codigoEmpresa   Int?
+  nomeEmpresa     String?
+  telefone        String?
+  email           String?
+  empresaStatus   SicaEmpresaStatus?
+  codigoExecutivo Int?
+  nomeExecutivo   String?
+
+  // null = disparado automaticamente pelo pipeline; preenchido = analista
+  // (reconsulta manual ou confirmação do código SICA).
+  consultadoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([agenciaId])
+  @@map("consultas_sst")
 }
 
 // Classificação de por que a agência chegou no status atual — distingue

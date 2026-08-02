@@ -1,5 +1,6 @@
 import type { PrismaClient, Documento as DocumentoRecord } from "@prisma/client";
 import type { DocumentAnalysisResultado } from "@/modules/cadastro/domain/services/document-analysis-service";
+import type { SicaConsultaResultado } from "@/modules/cadastro/domain/services/sst-service";
 import type {
   AnaliseIaResultado,
   AnaliseIaDetalhamento,
@@ -28,6 +29,7 @@ import {
   STATUS_EM_ANALISE,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
+  TAMANHO_PAGINA_CADASTROS,
   type AgenciaDetalhe,
   type AgenciaRepository,
   type AgenciaResumoPromotor,
@@ -40,6 +42,7 @@ import {
   type CreateAgenciaData,
   type EnderecoData,
   type FonteConsultaCredito,
+  type ConsultaSstItem,
   type HistoricoConsultaCreditoItem,
   type ListarCadastrosFiltros,
   type ListarCadastrosResult,
@@ -187,6 +190,42 @@ function historicoConsultaCreditoToDomain(
     fonte: registro.fonte as FonteConsultaCredito,
     sucesso: registro.sucesso,
     erro: registro.erro,
+    consultadoPor: registro.consultadoPor,
+    createdAt: registro.createdAt,
+  }));
+}
+
+interface ConsultaSstRecord {
+  id: string;
+  sucesso: boolean;
+  erro: string | null;
+  metodo: string;
+  encontrado: boolean;
+  codigoEmpresa: number | null;
+  nomeEmpresa: string | null;
+  telefone: string | null;
+  email: string | null;
+  empresaStatus: string | null;
+  codigoExecutivo: number | null;
+  nomeExecutivo: string | null;
+  consultadoPor: string | null;
+  createdAt: Date;
+}
+
+function consultaSstToDomain(registros: ConsultaSstRecord[]): ConsultaSstItem[] {
+  return registros.map((registro) => ({
+    id: registro.id,
+    sucesso: registro.sucesso,
+    erro: registro.erro,
+    metodo: registro.metodo as "cnpj" | "codigo_empresa",
+    encontrado: registro.encontrado,
+    codigoEmpresa: registro.codigoEmpresa,
+    nomeEmpresa: registro.nomeEmpresa,
+    telefone: registro.telefone,
+    email: registro.email,
+    empresaStatus: registro.empresaStatus as "ativo" | "inativo" | null,
+    codigoExecutivo: registro.codigoExecutivo,
+    nomeExecutivo: registro.nomeExecutivo,
     consultadoPor: registro.consultadoPor,
     createdAt: registro.createdAt,
   }));
@@ -357,6 +396,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         contratos: { orderBy: { createdAt: "desc" } },
         analiseIa: true,
         historicoConsultasCredito: { orderBy: { createdAt: "desc" } },
+        consultasSst: { orderBy: { createdAt: "desc" } },
         executivo: { select: { nome: true } },
         associacao: { select: { nome: true } },
         evento: { select: { nome: true } },
@@ -381,6 +421,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       })),
       analiseIa: analiseIaAgenciaToDomain(record.analiseIa),
       historicoConsultaCredito: historicoConsultaCreditoToDomain(record.historicoConsultasCredito),
+      consultasSst: consultaSstToDomain(record.consultasSst),
       executivoNome: record.executivo?.nome ?? null,
       associacaoNome: record.associacao?.nome ?? null,
       eventoNome: record.evento?.nome ?? null,
@@ -612,6 +653,36 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     ]);
   }
 
+  async registrarConsultaSst(
+    agenciaId: string,
+    data: {
+      sucesso: boolean;
+      erro: string | null;
+      metodo: "cnpj" | "codigo_empresa";
+      resultado: SicaConsultaResultado | null;
+      consultadoPor: string | null;
+    },
+  ): Promise<void> {
+    const registro = data.resultado?.registro ?? null;
+    await this.prisma.consultaSst.create({
+      data: {
+        agenciaId,
+        sucesso: data.sucesso,
+        erro: data.erro,
+        metodo: data.metodo,
+        encontrado: data.resultado?.encontrado ?? false,
+        codigoEmpresa: registro?.codigoEmpresa ?? null,
+        nomeEmpresa: registro?.nome ?? null,
+        telefone: registro?.telefone ?? null,
+        email: registro?.email ?? null,
+        empresaStatus: registro?.empresaStatus ?? null,
+        codigoExecutivo: registro?.codigoExecutivo ?? null,
+        nomeExecutivo: registro?.nomeExecutivo ?? null,
+        consultadoPor: data.consultadoPor,
+      },
+    });
+  }
+
   async atualizarStatus(id: string, status: string): Promise<Agencia> {
     const record = await this.prisma.agencia.update({
       where: { id },
@@ -755,6 +826,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       this.prisma.agencia.findMany({
         where,
         orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
+        skip: ((filtros.pagina ?? 1) - 1) * TAMANHO_PAGINA_CADASTROS,
+        take: TAMANHO_PAGINA_CADASTROS,
         include: {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
@@ -766,6 +839,21 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       }),
       this.prisma.agencia.count({ where }),
     ]);
+
+    // `distinct` depois de `orderBy: desc` devolve exatamente 1 linha (a
+    // mais recente) por agência, numa query só — sem N+1 pra montar a
+    // badge da coluna SICA em /cadastros.
+    const consultasSicaRecentes = await this.prisma.consultaSst.findMany({
+      where: { agenciaId: { in: records.map((record) => record.id) } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["agenciaId"],
+    });
+    const consultaSicaPorAgenciaId = new Map(
+      consultaSstToDomain(consultasSicaRecentes).map((item, index) => [
+        consultasSicaRecentes[index]!.agenciaId,
+        item,
+      ]),
+    );
 
     return {
       items: records.map((record) => ({
@@ -781,6 +869,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         // melhor deixar em branco do que mostrar um dado ambíguo/errado).
         executivoBase: null,
         executivoGestor: record.executivo?.gestor ?? null,
+        consultaSicaMaisRecente: consultaSicaPorAgenciaId.get(record.id) ?? null,
       })),
       total,
     };

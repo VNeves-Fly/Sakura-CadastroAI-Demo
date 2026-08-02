@@ -161,6 +161,15 @@ export async function reconsultarCreditoAction(agenciaId: string, fonte: "AMAT" 
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+export async function consultarSicaAction(agenciaId: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.consultarSica({
+    agenciaId,
+    consultadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function aprovarDocumentoAction(
   agenciaId: string,
   documentoId: string,
@@ -239,15 +248,32 @@ async function analistaLogado(): Promise<string> {
   return session?.user?.email ?? session?.user?.name ?? "analista não identificado";
 }
 
-export async function salvarSicaAction(agenciaId: string, formData: FormData) {
-  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+// SalvarSicaUseCase agora confirma o código no SST antes de salvar e
+// bloqueia (DomainError) se o CNPJ retornado não bater com o da agência —
+// mesmo padrão de resultado estruturado de registrarContratoExternoAction,
+// pra o form conseguir mostrar o motivo do bloqueio em vez de só quebrar.
+export async function salvarSicaAction(
+  agenciaId: string,
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) {
+    return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+  }
   const codigo = String(formData.get("codigo") ?? "");
-  await cadastroAdminController.salvarSica({
-    agenciaId,
-    codigo,
-    salvoPor: await analistaLogado(),
-  });
-  revalidatePath(`/cadastros/${agenciaId}`);
+  try {
+    await cadastroAdminController.salvarSica({
+      agenciaId,
+      codigo,
+      salvoPor: await analistaLogado(),
+    });
+    revalidatePath(`/cadastros/${agenciaId}`);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { ok: false, motivo: error.message };
+    }
+    throw error;
+  }
 }
 
 function parseStringOuNull(valor: FormDataEntryValue | null): string | null {
