@@ -9,6 +9,10 @@ import { ThreadConversa } from "@/modules/atendimento/components/thread-conversa
 import { PainelInformacoes } from "@/modules/atendimento/components/painel-informacoes";
 
 interface AtendimentoViewProps {
+  // Chave de identidade real (comparações "sou eu" — ver ThreadConversa).
+  analistaId: string;
+  // Só exibição (nome mandado no body de enviarMensagem, ignorado pelo
+  // backend pra autorização — ver EnviarMensagemUseCase).
   analistaAtual: string;
   // "?telefone=" (ver AtendimentoButton, no dossiê da agência) — seleciona
   // de cara a conversa daquele contato ao entrar na página, se já existir.
@@ -25,6 +29,7 @@ interface AtendimentoViewProps {
 type MobileView = "lista" | "thread" | "info";
 
 export function AtendimentoView({
+  analistaId,
   analistaAtual,
   telefoneInicial,
   agenciaIdInicial,
@@ -39,11 +44,6 @@ export function AtendimentoView({
     hasError,
     selecionarConversa,
     enviarMensagem,
-    assumirAtendimento,
-    encerrarAtendimento,
-    solicitarTransferencia,
-    responderTransferencia,
-    limparSolicitacaoResolvida,
     criarTextoPronto,
     atualizarTextoPronto,
     removerTextoPronto,
@@ -56,7 +56,7 @@ export function AtendimentoView({
     modalEscolha,
     fecharModalEscolha,
     selecionarNumeroContato,
-  } = useAtendimento(analistaAtual, telefoneInicial, agenciaIdInicial);
+  } = useAtendimento(analistaId, analistaAtual, telefoneInicial, agenciaIdInicial);
 
   const [mobileView, setMobileView] = useState<MobileView>("lista");
 
@@ -141,15 +141,10 @@ export function AtendimentoView({
         >
           <ThreadConversa
             conversa={conversaSelecionada}
-            analistaAtual={analistaAtual}
+            analistaId={analistaId}
             textosProntos={textosProntos}
             templatesAprovados={templatesAprovados}
             isSending={isSending}
-            onAssumirAtendimento={assumirAtendimento}
-            onEncerrarAtendimento={encerrarAtendimento}
-            onSolicitarTransferencia={solicitarTransferencia}
-            onResponderTransferencia={responderTransferencia}
-            onLimparSolicitacaoResolvida={limparSolicitacaoResolvida}
             onEnviarMensagem={enviarMensagem}
             onCriarTextoPronto={criarTextoPronto}
             onAtualizarTextoPronto={atualizarTextoPronto}

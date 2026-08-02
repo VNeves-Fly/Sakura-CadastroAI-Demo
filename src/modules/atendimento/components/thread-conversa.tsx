@@ -24,7 +24,7 @@ import type {
   EnviarMensagemInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import { MensagemBubble } from "@/modules/atendimento/components/mensagem-bubble";
-import { AtendimentoAcoesBanner } from "@/modules/atendimento/components/atendimento-acoes-banner";
+import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import {
   iniciaisNome,
   labelPapelMembro,
@@ -469,15 +469,10 @@ const PAGINA_MENSAGENS = 20;
 
 interface ThreadConversaProps {
   conversa: Conversa | null;
-  analistaAtual: string;
+  analistaId: string;
   textosProntos: TextoPronto[];
   templatesAprovados: TemplateAprovado[];
   isSending: boolean;
-  onAssumirAtendimento: (conversaId: string) => Promise<void>;
-  onEncerrarAtendimento: (conversaId: string) => Promise<void>;
-  onSolicitarTransferencia: (conversaId: string, paraAnalista: string) => Promise<void>;
-  onResponderTransferencia: (conversaId: string, aceita: boolean) => Promise<void>;
-  onLimparSolicitacaoResolvida: (conversaId: string) => Promise<void>;
   onEnviarMensagem: (conversaId: string, input: EnviarMensagemInput) => Promise<void>;
   onCriarTextoPronto: (titulo: string, conteudo: string) => Promise<void>;
   onAtualizarTextoPronto: (id: string, titulo: string, conteudo: string) => Promise<void>;
@@ -491,15 +486,10 @@ interface ThreadConversaProps {
 
 export function ThreadConversa({
   conversa,
-  analistaAtual,
+  analistaId,
   textosProntos,
   templatesAprovados,
   isSending,
-  onAssumirAtendimento,
-  onEncerrarAtendimento,
-  onSolicitarTransferencia,
-  onResponderTransferencia,
-  onLimparSolicitacaoResolvida,
   onEnviarMensagem,
   onCriarTextoPronto,
   onAtualizarTextoPronto,
@@ -535,10 +525,12 @@ export function ThreadConversa({
   }
 
   const janelaFechada = janela24hFechada(conversa);
-  // Responder só é permitido a quem assumiu o atendimento — decisão
-  // explícita do usuário (2026-07-23): evita o analista "espiar" a
-  // conversa sem realmente assumir a responsabilidade de atender.
-  const podeResponder = conversa.atendimentoAtual?.analistaNome === analistaAtual;
+  // Responder só é permitido a quem assumiu o atendimento da AGÊNCIA —
+  // decisão explícita do usuário (2026-07-23): evita o analista "espiar" a
+  // conversa sem realmente assumir a responsabilidade de atender. Conversa
+  // "não identificada" (sem agência) nunca trava — mesma regra de
+  // EnviarMensagemUseCase no backend.
+  const podeResponder = !conversa.agenciaId || conversa.atendimentoAtual?.analistaId === analistaId;
   const totalMensagens = conversa.mensagens.length;
   const mensagensExibidas = conversa.mensagens.slice(
     Math.max(0, totalMensagens - mensagensVisiveis),
@@ -636,17 +628,29 @@ export function ThreadConversa({
         <PainelMidia conversa={conversa} onFechar={() => setMostrarMidia(false)} />
       ) : null}
 
-      <AtendimentoAcoesBanner
-        conversa={conversa}
-        analistaAtual={analistaAtual}
-        onAssumir={() => void onAssumirAtendimento(conversa.id)}
-        onEncerrar={() => void onEncerrarAtendimento(conversa.id)}
-        onSolicitarTransferencia={(paraAnalista) =>
-          void onSolicitarTransferencia(conversa.id, paraAnalista)
-        }
-        onResponderTransferencia={(aceita) => void onResponderTransferencia(conversa.id, aceita)}
-        onLimparSolicitacaoResolvida={() => void onLimparSolicitacaoResolvida(conversa.id)}
-      />
+      {conversa.agenciaId ? (
+        <div className="border-border bg-muted/40 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-4 py-2.5 text-sm">
+          <span className="text-muted-foreground min-w-0">
+            {conversa.atendimentoAtual ? (
+              <>
+                Em atendimento por{" "}
+                <strong className="text-foreground">
+                  {conversa.atendimentoAtual.analistaId === analistaId
+                    ? "você"
+                    : conversa.atendimentoAtual.analistaNome}
+                </strong>
+              </>
+            ) : (
+              "Ninguém está atendendo esta agência"
+            )}
+          </span>
+          <AtendimentoAgenciaAcoes
+            agenciaId={conversa.agenciaId}
+            analistaId={analistaId}
+            atendimentoAtual={conversa.atendimentoAtual}
+          />
+        </div>
+      ) : null}
 
       <div className="bg-muted/10 min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {restantes > 0 ? (

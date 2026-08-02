@@ -22,6 +22,7 @@ import type {
 } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
+import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
 
 // Mesma convenção de "quem" usada em AuditoriaDocumento (dossie-campos.tsx)
 // pra distinguir aprovação humana de automática — quem consultou tem
@@ -143,6 +144,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     private readonly documentAnalysisService: DocumentAnalysisService,
     private readonly dadosReceitaRepository: DadosReceitaRepository,
     private readonly documentoRepository: DocumentoRepository,
+    private readonly sstService: SstService,
   ) {}
 
   // A IA aprovando um documento (contrato social ou RG de um sócio) não
@@ -192,6 +194,31 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
       throw new ConflictError(
         `Cadastro não está em uma etapa que aceita (re)análise de IA (status atual: ${agencia.status}).`,
       );
+    }
+
+    // Checagem automática "essa empresa já está no SICA?" (SST) — um
+    // cadastro novo normalmente não tem SICA ainda; achar algo aqui é
+    // sinal de recadastro (a empresa já existia). Tolerante a falha, mesmo
+    // espírito do documentAnalysisService logo abaixo: nunca bloqueia a
+    // análise principal, só fica sem esse dado se o SST falhar (sempre
+    // reconsultável depois, ver ConsultarSicaUseCase).
+    try {
+      const resultadoSst = await this.sstService.consultarSicaCNPJ(agencia.cnpj);
+      await this.agenciaRepository.registrarConsultaSst(agenciaId, {
+        sucesso: true,
+        erro: null,
+        metodo: "cnpj",
+        resultado: resultadoSst,
+        consultadoPor: null,
+      });
+    } catch (error) {
+      await this.agenciaRepository.registrarConsultaSst(agenciaId, {
+        sucesso: false,
+        erro: String(error),
+        metodo: "cnpj",
+        resultado: null,
+        consultadoPor: null,
+      });
     }
 
     // Tolerante a falha por design (ver FlysakuraDocumentAnalysisAdapter) —

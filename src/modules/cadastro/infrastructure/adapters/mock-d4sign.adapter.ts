@@ -1,6 +1,7 @@
 import type {
   ArquivoContrato,
   ContratoAssinaturaService,
+  DestinatarioD4Sign,
   DocumentoD4SignInfo,
   GerarContratoInput,
   GerarContratoResult,
@@ -36,11 +37,15 @@ export class MockD4SignService implements ContratoAssinaturaService {
     };
   }
 
-  async obterDestinatarios(): Promise<string[]> {
+  async obterDestinatarios(): Promise<DestinatarioD4Sign[]> {
     return [];
   }
 
   async registrarWebhook(): Promise<{ registrado: boolean }> {
     return { registrado: true };
+  }
+
+  async cancelarDocumento(): Promise<void> {
+    return;
   }
 }

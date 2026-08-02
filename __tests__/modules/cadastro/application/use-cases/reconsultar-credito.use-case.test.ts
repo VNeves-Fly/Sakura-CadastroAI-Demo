@@ -29,6 +29,7 @@ function agenciaFake(): Agencia {
   return Agencia.create({
     id: "agencia-1",
     razaoSocial: "Empresa Teste Ltda",
+    nomeFantasia: null,
     cnpj: "12345678000195",
     etapaAtual: 1,
     status: STATUS_ATIVO,
@@ -103,6 +104,7 @@ function detalheFake(overrides: Partial<AgenciaDetalhe> = {}): AgenciaDetalhe {
     contratos: [],
     analiseIa: null,
     historicoConsultaCredito: [],
+    consultasSst: [],
     executivoNome: null,
     associacaoNome: null,
     eventoNome: null,
@@ -120,6 +122,7 @@ function repositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRep
     registrarAnaliseDocumento: jest.fn(),
     registrarAnaliseFinal: jest.fn(),
     registrarConsultaCredito: jest.fn(),
+    registrarConsultaSst: jest.fn(),
     atualizarStatus: jest.fn(),
     atualizarDadosCadastrais: jest.fn(),
     salvarSica: jest.fn(),

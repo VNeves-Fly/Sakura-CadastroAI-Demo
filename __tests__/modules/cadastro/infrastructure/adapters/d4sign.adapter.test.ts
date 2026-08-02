@@ -185,6 +185,25 @@ describe("D4SignAdapter", () => {
     expect(JSON.parse(envioOpts.body)).toEqual({ skip_email: "0", workflow: "1" });
   });
 
+  // Regressão real de produção (2026-07-31): uma checagem genérica de erro
+  // em `request()` (baseada só na presença de `message`) tratava esse
+  // `{ message: "success" }` — retorno normal do `makedocumentbytemplateword`
+  // no caminho feliz — como se fosse erro, e derrubava a geração do
+  // contrato antes de cadastrar os signatários. A checagem de erro real
+  // (ver obterDestinatarios) agora exige `message` E `mensagem_pt` juntos,
+  // e só nesse método — não mais genérica em `request()`.
+  it('não trata { message: "success" } do makedocumentbytemplateword como erro', async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123", message: "success" }))
+      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(okJson({}));
+
+    const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
+
+    expect(resultado).toEqual({ provedorId: "doc-uuid-123", status: "aguardando_assinatura" });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
   it("pluraliza a indicação e concatena as cláusulas com 'e' quando há mais de um signatário", async () => {
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
@@ -452,7 +471,68 @@ describe("D4SignAdapter", () => {
   });
 
   describe("obterDestinatarios", () => {
-    it("extrai os e-mails da lista de signatários (formato array)", async () => {
+    it("extrai os signatários do formato REAL confirmado ao vivo (array com 1 objeto de documento, signatários em `.list`)", async () => {
+      // Payload real (mascarado), capturado via curl direto na API em
+      // 2026-07-30 — o array na raiz tem UM objeto de documento (mesmo
+      // shape de GET /documents/{uuid}), não os signatários; eles ficam
+      // dentro de `list`. É exatamente o formato que o parsing antigo
+      // (antes desse teste) interpretava errado como "lista vazia", porque
+      // via Array.isArray(resultado) === true e usava o array de 1
+      // "documento" como se já fosse a lista de signatários.
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([
+          {
+            uuidDoc: "doc-uuid-1",
+            nameDoc: "Contrato Sakura - Agência Teste",
+            statusId: "3",
+            statusName: "Aguardando Assinaturas",
+            list: [
+              {
+                key_signer: "MjIyMjc5NzYz",
+                user_name: null,
+                user_document: null,
+                email: "socio@agencia.com",
+                signed: "0",
+                type: "1",
+                nomenclatura: "Assinar",
+                docauthandselfie: "1",
+              },
+              {
+                key_signer: "MjIyMjc5NzY0",
+                user_name: "Jean Michael Sobral Bernal",
+                user_document: "426.101.168-96",
+                email: "cadastro@sakuratur.com.br",
+                signed: "0",
+                type: "2",
+                nomenclatura: "Aprovar",
+                docauthandselfie: "0",
+              },
+            ],
+          },
+        ]),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual([
+        {
+          email: "socio@agencia.com",
+          assinado: false,
+          assinadoEm: null,
+          keySigner: "MjIyMjc5NzYz",
+        },
+        {
+          email: "cadastro@sakuratur.com.br",
+          assinado: false,
+          assinadoEm: null,
+          keySigner: "MjIyMjc5NzY0",
+        },
+      ]);
+    });
+
+    it("extrai os e-mails da lista de signatários (formato array), sem status reconhecido", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce(
         okJson([{ email: "socio@agencia.com" }, { email: "cadastro@sakuratur.com.br" }]),
       );
@@ -461,7 +541,10 @@ describe("D4SignAdapter", () => {
         fakeSignatarioPadraoRepository(),
       ).obterDestinatarios("doc-uuid-1");
 
-      expect(resultado).toEqual(["socio@agencia.com", "cadastro@sakuratur.com.br"]);
+      expect(resultado).toEqual([
+        { email: "socio@agencia.com", assinado: null, assinadoEm: null, keySigner: null },
+        { email: "cadastro@sakuratur.com.br", assinado: null, assinadoEm: null, keySigner: null },
+      ]);
     });
 
     it("ignora entradas sem e-mail", async () => {
@@ -473,7 +556,113 @@ describe("D4SignAdapter", () => {
         fakeSignatarioPadraoRepository(),
       ).obterDestinatarios("doc-uuid-1");
 
-      expect(resultado).toEqual(["socio@agencia.com"]);
+      expect(resultado).toEqual([
+        { email: "socio@agencia.com", assinado: null, assinadoEm: null, keySigner: null },
+      ]);
+    });
+
+    it("reconhece o campo `signed` booleano quando presente", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([
+          { email: "socio1@agencia.com", signed: true },
+          { email: "socio2@agencia.com", signed: false },
+        ]),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual([
+        { email: "socio1@agencia.com", assinado: true, assinadoEm: null, keySigner: null },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null, keySigner: null },
+      ]);
+    });
+
+    it("reconhece `statusName` textual (assinado/pendente) e `signAt` como data", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson([
+          { email: "socio1@agencia.com", statusName: "Assinado", signAt: "2026-07-29T12:00:00Z" },
+          { email: "socio2@agencia.com", statusName: "Aguardando assinatura" },
+        ]),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual([
+        {
+          email: "socio1@agencia.com",
+          assinado: true,
+          assinadoEm: new Date("2026-07-29T12:00:00Z"),
+          keySigner: null,
+        },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null, keySigner: null },
+      ]);
+    });
+
+    it("reconhece objeto com chaves numéricas (array associativo serializado) em vez de array na raiz", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson({
+          "0": { email: "socio1@agencia.com", signed: "1" },
+          "1": { email: "socio2@agencia.com", signed: "0" },
+        }),
+      );
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository(),
+      ).obterDestinatarios("doc-uuid-1");
+
+      expect(resultado).toEqual([
+        { email: "socio1@agencia.com", assinado: true, assinadoEm: null, keySigner: null },
+        { email: "socio2@agencia.com", assinado: false, assinadoEm: null, keySigner: null },
+      ]);
+    });
+
+    it("lança quando o D4Sign devolve um erro (HTTP 200 com corpo {message, mensagem_pt})", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson({ message: "API error: Check API user.", mensagem_pt: "Chave de API inválida." }),
+      );
+
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).obterDestinatarios("doc-uuid-1"),
+      ).rejects.toThrow("Chave de API inválida.");
+    });
+  });
+
+  describe("cancelarDocumento", () => {
+    it("cancela o documento com o motivo no corpo (POST /documents/{uuid}/cancel)", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(okJson({}));
+
+      await new D4SignAdapter(fakeSignatarioPadraoRepository()).cancelarDocumento(
+        "doc-uuid-1",
+        "sócio pediu pra recomeçar o cadastro",
+      );
+
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe(
+        "https://api.teste.d4sign/documents/doc-uuid-1/cancel?tokenAPI=token-teste&cryptKey=crypt-teste",
+      );
+      expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body)).toEqual({
+        comment: "sócio pediu pra recomeçar o cadastro",
+      });
+    });
+
+    it("lança erro descritivo se o cancelamento falhar", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ message: "Documento já cancelado" }),
+      });
+
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).cancelarDocumento(
+          "doc-uuid-1",
+          "motivo",
+        ),
+      ).rejects.toThrow("D4Sign /documents/doc-uuid-1/cancel respondeu 400");
     });
   });
 });

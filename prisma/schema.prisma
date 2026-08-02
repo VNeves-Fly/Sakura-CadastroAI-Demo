@@ -35,13 +35,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  mensagensEnviadas       Mensagem[]
-  atendimentosAssumidos   AssumirAtendimentoRegistro[]
-  atendimentosAgencia     AtendimentoAgencia[]
-  textosProntosCriados    TextoPronto[]
-  transferenciasFeitas    SolicitacaoTransferencia[]   @relation("TransferenciaFeitaPor")
-  transferenciasRecebidas SolicitacaoTransferencia[]   @relation("TransferenciaParaAnalista")
-  passwordResetTokens     PasswordResetToken[]
+  mensagensEnviadas    Mensagem[]
+  atendimentosAgencia  AtendimentoAgencia[]
+  textosProntosCriados TextoPronto[]
+  passwordResetTokens  PasswordResetToken[]
 
   solicitacoesAgenciaFeitas             SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaSolicitante")
   solicitacoesAgenciaComoAtendenteAtual SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaAtendenteAtual")
@@ -100,6 +97,7 @@ enum StatusAgencia {
   em_complementar
   aguardando_assinatura
   aguardando_validacao
+  aguardando_cadastramento
   aguardando_ativacao
   ativo
   recusado
@@ -112,6 +110,10 @@ enum StatusContrato {
   // (estágio 2, testemunhas) pra fechar; não bloqueia o avanço da agência.
   assinado_agencia
   assinado
+  // Cancelado pelo analista (CancelarContratoUseCase, 2026-07-31) — a
+  // Agencia volta pra em_complementar; se aprovarem de novo depois, gera
+  // um Contrato NOVO (o registro cancelado fica só como histórico).
+  cancelado
 }
 
 enum OrigemGeracaoContrato {
@@ -164,6 +166,11 @@ enum ResultadoDecisao {
 model Agencia {
   id                 String        @id @default(cuid())
   razaoSocial        String
+  // Opcional (nem toda empresa tem nome fantasia distinto da razão
+  // social) — coletado no wizard (Passo 2) e editável pelo analista, é a
+  // versão "Cadastro" comparada contra stage1.nomeFantasia (Oficial) no
+  // dossiê.
+  nomeFantasia       String?
   cnpj               String        @unique
   etapaAtual         Int           @default(1)
   status             StatusAgencia @default(em_analise)
@@ -217,6 +224,7 @@ model Agencia {
   conversas                 Conversa[]
   historicoEdicoes          HistoricoEdicaoCadastro[]
   historicoConsultasCredito HistoricoConsultaCredito[]
+  consultasSst              ConsultaSst[]
   atendimentosAgencia       AtendimentoAgencia[]
   solicitacoesAtendimento   SolicitacaoAtendimentoAgencia[]
 
@@ -615,6 +623,56 @@ model HistoricoConsultaCredito {
   @@map("historico_consultas_credito")
 }
 
+enum SicaEmpresaStatus {
+  ativo
+  inativo
+}
+
+enum SicaMetodoConsulta {
+  cnpj
+  codigo_empresa
+}
+
+// Consulta ao SST (sst.flysakura.com — Sica/Sigot/TravelLink) — verifica se
+// a empresa já está cadastrada no SICA. Mesma checagem, disparada em
+// momentos diferentes: automática por CNPJ ao finalizar o cadastro (ver
+// AnalisarCadastroUseCase — cadastro novo normalmente não tem SICA ainda;
+// achar algo aqui é sinal de recadastro), ou manual por código quando o
+// analista confirma o SICA (ver SalvarSicaUseCase — cruza o CNPJ retornado
+// contra o da agência pra evitar salvar o código de outra empresa por
+// engano). Uma linha por consulta (nunca sobrescreve) — a mais recente é
+// "o valor atual", histórico completo preservado sem precisar de tabela
+// separada (mesmo espírito de HistoricoConsultaCredito, mas sem a
+// duplicação current+histórico: aqui não existe um "AnaliseIaAgencia" pra
+// esse dado morar dentro).
+model ConsultaSst {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  sucesso Boolean // false = a chamada ao SST falhou tecnicamente
+  erro    String?
+  metodo  SicaMetodoConsulta
+
+  encontrado      Boolean
+  codigoEmpresa   Int?
+  nomeEmpresa     String?
+  telefone        String?
+  email           String?
+  empresaStatus   SicaEmpresaStatus?
+  codigoExecutivo Int?
+  nomeExecutivo   String?
+
+  // null = disparado automaticamente pelo pipeline; preenchido = analista
+  // (reconsulta manual ou confirmação do código SICA).
+  consultadoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([agenciaId])
+  @@map("consultas_sst")
+}
+
 // Classificação de por que a agência chegou no status atual — distingue
 // um REPROVADO de verdade (a IA avaliou e disse não) de uma falha técnica
 // que nunca chegou a produzir um parecer real (FALHA_ANALISE) ou de uma
@@ -705,12 +763,32 @@ model Contrato {
 // signatários fixos da Sakura sem depender de CPF. @@unique pra upsert
 // idempotente em retries do D4Sign — mas aqui o assinadoEm ORIGINAL é
 // preservado (retry não reescreve a data da assinatura).
+// Linha = "destinatário conhecido deste contrato" (não necessariamente já
+// assinado — ver assinadoEm). `registrar` (assinatura de verdade, webhook
+// ou sync) seta assinadoEm; `registrarDestinatario` (sync, alguém que o
+// D4Sign já lista mas ainda não assinou) só grava email/keySigner, nunca
+// mexe em assinadoEm. Todo código que lê esta tabela pra decidir "quem já
+// assinou" precisa filtrar por `assinadoEm != null` explicitamente — ver
+// assinatura-socios.util.ts.
 model ContratoAssinatura {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   contratoId String
-  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  contrato   Contrato  @relation(fields: [contratoId], references: [id], onDelete: Cascade)
   email      String
-  assinadoEm DateTime @default(now())
+  assinadoEm DateTime?
+
+  // ID do signatário no D4Sign (`key_signer` na resposta de
+  // GET /documents/{uuid}/list, e também do POST .../createlist — vem
+  // pra todo destinatário desde o cadastro, antes de qualquer assinatura).
+  // Pré-requisito pra futuramente buscar o link de assinatura individual:
+  // GET /documents/{uuid}/signaturelink/{id}, onde {id} é o key_signer
+  // DECODIFICADO DE BASE64 (não o valor cru salvo aqui) — confirmado na
+  // doc oficial do D4Sign, 2026-07-31. Busca do link em si é escopo futuro.
+  keySigner String?
+
+  // Setado pelo sync quando esse destinatário some da lista do D4Sign —
+  // não apaga o registro, só sinaliza. Limpo de volta (null) se reaparecer.
+  removidoDoDocumentoEm DateTime?
 
   @@unique([contratoId, email])
   @@map("contrato_assinaturas")
@@ -980,9 +1058,7 @@ model Conversa {
   representanteLegalId String?
   representanteLegal   RepresentanteLegal? @relation(fields: [representanteLegalId], references: [id])
 
-  mensagens                 Mensagem[]
-  atendimentos              AssumirAtendimentoRegistro[]
-  solicitacoesTransferencia SolicitacaoTransferencia[]
+  mensagens Mensagem[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -991,42 +1067,6 @@ model Conversa {
   @@index([agenciaId])
   @@index([tipoContato])
   @@map("conversas")
-}
-
-enum StatusSolicitacaoTransferencia {
-  PENDENTE
-  ACEITA
-  RECUSADA
-  EXPIRADA
-}
-
-// Transferência de atendimento entre analistas — pedido explícito (não
-// depende da regra de 2h de HORAS_LIMITE_ASSUMIR, que é só pra "puxar" de
-// quem sumiu). Expira sozinha depois de TIMEOUT_TRANSFERENCIA_MS sem
-// resposta (contada como recusa) — a transição pra EXPIRADA é feita de
-// forma preguiçosa na leitura (ver PrismaConversaRepository), não por job
-// em background. `limpaEm` marca que o solicitante já viu o resultado
-// (recusada/expirada) e dispensou o aviso — depois disso a conversa
-// aparece sem solicitacaoTransferenciaPendente, liberando um novo pedido.
-model SolicitacaoTransferencia {
-  id         String   @id @default(cuid())
-  conversaId String
-  conversa   Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-
-  deAnalistaId String
-  deAnalista   User   @relation("TransferenciaFeitaPor", fields: [deAnalistaId], references: [id])
-
-  paraAnalistaId String
-  paraAnalista   User   @relation("TransferenciaParaAnalista", fields: [paraAnalistaId], references: [id])
-
-  status   StatusSolicitacaoTransferencia @default(PENDENTE)
-  criadaEm DateTime                       @default(now())
-
-  resolvidaEm DateTime?
-  limpaEm     DateTime?
-
-  @@index([conversaId])
-  @@map("solicitacoes_transferencia")
 }
 
 model Mensagem {
@@ -1085,31 +1125,14 @@ model MensagemMidia {
   @@map("mensagens_midia")
 }
 
-// Histórico de "assumir atendimento" — cada linha é um período em que um
-// analista específico esteve responsável pela conversa. liberadoEm null =
-// é o registro atual (no máximo um por conversa, garantido pela use-case).
-model AssumirAtendimentoRegistro {
-  id         String   @id @default(cuid())
-  conversaId String
-  conversa   Conversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-
-  analistaId String
-  analista   User   @relation(fields: [analistaId], references: [id])
-
-  assumidoEm DateTime  @default(now())
-  liberadoEm DateTime?
-
-  @@index([conversaId])
-  @@map("assumir_atendimento_registros")
-}
-
 // Responsabilidade sobre a AGÊNCIA (o cadastro em si) — independente de
 // conversa de WhatsApp existir ou não (ex.: analista revisando um dossiê
 // reprovado pela IA, sem nunca ter falado com o cliente). É o registro que
 // trava ações de edição/aprovação/reprovação no dossiê e de iniciar/enviar
-// mensagem no atendimento — decisão do usuário, 2026-07-28. Espelhado a
-// partir de AssumirAtendimentoRegistro (chat) quando a conversa tem
-// agenciaId, pra assumir em qualquer um dos dois lugares refletir no outro.
+// mensagem no atendimento — decisão do usuário, 2026-07-28. Atendimento é
+// sempre da agência, em qualquer canal (chat ou dossiê) — unificado em
+// 2026-07-30 (antes o chat tinha seu próprio registro por conversa,
+// AssumirAtendimentoRegistro, removido nessa unificação).
 model AtendimentoAgencia {
   id        String  @id @default(cuid())
   agenciaId String
@@ -1136,9 +1159,9 @@ enum StatusSolicitacaoAtendimentoAgencia {
   CANCELADA
 }
 
-// Pedido de troca do responsável pelo CADASTRO da agência (AtendimentoAgencia
-// acima) — não confundir com SolicitacaoTransferencia, que é do chat/Conversa.
-// Dois tipos: TRANSFERENCIA (só quem atende pode abrir, escolhe o destino) e
+// Pedido de troca do responsável pelo atendimento da agência (AtendimentoAgencia
+// acima) — vale pra qualquer canal (chat ou dossiê), atendimento é sempre
+// da agência. Dois tipos: TRANSFERENCIA (só quem atende pode abrir, escolhe o destino) e
 // ASSUNCAO (só quem NÃO atende pode abrir, contra quem atende agora, sem
 // escolher destino — é sempre quem pediu). Em ambos, o efeito de ACEITA é
 // sempre o mesmo: liberar atendenteAtualId e criar um AtendimentoAgencia novo

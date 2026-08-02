@@ -45,6 +45,19 @@ export interface DocumentoD4SignInfo {
   statusName: string | null;
 }
 
+export interface DestinatarioD4Sign {
+  email: string;
+  // Confirmado ao vivo (2026-07-30) — `signed` vem como string "1"/"0" na
+  // resposta real. `null` só resta se o formato variar por conta/versão e
+  // nenhum campo reconhecido bater (ver D4SignAdapter.obterDestinatarios) —
+  // nunca assume "pendente" nesse caso.
+  assinado: boolean | null;
+  assinadoEm: Date | null;
+  // ID do signatário no D4Sign (`key_signer`) — confirmado ao vivo que
+  // vem pra TODO destinatário, mesmo quem ainda não assinou.
+  keySigner: string | null;
+}
+
 export interface ContratoAssinaturaService {
   gerarEEnviar(input: GerarContratoInput): Promise<GerarContratoResult>;
   // Baixa o PDF atual do documento no D4Sign, qualquer que seja o estágio
@@ -57,14 +70,18 @@ export interface ContratoAssinaturaService {
   // pro caller as duas situações pedem a mesma resposta ("não deu pra
   // confirmar esse ID, confira e tente de novo").
   obterDocumento(provedorId: string): Promise<DocumentoD4SignInfo>;
-  // E-mails dos destinatários cadastrados no documento — usado só pra
-  // validar que o ID colado corresponde à agência certa, não pra
-  // reconstruir ContratoSignatario.
-  obterDestinatarios(provedorId: string): Promise<string[]>;
+  // Destinatários cadastrados no documento, com status de assinatura em
+  // melhor esforço — usado tanto pra validar que o ID colado corresponde à
+  // agência certa (registro de contrato externo) quanto pelo sync manual
+  // com o D4Sign (SincronizarContratoD4SignUseCase).
+  obterDestinatarios(provedorId: string): Promise<DestinatarioD4Sign[]>;
   // Registra nosso endpoint de webhook num documento que não passou por
   // gerarEEnviar (ex.: contrato assinado por fora, registrado depois).
   // `registrado: false` quando D4SIGN_WEBHOOK_URL não está configurada —
   // diferente de gerarEEnviar (que pula em silêncio), aqui o caller
   // precisa saber pra avisar o analista.
   registrarWebhook(provedorId: string): Promise<{ registrado: boolean }>;
+  // Cancela o documento no D4Sign — usado por CancelarContratoUseCase
+  // quando o analista cancela um contrato ainda em Assinatura/Validação.
+  cancelarDocumento(provedorId: string, motivo: string): Promise<void>;
 }

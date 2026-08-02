@@ -6,7 +6,6 @@ import type { ConversaEntity } from "@/modules/atendimento/domain/entities/conve
 import type { AtendimentoAgenciaRepository } from "@/modules/atendimento/domain/repositories/atendimento-agencia-repository";
 import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
 import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
-import type { SolicitacaoTransferenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-transferencia-repository";
 
 // Disparada pelo analista a partir da lista de Contatos ou do modal "com
 // quem falar" (nunca de mensagem inbound, ver ReceberMensagemWhatsAppUseCase
@@ -20,7 +19,6 @@ export class IniciarConversaUseCase implements UseCase<IniciarConversaInput, Con
   constructor(
     private readonly conversaRepository: ConversaRepository,
     private readonly resumoFichaClienteRepository: ResumoFichaClienteRepository,
-    private readonly solicitacaoTransferenciaRepository: SolicitacaoTransferenciaRepository,
     private readonly atendimentoAgenciaRepository: AtendimentoAgenciaRepository,
   ) {}
 
@@ -44,10 +42,6 @@ export class IniciarConversaUseCase implements UseCase<IniciarConversaInput, Con
         membroTelefone: input.telefoneWhatsapp,
       }));
 
-    return completarConversa(
-      conversa,
-      this.resumoFichaClienteRepository,
-      this.solicitacaoTransferenciaRepository,
-    );
+    return completarConversa(conversa, this.resumoFichaClienteRepository);
   }
 }

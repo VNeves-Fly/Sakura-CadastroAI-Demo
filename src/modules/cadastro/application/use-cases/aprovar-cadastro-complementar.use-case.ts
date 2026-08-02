@@ -1,6 +1,8 @@
 import type { UseCase } from "@/modules/shared/application/use-case";
 import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
 import {
+  CONTRATO_PROVEDOR_ID_PENDENTE,
+  CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_EM_COMPLEMENTAR,
   type AgenciaRepository,
@@ -13,6 +15,14 @@ import type { DecisaoHumanaRepository } from "@/modules/cadastro/domain/reposito
 export interface AprovarCadastroComplementarInput {
   id: string;
   analistaEmail: string;
+  // Checkbox "gerar contrato automaticamente" no modal de confirmação —
+  // default true (comportamento de sempre). Quando false, pula a geração
+  // no D4Sign e cria um Contrato-placeholder (ver
+  // CONTRATO_PROVEDOR_ID_PENDENTE) pro analista anexar um documento já
+  // existente depois via "Contrato assinado por fora da plataforma"
+  // (RegistrarContratoExternoUseCase) — útil por exemplo pra recuperar um
+  // documento órfão no D4Sign sem duplicar a geração.
+  gerarContratoAutomaticamente?: boolean;
 }
 
 // Só entram aqui documentos que EXISTEM (slot != null) — sócio sem RG
@@ -41,8 +51,11 @@ function documentosNaoAprovados(
 
 // Ação do analista: um caso que a IA mandou pra fila "em_complementar"
 // (algo pareceu errado) foi revisado manualmente e está tudo certo —
-// aprova na mão, gera e envia o contrato (mesma integração D4Sign do
-// fluxo automático) e move pra fila "aguardando_assinatura".
+// aprova na mão e move pra fila "aguardando_assinatura". Por padrão gera e
+// envia o contrato (mesma integração D4Sign do fluxo automático); com
+// `gerarContratoAutomaticamente: false` (checkbox no modal de confirmação)
+// pula isso e cria um Contrato-placeholder pro analista anexar um
+// documento já existente depois.
 export class AprovarCadastroComplementarUseCase implements UseCase<
   AprovarCadastroComplementarInput,
   Agencia
@@ -53,7 +66,11 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
     private readonly decisaoHumanaRepository: DecisaoHumanaRepository,
   ) {}
 
-  async execute({ id, analistaEmail }: AprovarCadastroComplementarInput): Promise<Agencia> {
+  async execute({
+    id,
+    analistaEmail,
+    gerarContratoAutomaticamente = true,
+  }: AprovarCadastroComplementarInput): Promise<Agencia> {
     const detalhe = await this.agenciaRepository.obterDetalhe(id);
 
     if (!detalhe) {
@@ -88,27 +105,36 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
         endereco: socio.endereco,
       }));
 
-    const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
-      cnpj: detalhe.agencia.cnpj,
-      razaoSocial: detalhe.agencia.razaoSocial,
-      endereco: detalhe.complementar?.enderecoAgencia ?? {
-        cep: "",
-        logradouro: "",
-        numero: "",
-        complemento: "",
-        bairro: "",
-        cidade: "",
-        uf: "",
-      },
-      signatarios,
-    });
+    if (gerarContratoAutomaticamente) {
+      const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
+        cnpj: detalhe.agencia.cnpj,
+        razaoSocial: detalhe.agencia.razaoSocial,
+        endereco: detalhe.complementar?.enderecoAgencia ?? {
+          cep: "",
+          logradouro: "",
+          numero: "",
+          complemento: "",
+          bairro: "",
+          cidade: "",
+          uf: "",
+        },
+        signatarios,
+      });
 
-    await this.agenciaRepository.criarContrato(id, {
-      provedorId: contratoResult.provedorId,
-      status: contratoResult.status,
-      origemGeracao: "humano",
-      signatarios,
-    });
+      await this.agenciaRepository.criarContrato(id, {
+        provedorId: contratoResult.provedorId,
+        status: contratoResult.status,
+        origemGeracao: "humano",
+        signatarios,
+      });
+    } else {
+      await this.agenciaRepository.criarContrato(id, {
+        provedorId: CONTRATO_PROVEDOR_ID_PENDENTE,
+        status: CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
+        origemGeracao: "externo",
+        signatarios,
+      });
+    }
 
     const agencia = await this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_ASSINATURA);
 

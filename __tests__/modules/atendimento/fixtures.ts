@@ -1,10 +1,8 @@
 import type { ConversaEntity } from "@/modules/atendimento/domain/entities/conversa.entity";
-import type { AssumirAtendimentoRepository } from "@/modules/atendimento/domain/repositories/assumir-atendimento-repository";
 import type { AtendimentoAgenciaRepository } from "@/modules/atendimento/domain/repositories/atendimento-agencia-repository";
 import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
 import type { MensagemRepository } from "@/modules/atendimento/domain/repositories/mensagem-repository";
 import type { ResumoFichaClienteRepository } from "@/modules/atendimento/domain/repositories/resumo-ficha-cliente-repository";
-import type { SolicitacaoTransferenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-transferencia-repository";
 import type { SolicitacaoAtendimentoAgenciaRepository } from "@/modules/atendimento/domain/repositories/solicitacao-atendimento-agencia-repository";
 import type { TemplateWhatsAppRepository } from "@/modules/atendimento/domain/repositories/template-whatsapp-repository";
 import type { TextoProntoRepository } from "@/modules/atendimento/domain/repositories/texto-pronto-repository";
@@ -26,7 +24,6 @@ export function fakeConversa(overrides: Partial<ConversaEntity> = {}): ConversaE
     mensagens: [],
     atendimentoAtual: null,
     historicoAtendimento: [],
-    solicitacaoTransferenciaPendente: null,
     resumoFicha: {
       statusAgencia: "em_andamento",
       documentosAprovados: 0,
@@ -39,23 +36,6 @@ export function fakeConversa(overrides: Partial<ConversaEntity> = {}): ConversaE
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     lastMessageAt: null,
-    ...overrides,
-  };
-}
-
-export function fakeAssumirAtendimentoRepository(
-  overrides: Partial<AssumirAtendimentoRepository> = {},
-): AssumirAtendimentoRepository {
-  return {
-    findAtual: jest.fn().mockResolvedValue(null),
-    criar: jest.fn().mockResolvedValue({
-      analistaNome: "Ana Analista",
-      assumidoEm: "2026-01-02T00:00:00.000Z",
-      liberadoEm: null,
-    }),
-    liberar: jest.fn(),
-    listarAtivosPorAgencias: jest.fn().mockResolvedValue([]),
-    listarUltimoEncerradoPorAgencias: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -100,27 +80,6 @@ export function fakeResumoFichaClienteRepository(
       contratoStatus: "assinado",
       amatSofiaConsultado: true,
     }),
-    ...overrides,
-  };
-}
-
-export function fakeSolicitacaoTransferenciaRepository(
-  overrides: Partial<SolicitacaoTransferenciaRepository> = {},
-): SolicitacaoTransferenciaRepository {
-  return {
-    findVisivelPorConversa: jest.fn().mockResolvedValue(null),
-    findPendentePorConversa: jest.fn().mockResolvedValue(null),
-    criar: jest.fn().mockResolvedValue({
-      id: "transf-1",
-      conversaId: "conv-1",
-      deAnalista: "Ana Analista",
-      paraAnalista: "Outro Analista",
-      status: "pendente",
-      criadaEm: "2026-01-01T00:00:00.000Z",
-    }),
-    aceitar: jest.fn(),
-    recusar: jest.fn(),
-    limpar: jest.fn(),
     ...overrides,
   };
 }

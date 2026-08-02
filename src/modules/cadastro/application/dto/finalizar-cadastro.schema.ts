@@ -94,6 +94,9 @@ export const finalizarCadastroMetaSchema = z
     // Extraída do contrato social no wizard — pode vir vazia se a análise
     // falhou; o use-case cai pro CNPJ nesse caso (não trava o cadastro).
     razaoSocial: z.string(),
+    // Opcional — nem toda empresa tem nome fantasia distinto da razão
+    // social, e o contrato social pode não imprimir esse dado.
+    nomeFantasia: z.string(),
     origem: z.string().trim().min(1).optional(),
     executivoId: z.string().trim().min(1).optional(),
     associacaoId: z.string().trim().min(1).optional(),

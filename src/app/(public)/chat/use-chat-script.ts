@@ -1342,6 +1342,9 @@ export function useChatScript({ executivos, associacoes }: UseChatScriptOptions)
       const formData = agenciaAdapter.toFinalizarCadastroFormData({
         cnpjMascarado: ctx.cnpj,
         razaoSocial: ctx.razaoSocial,
+        // Não coletado pelo fluxo de chat (sem tela pra isso hoje) — fica
+        // vazio, o analista preenche depois no dossiê se precisar.
+        nomeFantasia: "",
         contratoSocial: ctx.contratoSocial!,
         origem: "Chat",
         executivoId: ctx.executivoId,

@@ -79,6 +79,7 @@ export const agenciaAdapter = {
       alertas: raw.alertas,
       confianca: raw.confianca,
       razaoSocial: raw.razaoSocialExtraida,
+      nomeFantasia: raw.nomeFantasiaExtraida,
       capitalSocial: raw.capitalSocial,
       endereco: toEnderecoContratoSocialView(raw.enderecoEmpresa),
       objetoSocial: raw.objetoSocial,
@@ -121,6 +122,7 @@ export const agenciaAdapter = {
   toFinalizarCadastroFormData(params: {
     cnpjMascarado: string;
     razaoSocial: string;
+    nomeFantasia: string;
     contratoSocial: File;
     origem: string | null;
     executivoId: string | null;
@@ -139,6 +141,7 @@ export const agenciaAdapter = {
 
     formData.set("cnpj", unmaskCnpj(params.cnpjMascarado));
     formData.set("razaoSocial", params.razaoSocial);
+    formData.set("nomeFantasia", params.nomeFantasia);
     if (params.origem) {
       formData.set("origem", params.origem);
     }

@@ -125,6 +125,7 @@ export function useCadastroWizardViewModel({
   );
   const contratoSocialAnalise = useCadastroWizardStore((state) => state.contratoSocialAnalise);
   const razaoSocial = useCadastroWizardStore((state) => state.razaoSocial);
+  const nomeFantasia = useCadastroWizardStore((state) => state.nomeFantasia);
 
   const setCnpjRaw = useCadastroWizardStore((state) => state.setCnpj);
   const setCnpjStatus = useCadastroWizardStore((state) => state.setCnpjStatus);
@@ -141,6 +142,7 @@ export function useCadastroWizardViewModel({
     (state) => state.setContratoSocialAnalise,
   );
   const setRazaoSocial = useCadastroWizardStore((state) => state.setRazaoSocial);
+  const setNomeFantasia = useCadastroWizardStore((state) => state.setNomeFantasia);
 
   // Erros de validação de arquivo (regra em arquivo-upload.util.ts,
   // compartilhada com a validação real do backend) — vivem aqui, não nos
@@ -343,6 +345,10 @@ export function useCadastroWizardViewModel({
 
     if (!razaoSocial && contratoSocialAnalise.razaoSocial) {
       setRazaoSocial(contratoSocialAnalise.razaoSocial);
+    }
+
+    if (!nomeFantasia && contratoSocialAnalise.nomeFantasia) {
+      setNomeFantasia(contratoSocialAnalise.nomeFantasia);
     }
 
     const endereco = contratoSocialAnalise.endereco;
@@ -998,6 +1004,7 @@ export function useCadastroWizardViewModel({
     const formData = agenciaAdapter.toFinalizarCadastroFormData({
       cnpjMascarado: cnpj,
       razaoSocial,
+      nomeFantasia,
       contratoSocial,
       origem,
       executivoId: executivoIdSalvo,
@@ -1082,6 +1089,9 @@ export function useCadastroWizardViewModel({
     analisandoContratoSocial,
     contratoSocialAnalise,
     razaoSocial,
+    nomeFantasia,
+    setRazaoSocial,
+    setNomeFantasia,
     setCnpj,
     setContratoSocial,
     cnpjCompleto,

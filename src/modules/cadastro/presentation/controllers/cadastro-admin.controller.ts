@@ -20,6 +20,8 @@ import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters
 import { FlysakuraAnaliseIaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-analise-ia.adapter";
 import { MockSofiaConsultaService } from "@/modules/cadastro/infrastructure/adapters/mock-sofia-consulta.adapter";
 import { FlysakuraSofiaConsultaAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-sofia-consulta.adapter";
+import { MockSstService } from "@/modules/cadastro/infrastructure/adapters/mock-sst.adapter";
+import { FlysakuraSstAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst.adapter";
 import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
@@ -60,9 +62,21 @@ import {
   type AtualizarStatusCadastroInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-status-cadastro.use-case";
 import {
+  ForcarAvancoStatusUseCase,
+  type ForcarAvancoStatusInput,
+} from "@/modules/cadastro/application/use-cases/forcar-avanco-status.use-case";
+import {
+  CancelarContratoUseCase,
+  type CancelarContratoInput,
+} from "@/modules/cadastro/application/use-cases/cancelar-contrato.use-case";
+import {
   SalvarSicaUseCase,
   type SalvarSicaInput,
 } from "@/modules/cadastro/application/use-cases/salvar-sica.use-case";
+import {
+  ConsultarSicaUseCase,
+  type ConsultarSicaInput,
+} from "@/modules/cadastro/application/use-cases/consultar-sica.use-case";
 import {
   SalvarTravelLinkUseCase,
   type SalvarTravelLinkInput,
@@ -112,6 +126,7 @@ import { ObterArquivoContratoUseCase } from "@/modules/cadastro/application/use-
 import { RegistrarContratoExternoUseCase } from "@/modules/cadastro/application/use-cases/registrar-contrato-externo.use-case";
 import { ProcessarWebhookD4SignUseCase } from "@/modules/cadastro/application/use-cases/processar-webhook-d4sign.use-case";
 import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-contrato.use-case";
+import { SincronizarContratoD4SignUseCase } from "@/modules/cadastro/application/use-cases/sincronizar-contrato-d4sign.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
 import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-assinaturas-contrato.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
@@ -177,6 +192,10 @@ const analiseIaService = process.env.AGENCY_ANALYSIS_API_KEY
 const sofiaConsultaService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraSofiaConsultaAdapter()
   : new MockSofiaConsultaService();
+// Domínio/credencial separados de agents.flysakura.com — verifica se a
+// empresa já está no SICA (ver AnalisarCadastroUseCase/SalvarSicaUseCase/
+// ConsultarSicaUseCase).
+const sstService = process.env.SST_API_KEY ? new FlysakuraSstAdapter() : new MockSstService();
 const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraDocumentAnalysisAdapter()
   : new MockDocumentAnalysisService();
@@ -234,6 +253,7 @@ export const cadastroAdminController = {
       documentAnalysisService,
       dadosReceitaRepository,
       documentoRepository,
+      sstService,
     );
     return useCase.execute({ agenciaId: id });
   },
@@ -261,7 +281,15 @@ export const cadastroAdminController = {
   },
 
   salvarSica(input: SalvarSicaInput) {
-    const useCase = new SalvarSicaUseCase(agenciaRepository);
+    const useCase = new SalvarSicaUseCase(agenciaRepository, sstService);
+    return useCase.execute(input);
+  },
+
+  // Reconsulta manual do SST por CNPJ (ver ConsultaSicaCard) — mesma
+  // checagem automática de AnalisarCadastroUseCase, disparável de novo a
+  // qualquer momento pelo analista.
+  consultarSica(input: ConsultarSicaInput) {
+    const useCase = new ConsultarSicaUseCase(agenciaRepository, sstService);
     return useCase.execute(input);
   },
 
@@ -270,8 +298,33 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  validarContrato(id: string) {
+  // SICA/TravelLink cadastrados (etapa "SICA/TL") — segue pra
+  // "aguardando_ativacao", onde falta só o Usuário Master.
+  confirmarCadastramento(id: string) {
     return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_ATIVACAO });
+  },
+
+  // Via de escape auditada pras duas transições que normalmente só
+  // acontecem via webhook do D4Sign (ver ForcarAvancoStatusUseCase) —
+  // pra quando a plataforma não conseguir fazer isso sozinha.
+  forcarAvancoStatus(input: ForcarAvancoStatusInput) {
+    const useCase = new ForcarAvancoStatusUseCase(
+      agenciaRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
+  },
+
+  // Analista desiste do contrato atual (dados errados, sócio pediu pra
+  // recomeçar etc.) — cancela também no D4Sign e devolve pra complementar
+  // (ver CancelarContratoUseCase).
+  cancelarContrato(input: CancelarContratoInput) {
+    const useCase = new CancelarContratoUseCase(
+      agenciaRepository,
+      contratoAssinaturaService,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
   },
 
   ativarCliente(id: string) {
@@ -408,6 +461,17 @@ export const cadastroAdminController = {
     return useCase.execute(contratoId);
   },
 
+  sincronizarContratoD4Sign(agenciaId: string) {
+    const useCase = new SincronizarContratoD4SignUseCase(
+      agenciaRepository,
+      contratoAssinaturaService,
+      contratoSignatarioRepository,
+      signatarioPadraoRepository,
+      contratoAssinaturaRepository,
+    );
+    return useCase.execute(agenciaId);
+  },
+
   listarEmailsFalhaEntregaContrato(contratoId: string) {
     const useCase = new ListarEmailsFalhaEntregaContratoUseCase(
       contratoEmailFalhaEntregaRepository,
@@ -447,6 +511,7 @@ export const cadastroAdminController = {
       signatarioPadraoRepository,
       contratoEmailFalhaEntregaRepository,
       contratoAssinaturaRepository,
+      contratoSignatarioRepository,
     );
     const useCase = new RegistrarContratoExternoUseCase(
       contratoRepository,
@@ -503,6 +568,7 @@ export const cadastroAdminController = {
     const useCase = new EditarDadosEmpresaUseCase(
       agenciaRepository,
       cadastroComplementarRepository,
+      enderecoRepository,
       historicoEdicaoCadastroRepository,
     );
     return useCase.execute(input);

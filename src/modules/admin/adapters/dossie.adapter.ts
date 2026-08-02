@@ -17,15 +17,18 @@ import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
   CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
   CONTRATO_STATUS_ASSINADO_AGENCIA,
   CONTRATO_STATUS_ASSINADO,
+  CONTRATO_STATUS_CANCELADO,
   type RepresentanteLegalDetalhe,
   type AnaliseIaAgenciaDetalhe,
   type HistoricoConsultaCreditoItem,
+  type ConsultaSstItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type {
   DocumentoRevisao,
@@ -37,6 +40,7 @@ import type {
   ParecerIaChecklistGrupo,
   AnaliseCreditoView,
   HistoricoConsultaCreditoView,
+  ConsultaSicaView,
 } from "@/modules/admin/types/dossie.types";
 
 // Traduz dado bruto do domínio (Agencia/Documento/enums) pra formato que
@@ -228,7 +232,8 @@ export function separarDocumentosPorStatus(documentos: DocumentoRevisao[]): {
 export const ETAPAS_PIPELINE = [
   { status: STATUS_EM_COMPLEMENTAR, label: "Complementar" },
   { status: STATUS_AGUARDANDO_ASSINATURA, label: "Assinatura" },
-  { status: STATUS_AGUARDANDO_VALIDACAO, label: "SICA/TL" },
+  { status: STATUS_AGUARDANDO_VALIDACAO, label: "Validação" },
+  { status: STATUS_AGUARDANDO_CADASTRAMENTO, label: "SICA/TL" },
   { status: STATUS_AGUARDANDO_ATIVACAO, label: "Ativação" },
   { status: STATUS_ATIVO, label: "Ativo" },
 ];
@@ -257,8 +262,11 @@ export function calcularProgressoTrilha(
 // testemunhas — ver seeds/signatarios-padrao.ts e
 // processar-webhook-d4sign.use-case.ts). Status por linha:
 // - `assinaturasPorEmail` (ContratoAssinatura, gravado pelo webhook
-//   type_post=4) é o dado real — quem tem registro assinou naquela data.
-// - Sem registro, cai no fallback inferido do status agregado do
+//   type_post=4 ou pelo sync manual) é o dado real quando o valor não é
+//   null — quem tem data assinou naquela data. Uma linha pode existir com
+//   valor null (destinatário só "conhecido" pelo sync, ainda não assinou,
+//   ver registrarDestinatario) — tratado igual a "sem registro" abaixo.
+// - Sem registro (ou com data null), cai no fallback inferido do status agregado do
 //   Contrato (contratos anteriores ao log existir, ou fechados direto
 //   pelo type_post=1, que não traz e-mail individual), seguindo a ordem
 //   de fila do D4Sign documentada no use-case do webhook:
@@ -271,7 +279,7 @@ export function montarFilaAssinatura(
   signatariosPadraoAtivos: SignatarioPadrao[],
   statusContrato: string | null,
   emailsNaoEntregues: Set<string>,
-  assinaturasPorEmail: Map<string, Date>,
+  assinaturasPorEmail: Map<string, Date | null>,
 ): SignatarioFila[] {
   const socioAssinadoInferido =
     statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
@@ -324,6 +332,7 @@ export function labelStatusContrato(status: string | null): string {
   if (status === CONTRATO_STATUS_ASSINADO) return "Assinado";
   if (status === CONTRATO_STATUS_ASSINADO_AGENCIA) return "Sócios assinaram — aguardando Sakura";
   if (status === CONTRATO_STATUS_AGUARDANDO_ASSINATURA) return "Aguardando assinaturas";
+  if (status === CONTRATO_STATUS_CANCELADO) return "Cancelado";
   return "—";
 }
 
@@ -450,6 +459,63 @@ export function paraVerificacaoCadastralView(
   return analiseIa?.stage1 ?? null;
 }
 
+export interface EmpresaExtraidoEndereco {
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+}
+
+export interface EmpresaExtraidoView {
+  razaoSocial: string | null;
+  nomeFantasia: string | null;
+  endereco: EmpresaExtraidoEndereco | null;
+}
+
+function extrairTextoCampoExtraido(valor: unknown): string | null {
+  return typeof valor === "string" && valor.length > 0 ? valor : null;
+}
+
+function extrairEnderecoCampoExtraido(valor: unknown): EmpresaExtraidoEndereco | null {
+  if (typeof valor !== "object" || valor === null) return null;
+  const registro = valor as Record<string, unknown>;
+
+  const endereco: EmpresaExtraidoEndereco = {
+    cep: extrairTextoCampoExtraido(registro.cep),
+    logradouro: extrairTextoCampoExtraido(registro.logradouro),
+    numero: extrairTextoCampoExtraido(registro.numero),
+    complemento: extrairTextoCampoExtraido(registro.complemento),
+    bairro: extrairTextoCampoExtraido(registro.bairro),
+    cidade: extrairTextoCampoExtraido(registro.municipio),
+    uf: extrairTextoCampoExtraido(registro.uf)?.toUpperCase() ?? null,
+  };
+
+  return Object.values(endereco).some((campo) => campo !== null) ? endereco : null;
+}
+
+// Dados que a IA extraiu do Contrato Social (OCR) — coluna "Extraído" do
+// bloco Empresa (ver ComparacaoEmpresaCampo/ComparacaoEnderecoEmpresa em
+// dossie-campos.tsx). Vem do mesmo `camposExtraidos` já persistido pelo
+// AnalisarCadastroUseCase (nenhuma chamada nova à IA) — os nomes de campo
+// ali são controlados pelo agente externo e não documentados formalmente
+// (mesmo aviso de AnaliseIaDetalhe em dossie-campos.tsx), então a extração
+// é sempre defensiva: chave ausente ou em formato inesperado vira null,
+// nunca lança erro. `nomeFantasia` pode nunca vir preenchido (o contrato
+// social nem sempre imprime esse dado) — isso é esperado, não um bug.
+export function paraEmpresaExtraidoView(
+  analiseContratoSocial: AnaliseIaResumo | null,
+): EmpresaExtraidoView {
+  const campos = analiseContratoSocial?.camposExtraidos ?? {};
+  return {
+    razaoSocial: extrairTextoCampoExtraido(campos.razao_social),
+    nomeFantasia: extrairTextoCampoExtraido(campos.nome_fantasia),
+    endereco: extrairEnderecoCampoExtraido(campos.endereco),
+  };
+}
+
 // AMAT/SOFIA reais pro dossiê (ver ConsultaAmatCard/ConsultaSofiaCard) —
 // null/vazio tanto em cadastros anteriores a esta funcionalidade quanto
 // em cadastros que já passaram pela IA mas cujo agente não populou
@@ -482,6 +548,46 @@ export function paraAnaliseCreditoView(
     historicoSofia: historicoConsultaCredito
       .filter((item) => item.fonte === "SOFIA")
       .map(paraHistoricoConsultaCreditoView),
+  };
+}
+
+// Mesmo shape de HistoricoConsultaCreditoView (não precisa de um tipo
+// próprio só pra trocar `consultadoPor` de string por string|null) —
+// `null` (checagem automática, ver AnalisarCadastroUseCase) vira um rótulo
+// legível em vez de aparecer em branco no histórico.
+function paraConsultaSicaHistoricoView(item: ConsultaSstItem): HistoricoConsultaCreditoView {
+  return {
+    id: item.id,
+    sucesso: item.sucesso,
+    erro: item.erro,
+    consultadoPor: item.consultadoPor ?? "Sistema (automático)",
+    consultadoEm: item.createdAt,
+  };
+}
+
+// "Atual" = a consulta mais recente ao SST com sucesso=true — uma falha
+// técnica não vira "atual" (mantém o último dado válido visível em vez de
+// escondê-lo atrás de um erro passageiro), mas ainda entra no histórico
+// completo. Pode ter vindo da checagem automática por CNPJ ou da
+// confirmação manual por código (ver ConsultaSicaAtualView.metodo).
+export function paraConsultaSicaView(consultas: ConsultaSstItem[]): ConsultaSicaView {
+  const maisRecenteComSucesso = consultas.find((item) => item.sucesso);
+  return {
+    atual: maisRecenteComSucesso
+      ? {
+          encontrado: maisRecenteComSucesso.encontrado,
+          empresaStatus: maisRecenteComSucesso.empresaStatus,
+          nomeEmpresa: maisRecenteComSucesso.nomeEmpresa,
+          codigoEmpresa: maisRecenteComSucesso.codigoEmpresa,
+          telefone: maisRecenteComSucesso.telefone,
+          email: maisRecenteComSucesso.email,
+          codigoExecutivo: maisRecenteComSucesso.codigoExecutivo,
+          nomeExecutivo: maisRecenteComSucesso.nomeExecutivo,
+          metodo: maisRecenteComSucesso.metodo,
+          consultadoEm: maisRecenteComSucesso.createdAt,
+        }
+      : null,
+    historico: consultas.map(paraConsultaSicaHistoricoView),
   };
 }
 

@@ -7,11 +7,13 @@ export type StatusAgencia =
   | "em_complementar"
   | "aguardando_assinatura"
   | "aguardando_validacao"
+  | "aguardando_cadastramento"
   | "aguardando_ativacao"
   | "ativo"
   | "recusado";
 
-export type StatusContrato = "aguardando_assinatura" | "assinado_agencia" | "assinado";
+export type StatusContrato =
+  "aguardando_assinatura" | "assinado_agencia" | "assinado" | "cancelado";
 
 export type OrigemGeracaoContrato = "ia" | "humano" | "externo";
 

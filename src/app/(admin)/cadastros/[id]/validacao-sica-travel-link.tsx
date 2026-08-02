@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
+import { BotaoSubmitComLoading } from "./botao-submit-loading";
 import { DadosEmpresaSecao } from "./dados-empresa-secao";
 import { TravelLinkSwitch } from "./travel-link-switch";
 import { AlertaTravelLinkModal } from "./alerta-travel-link-modal";
@@ -8,11 +9,15 @@ import {
   ConsultaAmatCard,
   ConsultaSofiaCard,
 } from "@/modules/admin/components/consulta-amat-sofia";
+import { ConsultaSicaCard } from "@/modules/admin/components/consulta-sica";
 import type {
   AnaliseIaAmat,
   AnaliseIaRawToolCall,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
-import type { HistoricoConsultaCreditoView } from "@/modules/admin/types/dossie.types";
+import type {
+  HistoricoConsultaCreditoView,
+  ConsultaSicaView,
+} from "@/modules/admin/types/dossie.types";
 
 const INPUT_CLASSNAME =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
@@ -45,9 +50,12 @@ interface ValidacaoSicaTravelLinkProps {
   travelLinkCriado: boolean;
   travelLinkSalvoPor: string | null;
   travelLinkSalvoEm: Date | null;
-  salvarSicaAction: (agenciaId: string, formData: FormData) => Promise<void>;
+  salvarSicaAction: (
+    agenciaId: string,
+    formData: FormData,
+  ) => Promise<{ ok: true } | { ok: false; motivo: string }>;
   salvarTravelLinkAction: (agenciaId: string, criado: boolean) => Promise<void>;
-  validarContratoAction: (id: string) => Promise<void>;
+  confirmarCadastramentoAction: (id: string) => Promise<void>;
   // true quando o analista está revendo esta etapa a partir de uma etapa
   // posterior (ver `etapaExibida` na page) — some com os botões de ação,
   // só sobra a leitura do que foi preenchido.
@@ -64,6 +72,11 @@ interface ValidacaoSicaTravelLinkProps {
   historicoSofia: HistoricoConsultaCreditoView[];
   reconsultarAmat?: () => Promise<void>;
   reconsultarSofia?: () => Promise<void>;
+  // Mesma checagem repetida aqui pelo mesmo motivo do AMAT/SOFIA acima —
+  // é literalmente ao lado do campo de código SICA, o lugar mais relevante
+  // pra essa informação.
+  consultaSica: ConsultaSicaView;
+  reconsultarSica?: () => Promise<void>;
 }
 
 // SICA e TravelLink salvos de verdade em Agencia (sicaCodigo/
@@ -95,7 +108,7 @@ export function ValidacaoSicaTravelLink({
   travelLinkSalvoEm,
   salvarSicaAction,
   salvarTravelLinkAction,
-  validarContratoAction,
+  confirmarCadastramentoAction,
   somenteLeitura = false,
   amat,
   rawAmat,
@@ -105,10 +118,23 @@ export function ValidacaoSicaTravelLink({
   historicoSofia,
   reconsultarAmat,
   reconsultarSofia,
+  consultaSica,
+  reconsultarSica,
 }: ValidacaoSicaTravelLinkProps) {
+  // Sugestão do SST (achada pela checagem automática por CNPJ, ver
+  // AnalisarCadastroUseCase) — só serve pra pré-preencher o campo antes do
+  // analista confirmar; nunca substitui a confirmação manual (o código só
+  // vira `sicaCodigo` de verdade depois que o analista clica em "Salvar",
+  // passando pela mesma validação de sempre, ver SalvarSicaUseCase).
+  const codigoSugeridoSst =
+    consultaSica.atual?.encontrado && consultaSica.atual.codigoEmpresa
+      ? String(consultaSica.atual.codigoEmpresa)
+      : null;
+
   const [editandoSica, setEditandoSica] = useState(false);
-  const [rascunhoSica, setRascunhoSica] = useState(sicaCodigo ?? "");
+  const [rascunhoSica, setRascunhoSica] = useState(sicaCodigo ?? codigoSugeridoSst ?? "");
   const [salvandoSica, setSalvandoSica] = useState(false);
+  const [erroSica, setErroSica] = useState<string | null>(null);
   const [alertaTravelLinkAberto, setAlertaTravelLinkAberto] = useState(false);
 
   const sicaPronta = sicaCodigo !== null;
@@ -127,8 +153,13 @@ export function ValidacaoSicaTravelLink({
 
   async function handleSalvarSica(formData: FormData) {
     setSalvandoSica(true);
-    await salvarSicaAction(agenciaId, formData);
+    setErroSica(null);
+    const resultado = await salvarSicaAction(agenciaId, formData);
     setSalvandoSica(false);
+    if (!resultado.ok) {
+      setErroSica(resultado.motivo);
+      return;
+    }
     setEditandoSica(false);
   }
 
@@ -146,6 +177,10 @@ export function ValidacaoSicaTravelLink({
           rawSofia={rawSofia}
           historico={historicoSofia}
           reconsultar={somenteLeitura ? undefined : reconsultarSofia}
+        />
+        <ConsultaSicaCard
+          consulta={consultaSica}
+          reconsultar={somenteLeitura ? undefined : reconsultarSica}
         />
       </div>
 
@@ -170,6 +205,12 @@ export function ValidacaoSicaTravelLink({
         <label htmlFor="sica" className="text-foreground text-sm font-bold">
           Código SICA
         </label>
+
+        {sicaCodigo === null && codigoSugeridoSst ? (
+          <p className="text-muted-foreground text-xs">
+            Encontrado no SST — confira e clique em Salvar pra confirmar.
+          </p>
+        ) : null}
 
         {mostrarInputSica ? (
           <form action={handleSalvarSica} className="flex gap-2">
@@ -204,7 +245,11 @@ export function ValidacaoSicaTravelLink({
               </button>
             ) : null}
           </form>
-        ) : (
+        ) : null}
+
+        {erroSica ? <p className="text-destructive text-xs font-medium">{erroSica}</p> : null}
+
+        {!mostrarInputSica ? (
           <div className="flex flex-wrap items-center gap-2">
             <span className="bg-success/15 text-success rounded-full px-3 py-1.5 font-mono text-sm font-bold">
               {sicaCodigo}
@@ -219,7 +264,7 @@ export function ValidacaoSicaTravelLink({
               </button>
             ) : null}
           </div>
-        )}
+        ) : null}
 
         {sicaCodigo !== null && sicaSalvoPor && sicaSalvoEm ? (
           <span className="text-success text-xs font-medium">
@@ -239,16 +284,16 @@ export function ValidacaoSicaTravelLink({
 
       {!somenteLeitura ? (
         <div className="flex flex-wrap gap-2">
-          <form action={validarContratoAction.bind(null, agenciaId)}>
-            <button
-              type="submit"
+          <form action={confirmarCadastramentoAction.bind(null, agenciaId)}>
+            <BotaoSubmitComLoading
+              labelCarregando="Confirmando..."
               disabled={!sicaPronta}
               onClick={handleClickValidar}
-              title={!sicaPronta ? "Salve o código SICA antes de validar" : undefined}
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              title={!sicaPronta ? "Salve o código SICA antes de confirmar" : undefined}
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Validar Contrato
-            </button>
+              Confirmar Cadastramento
+            </BotaoSubmitComLoading>
           </form>
         </div>
       ) : null}

@@ -1,6 +1,7 @@
 export interface AgenciaProps {
   id: string;
   razaoSocial: string;
+  nomeFantasia: string | null;
   cnpj: string;
   etapaAtual: number;
   status: string;
@@ -31,6 +32,10 @@ export class Agencia {
 
   get razaoSocial(): string {
     return this.props.razaoSocial;
+  }
+
+  get nomeFantasia(): string | null {
+    return this.props.nomeFantasia;
   }
 
   get cnpj(): string {
@@ -98,6 +103,7 @@ export class Agencia {
     return {
       id: this.props.id,
       razaoSocial: this.props.razaoSocial,
+      nomeFantasia: this.props.nomeFantasia,
       cnpj: this.props.cnpj,
       etapaAtual: this.props.etapaAtual,
       status: this.props.status,

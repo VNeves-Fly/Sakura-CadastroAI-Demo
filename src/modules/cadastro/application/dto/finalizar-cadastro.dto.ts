@@ -53,6 +53,8 @@ export interface FinalizarCadastroInput {
   // o usuário viu na revisão é o que é persistido; sem isso, cai no CNPJ
   // (ver FinalizarCadastroUseCase).
   razaoSocial: string;
+  // Opcional — string vazia vira null (ver FinalizarCadastroUseCase).
+  nomeFantasia: string;
   contratoSocial: UploadedFileInput;
   origem: string | null;
   executivoId: string | null;

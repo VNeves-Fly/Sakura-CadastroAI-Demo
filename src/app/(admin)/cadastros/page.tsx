@@ -6,7 +6,6 @@ import { CadastrosLive } from "./cadastros-live";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
-import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import {
   labelStatus,
@@ -22,10 +21,12 @@ import {
   STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_ATIVO,
   STATUS_RECUSADO,
+  TAMANHO_PAGINA_CADASTROS,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface CadastrosPageProps {
@@ -35,6 +36,8 @@ interface CadastrosPageProps {
     sort?: string;
     dir?: string;
     filtro?: string | string[];
+    meusAtendimentos?: string;
+    page?: string;
   };
 }
 
@@ -56,16 +59,18 @@ function extrairCategoria(valores: string[], prefixo: string): string[] {
 // Filas clicáveis — ciclo completo de estados (decisão do usuário,
 // 2026-07-16; "em_analise" adicionado em 2026-07-24 quando o envio do
 // cadastro passou a persistir antes da IA rodar; unificada com o KPI
-// numérico em 2026-07-27, um card só por status): o cadastro é
+// numérico em 2026-07-27, um card só por status; "aguardando_cadastramento"
+// adicionado em 2026-07-30, ver agencia-repository.ts): o cadastro é
 // persistido assim que enviado ("em_analise") e a IA avalia depois, em
 // background; se reprovar (ou a análise falhar tecnicamente) vai pra
 // "em_complementar" (sem contrato ainda). Se aprovar (ou depois que o
 // analista aprovar manualmente na fila Complementar), o contrato é
-// gerado e cai em "aguardando_assinatura". Assinado, vira
-// "aguardando_validacao" (analista confere o contrato assinado);
-// validado, vira "aguardando_ativacao" (só falta SICA/Travel
-// Link/Usuário Master + clicar ativar); ativado vira "ativo", ou a
-// qualquer momento pode ser "recusado".
+// gerado e cai em "aguardando_assinatura". Quando TODOS OS SÓCIOS
+// assinam, vira "aguardando_validacao" (analista valida as evidências de
+// assinatura); validado, vira "aguardando_cadastramento" (falta cadastrar
+// SICA e TravelLink); cadastrado, vira "aguardando_ativacao" (só falta
+// Usuário Master + clicar ativar); ativado vira "ativo", ou a qualquer
+// momento pode ser "recusado".
 // Cor padrão por card (decisão do usuário, 2026-07-30): roxo pra "gerado
 // pela IA" (análise), teal pra etapas conduzidas pelo analista
 // (complementar/validação/ativação), verde pra ativo e vermelho pra
@@ -74,6 +79,9 @@ function extrairCategoria(valores: string[], prefixo: string): string[] {
 // abaixo, cores reaproveitadas: COR_ORIGEM_IA/COR_ORIGEM_HUMANO).
 const COR_ORIGEM_IA = "#8A2BE2";
 const COR_ORIGEM_HUMANO = "#008B8B";
+const COR_CLIENTE = "#f013b1e2";
+const COR_ATIVO = "#008000";
+const COR_RECUSADO = "#DC143C";
 
 const FILAS = [
   {
@@ -95,13 +103,20 @@ const FILAS = [
     chave: "aguardandoAssinatura" as const,
     label: "Aguardando assinatura",
     sublabel: "contrato enviado aos sócios",
-    cor: null,
+    cor: COR_CLIENTE,
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
+    label: "Validação",
+    sublabel: "sócios assinaram, validar evidências",
+    cor: COR_ORIGEM_HUMANO,
+  },
+  {
+    status: STATUS_AGUARDANDO_CADASTRAMENTO,
+    chave: "aguardandoCadastramento" as const,
     label: "Setor cadastro",
-    sublabel: "contrato assinado, criar SICA e TravelLink",
+    sublabel: "validado, criar SICA e TravelLink",
     cor: COR_ORIGEM_HUMANO,
   },
   {
@@ -116,14 +131,14 @@ const FILAS = [
     chave: "ativas" as const,
     label: "Ativas",
     sublabel: "agência liberada e operando",
-    cor: "#008000",
+    cor: COR_ATIVO,
   },
   {
     status: STATUS_RECUSADO,
     chave: "recusadas" as const,
     label: "Recusadas",
     sublabel: "cadastro recusado",
-    cor: "#DC143C",
+    cor: COR_RECUSADO,
   },
 ];
 
@@ -141,11 +156,18 @@ function diasAtras(data: Date): string {
 }
 
 function formatarData(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
 }
 
 function formatarDataHora(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
 }
 
 function construirHref(
@@ -180,7 +202,7 @@ function ThOrdenavel({
   return (
     <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
       <Link
-        href={construirHref(searchParams, { sort: coluna.chave, dir: proximaDir })}
+        href={construirHref(searchParams, { sort: coluna.chave, dir: proximaDir, page: undefined })}
         className="hover:text-foreground flex items-center gap-1"
       >
         {coluna.label}
@@ -209,6 +231,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
 
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
+  const paginaAtual = Math.max(1, Math.trunc(Number(searchParams.page)) || 1);
 
   // Filtro único (ver FiltroCadastrosField) — cada categoria vem
   // prefixada dentro de searchParams.filtro; Status também pode chegar
@@ -221,6 +244,10 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   const associacaoDoFiltro = extrairCategoria(valoresFiltro, "associacao");
   const statusDoFiltro = extrairCategoria(valoresFiltro, "status");
   const statusCombinado = [...new Set([...paraArray(searchParams.status), ...statusDoFiltro])];
+  // Switch "Meus atendimentos" (decisão do usuário, 2026-07-30): filtra
+  // no banco pelas agências onde o analista logado é o atendente ATIVO —
+  // sem sessão não há o que filtrar, então o switch é ignorado.
+  const meusAtendimentosAtivo = searchParams.meusAtendimentos === "1" && !!analistaId;
 
   const [{ items, total, kpis }, analise, promotores, associacoesTodas] = await Promise.all([
     cadastroAdminController.listarCadastros({
@@ -232,11 +259,14 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
       associacaoId: associacaoDoFiltro,
       base: baseDoFiltro,
       gestor: gestorDoFiltro,
+      atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
+      pagina: paginaAtual,
     }),
     ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
     atribuicoesAdminController.listarPromotores(),
     atribuicoesAdminController.listarAssociacoes(),
   ]);
+  const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA_CADASTROS));
 
   const associacoesAtivas = associacoesTodas.filter((associacao) => associacao.ativo);
 
@@ -344,6 +374,17 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             options={opcoesFiltro}
           />
         </div>
+        <label className="flex shrink-0 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="meusAtendimentos"
+            value="1"
+            defaultChecked={searchParams.meusAtendimentos === "1"}
+            className="peer sr-only"
+          />
+          <span className="peer-checked:bg-primary bg-input relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:left-0.5 before:size-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:content-[''] peer-checked:before:translate-x-5" />
+          <span className="text-foreground font-medium whitespace-nowrap">Meus atendimentos</span>
+        </label>
         <button
           type="submit"
           className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"
@@ -386,34 +427,27 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           // breakdown de origem do contrato (IA x analista), já que o KPI
           // agregado do card não distingue as duas origens.
           if (fila.status === STATUS_AGUARDANDO_ASSINATURA) {
-            const { ia, humano } = kpis.aguardandoAssinaturaPorOrigem;
             return (
-              <Tooltip key={fila.status}>
-                <TooltipTrigger
-                  render={
-                    <Link
-                      href={construirHref(searchParams, {
-                        status: ativa ? undefined : fila.status,
-                      })}
-                      className={cardClassName}
-                    >
-                      {cardConteudo}
-                    </Link>
-                  }
-                />
-                <TooltipContent>
-                  <span style={{ color: COR_ORIGEM_IA }}>IA: {ia}</span>
-                  {" · "}
-                  <span style={{ color: COR_ORIGEM_HUMANO }}>Analista: {humano}</span>
-                </TooltipContent>
-              </Tooltip>
+              <Link
+                key={fila.status}
+                href={construirHref(searchParams, {
+                  status: ativa ? undefined : fila.status,
+                  page: undefined,
+                })}
+                className={cardClassName}
+              >
+                {cardConteudo}
+              </Link>
             );
           }
 
           return (
             <Link
               key={fila.status}
-              href={construirHref(searchParams, { status: ativa ? undefined : fila.status })}
+              href={construirHref(searchParams, {
+                status: ativa ? undefined : fila.status,
+                page: undefined,
+              })}
               className={cardClassName}
               style={cardStyle}
             >
@@ -443,6 +477,9 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     sortDir={sortDir}
                     searchParams={searchParams}
                   />
+                  <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
+                    SICA
+                  </th>
                   <th className="text-muted-foreground px-4 py-2.5 font-medium whitespace-nowrap">
                     Atendimento
                   </th>
@@ -479,6 +516,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     executivoBase,
                     executivoGestor,
                     eventoNome,
+                    consultaSicaMaisRecente,
                   }) => {
                     const atendimentoAtivo = atendimentoAtivoPorAgencia.get(agencia.id);
                     const ultimoEncerrado = ultimoEncerradoPorAgencia.get(agencia.id);
@@ -505,6 +543,46 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
+                          {consultaSicaMaisRecente?.encontrado ? (
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <span
+                                    className={`cursor-default rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
+                                      consultaSicaMaisRecente.empresaStatus === "ativo"
+                                        ? "bg-success/15 text-success"
+                                        : "bg-warning/15 text-warning"
+                                    }`}
+                                  >
+                                    {consultaSicaMaisRecente.empresaStatus ?? "—"}
+                                  </span>
+                                }
+                              />
+                              <TooltipContent className="flex flex-col gap-0.5">
+                                <span>
+                                  {consultaSicaMaisRecente.nomeEmpresa ?? "—"}
+                                  {consultaSicaMaisRecente.codigoEmpresa
+                                    ? ` (#${consultaSicaMaisRecente.codigoEmpresa})`
+                                    : ""}
+                                </span>
+                                <span>Tel: {consultaSicaMaisRecente.telefone ?? "—"}</span>
+                                <span>E-mail: {consultaSicaMaisRecente.email ?? "—"}</span>
+                                <span>
+                                  Executivo: {consultaSicaMaisRecente.nomeExecutivo ?? "—"}
+                                  {consultaSicaMaisRecente.codigoExecutivo
+                                    ? ` (#${consultaSicaMaisRecente.codigoExecutivo})`
+                                    : ""}
+                                </span>
+                                <span>
+                                  Consultado em {formatarData(consultaSicaMaisRecente.createdAt)}
+                                </span>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           {atendimentoAtivo ? (
                             <>
                               <span className="bg-success-bg text-success-text flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
@@ -514,32 +592,18 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               <p className="text-muted-foreground mt-1 text-xs">
                                 Iniciado: {formatarDataHora(atendimentoAtivo.assumidoEm)}
                               </p>
-                              <div className="mt-1.5">
-                                <AtendimentoAgenciaAcoes
-                                  agenciaId={agencia.id}
-                                  analistaId={analistaId}
-                                  atendimentoAtual={{
-                                    analistaId: atendimentoAtivo.analistaId,
-                                    analistaNome: atendimentoAtivo.analistaNome,
-                                  }}
-                                />
-                              </div>
+                            </>
+                          ) : ultimoEncerrado ? (
+                            <>
+                              <p className="text-foreground font-medium">
+                                {ultimoEncerrado.analistaNome}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                Finalizado: {formatarDataHora(ultimoEncerrado.liberadoEm)}
+                              </p>
                             </>
                           ) : (
-                            <>
-                              {ultimoEncerrado ? (
-                                <>
-                                  <p className="text-foreground font-medium">
-                                    {ultimoEncerrado.analistaNome}
-                                  </p>
-                                  <p className="text-muted-foreground text-xs">
-                                    Finalizado: {formatarDataHora(ultimoEncerrado.liberadoEm)}
-                                  </p>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -580,7 +644,37 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         )}
       </div>
 
-      <p className="text-muted-foreground text-xs">{total} agência(s) encontrada(s).</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-muted-foreground text-xs">
+          {total} agência(s) encontrada(s) — página {paginaAtual} de {totalPaginas}
+        </p>
+        <div className="flex items-center gap-2">
+          {paginaAtual > 1 ? (
+            <Link
+              href={construirHref(searchParams, { page: String(paginaAtual - 1) })}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+            >
+              ← Anterior
+            </Link>
+          ) : (
+            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
+              ← Anterior
+            </span>
+          )}
+          {paginaAtual < totalPaginas ? (
+            <Link
+              href={construirHref(searchParams, { page: String(paginaAtual + 1) })}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+            >
+              Próxima →
+            </Link>
+          ) : (
+            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
+              Próxima →
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
