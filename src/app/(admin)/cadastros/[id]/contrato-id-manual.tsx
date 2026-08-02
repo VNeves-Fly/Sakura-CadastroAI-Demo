@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { registrarContratoExternoAction } from "./actions";
 
 const INPUT_CLASSNAME =
@@ -91,9 +92,11 @@ export function ContratoIdManual({
             <button
               type="button"
               disabled={rascunho.trim().length === 0 || salvando}
+              aria-busy={salvando}
               onClick={handleSalvar}
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
+              {salvando ? <Loader2 className="size-3.5 animate-spin" /> : null}
               {salvando ? "Verificando..." : "Salvar"}
             </button>
             <button

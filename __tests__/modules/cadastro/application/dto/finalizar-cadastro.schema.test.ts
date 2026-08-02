@@ -55,6 +55,7 @@ function payloadValido() {
   return {
     cnpj: "11222333000181",
     razaoSocial: "Empresa Teste Ltda",
+    nomeFantasia: "",
     telefoneComercial: "+55 11999999999",
     semTelefoneComercial: false,
     emailOperacional: "operacional@empresa.com",

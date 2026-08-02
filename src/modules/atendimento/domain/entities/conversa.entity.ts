@@ -1,5 +1,4 @@
 import type { MensagemEntity } from "@/modules/atendimento/domain/entities/mensagem.entity";
-import type { SolicitacaoTransferenciaEntity } from "@/modules/atendimento/domain/entities/solicitacao-transferencia.entity";
 
 export type TipoContatoConversaEntity = "agencia" | "nao_identificado";
 export type PapelMembroEntity = "socio" | "representante_legal" | "comercial" | "outro";
@@ -11,7 +10,12 @@ export interface MembroConversaEntity {
   telefone: string;
 }
 
-export interface AssumirAtendimentoRegistroEntity {
+// Atendimento é sempre da AGÊNCIA (AtendimentoAgencia), não da conversa —
+// duas conversas da mesma agência compartilham o mesmo atendimentoAtual/
+// historicoAtendimento. Null (e histórico vazio) pra conversa "não
+// identificada" (sem agenciaId, sem conceito de atendimento).
+export interface AtendimentoAtualEntity {
+  analistaId: string;
   analistaNome: string;
   assumidoEm: string;
   liberadoEm: string | null;
@@ -47,9 +51,8 @@ export interface ConversaEntity {
   agenciaCnpj: string;
   membro: MembroConversaEntity;
   mensagens: MensagemEntity[];
-  atendimentoAtual: AssumirAtendimentoRegistroEntity | null;
-  historicoAtendimento: AssumirAtendimentoRegistroEntity[];
-  solicitacaoTransferenciaPendente: SolicitacaoTransferenciaEntity | null;
+  atendimentoAtual: AtendimentoAtualEntity | null;
+  historicoAtendimento: AtendimentoAtualEntity[];
   resumoFicha: ResumoFichaClienteEntity;
   createdAt: string;
   updatedAt: string;

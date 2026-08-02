@@ -20,12 +20,20 @@ interface EditarEmpresaFormProps {
 
 const LABEL_CAMPO: Record<string, string> = {
   razaoSocial: "Razão social",
+  nomeFantasia: "Nome fantasia",
   emailContato: "E-mail de contato",
   telefoneContato: "Telefone de contato",
   telefoneComercial: "Telefone comercial",
   emailOperacional: "E-mail operacional",
   emailComercial: "E-mail comercial",
   emailFinanceiro: "E-mail financeiro",
+  cep: "CEP",
+  logradouro: "Logradouro",
+  numero: "Número",
+  complemento: "Complemento",
+  bairro: "Bairro",
+  cidade: "Cidade",
+  uf: "UF",
 };
 
 const INPUT_CLASSES =
@@ -122,6 +130,13 @@ export function EditarEmpresaForm({
                     className={INPUT_CLASSES}
                   />
                 </CampoForm>
+                <CampoForm label="Nome fantasia">
+                  <input
+                    name="nomeFantasia"
+                    defaultValue={agencia.nomeFantasia ?? ""}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
                 <CampoForm label="E-mail de contato" oficial={dadosReceita?.email}>
                   <input
                     name="emailContato"
@@ -170,6 +185,63 @@ export function EditarEmpresaForm({
                     className={INPUT_CLASSES}
                   />
                 </CampoForm>
+              </div>
+
+              <div className="border-border bg-muted/20 flex flex-col gap-3 rounded-2xl border p-3">
+                <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+                  Endereço da empresa
+                </span>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <CampoForm label="CEP">
+                    <input
+                      name="cep"
+                      defaultValue={complementar.enderecoAgencia.cep}
+                      className={INPUT_CLASSES}
+                    />
+                  </CampoForm>
+                  <CampoForm label="Logradouro">
+                    <input
+                      name="logradouro"
+                      defaultValue={complementar.enderecoAgencia.logradouro}
+                      className={INPUT_CLASSES}
+                    />
+                  </CampoForm>
+                  <CampoForm label="Número">
+                    <input
+                      name="numero"
+                      defaultValue={complementar.enderecoAgencia.numero}
+                      className={INPUT_CLASSES}
+                    />
+                  </CampoForm>
+                  <CampoForm label="Complemento">
+                    <input
+                      name="complemento"
+                      defaultValue={complementar.enderecoAgencia.complemento}
+                      className={INPUT_CLASSES}
+                    />
+                  </CampoForm>
+                  <CampoForm label="Bairro">
+                    <input
+                      name="bairro"
+                      defaultValue={complementar.enderecoAgencia.bairro}
+                      className={INPUT_CLASSES}
+                    />
+                  </CampoForm>
+                  <CampoForm label="Cidade">
+                    <input
+                      name="cidade"
+                      defaultValue={complementar.enderecoAgencia.cidade}
+                      className={INPUT_CLASSES}
+                    />
+                  </CampoForm>
+                  <CampoForm label="UF">
+                    <input
+                      name="uf"
+                      defaultValue={complementar.enderecoAgencia.uf}
+                      className={INPUT_CLASSES}
+                    />
+                  </CampoForm>
+                </div>
               </div>
 
               <textarea

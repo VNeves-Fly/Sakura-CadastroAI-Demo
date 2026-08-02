@@ -12,11 +12,6 @@ const mockController = {
   removerTextoPronto: jest.fn(),
   marcarComoLida: jest.fn(),
   enviarMensagem: jest.fn(),
-  assumirAtendimento: jest.fn(),
-  encerrarAtendimento: jest.fn(),
-  solicitarTransferencia: jest.fn(),
-  responderTransferencia: jest.fn(),
-  limparSolicitacaoTransferencia: jest.fn(),
   sincronizarTemplates: jest.fn(),
   obterArquivoMidia: jest.fn(),
   obterConfiguracaoWhatsapp: jest.fn(),
@@ -41,12 +36,6 @@ jest.mock("@/modules/atendimento/presentation/controllers/atendimento.controller
     removerTextoPronto: (...args: unknown[]) => mockController.removerTextoPronto(...args),
     marcarComoLida: (...args: unknown[]) => mockController.marcarComoLida(...args),
     enviarMensagem: (...args: unknown[]) => mockController.enviarMensagem(...args),
-    assumirAtendimento: (...args: unknown[]) => mockController.assumirAtendimento(...args),
-    encerrarAtendimento: (...args: unknown[]) => mockController.encerrarAtendimento(...args),
-    solicitarTransferencia: (...args: unknown[]) => mockController.solicitarTransferencia(...args),
-    responderTransferencia: (...args: unknown[]) => mockController.responderTransferencia(...args),
-    limparSolicitacaoTransferencia: (...args: unknown[]) =>
-      mockController.limparSolicitacaoTransferencia(...args),
     sincronizarTemplates: (...args: unknown[]) => mockController.sincronizarTemplates(...args),
     obterArquivoMidia: (...args: unknown[]) => mockController.obterArquivoMidia(...args),
     obterConfiguracaoWhatsapp: (...args: unknown[]) =>
@@ -59,13 +48,10 @@ import { getServerSession } from "next-auth";
 import { ConflictError, NotFoundError, RateLimitError } from "@/modules/shared/domain/errors";
 import { ForaDaJanela24hError } from "@/modules/atendimento/domain/errors";
 import {
-  assumirAtendimentoRoute,
   atualizarTextoProntoRoute,
   criarTemplateRoute,
   criarTextoProntoRoute,
-  encerrarAtendimentoRoute,
   enviarMensagemRoute,
-  limparSolicitacaoTransferenciaRoute,
   listarConversasRoute,
   listarTemplatesAprovadosRoute,
   listarTextosProntosRoute,
@@ -75,9 +61,7 @@ import {
   obterConfiguracaoWhatsappRoute,
   reenviarTemplateRoute,
   removerTextoProntoRoute,
-  responderTransferenciaRoute,
   sincronizarTemplatesRoute,
-  solicitarTransferenciaRoute,
   testarConexaoWhatsappRoute,
 } from "@/modules/atendimento/presentation/routes/atendimento.routes";
 
@@ -106,10 +90,6 @@ describe("atendimento.routes — autenticação", () => {
     ["sincronizarTemplatesRoute", () => sincronizarTemplatesRoute(new Request("http://localhost"))],
     ["marcarComoLidaRoute", () => marcarComoLidaRoute(new Request("http://localhost"), "conv-1")],
     [
-      "assumirAtendimentoRoute",
-      () => assumirAtendimentoRoute(new Request("http://localhost"), "conv-1"),
-    ],
-    [
       "obterArquivoMidiaRoute",
       () => obterArquivoMidiaRoute(new Request("http://localhost"), "midia-1"),
     ],
@@ -120,22 +100,6 @@ describe("atendimento.routes — autenticação", () => {
     [
       "criarTextoProntoRoute",
       () => criarTextoProntoRoute(jsonRequest({ titulo: "t", conteudo: "c" })),
-    ],
-    [
-      "encerrarAtendimentoRoute",
-      () => encerrarAtendimentoRoute(new Request("http://localhost"), "conv-1"),
-    ],
-    [
-      "solicitarTransferenciaRoute",
-      () => solicitarTransferenciaRoute(jsonRequest({ paraAnalista: "user-2" }), "conv-1"),
-    ],
-    [
-      "responderTransferenciaRoute",
-      () => responderTransferenciaRoute(jsonRequest({ aceita: true }), "conv-1"),
-    ],
-    [
-      "limparSolicitacaoTransferenciaRoute",
-      () => limparSolicitacaoTransferenciaRoute(new Request("http://localhost"), "conv-1"),
     ],
     [
       "atualizarTextoProntoRoute",
@@ -283,38 +247,6 @@ describe("enviarMensagemRoute", () => {
   });
 });
 
-describe("assumirAtendimentoRoute", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it("delega conversaId + analistaId da sessão pro controller", async () => {
-    sessionComoUsuario("analista-assumir");
-    mockController.assumirAtendimento.mockResolvedValue({ id: "conv-1" });
-
-    const response = await assumirAtendimentoRoute(
-      new Request("http://localhost", { method: "POST" }),
-      "conv-1",
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockController.assumirAtendimento).toHaveBeenCalledWith({
-      conversaId: "conv-1",
-      analistaId: "analista-assumir",
-    });
-  });
-
-  it("mapeia ConflictError (outro analista dentro da janela) pra 409", async () => {
-    sessionComoUsuario("analista-assumir-conflito");
-    mockController.assumirAtendimento.mockRejectedValue(new ConflictError("já em atendimento"));
-
-    const response = await assumirAtendimentoRoute(
-      new Request("http://localhost", { method: "POST" }),
-      "conv-1",
-    );
-
-    expect(response.status).toBe(409);
-  });
-});
-
 describe("marcarComoLidaRoute", () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -387,118 +319,6 @@ describe("sincronizarTemplatesRoute", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ sincronizados: 3 });
-  });
-});
-
-describe("encerrarAtendimentoRoute", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it("delega conversaId + analistaId da sessão pro controller", async () => {
-    sessionComoUsuario("analista-encerrar");
-    mockController.encerrarAtendimento.mockResolvedValue({ id: "conv-1" });
-
-    const response = await encerrarAtendimentoRoute(new Request("http://localhost"), "conv-1");
-
-    expect(response.status).toBe(200);
-    expect(mockController.encerrarAtendimento).toHaveBeenCalledWith({
-      conversaId: "conv-1",
-      analistaId: "analista-encerrar",
-    });
-  });
-
-  it("mapeia ConflictError pra 409", async () => {
-    sessionComoUsuario("analista-encerrar-conflito");
-    mockController.encerrarAtendimento.mockRejectedValue(new ConflictError("não é dono"));
-
-    const response = await encerrarAtendimentoRoute(new Request("http://localhost"), "conv-1");
-
-    expect(response.status).toBe(409);
-  });
-});
-
-describe("solicitarTransferenciaRoute", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it("responde 422 com body inválido", async () => {
-    sessionComoUsuario("analista-transf-422");
-
-    const response = await solicitarTransferenciaRoute(jsonRequest({ paraAnalista: "" }), "conv-1");
-
-    expect(response.status).toBe(422);
-    expect(mockController.solicitarTransferencia).not.toHaveBeenCalled();
-  });
-
-  it("ignora deAnalista do body — usa sempre a sessão; paraAnalista vira paraAnalistaId", async () => {
-    sessionComoUsuario("analista-transf-real");
-    mockController.solicitarTransferencia.mockResolvedValue({ id: "conv-1" });
-
-    const response = await solicitarTransferenciaRoute(
-      jsonRequest({ deAnalista: "Nome Forjado", paraAnalista: "user-2" }),
-      "conv-1",
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockController.solicitarTransferencia).toHaveBeenCalledWith({
-      conversaId: "conv-1",
-      deAnalistaId: "analista-transf-real",
-      paraAnalistaId: "user-2",
-    });
-  });
-
-  it("mapeia ConflictError (já existe pendente) pra 409", async () => {
-    sessionComoUsuario("analista-transf-conflito");
-    mockController.solicitarTransferencia.mockRejectedValue(new ConflictError("já pendente"));
-
-    const response = await solicitarTransferenciaRoute(
-      jsonRequest({ paraAnalista: "user-2" }),
-      "conv-1",
-    );
-
-    expect(response.status).toBe(409);
-  });
-});
-
-describe("responderTransferenciaRoute", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it("responde 422 com body inválido", async () => {
-    sessionComoUsuario("analista-resp-422");
-
-    const response = await responderTransferenciaRoute(jsonRequest({}), "conv-1");
-
-    expect(response.status).toBe(422);
-    expect(mockController.responderTransferencia).not.toHaveBeenCalled();
-  });
-
-  it("delega conversaId + analistaId da sessão + aceita pro controller", async () => {
-    sessionComoUsuario("analista-resp");
-    mockController.responderTransferencia.mockResolvedValue({ id: "conv-1" });
-
-    const response = await responderTransferenciaRoute(jsonRequest({ aceita: true }), "conv-1");
-
-    expect(response.status).toBe(200);
-    expect(mockController.responderTransferencia).toHaveBeenCalledWith({
-      conversaId: "conv-1",
-      analistaId: "analista-resp",
-      aceita: true,
-    });
-  });
-});
-
-describe("limparSolicitacaoTransferenciaRoute", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it("delega o conversaId pro controller", async () => {
-    sessionComoUsuario("analista-limpar");
-    mockController.limparSolicitacaoTransferencia.mockResolvedValue({ id: "conv-1" });
-
-    const response = await limparSolicitacaoTransferenciaRoute(
-      new Request("http://localhost"),
-      "conv-1",
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockController.limparSolicitacaoTransferencia).toHaveBeenCalledWith("conv-1");
   });
 });
 

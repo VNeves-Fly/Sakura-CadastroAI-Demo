@@ -31,7 +31,10 @@ const COLUNAS_ORDENAVEIS = [
 ];
 
 function formatarData(data: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
 }
 
 function construirHref(

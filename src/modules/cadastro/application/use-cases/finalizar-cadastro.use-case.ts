@@ -49,6 +49,7 @@ export class FinalizarCadastroUseCase implements UseCase<
     // mesmo valor que o usuário viu na revisão) — não reconsulta nada aqui,
     // evita divergência entre o que foi revisado e o que é persistido.
     const razaoSocial = input.razaoSocial || input.cnpj;
+    const nomeFantasia = input.nomeFantasia.trim() || null;
 
     const contratoSocialSalvo = await this.fileStorage.save(
       input.contratoSocial,
@@ -109,6 +110,7 @@ export class FinalizarCadastroUseCase implements UseCase<
 
     const agencia = await this.agenciaRepository.create({
       razaoSocial,
+      nomeFantasia,
       cnpj: input.cnpj,
       status: STATUS_EM_ANALISE,
       contratoSocialPath,

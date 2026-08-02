@@ -3,12 +3,15 @@ import {
   CONTRATO_STATUS_ASSINADO,
   CONTRATO_STATUS_ASSINADO_AGENCIA,
   STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import type { ContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/domain/repositories/contrato-email-falha-entrega-repository";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import type { ContratoSignatarioRepository } from "@/modules/cadastro/domain/repositories/contrato-signatario-repository";
+import { todosSociosAssinaram } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 
 export interface ProcessarWebhookD4SignInput {
   // uuid do documento no D4Sign — é o Contrato.provedorId gravado quando
@@ -36,12 +39,27 @@ export interface ProcessarWebhookD4SignOutput {
 // MarcarContratoAssinadoUseCase (ação do analista no admin). Reage a três
 // eventos:
 // - "4" (assinatura individual): grava em ContratoAssinatura quem assinou
-//   e quando (é o dado real por linha da Fila de Assinatura do dossiê) e,
-//   se for o aprovador (papel APROVAR, estágio 1 — só ele sozinho nesse
-//   estágio), avança a agência sem esperar os signatários fixos restantes
-//   (estágio 2, testemunhas) terminarem — processo interno da Sakura
-//   continua em paralelo.
-// - "1" (documento finalizado): fecha o contrato como assinado de vez.
+//   e quando (é o dado real por linha da Fila de Assinatura do dossiê).
+//   Se for o aprovador (papel APROVAR — Jean), marca Contrato.status como
+//   assinado_agencia (efeito isolado, visibilidade). A agência avança de
+//   duas formas independentes:
+//   - aguardando_assinatura → aguardando_validacao: quando TODOS OS SÓCIOS
+//     (ContratoSignatario — snapshot congelado do contrato, não os
+//     signatários fixos da Sakura) já tiverem assinatura registrada —
+//     checado do zero a cada evento "4", não importa quem assinou agora
+//     (2026-07-30: antes só avançava quando o aprovador assinava, o que
+//     acoplava a validação de evidências dos sócios a esperar o aprovador
+//     entrar, às vezes dias depois).
+//   - aguardando_validacao → aguardando_cadastramento: quando o APROVADOR
+//     (Jean) assina — a assinatura dele em si é a aprovação formal do time
+//     de cadastro (2026-07-31, único gatilho — não existe mais botão manual
+//     pra essa transição, decisão do usuário: o webhook é a fonte da
+//     verdade).
+// - "1" (documento finalizado): fecha o contrato como assinado de vez —
+//   nesse ponto necessariamente todos já assinaram (o D4Sign só fecha o
+//   documento depois do último signatário, incluindo o aprovador), então
+//   também "alcança" a agência pro próximo estágio caso algum "4"
+//   individual tenha se perdido no caminho (nunca regride).
 // - "2" (e-mail não entregue): registra em ContratoEmailFalhaEntrega, pra
 //   aparecer como indicativo na tela de Contrato do admin — não muda
 //   status de nada, é só visibilidade pro analista perceber que aquele
@@ -58,6 +76,7 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
     private readonly signatarioPadraoRepository: SignatarioPadraoRepository,
     private readonly contratoEmailFalhaEntregaRepository: ContratoEmailFalhaEntregaRepository,
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
+    private readonly contratoSignatarioRepository: ContratoSignatarioRepository,
   ) {}
 
   async execute(input: ProcessarWebhookD4SignInput): Promise<ProcessarWebhookD4SignOutput> {
@@ -114,18 +133,38 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
     // manda o timestamp no postback, então vale o momento do recebimento.
     await this.contratoAssinaturaRepository.registrar(referencia.contratoId, input.email);
 
+    const agencia = await this.agenciaRepository.obterDetalhe(referencia.agenciaId);
+    const contratoAtual = agencia?.contratos.find((c) => c.id === referencia.contratoId);
+
+    // Efeito isolado, independente do avanço da Agencia abaixo: quando o
+    // aprovador assina, marca o Contrato como assinado_agencia — só
+    // visibilidade (ver labelStatusContrato/montarFilaAssinatura no
+    // dossie.adapter.ts), não decide status de Agencia. Guarda contra
+    // corrida com processarDocumentoFinalizado (o "1" pode chegar quase
+    // junto e já ter fechado o contrato como assinado de vez).
     const signatariosPadrao = await this.signatarioPadraoRepository.findAtivos();
     const ehAprovador = signatariosPadrao.some(
       (padrao) => padrao.papel === "APROVAR" && padrao.email === input.email,
     );
-    if (!ehAprovador) {
-      return {
-        processado: true,
-        motivo: "Assinatura registrada — signatário não é o aprovador, sem transição de status.",
-      };
+    if (ehAprovador && contratoAtual?.status !== CONTRATO_STATUS_ASSINADO) {
+      await this.agenciaRepository.atualizarStatusContrato(
+        referencia.contratoId,
+        CONTRATO_STATUS_ASSINADO_AGENCIA,
+      );
     }
 
-    const agencia = await this.agenciaRepository.obterDetalhe(referencia.agenciaId);
+    // Aprovação formal do time de cadastro: o Jean assinando (aprovador)
+    // com a agência já em aguardando_validacao é, em si, a aprovação da
+    // validação de evidências — único gatilho pra aguardando_cadastramento
+    // (idempotente, só age se ainda estiver nesse status).
+    if (ehAprovador && agencia?.agencia.status === STATUS_AGUARDANDO_VALIDACAO) {
+      await this.agenciaRepository.atualizarStatus(
+        referencia.agenciaId,
+        STATUS_AGUARDANDO_CADASTRAMENTO,
+      );
+      return { processado: true };
+    }
+
     if (agencia?.agencia.status !== STATUS_AGUARDANDO_ASSINATURA) {
       return {
         processado: true,
@@ -133,23 +172,26 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       };
     }
 
-    // Guarda contra corrida com processarDocumentoFinalizado: os dois
-    // webhooks ("4" do aprovador e "1" do documento inteiro) podem chegar
-    // quase juntos: se o contrato já foi fechado como assinado (mesmo com
-    // a agência ainda não refletindo isso — as duas escritas abaixo não
-    // são atômicas), não regride pra assinado_agencia.
-    const contratoAtual = agencia.contratos.find((c) => c.id === referencia.contratoId);
-    if (contratoAtual?.status === CONTRATO_STATUS_ASSINADO) {
+    const socios = await this.contratoSignatarioRepository.findByContratoId(referencia.contratoId);
+    const assinaturas = await this.contratoAssinaturaRepository.findByContratoId(
+      referencia.contratoId,
+    );
+
+    // assinadoEm !== null é obrigatório aqui: uma linha em ContratoAssinatura
+    // não significa mais "assinou" por si só — pode ser só um destinatário
+    // conhecido pelo sync (ver registrarDestinatario).
+    if (
+      !todosSociosAssinaram(
+        socios.map((s) => s.email),
+        assinaturas.filter((a) => a.assinadoEm !== null).map((a) => a.email),
+      )
+    ) {
       return {
         processado: true,
-        motivo: "Assinatura registrada — contrato já finalizado, sem transição.",
+        motivo: "Assinatura registrada — ainda faltam sócios assinar.",
       };
     }
 
-    await this.agenciaRepository.atualizarStatusContrato(
-      referencia.contratoId,
-      CONTRATO_STATUS_ASSINADO_AGENCIA,
-    );
     await this.agenciaRepository.atualizarStatus(referencia.agenciaId, STATUS_AGUARDANDO_VALIDACAO);
 
     return { processado: true };
@@ -164,12 +206,17 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
     }
 
     const agencia = await this.agenciaRepository.obterDetalhe(referencia.agenciaId);
-    // aguardando_assinatura: ninguém avançou ainda (ex.: sem aprovador
-    // configurado). aguardando_validacao: já avançou quando o aprovador
-    // assinou (processarAssinaturaIndividual) — o "1" só fecha o contrato.
+    const statusAtual = agencia?.agencia.status;
+    // O "1" só chega depois que TODO MUNDO assinou (sócios + aprovador +
+    // testemunhas), então a agência já deveria ter avançado sozinha via os
+    // "4" individuais — esses três status cobrem tanto o caminho normal
+    // quanto webhooks fora de ordem (ex.: o "4" do aprovador se perdeu, mas
+    // o "1" final chegou). Fora desse leque (em_complementar, recusado
+    // etc.) não tem contrato "em andamento" de verdade pra fechar.
     const agenciaPronta =
-      agencia?.agencia.status === STATUS_AGUARDANDO_ASSINATURA ||
-      agencia?.agencia.status === STATUS_AGUARDANDO_VALIDACAO;
+      statusAtual === STATUS_AGUARDANDO_ASSINATURA ||
+      statusAtual === STATUS_AGUARDANDO_VALIDACAO ||
+      statusAtual === STATUS_AGUARDANDO_CADASTRAMENTO;
     if (!agenciaPronta) {
       return { processado: false, motivo: "Agência não está aguardando assinatura." };
     }
@@ -178,8 +225,20 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       referencia.contratoId,
       CONTRATO_STATUS_ASSINADO,
     );
-    // Idempotente: já deve estar aqui se o aprovador assinou antes.
-    await this.agenciaRepository.atualizarStatus(referencia.agenciaId, STATUS_AGUARDANDO_VALIDACAO);
+
+    // Nunca regride — só "alcança" o próximo estágio se a agência ainda
+    // não tiver avançado sozinha via os "4" individuais.
+    if (statusAtual === STATUS_AGUARDANDO_ASSINATURA) {
+      await this.agenciaRepository.atualizarStatus(
+        referencia.agenciaId,
+        STATUS_AGUARDANDO_VALIDACAO,
+      );
+    } else if (statusAtual === STATUS_AGUARDANDO_VALIDACAO) {
+      await this.agenciaRepository.atualizarStatus(
+        referencia.agenciaId,
+        STATUS_AGUARDANDO_CADASTRAMENTO,
+      );
+    }
 
     return { processado: true };
   }

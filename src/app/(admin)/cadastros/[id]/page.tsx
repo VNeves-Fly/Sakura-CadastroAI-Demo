@@ -31,6 +31,9 @@ import {
   CampoDocumento,
   ParecerIa,
   VerificacaoCadastral,
+  ComparacaoEmpresaCampo,
+  ComparacaoEnderecoEmpresa,
+  CampoEmailContato,
   HistoricoAtendimentoAgencia,
 } from "@/modules/admin/components/dossie-campos";
 import {
@@ -45,15 +48,21 @@ import {
   ConsultaAmatCard,
   ConsultaSofiaCard,
 } from "@/modules/admin/components/consulta-amat-sofia";
+import { ConsultaSicaCard } from "@/modules/admin/components/consulta-sica";
 import { ValidacaoSicaTravelLink } from "./validacao-sica-travel-link";
+import { BotaoSubmitComLoading } from "./botao-submit-loading";
 import { EditarSocioForm } from "./editar-socio-form";
 import { NovoSocioForm } from "./novo-socio-form";
 import { RemoverSocioForm } from "./remover-socio-form";
+import { ForcarAvancoModal } from "./forcar-avanco-modal";
+import { CancelarContratoModal } from "./cancelar-contrato-modal";
 import { EditarEmpresaForm } from "./editar-empresa-form";
 import { FilaAssinatura } from "./fila-assinatura";
+import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-button";
 import { ContratoIdManual } from "./contrato-id-manual";
 import { UsuarioMaster } from "./usuario-master";
 import { CnpjCopiavel } from "./cnpj-copiavel";
+import { AprovarComplementarModal } from "./aprovar-complementar-modal";
 import { VoltarButton } from "./voltar-button";
 import { AtendimentoButton } from "./atendimento-button";
 import { CadastroDetalheLive } from "./cadastro-detalhe-live";
@@ -76,11 +85,13 @@ import {
   STATUS_ATIVO,
   STATUS_AGUARDANDO_ASSINATURA,
   STATUS_AGUARDANDO_ATIVACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_VALIDACAO,
   STATUS_EM_COMPLEMENTAR,
   STATUS_RECUSADO,
   CONTRATO_STATUS_ASSINADO,
   CONTRATO_STATUS_ASSINADO_AGENCIA,
+  CONTRATO_STATUS_CANCELADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import {
   aprovarComplementarAction,
@@ -97,12 +108,13 @@ import {
   recusarCadastroAction,
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
-  validarContratoAction,
+  consultarSicaAction,
+  confirmarCadastramentoAction,
+  forcarAvancoStatusAction,
+  cancelarContratoAction,
   salvarSicaAction,
   salvarTravelLinkAction,
   salvarUsuarioMasterAction,
-  assumirAtendimentoDossieAction,
-  encerrarAtendimentoDossieAction,
 } from "./actions";
 
 // `concluida` default true — Contrato/SICA continuam decorativos (chegar
@@ -257,6 +269,8 @@ export default async function DossieAgenciaPage({
     parecerIa,
     analiseCredito,
     verificacaoCadastral,
+    consultaSica,
+    empresaExtraido,
     dadosReceita,
     usuarioMaster,
     historicoEdicoesPorSocioId,
@@ -298,6 +312,9 @@ export default async function DossieAgenciaPage({
   const indiceValidacao = ETAPAS_PIPELINE.findIndex(
     (etapa) => etapa.status === STATUS_AGUARDANDO_VALIDACAO,
   );
+  const indiceCadastramento = ETAPAS_PIPELINE.findIndex(
+    (etapa) => etapa.status === STATUS_AGUARDANDO_CADASTRAMENTO,
+  );
   const indiceAtivacao = ETAPAS_PIPELINE.findIndex(
     (etapa) => etapa.status === STATUS_AGUARDANDO_ATIVACAO,
   );
@@ -336,25 +353,6 @@ export default async function DossieAgenciaPage({
               "Ninguém atendendo este cadastro"
             )}
           </span>
-          {atendimentoAssumidoPorMim ? (
-            <form action={encerrarAtendimentoDossieAction.bind(null, agencia.id)}>
-              <button
-                type="submit"
-                className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-medium transition"
-              >
-                Encerrar atendimento
-              </button>
-            </form>
-          ) : !atendimentoAtual ? (
-            <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
-              <button
-                type="submit"
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-3 py-1.5 text-xs font-semibold transition"
-              >
-                Iniciar atendimento
-              </button>
-            </form>
-          ) : null}
           <AtendimentoAgenciaAcoes
             agenciaId={agencia.id}
             analistaId={analistaId ?? ""}
@@ -439,18 +437,18 @@ export default async function DossieAgenciaPage({
             tecnicamente — use o botão ao lado pra rodar de novo.
           </span>
           <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
-            <button
-              type="submit"
+            <BotaoSubmitComLoading
+              labelCarregando="Reprocessando..."
               disabled={!atendimentoAssumidoPorMim}
               title={
                 atendimentoAssumidoPorMim
                   ? undefined
                   : "Assuma o atendimento deste cadastro pra poder reprocessar"
               }
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reprocessar análise
-            </button>
+            </BotaoSubmitComLoading>
           </form>
         </div>
       ) : null}
@@ -479,22 +477,11 @@ export default async function DossieAgenciaPage({
               ? `${atendimentoAtual?.analistaNome} está atendendo este cadastro agora — assuma o atendimento pra poder agir.`
               : "Assuma o atendimento pra poder agir neste cadastro. Visualização de documentos continua liberada."}
           </span>
-          {atendidoPorOutro ? (
-            <AtendimentoAgenciaAcoes
-              agenciaId={agencia.id}
-              analistaId={analistaId ?? ""}
-              atendimentoAtual={atendimentoAtual}
-            />
-          ) : (
-            <form action={assumirAtendimentoDossieAction.bind(null, agencia.id)}>
-              <button
-                type="submit"
-                className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition"
-              >
-                Iniciar atendimento
-              </button>
-            </form>
-          )}
+          <AtendimentoAgenciaAcoes
+            agenciaId={agencia.id}
+            analistaId={analistaId ?? ""}
+            atendimentoAtual={atendimentoAtual}
+          />
         </div>
       ) : null}
 
@@ -530,6 +517,10 @@ export default async function DossieAgenciaPage({
                     podeAgir ? reconsultarCreditoAction.bind(null, agencia.id, "SOFIA") : undefined
                   }
                 />
+                <ConsultaSicaCard
+                  consulta={consultaSica}
+                  reconsultar={podeAgir ? consultarSicaAction.bind(null, agencia.id) : undefined}
+                />
               </div>
 
               <SecaoColapsavel titulo="Empresa" icon={<Building2 className="size-4" />}>
@@ -544,29 +535,81 @@ export default async function DossieAgenciaPage({
                     disabled={!podeAgir}
                   />
                 </div>
-                <CamposGrid>
-                  <Campo label="E-mail de Contato">{agencia.emailContato || "—"}</Campo>
-                  <Campo label="Telefone Comercial">{complementar.telefoneComercial || "—"}</Campo>
-                  <Campo label="E-mail Operacional">{complementar.emailOperacional || "—"}</Campo>
-                  <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
-                  <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
-                  <Campo label="Contrato Social" corFundo={corFundoDocumento(contratoSocial)}>
-                    <CampoDocumento
-                      documento={contratoSocial}
-                      analise={analiseIaContratoSocial}
-                      agenciaId={agencia.id}
-                      tipo="CONTRATO_SOCIAL"
-                      representanteLegalId={null}
-                      aprovarDocumentoAction={aprovarDocumentoAction}
-                      reprovarDocumentoAction={reprovarDocumentoAction}
-                      inserirDocumentoManualAction={inserirDocumentoManualAction}
-                      somenteLeitura={!podeAgir}
-                      reenviado={
-                        contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
-                      }
-                    />
-                  </Campo>
-                </CamposGrid>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Identificação</SubsecaoLabel>
+                    <CamposGrid>
+                      <ComparacaoEmpresaCampo
+                        label="Razão Social"
+                        cadastro={agencia.razaoSocial}
+                        extraido={empresaExtraido.razaoSocial}
+                        oficial={verificacaoCadastral?.razaoSocial?.oficial ?? null}
+                        confere={verificacaoCadastral?.razaoSocial?.confere}
+                      />
+                      <ComparacaoEmpresaCampo
+                        label="Nome Fantasia"
+                        cadastro={agencia.nomeFantasia}
+                        extraido={empresaExtraido.nomeFantasia}
+                        oficial={verificacaoCadastral?.nomeFantasia?.oficial ?? null}
+                      />
+                    </CamposGrid>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Endereço</SubsecaoLabel>
+                    <CamposGrid>
+                      <ComparacaoEnderecoEmpresa
+                        cadastro={complementar.enderecoAgencia}
+                        extraido={empresaExtraido.endereco}
+                        oficial={dadosReceita?.endereco ?? null}
+                      />
+                    </CamposGrid>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Contato</SubsecaoLabel>
+                    <CamposGrid>
+                      <CampoEmailContato
+                        email={agencia.emailContato}
+                        emailInfo={verificacaoCadastral?.email ?? null}
+                      />
+                      <Campo label="Telefone Comercial">
+                        {complementar.telefoneComercial || "—"}
+                      </Campo>
+                      <Campo label="E-mail Operacional">
+                        {complementar.emailOperacional || "—"}
+                      </Campo>
+                      <Campo label="E-mail Comercial">{complementar.emailComercial || "—"}</Campo>
+                      <Campo label="E-mail Financeiro">{complementar.emailFinanceiro || "—"}</Campo>
+                    </CamposGrid>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <SubsecaoLabel>Documento</SubsecaoLabel>
+                    <CamposGrid>
+                      <Campo
+                        label="Contrato Social"
+                        corFundo={corFundoDocumento(contratoSocial)}
+                        className="sm:col-span-2"
+                      >
+                        <CampoDocumento
+                          documento={contratoSocial}
+                          analise={analiseIaContratoSocial}
+                          agenciaId={agencia.id}
+                          tipo="CONTRATO_SOCIAL"
+                          representanteLegalId={null}
+                          aprovarDocumentoAction={aprovarDocumentoAction}
+                          reprovarDocumentoAction={reprovarDocumentoAction}
+                          inserirDocumentoManualAction={inserirDocumentoManualAction}
+                          somenteLeitura={!podeAgir}
+                          reenviado={
+                            contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
+                          }
+                        />
+                      </Campo>
+                    </CamposGrid>
+                  </div>
+                </div>
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Dados da Receita" icon={<ScrollText className="size-4" />}>
@@ -586,10 +629,6 @@ export default async function DossieAgenciaPage({
                       <Campo label="Situação Cadastral">
                         <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
                       </Campo>
-                      <Campo label="Natureza Jurídica">
-                        {dadosReceita.naturezaJuridica || "—"}
-                      </Campo>
-                      <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
                       <Campo label="Capital Social">
                         {formatarMoedaBrl(dadosReceita.capitalSocial)}
                       </Campo>
@@ -737,12 +776,8 @@ export default async function DossieAgenciaPage({
                 </div>
               </SecaoColapsavel>
 
-              <SecaoColapsavel titulo="Endereço & Banco" icon={<Landmark className="size-4" />}>
+              <SecaoColapsavel titulo="Banco" icon={<Landmark className="size-4" />}>
                 <CamposGrid>
-                  <CampoEndereco
-                    label="Endereço da Agência"
-                    endereco={complementar.enderecoAgencia}
-                  />
                   <Campo label="Banco">
                     {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
                     {complementar.bancoNome} ({labelBancoPais(complementar.bancoPais ?? "")})
@@ -792,6 +827,7 @@ export default async function DossieAgenciaPage({
           {contratoAtual && etapaExibida === indiceAssinatura ? (
             <>
               <FilaAssinatura fila={filaAssinatura} />
+              {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 
               <div className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -845,15 +881,6 @@ export default async function DossieAgenciaPage({
                   ) : null}
                 </dl>
 
-                <div className="border-border bg-muted/40 text-muted-foreground mt-4 rounded-xl border border-dashed px-4 py-3 text-xs">
-                  <strong className="text-foreground">
-                    Log de geração/revisão/envio indisponível:
-                  </strong>{" "}
-                  o histórico de auditoria (quem gerou, quem revisou e quem enviou o contrato, com
-                  data/hora) não existe no schema hoje — sinalizando aqui em vez de simular um log
-                  falso.
-                </div>
-
                 {podeAgir && agencia.status === STATUS_AGUARDANDO_ASSINATURA ? (
                   <div className="mt-4 flex flex-col gap-3">
                     <p className="text-muted-foreground text-sm">
@@ -863,13 +890,22 @@ export default async function DossieAgenciaPage({
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <form action={marcarContratoAssinadoAction.bind(null, agencia.id)}>
-                        <button
-                          type="submit"
-                          className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+                        <BotaoSubmitComLoading
+                          labelCarregando="Registrando..."
+                          className="bg-primary text-primary-foreground hover:bg-sakura-600 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70"
                         >
                           Registrar assinatura
-                        </button>
+                        </BotaoSubmitComLoading>
                       </form>
+                      <ForcarAvancoModal
+                        agenciaId={agencia.id}
+                        proximaEtapaLabel="Validação"
+                        forcarAvancoStatusAction={forcarAvancoStatusAction}
+                      />
+                      <CancelarContratoModal
+                        agenciaId={agencia.id}
+                        cancelarContratoAction={cancelarContratoAction}
+                      />
                     </div>
                   </div>
                 ) : null}
@@ -877,11 +913,13 @@ export default async function DossieAgenciaPage({
             </>
           ) : null}
 
-          {etapaExibida === indiceComplementar && !contratoAtual ? (
+          {etapaExibida === indiceComplementar &&
+          (!contratoAtual || contratoAtual.status === CONTRATO_STATUS_CANCELADO) ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
-                A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum
-                contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima.
+                {contratoAtual
+                  ? "O contrato anterior foi cancelado — aprove de novo pra gerar um contrato novo. Veja o motivo no histórico de edições, logo acima."
+                  : "A IA sinalizou algo pra revisar neste cadastro antes de gerar o contrato — nenhum contrato foi criado ainda. Veja o parecer completo na ficha do cliente, logo acima."}
               </p>
 
               {documentosNaoAprovados.length > 0 ? (
@@ -894,30 +932,31 @@ export default async function DossieAgenciaPage({
 
               {podeAgir ? (
                 <div className="flex flex-wrap gap-2">
-                  <form action={aprovarComplementarAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
+                  {complementar ? (
+                    <AprovarComplementarModal
+                      razaoSocial={agencia.razaoSocial}
+                      cnpj={agencia.cnpj}
+                      enderecoAgencia={complementar.enderecoAgencia}
+                      representantesLegais={representantesLegais}
+                      aprovarComplementarAction={aprovarComplementarAction.bind(null, agencia.id)}
                       disabled={documentosNaoAprovados.length > 0}
-                      className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Aprovar e Enviar Contrato
-                    </button>
-                  </form>
+                    />
+                  ) : null}
                   <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    <BotaoSubmitComLoading
+                      labelCarregando="Recusando..."
+                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       Recusar
-                    </button>
+                    </BotaoSubmitComLoading>
                   </form>
                   <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                    <BotaoSubmitComLoading
+                      labelCarregando="Reprocessando..."
+                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       Reprocessar análise de IA
-                    </button>
+                    </BotaoSubmitComLoading>
                   </form>
                 </div>
               ) : null}
@@ -927,11 +966,16 @@ export default async function DossieAgenciaPage({
           {etapaExibida === indiceValidacao ? (
             <div className="flex flex-col gap-3">
               <p className="text-muted-foreground text-sm">
-                Contrato assinado (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
-                {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}). Confira o contrato
-                assinado antes de seguir pra ativação — SICA e TravelLink ficam no bloco
-                &ldquo;SICA/TravelLink&rdquo;, abaixo.
+                Todos os sócios assinaram (provedor: {contratoAtual?.provedorId ?? "—"},{" "}
+                {labelOrigemContrato(contratoAtual?.origemGeracao ?? null)}).{" "}
+                {contratoAtual?.origemGeracao === "externo"
+                  ? "Este contrato foi assinado fora da plataforma — não há evidência de selfie/documento/vídeo selfie coletada pelo D4Sign, só o documento em si."
+                  : "Confira as evidências de assinatura (selfie, documento e vídeo selfie de cada sócio) no documento assinado. Assim que o aprovador do time de cadastro assinar no D4Sign, o cadastro avança sozinho para Cadastramento."}
               </p>
+
+              <FilaAssinatura fila={filaAssinatura} />
+              {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
+
               {contratoAtual ? (
                 <div>
                   <VisualizarDocumento
@@ -943,6 +987,28 @@ export default async function DossieAgenciaPage({
                       Visualizar Documento
                     </span>
                   </VisualizarDocumento>
+                </div>
+              ) : null}
+
+              {podeAgir ? (
+                <div className="flex flex-wrap gap-2">
+                  <ForcarAvancoModal
+                    agenciaId={agencia.id}
+                    proximaEtapaLabel="Cadastramento"
+                    forcarAvancoStatusAction={forcarAvancoStatusAction}
+                  />
+                  <CancelarContratoModal
+                    agenciaId={agencia.id}
+                    cancelarContratoAction={cancelarContratoAction}
+                  />
+                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
+                    <BotaoSubmitComLoading
+                      labelCarregando="Recusando..."
+                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      Recusar
+                    </BotaoSubmitComLoading>
+                  </form>
                 </div>
               ) : null}
             </div>
@@ -965,18 +1031,18 @@ export default async function DossieAgenciaPage({
       </SecaoColapsavel>
 
       {/* Separado do bloco "Contrato" (decisão do usuário, 2026-07-27) —
-          SICA/TravelLink (etapa Validação) e Usuário Master (etapa
+          SICA/TravelLink (etapa Cadastramento) e Usuário Master (etapa
           Ativação) são credenciais/acessos, não contrato. Só aparece
-          nessas duas etapas; nas outras (Complementar/Assinatura/Ativo)
-          não tem nada pra mostrar aqui. */}
-      {etapaExibida === indiceValidacao || etapaExibida === indiceAtivacao ? (
+          nessas duas etapas; nas outras (Complementar/Assinatura/Validação/
+          Ativo) não tem nada pra mostrar aqui. */}
+      {etapaExibida === indiceCadastramento || etapaExibida === indiceAtivacao ? (
         <SecaoColapsavel
           titulo="SICA/TravelLink"
           icon={<KeyRound className="size-4" />}
           defaultAberta
         >
           <div className="flex flex-col gap-3">
-            {etapaExibida === indiceValidacao ? (
+            {etapaExibida === indiceCadastramento ? (
               <ValidacaoSicaTravelLink
                 agenciaId={agencia.id}
                 razaoSocial={agencia.razaoSocial}
@@ -1001,7 +1067,7 @@ export default async function DossieAgenciaPage({
                 travelLinkSalvoEm={agencia.travelLinkSalvoEm}
                 salvarSicaAction={salvarSicaAction}
                 salvarTravelLinkAction={salvarTravelLinkAction}
-                validarContratoAction={validarContratoAction}
+                confirmarCadastramentoAction={confirmarCadastramentoAction}
                 somenteLeitura={!podeAgir}
                 amat={analiseCredito.amat}
                 rawAmat={analiseCredito.rawAmat}
@@ -1011,14 +1077,16 @@ export default async function DossieAgenciaPage({
                 historicoSofia={analiseCredito.historicoSofia}
                 reconsultarAmat={reconsultarCreditoAction.bind(null, agencia.id, "AMAT")}
                 reconsultarSofia={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
+                consultaSica={consultaSica}
+                reconsultarSica={consultarSicaAction.bind(null, agencia.id)}
               />
             ) : null}
 
             {etapaExibida === indiceAtivacao ? (
               <>
                 {/* Contrato/SICA continuam decorativos aqui: chegar
-                    nesta etapa só é possível depois de "Validar
-                    Contrato" — botão que já trava (ver
+                    nesta etapa só é possível depois de "Confirmar
+                    Cadastramento" — botão que já trava (ver
                     ValidacaoSicaTravelLink) até SICA e TravelLink
                     estarem preenchidos. TravelLink, porém, reflete o
                     valor real de agencia.travelLinkCriado (decisão do
@@ -1050,26 +1118,26 @@ export default async function DossieAgenciaPage({
                 {podeAgir ? (
                   <div className="flex flex-wrap gap-2">
                     <form action={ativarClienteAction.bind(null, agencia.id)}>
-                      <button
-                        type="submit"
+                      <BotaoSubmitComLoading
+                        labelCarregando="Ativando..."
                         disabled={!usuarioMasterEstaCompleto(usuarioMasterView)}
                         title={
                           usuarioMasterEstaCompleto(usuarioMasterView)
                             ? undefined
                             : "Salve o Usuário Master completo antes de ativar o cliente"
                         }
-                        className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+                        className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Ativar cliente
-                      </button>
+                      </BotaoSubmitComLoading>
                     </form>
                     <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                      <button
-                        type="submit"
-                        className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+                      <BotaoSubmitComLoading
+                        labelCarregando="Recusando..."
+                        className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         Recusar
-                      </button>
+                      </BotaoSubmitComLoading>
                     </form>
                   </div>
                 ) : null}

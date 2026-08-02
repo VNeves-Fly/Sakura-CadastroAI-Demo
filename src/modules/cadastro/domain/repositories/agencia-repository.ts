@@ -9,6 +9,10 @@ import type {
   AnaliseIaStage1,
   AnaliseIaStage2,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
+import type {
+  SicaConsultaResultado,
+  SicaEmpresaStatus,
+} from "@/modules/cadastro/domain/services/sst-service";
 
 export type { OrigemGeracaoContrato, ResultadoAnaliseIa };
 
@@ -31,19 +35,47 @@ export interface HistoricoConsultaCreditoItem {
   createdAt: Date;
 }
 
+// Uma linha por consulta ao SST (ver ConsultaSst no schema) — a mais
+// recente é "o valor atual" (não há sobrescrita, ver comentário do
+// modelo). `consultadoPor: null` = disparada automaticamente pelo
+// pipeline (AnalisarCadastroUseCase); preenchido = analista (reconsulta
+// manual ou confirmação do código SICA, ver SalvarSicaUseCase).
+export interface ConsultaSstItem {
+  id: string;
+  sucesso: boolean;
+  erro: string | null;
+  metodo: "cnpj" | "codigo_empresa";
+  encontrado: boolean;
+  codigoEmpresa: number | null;
+  nomeEmpresa: string | null;
+  telefone: string | null;
+  email: string | null;
+  empresaStatus: SicaEmpresaStatus | null;
+  codigoExecutivo: number | null;
+  nomeExecutivo: string | null;
+  consultadoPor: string | null;
+  createdAt: Date;
+}
+
 // Ciclo de vida completo da agência (decisão do usuário, 2026-07-16;
 // "em_analise" adicionado em 2026-07-24 quando o envio do cadastro passou
-// a persistir antes da IA rodar — ver AnalisarCadastroUseCase):
-// 0. em_analise             — persistido, aguardando a análise de IA rodar em background.
-// 1. em_complementar        — IA reprovou (ou a análise falhou tecnicamente), sem contrato ainda, analista revisa manualmente.
-// 2. aguardando_assinatura  — contrato gerado (pela IA ou pelo analista) e enviado, aguardando os sócios assinarem.
-// 3. aguardando_validacao   — contrato assinado, analista precisa validar o contrato assinado.
-// 4. aguardando_ativacao    — validado; falta só SICA/TravelLink/Usuário Master (não implementados) e clicar em ativar.
-// 5. ativo / recusado       — estados finais.
+// a persistir antes da IA rodar — ver AnalisarCadastroUseCase;
+// "aguardando_cadastramento" adicionado em 2026-07-30 pra separar a
+// validação das evidências de assinatura do cadastramento em SICA/TravelLink,
+// que antes viviam juntos em "aguardando_validacao" — ver
+// ProcessarWebhookD4SignUseCase):
+// 0. em_analise               — persistido, aguardando a análise de IA rodar em background.
+// 1. em_complementar          — IA reprovou (ou a análise falhou tecnicamente), sem contrato ainda, analista revisa manualmente.
+// 2. aguardando_assinatura    — contrato gerado (pela IA ou pelo analista) e enviado, aguardando TODOS os sócios assinarem.
+// 3. aguardando_validacao     — todos os sócios assinaram; analista precisa validar as evidências de assinatura (selfie/documento/vídeo).
+// 4. aguardando_cadastramento — validado; falta cadastrar a agência no SICA e no TravelLink.
+// 5. aguardando_ativacao      — SICA/TravelLink cadastrados; falta só o Usuário Master e clicar em ativar.
+// 6. ativo / recusado         — estados finais.
 export const STATUS_EM_ANALISE = "em_analise";
 export const STATUS_EM_COMPLEMENTAR = "em_complementar";
 export const STATUS_AGUARDANDO_ASSINATURA = "aguardando_assinatura";
 export const STATUS_AGUARDANDO_VALIDACAO = "aguardando_validacao";
+export const STATUS_AGUARDANDO_CADASTRAMENTO = "aguardando_cadastramento";
 export const STATUS_AGUARDANDO_ATIVACAO = "aguardando_ativacao";
 export const STATUS_ATIVO = "ativo";
 export const STATUS_RECUSADO = "recusado";
@@ -56,6 +88,16 @@ export const STATUS_RECUSADO = "recusado";
 export const CONTRATO_STATUS_AGUARDANDO_ASSINATURA = "aguardando_assinatura";
 export const CONTRATO_STATUS_ASSINADO_AGENCIA = "assinado_agencia";
 export const CONTRATO_STATUS_ASSINADO = "assinado";
+// Cancelado pelo analista (CancelarContratoUseCase) — a Agencia volta pra
+// em_complementar; este registro fica só como histórico.
+export const CONTRATO_STATUS_CANCELADO = "cancelado";
+
+// Sentinela reconhecível (nunca um uuid real do D4Sign) — usado quando o
+// analista aprova sem gerar contrato automaticamente (checkbox no modal de
+// Aprovar Complementar, ver AprovarCadastroComplementarUseCase) pra
+// sinalizar na UI (ContratoIdManual, via origemGeracao "externo") que
+// falta colar o ID de um documento de verdade.
+export const CONTRATO_PROVEDOR_ID_PENDENTE = "pendente";
 
 export interface ContratoSignatarioData {
   nome: string;
@@ -134,6 +176,7 @@ export interface EnderecoBancoData {
 
 export interface CreateAgenciaData {
   razaoSocial: string;
+  nomeFantasia: string | null;
   cnpj: string;
   status: string;
   contratoSocialPath: string;
@@ -164,6 +207,11 @@ export interface CreateAgenciaData {
   enderecoBanco: EnderecoBancoData;
 }
 
+// Tamanho fixo de página da listagem de cadastros (não configurável pelo
+// usuário) — usado tanto pelo repositório (skip/take) quanto pela página
+// (calcular o total de páginas), ver PrismaAgenciaRepository.listar.
+export const TAMANHO_PAGINA_CADASTROS = 20;
+
 export interface ListarCadastrosFiltros {
   busca?: string;
   status?: string | string[];
@@ -176,6 +224,15 @@ export interface ListarCadastrosFiltros {
   // filtrado via relação com Agencia.executivo.
   base?: string | string[];
   gestor?: string | string[];
+  // Id do analista logado, quando o switch "Meus atendimentos" está
+  // ativo — filtra pelas agências onde esse analista é o atendente ATIVO
+  // no momento (AtendimentoAgencia.liberadoEm null), via
+  // Agencia.atendimentosAgencia.
+  atendenteAtivoId?: string;
+  // 1-based — já validada/normalizada (inteiro >= 1) por quem chama (a
+  // page, que é a fronteira real de confiança pra esse parâmetro vindo da
+  // querystring).
+  pagina?: number;
 }
 
 export interface ListarCadastrosItem {
@@ -200,6 +257,9 @@ export interface ListarCadastrosItem {
   // fonte real de base por agência.
   executivoBase: null;
   executivoGestor: string | null;
+  // Consulta mais recente ao SST (qualquer método) — badge da coluna SICA
+  // em /cadastros. null = nunca consultado (ou toda tentativa falhou).
+  consultaSicaMaisRecente: ConsultaSstItem | null;
 }
 
 export interface ListarCadastrosResult {
@@ -216,6 +276,7 @@ export interface CadastrosKpis {
   // — o próprio card não muda de cor/valor por causa disso.
   aguardandoAssinaturaPorOrigem: { ia: number; humano: number };
   aguardandoValidacao: number;
+  aguardandoCadastramento: number;
   aguardandoAtivacao: number;
   ativas: number;
   recusadas: number;
@@ -313,6 +374,9 @@ export interface AgenciaDetalhe {
   analiseIa: AnaliseIaAgenciaDetalhe | null;
   // Auditoria das reconsultas manuais de AMAT/SOFIA, mais recente primeiro.
   historicoConsultaCredito: HistoricoConsultaCreditoItem[];
+  // Consultas ao SST (SICA), mais recente primeiro — a primeira com
+  // sucesso=true é "o valor atual" (ver ConsultarSicaUseCase/SalvarSicaUseCase).
+  consultasSst: ConsultaSstItem[];
   // Origem da agência, já resolvida — mesma lógica de ListarCadastrosItem
   // (ver comentário lá), exposta aqui pro dossiê mostrar as 3 badges.
   executivoNome: string | null;
@@ -383,12 +447,30 @@ export interface AgenciaRepository {
       consultadoPor: string;
     },
   ): Promise<void>;
+  // Grava uma linha de auditoria da consulta ao SST (quem/quando/sucesso +
+  // o que foi encontrado) — nunca sobrescreve a linha anterior (ver
+  // ConsultaSst no schema). `resultado: null` só quando `sucesso: false`.
+  registrarConsultaSst(
+    agenciaId: string,
+    data: {
+      sucesso: boolean;
+      erro: string | null;
+      metodo: "cnpj" | "codigo_empresa";
+      resultado: SicaConsultaResultado | null;
+      consultadoPor: string | null;
+    },
+  ): Promise<void>;
   // Edição em lote pelo analista (ver EditarDadosEmpresaUseCase) — nunca
   // inclui campos sourced de DadosReceita, que não é tocado por este
   // método.
   atualizarDadosCadastrais(
     id: string,
-    data: { razaoSocial?: string; emailContato?: string; telefoneContato?: string },
+    data: {
+      razaoSocial?: string;
+      nomeFantasia?: string | null;
+      emailContato?: string;
+      telefoneContato?: string;
+    },
   ): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
   salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;

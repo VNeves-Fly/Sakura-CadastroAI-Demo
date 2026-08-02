@@ -20,20 +20,29 @@ cada mutação manualmente.
      `documentos`, `contratos`, `representantes_legais`. Payload:
      `{ tabela, agenciaId, tipo }` (`tabela` vem no plural, nome literal da
      tabela — ex. `"agencias"`, não `"agencia"`).
-   - Canal `atendimento_eventos` — `AFTER INSERT`/`UPDATE` em `mensagens`,
-     `assumir_atendimento_registros`, `solicitacoes_transferencia`. Payload:
-     `{ conversaId }` (o front sempre refaz `listarConversas()` inteiro ao
-     receber, igual ao polling que este canal substituiu).
+   - Canal `atendimento_eventos` — `AFTER INSERT` em `mensagens` (mensagem
+     nova/status). Payload: `{ conversaId }` (o front sempre refaz
+     `listarConversas()` inteiro ao receber). Os triggers em
+     `assumir_atendimento_registros`/`solicitacoes_transferencia` (chat) e o
+     mapeamento em código pra esses dois models não existem mais — atendimento
+     foi **unificado**: chat e cadastro compartilham a mesma base
+     (`AtendimentoAgencia`/`SolicitacaoAtendimentoAgencia`, chave `agenciaId`
+     — decisão do usuário: "o que temos no WhatsApp e o que temos no
+     sistema são uma coisa só"). As duas tabelas antigas ainda podem existir
+     fisicamente no banco por mais um tempo (dropadas só depois de importar
+     o histórico via CSV, ver plano), mas o app já não lê nem escreve nelas.
    - Canal `solicitacao_atendimento_agencia_eventos` (migração
      `20260730124700_add_solicitacao_atendimento_agencia_trigger`) —
      `AFTER INSERT OR UPDATE` em `solicitacoes_atendimento_agencia` (pedido
-     de transferência/assunção do atendimento do CADASTRO — dossiê/
-     listagem, distinto do chat). Payload: `{ solicitacaoId, agenciaId,
-tipo, status, solicitanteId, atendenteAtualId, novoAtendenteId }`.
-     Diferente dos outros dois canais, este é **pessoal**: a rota
+     de transferência/assunção do atendimento — chat E cadastro, sempre
+     chaveado por `agenciaId`). Payload: `{ solicitacaoId, agenciaId, tipo,
+status, solicitanteId, atendenteAtualId, novoAtendenteId }`. Diferente
+     do canal acima, este é **pessoal**: a rota
      (`/api/atendimento/solicitacoes/eventos`) só repassa pro client se
      `session.user.id` estiver entre os 3 ids envolvidos — quem não faz
-     parte do pedido não recebe nada.
+     parte do pedido não recebe nada. Iniciar/Encerrar atendimento
+     (`AtendimentoAgencia`) não passam por nenhum canal — não têm
+     negociação/timeout, só `router.refresh()`/refetch local depois da ação.
 
 2. **Listener compartilhado** —
    `src/modules/shared/infrastructure/realtime/postgres-listener.ts`. Uma

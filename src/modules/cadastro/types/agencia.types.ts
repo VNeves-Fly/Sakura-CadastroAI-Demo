@@ -32,6 +32,7 @@ export interface ContratoSocialAnaliseView {
   alertas: string[];
   confianca: number;
   razaoSocial: string | null;
+  nomeFantasia: string | null;
   capitalSocial: number | null;
   endereco: EnderecoContratoSocialView | null;
   objetoSocial: string | null;

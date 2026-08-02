@@ -71,6 +71,7 @@ describe("agenciaAdapter.toContratoSocialAnaliseView", () => {
       alertas: [],
       confianca: 0.9,
       razaoSocialExtraida: "Empresa Teste Ltda",
+      nomeFantasiaExtraida: "Empresa Fantasia",
       capitalSocial: 100000,
       enderecoEmpresa: {
         cep: "01310-100",
@@ -96,6 +97,7 @@ describe("agenciaAdapter.toContratoSocialAnaliseView", () => {
     expect(view.socios[0]?.administrativo).toBe(true);
     expect(view.socios[0]?.ativo).toBe(true);
     expect(view.razaoSocial).toBe("Empresa Teste Ltda");
+    expect(view.nomeFantasia).toBe("Empresa Fantasia");
     expect(view.capitalSocial).toBe(100000);
     expect(view.endereco?.cidade).toBe("São Paulo");
     expect(view.endereco?.uf).toBe("SP");
@@ -108,6 +110,7 @@ describe("agenciaAdapter.toContratoSocialAnaliseView", () => {
       alertas: [],
       confianca: 0,
       razaoSocialExtraida: null,
+      nomeFantasiaExtraida: null,
       capitalSocial: null,
       enderecoEmpresa: null,
       objetoSocial: null,
@@ -198,6 +201,7 @@ describe("agenciaAdapter.toFinalizarCadastroFormData", () => {
     return {
       cnpjMascarado: "11.222.333/0001-81",
       razaoSocial: "Empresa Teste Ltda",
+      nomeFantasia: "Empresa Fantasia",
       contratoSocial: arquivoFake("contrato.pdf"),
       origem: "evento-teste",
       executivoId: null,

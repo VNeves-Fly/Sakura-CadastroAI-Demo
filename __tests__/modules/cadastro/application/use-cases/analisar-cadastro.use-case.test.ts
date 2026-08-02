@@ -21,6 +21,7 @@ import type {
 } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
+import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -52,6 +53,7 @@ function agenciaFake(status: string): Agencia {
   return Agencia.create({
     id: "agencia-1",
     razaoSocial: "Empresa Teste Ltda",
+    nomeFantasia: null,
     cnpj: "12345678000195",
     etapaAtual: 1,
     status,
@@ -146,6 +148,7 @@ function detalheFake(overrides: Partial<AgenciaDetalhe> = {}): AgenciaDetalhe {
     contratos: [],
     analiseIa: null,
     historicoConsultaCredito: [],
+    consultasSst: [],
     executivoNome: null,
     associacaoNome: null,
     eventoNome: null,
@@ -163,6 +166,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
     registrarAnaliseDocumento: jest.fn(),
     registrarAnaliseFinal: jest.fn(),
     registrarConsultaCredito: jest.fn(),
+    registrarConsultaSst: jest.fn(),
     atualizarStatus: jest.fn(),
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
@@ -187,6 +191,7 @@ function criarContratoAssinaturaFake(
     obterDocumento: jest.fn(),
     obterDestinatarios: jest.fn(),
     registrarWebhook: jest.fn(),
+    cancelarDocumento: jest.fn(),
     ...overrides,
   };
 }
@@ -225,6 +230,15 @@ interface Deps {
   documentAnalysisService: DocumentAnalysisService;
   dadosReceitaRepository: DadosReceitaRepository;
   documentoRepository: DocumentoRepository;
+  sstService: SstService;
+}
+
+function criarSstServiceFake(overrides: Partial<SstService> = {}): SstService {
+  return {
+    consultarSicaCNPJ: jest.fn().mockResolvedValue({ encontrado: false, registro: null }),
+    consultarSicaCodigoEmpresa: jest.fn().mockResolvedValue({ encontrado: false, registro: null }),
+    ...overrides,
+  };
 }
 
 function criarDocumentoRepositoryFake(
@@ -248,6 +262,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     documentAnalysisService: criarDocumentAnalysisFake(),
     dadosReceitaRepository: criarDadosReceitaFake(),
     documentoRepository: criarDocumentoRepositoryFake(),
+    sstService: criarSstServiceFake(),
     ...overrides,
   };
 
@@ -258,6 +273,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.documentAnalysisService,
     deps.dadosReceitaRepository,
     deps.documentoRepository,
+    deps.sstService,
   );
 
   return { useCase, ...deps };

@@ -5,11 +5,8 @@ import type {
   TemplateAprovado,
   ConfiguracaoWhatsappBusiness,
   EnviarMensagemInput,
-  AssumirAtendimentoInput,
   CriarTextoProntoInput,
   AtualizarTextoProntoInput,
-  SolicitarTransferenciaInput,
-  ResponderTransferenciaInput,
   CriarTemplateInput,
   AtualizarTemplateMetadataInput,
   SalvarConfiguracaoWhatsappInput,
@@ -19,10 +16,6 @@ import type {
   ContatoAgencia,
   IniciarConversaInput,
 } from "@/modules/atendimento/types/atendimento.types";
-import {
-  HORAS_LIMITE_ASSUMIR,
-  TIMEOUT_TRANSFERENCIA_MS,
-} from "@/modules/atendimento/domain/atendimento.constants";
 import { gerarConfiguracaoWhatsappMock } from "@/modules/atendimento/mock/atendimento-mock.data";
 
 // Chamadas reais pra /api/atendimento/*. Só salvarConfiguracaoWhatsapp
@@ -30,8 +23,10 @@ import { gerarConfiguracaoWhatsappMock } from "@/modules/atendimento/mock/atendi
 // .env segue sendo a fonte da verdade das credenciais da Meta, a tela de
 // configuração serve só pra visualizar (obterConfiguracaoWhatsapp, real)
 // e testar conexão (testarConexaoWhatsapp, real); "salvar" via UI fica
-// fora de escopo por enquanto.
-export { HORAS_LIMITE_ASSUMIR, TIMEOUT_TRANSFERENCIA_MS };
+// fora de escopo por enquanto. Ações de atendimento (Iniciar/Encerrar/
+// Transferir/Assumir) não vivem mais aqui — são todas via
+// atendimentoAgenciaApi (services/atendimento-agencia-api.ts), chaveadas
+// por agenciaId, compartilhadas com o dossiê/listagem de cadastros.
 
 let configuracaoWhatsapp = gerarConfiguracaoWhatsappMock();
 
@@ -55,13 +50,6 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>;
-}
-
-export function podeAssumirAtendimento(atendimentoAtual: Conversa["atendimentoAtual"]): boolean {
-  if (!atendimentoAtual) return true;
-  const horasDesdeAssumiu =
-    (Date.now() - new Date(atendimentoAtual.assumidoEm).getTime()) / (1000 * 60 * 60);
-  return horasDesdeAssumiu > HORAS_LIMITE_ASSUMIR;
 }
 
 export const atendimentoApi = {
@@ -222,60 +210,6 @@ export const atendimentoApi = {
     return fetchJson<Mensagem>(`/api/atendimento/conversas/${conversaId}/mensagens`, {
       method: "POST",
       body: JSON.stringify({ analistaNome, ...input }),
-    });
-  },
-
-  // Cobre tanto "Assumir" (conversa sem ninguém atendendo) quanto "Puxar"
-  // (de um analista inativo há +2h) — mesma regra, o texto do botão é
-  // decidido na tela (ver AssumirAtendimentoBanner).
-  async assumirAtendimento(conversaId: string, input: AssumirAtendimentoInput): Promise<Conversa> {
-    return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/assumir`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-  },
-
-  // Encerra o atendimento — fica sem ninguém atendendo (histórico
-  // preserva quem atendeu e por quanto tempo). Diferente de "puxar": aqui
-  // não sobra pendência nenhuma, é o analista atual dizendo "resolvido".
-  async encerrarAtendimento(conversaId: string): Promise<Conversa> {
-    return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/encerrar`, {
-      method: "POST",
-    });
-  },
-
-  // Pede transferência explícita pra outro analista — diferente de
-  // "puxar", não depende de ninguém estar inativo. Expira sozinha depois
-  // de TIMEOUT_TRANSFERENCIA_MS sem resposta (contada como recusa),
-  // resolvido no backend na leitura (ver PrismaSolicitacaoTransferenciaRepository).
-  // `input.paraAnalista` carrega o id do analista de destino (não o
-  // nome) — ver SeletorTransferencia em atendimento-acoes-banner.tsx.
-  async solicitarTransferencia(
-    conversaId: string,
-    input: SolicitarTransferenciaInput,
-  ): Promise<Conversa> {
-    return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/transferencia`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-  },
-
-  async responderTransferencia(
-    conversaId: string,
-    input: ResponderTransferenciaInput,
-  ): Promise<Conversa> {
-    return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/transferencia/responder`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-  },
-
-  // Some com o aviso de "recusada/expirada" da tela de quem pediu, depois
-  // que ele já viu — não existe um "lido" real aqui, é só limpar o
-  // ponteiro local pra próxima solicitação poder ser feita.
-  async limparSolicitacaoResolvida(conversaId: string): Promise<Conversa> {
-    return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/transferencia/limpar`, {
-      method: "POST",
     });
   },
 

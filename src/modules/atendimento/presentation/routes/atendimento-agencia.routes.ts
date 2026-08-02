@@ -38,6 +38,42 @@ async function requireSessionUserId(): Promise<string | null> {
   return session?.user?.id ?? null;
 }
 
+// "Iniciar atendimento" — só funciona quando ninguém está atendendo (ver
+// AssumirAtendimentoAgenciaUseCase). Usado por AtendimentoAgenciaAcoes em
+// qualquer tela (dossiê, listagem, chat) — único caminho de escrita agora,
+// sem Server Action separada.
+export async function iniciarAtendimentoAgenciaRoute(_request: Request, agenciaId: string) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ESCRITA)) throw new RateLimitError();
+
+    await atendimentoController.assumirAtendimentoAgencia(agenciaId, analistaId);
+    const atual = await atendimentoController.obterAtendimentoAgenciaAtual(agenciaId);
+    return httpOk(atual);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function encerrarAtendimentoAgenciaRoute(_request: Request, agenciaId: string) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
+    if (!verificarRateLimit(chaveRateLimit, RATE_LIMIT_ESCRITA)) throw new RateLimitError();
+
+    await atendimentoController.encerrarAtendimentoAgencia(agenciaId, analistaId);
+    const atual = await atendimentoController.obterAtendimentoAgenciaAtual(agenciaId);
+    return httpOk(atual);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
 export async function solicitarTransferenciaAgenciaRoute(request: Request, agenciaId: string) {
   const analistaId = await requireSessionUserId();
   if (!analistaId) return httpError("Não autenticado.", 401);

@@ -1,6 +1,7 @@
 import type {
   ArquivoContrato,
   ContratoAssinaturaService,
+  DestinatarioD4Sign,
   DocumentoD4SignInfo,
   GerarContratoInput,
   GerarContratoResult,
@@ -179,16 +180,63 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     }
   }
 
-  // ⚠️ Formato de resposta não documentado publicamente pelo D4Sign —
-  // não testado ao vivo ainda (ver docs/d4sign.md). Assume uma lista de
-  // objetos com campo `email`, tolerando variação no nome dos demais
-  // campos (não usados aqui).
-  async obterDestinatarios(provedorId: string): Promise<string[]> {
-    const resultado = (await this.request("GET", `/documents/${provedorId}/list`, undefined)) as
-      Array<{ email?: string }> | { list?: Array<{ email?: string }> };
+  // Confirmado ao vivo em 2026-07-30: a resposta é um ARRAY com um único
+  // objeto de documento (mesmo formato de GET /documents/{uuid} — uuidDoc/
+  // nameDoc/statusName), que carrega os signatários de verdade dentro de
+  // `list`. Cada item de `list` tem `email`, `signed` (string "1"/"0") e
+  // `type`/`nomenclatura` espelhando o `act` que mandamos em createlist
+  // (confirma ACT_POR_PAPEL: "1" Assinar, "2" Aprovar, "4" Assinar como
+  // parte, "5" testemunha) — e `docauthandselfie` bate "1" só pro sócio,
+  // "0" pros signatários fixos, como esperado. Ver extrairListaDestinatarios.
+  async obterDestinatarios(provedorId: string): Promise<DestinatarioD4Sign[]> {
+    const resultado = await this.request("GET", `/documents/${provedorId}/list`, undefined);
 
-    const lista = Array.isArray(resultado) ? resultado : (resultado.list ?? []);
-    return lista.map((item) => item.email).filter((email): email is string => Boolean(email));
+    // Confirmado ao vivo (2026-07-30) só pra ESTE endpoint: o D4Sign às
+    // vezes devolve um erro (token/cryptKey inválido, permissão
+    // insuficiente etc.) com HTTP 200 e corpo `{ message, mensagem_pt }`.
+    // ⚠️ Isso já foi tentado como checagem genérica em `request()` e
+    // quebrou a geração de contrato em produção (2026-07-31): o
+    // `makedocumentbytemplateword` devolve `{ message: "success", ... }`
+    // no CAMINHO FELIZ, então `message` sozinho não é sinal confiável de
+    // erro. Exige as DUAS chaves juntas (só confirmado nesse formato aqui)
+    // — não generalizar pra `request()` de novo sem testar contra os
+    // outros endpoints.
+    if (
+      resultado &&
+      typeof resultado === "object" &&
+      typeof (resultado as Record<string, unknown>).message === "string" &&
+      typeof (resultado as Record<string, unknown>).mensagem_pt === "string"
+    ) {
+      throw new Error(
+        `D4Sign /documents/${provedorId}/list devolveu erro: ${(resultado as Record<string, unknown>).mensagem_pt}`,
+      );
+    }
+
+    const lista = extrairListaDestinatarios(resultado);
+
+    if (lista.length === 0) {
+      console.error(
+        `D4SignAdapter.obterDestinatarios: lista vazia ou em formato não reconhecido pra provedorId=${provedorId}. Resposta crua: ${JSON.stringify(resultado)}`,
+      );
+    }
+
+    return lista
+      .filter((item): item is Record<string, unknown> & { email: string } =>
+        Boolean(item.email && typeof item.email === "string"),
+      )
+      .map((item) => ({
+        email: item.email,
+        assinado: extrairAssinado(item),
+        assinadoEm: extrairAssinadoEm(item),
+        keySigner: typeof item.key_signer === "string" ? item.key_signer : null,
+      }));
+  }
+
+  // Confirmado no SDK oficial PHP do D4Sign (`cancel($documentKey, $comment)`):
+  // POST /documents/{uuid}/cancel com body `{ comment }`. Sem resposta útil
+  // além do status HTTP — `request()` já lança se não for 2xx.
+  async cancelarDocumento(provedorId: string, motivo: string): Promise<void> {
+    await this.request("POST", `/documents/${provedorId}/cancel`, { comment: motivo });
   }
 
   private async cadastrarSignatarios(
@@ -243,8 +291,92 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     if (!response.ok) {
       throw new Error(`D4Sign ${path} respondeu ${response.status}: ${JSON.stringify(resultado)}`);
     }
+
     return resultado;
   }
+}
+
+// Melhor esforço: o `GET /documents/{uuid}/list` do D4Sign não tem schema
+// documentado publicamente (a página oficial de referência devolve um
+// schema vazio) — variações relatadas por integrações reais incluem tanto
+// array na raiz quanto `{ list: [...] }`, e um objeto com chaves numéricas
+// (`{"0": {...}, "1": {...}}`, comum quando o backend deles serializa um
+// array associativo do PHP). Tenta as três formas, nessa ordem; se nenhuma
+// resultar numa lista, devolve `[]` (o caller loga a resposta crua nesse
+// caso — ver obterDestinatarios).
+function extrairListaDestinatarios(resultado: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(resultado)) {
+    // Formato real (confirmado ao vivo 2026-07-30): array com UM objeto de
+    // documento, que tem os signatários dentro de `list` — não é o array
+    // em si que lista os signatários (bug original: um array de 1 "não
+    // signatário" passava no `Array.isArray`, e o filtro por `email`
+    // descartava tudo, resultando numa lista "vazia").
+    const primeiroItem = resultado[0];
+    if (
+      primeiroItem &&
+      typeof primeiroItem === "object" &&
+      Array.isArray((primeiroItem as Record<string, unknown>).list)
+    ) {
+      return (primeiroItem as Record<string, unknown>).list as Array<Record<string, unknown>>;
+    }
+    // Fallback defensivo (não confirmado, mantido por precaução caso o
+    // formato mude): array já sendo a lista de signatários.
+    return resultado as Array<Record<string, unknown>>;
+  }
+  if (resultado && typeof resultado === "object") {
+    const objeto = resultado as Record<string, unknown>;
+    if (Array.isArray(objeto.list)) {
+      return objeto.list as Array<Record<string, unknown>>;
+    }
+    // Fallback defensivo: objeto com chaves tipo "0", "1", "2"... — pega
+    // só os valores que parecem um signatário (têm `email`).
+    const valores = Object.values(objeto);
+    const candidatos = valores.filter(
+      (valor): valor is Record<string, unknown> =>
+        Boolean(valor) && typeof valor === "object" && "email" in (valor as object),
+    );
+    if (candidatos.length > 0) return candidatos;
+  }
+  return [];
+}
+
+// `signed` como string "1"/"0" é o formato confirmado ao vivo (2026-07-30);
+// mantém o caso boolean por precaução (SDKs de terceiros mostraram as duas
+// formas). `statusId`/`statusName` são fallback especulativo, não
+// confirmado nesse endpoint — só interpreta valores inequívocos
+// ("2"/"assinado"/"signed"), nunca assume "não assinado" por ausência
+// (fica `null`).
+function extrairAssinado(item: Record<string, unknown>): boolean | null {
+  if (typeof item.signed === "boolean") return item.signed;
+  if (typeof item.signed === "string" && (item.signed === "1" || item.signed === "0")) {
+    return item.signed === "1";
+  }
+  if (typeof item.statusId === "string" || typeof item.statusId === "number") {
+    return String(item.statusId) === "2";
+  }
+  if (typeof item.statusName === "string") {
+    const status = item.statusName.trim().toLowerCase();
+    if (status.includes("assinado") || status === "signed") return true;
+    if (status.includes("pendente") || status.includes("aguardando")) return false;
+  }
+  return null;
+}
+
+// ⚠️ Ainda especulativo — o payload real confirmado (2026-07-30) só tinha
+// signatários pendentes (`signed: "0"`), então não dá pra saber qual campo
+// carrega a data de quando alguém assina (`date`/`date_trigger` existem,
+// mas parecem ser data de criação/disparo do convite, não de assinatura).
+// Ajustar assim que um payload real com `signed: "1"` for observado.
+function extrairAssinadoEm(item: Record<string, unknown>): Date | null {
+  const signInfo =
+    item.sign_info && typeof item.sign_info === "object"
+      ? (item.sign_info as Record<string, unknown>)
+      : null;
+  const bruto =
+    item.signAt ?? item.sign_date ?? item.signedAt ?? signInfo?.date_signed ?? signInfo?.dateSigned;
+  if (typeof bruto !== "string") return null;
+  const data = new Date(bruto);
+  return Number.isNaN(data.getTime()) ? null : data;
 }
 
 function requireEnv(name: string): string {

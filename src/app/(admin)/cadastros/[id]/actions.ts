@@ -41,30 +41,13 @@ async function garantirAtendimentoAssumido(agenciaId: string): Promise<boolean> 
   }
 }
 
-export async function assumirAtendimentoDossieAction(agenciaId: string) {
-  try {
-    await atendimentoController.assumirAtendimentoAgencia(agenciaId, await analistaIdLogado());
-  } catch (error) {
-    if (!(error instanceof DomainError)) throw error;
-    // Outro analista assumiu entre o render da página e o clique — a
-    // revalidação abaixo já mostra o estado real (ver podeAssumirAtendimento
-    // em page.tsx), não precisa derrubar a página com um erro genérico.
-  }
-  revalidatePath(`/cadastros/${agenciaId}`);
-}
-
-export async function encerrarAtendimentoDossieAction(agenciaId: string) {
-  try {
-    await atendimentoController.encerrarAtendimentoAgencia(agenciaId, await analistaIdLogado());
-  } catch (error) {
-    if (!(error instanceof DomainError)) throw error;
-  }
-  revalidatePath(`/cadastros/${agenciaId}`);
-}
-
-export async function aprovarComplementarAction(id: string) {
+export async function aprovarComplementarAction(id: string, formData: FormData) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.aprovarComplementar({ id, analistaEmail: await analistaLogado() });
+  await cadastroAdminController.aprovarComplementar({
+    id,
+    analistaEmail: await analistaLogado(),
+    gerarContratoAutomaticamente: formData.get("gerarContrato") !== null,
+  });
   revalidatePath(`/cadastros/${id}`);
 }
 
@@ -97,16 +80,57 @@ export async function registrarContratoExternoAction(
   }
 }
 
+export async function sincronizarContratoD4SignAction(agenciaId: string): Promise<
+  | {
+      ok: true;
+      statusDocumento: string | null;
+      adicionados: string[];
+      removidos: string[];
+      assinaturasAtualizadas: number;
+      avancouStatus: boolean;
+    }
+  | { ok: false; motivo: string }
+> {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) {
+    return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+  }
+  const resultado = await cadastroAdminController.sincronizarContratoD4Sign(agenciaId);
+  if (resultado.ok) {
+    revalidatePath(`/cadastros/${agenciaId}`);
+  }
+  return resultado;
+}
+
 export async function marcarContratoAssinadoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.marcarContratoAssinado(id);
   revalidatePath(`/cadastros/${id}`);
 }
 
-export async function validarContratoAction(id: string) {
+export async function confirmarCadastramentoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.validarContrato(id);
+  await cadastroAdminController.confirmarCadastramento(id);
   revalidatePath(`/cadastros/${id}`);
+}
+
+export async function forcarAvancoStatusAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.forcarAvancoStatus({
+    agenciaId,
+    justificativa: String(formData.get("justificativa") ?? ""),
+    forcadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function cancelarContratoAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.cancelarContrato({
+    agenciaId,
+    justificativa: String(formData.get("justificativa") ?? ""),
+    canceladoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
 }
 
 export async function ativarClienteAction(id: string) {
@@ -132,6 +156,15 @@ export async function reconsultarCreditoAction(agenciaId: string, fonte: "AMAT" 
   await cadastroAdminController.reconsultarCredito({
     agenciaId,
     fonte,
+    consultadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function consultarSicaAction(agenciaId: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.consultarSica({
+    agenciaId,
     consultadoPor: await analistaLogado(),
   });
   revalidatePath(`/cadastros/${agenciaId}`);
@@ -215,15 +248,32 @@ async function analistaLogado(): Promise<string> {
   return session?.user?.email ?? session?.user?.name ?? "analista não identificado";
 }
 
-export async function salvarSicaAction(agenciaId: string, formData: FormData) {
-  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+// SalvarSicaUseCase agora confirma o código no SST antes de salvar e
+// bloqueia (DomainError) se o CNPJ retornado não bater com o da agência —
+// mesmo padrão de resultado estruturado de registrarContratoExternoAction,
+// pra o form conseguir mostrar o motivo do bloqueio em vez de só quebrar.
+export async function salvarSicaAction(
+  agenciaId: string,
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) {
+    return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+  }
   const codigo = String(formData.get("codigo") ?? "");
-  await cadastroAdminController.salvarSica({
-    agenciaId,
-    codigo,
-    salvoPor: await analistaLogado(),
-  });
-  revalidatePath(`/cadastros/${agenciaId}`);
+  try {
+    await cadastroAdminController.salvarSica({
+      agenciaId,
+      codigo,
+      salvoPor: await analistaLogado(),
+    });
+    revalidatePath(`/cadastros/${agenciaId}`);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { ok: false, motivo: error.message };
+    }
+    throw error;
+  }
 }
 
 function parseStringOuNull(valor: FormDataEntryValue | null): string | null {
@@ -318,6 +368,7 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
     justificativa: String(formData.get("justificativa") ?? ""),
     dadosAgencia: {
       razaoSocial: String(formData.get("razaoSocial") ?? "").trim(),
+      nomeFantasia: parseStringOuNull(formData.get("nomeFantasia")),
       emailContato: String(formData.get("emailContato") ?? "").trim(),
       telefoneContato: String(formData.get("telefoneContato") ?? "").trim(),
     },
@@ -326,6 +377,15 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
       emailOperacional: parseStringOuNull(formData.get("emailOperacional")),
       emailComercial: parseStringOuNull(formData.get("emailComercial")),
       emailFinanceiro: parseStringOuNull(formData.get("emailFinanceiro")),
+    },
+    enderecoAgencia: {
+      cep: String(formData.get("cep") ?? "").trim(),
+      logradouro: String(formData.get("logradouro") ?? "").trim(),
+      numero: String(formData.get("numero") ?? "").trim(),
+      complemento: String(formData.get("complemento") ?? "").trim(),
+      bairro: String(formData.get("bairro") ?? "").trim(),
+      cidade: String(formData.get("cidade") ?? "").trim(),
+      uf: String(formData.get("uf") ?? "").trim(),
     },
   });
   revalidatePath(`/cadastros/${agenciaId}`);
