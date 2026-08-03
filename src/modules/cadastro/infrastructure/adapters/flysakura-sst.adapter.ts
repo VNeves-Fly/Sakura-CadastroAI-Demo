@@ -65,6 +65,7 @@ export class FlysakuraSstAdapter implements SstService {
   ): Promise<SicaConsultaResultado> {
     const url = new URL("/api/agencias/ativas", sstBaseUrl());
     url.searchParams.set(parametro, valor);
+    url.searchParams.set("realtime", "true");
 
     const response = await fetch(url, {
       headers: {

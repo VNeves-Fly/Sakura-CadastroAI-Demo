@@ -56,7 +56,9 @@ describe("FlysakuraSstAdapter", () => {
     });
 
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(String(url)).toBe("https://sst.teste/api/agencias/ativas?cnpj=43600690000122");
+    expect(String(url)).toBe(
+      "https://sst.teste/api/agencias/ativas?cnpj=43600690000122&realtime=true",
+    );
     expect(opts.headers["X-Internal-Secret"]).toBe("secret-teste");
   });
 
@@ -70,7 +72,9 @@ describe("FlysakuraSstAdapter", () => {
     await new FlysakuraSstAdapter().consultarSicaCodigoEmpresa(57295);
 
     const [url] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(String(url)).toBe("https://sst.teste/api/agencias/ativas?codigoEmpresa=57295");
+    expect(String(url)).toBe(
+      "https://sst.teste/api/agencias/ativas?codigoEmpresa=57295&realtime=true",
+    );
   });
 
   it("devolve encontrado=false quando data vem vazio", async () => {
