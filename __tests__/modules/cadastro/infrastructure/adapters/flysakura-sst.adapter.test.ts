@@ -77,6 +77,37 @@ describe("FlysakuraSstAdapter", () => {
     );
   });
 
+  it("normaliza codigo_empresa/codigo_executivo quando o SST devolve string (realtime=true)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          {
+            codigo_empresa: "64477",
+            nome: "KATIA ROCHA VIAG",
+            cnpj: "24208071000142",
+            telefone: "62982850483",
+            email: "KATIAROCHAVIAGENS@GMAIL.COM",
+            empresa_status: "inativo",
+            codigo_executivo: "103",
+            nome_executivo: "",
+          },
+        ],
+        total: 1,
+        page: 1,
+        offset: 0,
+      }),
+    });
+
+    const resultado = await new FlysakuraSstAdapter().consultarSicaCodigoEmpresa(64477);
+
+    expect(resultado.registro?.codigoEmpresa).toBe(64477);
+    expect(resultado.registro?.codigoExecutivo).toBe(103);
+    expect(typeof resultado.registro?.codigoEmpresa).toBe("number");
+    expect(typeof resultado.registro?.codigoExecutivo).toBe("number");
+  });
+
   it("devolve encontrado=false quando data vem vazio", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,

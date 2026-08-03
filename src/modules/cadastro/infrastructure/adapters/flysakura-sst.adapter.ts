@@ -11,14 +11,18 @@ import {
 // Shape bruto de GET /api/agencias/ativas (snake_case, confirmado pelo
 // usuário via exemplo real, 2026-08-02) — `data` vem vazio (`[]`) quando
 // não encontra nada pro parâmetro buscado.
+// `codigo_empresa`/`codigo_executivo` vêm como number sem `realtime=true`,
+// mas como string quando `realtime=true` (confirmado pelo usuário,
+// 2026-08-03) — por isso aceitam os dois tipos aqui e são normalizados via
+// Number(...) em paraRegistro.
 interface RawAgenciaAtivaSst {
-  codigo_empresa: number;
+  codigo_empresa: number | string;
   nome: string;
   cnpj: string;
   telefone: string;
   email: string;
   empresa_status: string;
-  codigo_executivo: number;
+  codigo_executivo: number | string;
   nome_executivo: string;
 }
 
@@ -31,7 +35,7 @@ interface RawAgenciasAtivasResponse {
 
 function paraRegistro(raw: RawAgenciaAtivaSst): SicaEmpresaRegistro {
   return {
-    codigoEmpresa: raw.codigo_empresa,
+    codigoEmpresa: Number(raw.codigo_empresa),
     nome: raw.nome,
     cnpj: raw.cnpj,
     telefone: raw.telefone,
@@ -40,7 +44,7 @@ function paraRegistro(raw: RawAgenciaAtivaSst): SicaEmpresaRegistro {
     // usuário) — sem validação extra de shape, mesma confiança dada ao
     // resto dos campos desta resposta.
     empresaStatus: raw.empresa_status as "ativo" | "inativo",
-    codigoExecutivo: raw.codigo_executivo,
+    codigoExecutivo: Number(raw.codigo_executivo),
     nomeExecutivo: raw.nome_executivo,
   };
 }
