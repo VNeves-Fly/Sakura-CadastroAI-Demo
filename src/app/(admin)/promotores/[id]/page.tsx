@@ -1,0 +1,26 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
+import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
+import { PromotorEditView } from "@/modules/atribuicoes/views/promotor-edit-view";
+
+const CARGOS_ADMIN = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
+
+export default async function PromotorEditPage({ params }: { params: { id: string } }) {
+  const session = await getServerSession(nextAuthOptions);
+  const cargo = session?.user.cargo;
+
+  if (!cargo || (cargo !== "GESTOR" && !CARGOS_ADMIN.has(cargo))) {
+    redirect("/cadastros");
+  }
+
+  const gestoresOptions =
+    cargo === "GESTOR"
+      ? null
+      : (await atribuicoesAdminController.listarGestores()).map((gestor) => ({
+          id: gestor.id,
+          nome: gestor.nome,
+        }));
+
+  return <PromotorEditView id={params.id} gestoresOptions={gestoresOptions} />;
+}

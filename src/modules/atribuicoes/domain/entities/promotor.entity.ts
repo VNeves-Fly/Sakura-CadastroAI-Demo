@@ -2,12 +2,13 @@ export interface PromotorProps {
   id: string;
   sica: number | null;
   nome: string;
-  gestor: string;
+  gestorId: string | null;
   email: string;
   telefone: string | null;
   link: string | null;
   linkExecutivoId: string[];
   bases: string[];
+  userId: string | null;
 }
 
 export class Promotor {
@@ -29,8 +30,8 @@ export class Promotor {
     return this.props.nome;
   }
 
-  get gestor(): string {
-    return this.props.gestor;
+  get gestorId(): string | null {
+    return this.props.gestorId;
   }
 
   get email(): string {
@@ -51,6 +52,14 @@ export class Promotor {
 
   get bases(): string[] {
     return this.props.bases;
+  }
+
+  get userId(): string | null {
+    return this.props.userId;
+  }
+
+  get temAcesso(): boolean {
+    return this.props.userId !== null;
   }
 
   toJSON(): PromotorProps {

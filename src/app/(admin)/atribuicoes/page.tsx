@@ -41,10 +41,11 @@ export default async function AtribuicoesPage({ searchParams }: AtribuicoesPageP
   const executivo = searchParams.executivo ?? "";
   const gestor = searchParams.gestor ?? "";
 
-  const [todasCidades, promotores, associacoesTodas] = await Promise.all([
+  const [todasCidades, promotores, associacoesTodas, gestoresReais] = await Promise.all([
     atribuicoesAdminController.listarCidades(),
     atribuicoesAdminController.listarPromotores(),
     atribuicoesAdminController.listarAssociacoes(),
+    atribuicoesAdminController.listarGestores(),
   ]);
   const executivosLink = promotores.map((promotor) => ({ id: promotor.id, nome: promotor.nome }));
   const associacoesLink = associacoesTodas
@@ -58,8 +59,8 @@ export default async function AtribuicoesPage({ searchParams }: AtribuicoesPageP
   // Executivos/Gestores — cruzada com o recorte filtrado de cidades só
   // pras estatísticas de base/cidades atendidas, nunca pra decidir quem
   // aparece na lista (isso vem sempre da planilha inteira).
-  const executivosView = paraExecutivosView(promotores, cidadesFiltradas);
-  const gestoresView = paraGestoresView(promotores, cidadesFiltradas);
+  const executivosView = paraExecutivosView(promotores, cidadesFiltradas, gestoresReais);
+  const gestoresView = paraGestoresView(gestoresReais, promotores, cidadesFiltradas);
   // Cidades-mock puro (nomes abreviados) — usado só pelos filtros/
   // Remanejar/resumo de seleção, que mexem exatamente nesses valores.
   const executivos = agregarExecutivos(cidadesFiltradas);

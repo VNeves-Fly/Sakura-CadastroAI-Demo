@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <ToastViewport />
       <NotificacoesDocumentosLive />
       <SolicitacoesAtendimentoAgenciaLive />
-      <AdminSidebar />
+      <AdminSidebar cargo={session.user.cargo} />
       <SidebarInset className="h-full min-h-0 overflow-hidden">
         <AdminHeader
           userName={session.user?.name ?? null}

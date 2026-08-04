@@ -11,6 +11,8 @@ import {
   Archive,
   UserCog,
   Webhook,
+  ShieldCheck,
+  UserPlus,
 } from "lucide-react";
 import {
   Sidebar,
@@ -23,17 +25,29 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import type { Cargo } from "@/modules/users/domain/enums";
 
 interface AdminNavItem {
   label: string;
   href: string | null;
   icon: typeof ClipboardList;
+  // Ausente = visível pra todo cargo. Gestor/Executivo (2026-08-03) só
+  // acompanham cadastros — sem acesso às demais ferramentas internas.
+  ocultoPara?: Cargo[];
 }
 
 interface AdminNavGrupo {
   label: string;
   itens: AdminNavItem[];
 }
+
+const CARGOS_INTERNOS_APENAS: Cargo[] = ["GESTOR", "EXECUTIVO"];
+// "Gestores" só pra quem pode cadastrar Gestor (decisão do usuário,
+// 2026-08-03) — Admin/Diretor, ninguém mais.
+const CARGOS_NAO_ADMIN: Cargo[] = ["ANALISTA", "GESTOR", "EXECUTIVO"];
+// "Executivos" (/promotores) — Admin/Diretor cadastram qualquer um, Gestor
+// só os seus; Analista/Executivo não cadastram.
+const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
 
 // Lista de itens extraída direto do produto real (print de referência,
 // onboarding.flysakura.com/admin/onboarding/cadastros) — só "Cadastros"
@@ -44,23 +58,64 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
     label: "Onboarding",
     itens: [
       { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
-      { label: "Atribuições", href: "/atribuicoes", icon: Users },
-      { label: "Atendimento", href: "/atendimento", icon: MessageCircle },
-      { label: "Eventos", href: "/cadastros/eventos", icon: CalendarDays },
-      { label: "Arquivo", href: "/arquivo", icon: Archive },
+      {
+        label: "Atribuições",
+        href: "/atribuicoes",
+        icon: Users,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Executivos",
+        href: "/promotores",
+        icon: UserPlus,
+        ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
+      },
+      {
+        label: "Atendimento",
+        href: "/atendimento",
+        icon: MessageCircle,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Eventos",
+        href: "/cadastros/eventos",
+        icon: CalendarDays,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      { label: "Arquivo", href: "/arquivo", icon: Archive, ocultoPara: CARGOS_INTERNOS_APENAS },
     ],
   },
   {
     label: "Configurações",
     itens: [
-      { label: "Usuários", href: "/cadastros/usuarios", icon: UserCog },
-      { label: "Messenger", href: "/cadastros/messenger", icon: Webhook },
+      {
+        label: "Usuários",
+        href: "/cadastros/usuarios",
+        icon: UserCog,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Messenger",
+        href: "/cadastros/messenger",
+        icon: Webhook,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Gestores",
+        href: "/gestores",
+        icon: ShieldCheck,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
     ],
   },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({ cargo }: { cargo: Cargo }) {
   const pathname = usePathname();
+  const gruposVisiveis = GRUPOS_NAV.map((grupo) => ({
+    ...grupo,
+    itens: grupo.itens.filter((item) => !item.ocultoPara?.includes(cargo)),
+  })).filter((grupo) => grupo.itens.length > 0);
 
   return (
     <Sidebar collapsible="icon">
@@ -80,7 +135,7 @@ export function AdminSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {GRUPOS_NAV.map((grupo) => (
+        {gruposVisiveis.map((grupo) => (
           <SidebarGroup key={grupo.label}>
             <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
             <SidebarGroupContent>

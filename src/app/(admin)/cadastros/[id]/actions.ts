@@ -15,9 +15,18 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 // revalida a própria página do dossiê (sem redirect: o form re-renderiza
 // no mesmo lugar já com o novo status).
 
+// Gestor/Executivo (2026-08-03) nunca conseguem assumir atendimento, então
+// garantirAtendimentoAssumido já falharia sozinho pra eles — mas o reforço
+// aqui é explícito (em vez de depender só desse efeito indireto), mesma
+// postura do guard em atendimento-agencia.routes.ts.
+const CARGOS_SEM_ATENDIMENTO = new Set(["GESTOR", "EXECUTIVO"]);
+
 async function analistaIdLogado(): Promise<string> {
   const session = await getServerSession(nextAuthOptions);
   if (!session?.user?.id) throw new DomainError("Não autenticado.");
+  if (session.user.cargo && CARGOS_SEM_ATENDIMENTO.has(session.user.cargo)) {
+    throw new DomainError("Acesso não permitido.");
+  }
   return session.user.id;
 }
 

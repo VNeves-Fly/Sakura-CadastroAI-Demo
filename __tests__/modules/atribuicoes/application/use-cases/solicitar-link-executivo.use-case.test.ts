@@ -10,20 +10,25 @@ function fakePromotor(): Promotor {
     id: "promotor-1",
     sica: 123,
     nome: "Ada Lovelace",
-    gestor: "Grace Hopper",
+    gestorId: null,
     email: "ada@example.com",
     telefone: null,
     link: null,
     linkExecutivoId: [],
     bases: [],
+    userId: null,
   });
 }
 
 function criarMocks(promotor: Promotor | null) {
   const promotorRepository: PromotorRepository = {
     findAll: jest.fn(),
+    findById: jest.fn(),
     findByLinkExecutivoId: jest.fn(),
     findByEmail: jest.fn().mockResolvedValue(promotor),
+    findByUserId: jest.fn(),
+    criar: jest.fn(),
+    atualizar: jest.fn(),
   };
 
   const emailSender: EmailSender = { send: jest.fn().mockResolvedValue(undefined) };
