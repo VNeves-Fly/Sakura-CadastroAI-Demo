@@ -16,9 +16,11 @@ import {
 } from "@/modules/cadastro/utils/cnpj.util";
 import {
   maskTelefone,
+  maskTelefoneComercial,
   paisTelefonePorCodigo,
   unmaskTelefone,
   validarTelefone,
+  validarTelefoneComercial,
 } from "@/modules/shared/utils/telefone.util";
 import { validarEmail } from "@/modules/shared/utils/email.util";
 import { maskCpf, unmaskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
@@ -518,12 +520,12 @@ export function useCadastroWizardViewModel({
   }
 
   function setTelefoneComercial(valorDigitado: string) {
-    setTelefoneComercialRaw(maskTelefone(valorDigitado, telefoneComercialPais));
+    setTelefoneComercialRaw(maskTelefoneComercial(valorDigitado, telefoneComercialPais));
   }
 
   function setTelefoneComercialPais(pais: string) {
     setTelefoneComercialPaisRaw(pais);
-    setTelefoneComercialRaw(maskTelefone(telefoneComercial, pais));
+    setTelefoneComercialRaw(maskTelefoneComercial(telefoneComercial, pais));
   }
 
   function usarEmailOperacionalParaTodos() {
@@ -756,7 +758,8 @@ export function useCadastroWizardViewModel({
   // Validação de campo é decidida aqui (única fonte de verdade), nunca
   // pelos componentes de apresentação — eles só recebem o resultado.
   const telefoneComercialInvalido =
-    telefoneComercial.length > 0 && !validarTelefone(telefoneComercial, telefoneComercialPais);
+    telefoneComercial.length > 0 &&
+    !validarTelefoneComercial(telefoneComercial, telefoneComercialPais);
   const emailOperacionalInvalido = emailOperacional.length > 0 && !validarEmail(emailOperacional);
   const emailComercialInvalido = emailComercial.length > 0 && !validarEmail(emailComercial);
   const emailFinanceiroInvalido = emailFinanceiro.length > 0 && !validarEmail(emailFinanceiro);

@@ -132,7 +132,11 @@ export function Passo2Empresa({
               "min-w-0 flex-1",
               comErro("telefoneComercial") && "campo-erro-pulsante",
             )}
-            placeholder={paisTelefone.placeholder}
+            placeholder={
+              telefoneComercialPais === "BR"
+                ? "(11) 9999-9999 ou 99999-9999"
+                : paisTelefone.placeholder
+            }
           />
         </div>
         {telefoneComercialInvalido ? (

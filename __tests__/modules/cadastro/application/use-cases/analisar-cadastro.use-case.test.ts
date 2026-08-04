@@ -749,6 +749,54 @@ describe("AnalisarCadastroUseCase", () => {
       expect(dadosReceitaRepository.create).not.toHaveBeenCalled();
     });
 
+    it("grava CNAE principal + secundários do stage1, mesmo sem capital social/endereço extraídos", async () => {
+      const { useCase, dadosReceitaRepository } = criarUseCase({
+        analiseIaService: criarAnaliseIaFake({
+          avaliar: jest.fn().mockResolvedValue({
+            aprovado: true,
+            motivo: null,
+            stage1: {
+              situacaoCadastral: null,
+              cnaePrincipal: {
+                codigo: "7911-2/00",
+                descricao: "Agências de viagens",
+                compativelTurismo: true,
+              },
+              cnaesSecundarios: [
+                {
+                  codigo: "7912-1/00",
+                  descricao: "Operadores turísticos",
+                  compativelTurismo: true,
+                },
+                { codigo: "8299-7/99", descricao: "Outras atividades", compativelTurismo: false },
+              ],
+              razaoSocial: null,
+              nomeFantasia: null,
+              email: null,
+              socios: null,
+              processos: null,
+            },
+          }),
+        }),
+        dadosReceitaRepository: criarDadosReceitaFake({
+          findByAgenciaId: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await useCase.execute({ agenciaId: "agencia-1" });
+
+      expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agenciaId: "agencia-1",
+          cnaes: [
+            { codigo: "7911-2/00", descricao: "Agências de viagens", principal: true },
+            { codigo: "7912-1/00", descricao: "Operadores turísticos", principal: false },
+            { codigo: "8299-7/99", descricao: "Outras atividades", principal: false },
+          ],
+        }),
+      );
+    });
+
     it("não derruba o fluxo se falhar ao persistir Dados da Receita (best-effort)", async () => {
       const { useCase, agenciaRepository } = criarUseCase({
         documentAnalysisService: criarDocumentAnalysisFake({

@@ -1,9 +1,11 @@
 import {
   maskTelefone,
+  maskTelefoneComercial,
   paisTelefonePorCodigo,
   telefonesEquivalentes,
   unmaskTelefone,
   validarTelefone,
+  validarTelefoneComercial,
 } from "@/modules/shared/utils/telefone.util";
 
 describe("paisTelefonePorCodigo", () => {
@@ -59,6 +61,41 @@ describe("validarTelefone", () => {
   it("país 'Outro' aceita qualquer coisa com 6+ dígitos", () => {
     expect(validarTelefone("123456", "OUTRO")).toBe(true);
     expect(validarTelefone("12345", "OUTRO")).toBe(false);
+  });
+});
+
+describe("maskTelefoneComercial", () => {
+  it("formata fixo (DDD + 8 dígitos) com quebra 4-4", () => {
+    expect(maskTelefoneComercial("1133334444", "BR")).toBe("(11) 3333-4444");
+  });
+
+  it("formata celular (DDD + 9 dígitos) com quebra 5-4", () => {
+    expect(maskTelefoneComercial("11999998888", "BR")).toBe("(11) 99999-8888");
+  });
+
+  it("trunca em 11 dígitos mesmo digitando além do celular", () => {
+    expect(maskTelefoneComercial("119999988889999", "BR")).toBe("(11) 99999-8888");
+  });
+
+  it("delega pro formatador padrão do país fora do Brasil", () => {
+    expect(maskTelefoneComercial("2125550100", "US")).toBe("(212) 555-0100");
+  });
+});
+
+describe("validarTelefoneComercial", () => {
+  it("aceita fixo (10 dígitos) ou celular (11 dígitos) no Brasil", () => {
+    expect(validarTelefoneComercial("(11) 3333-4444", "BR")).toBe(true);
+    expect(validarTelefoneComercial("(11) 99999-8888", "BR")).toBe(true);
+  });
+
+  it("rejeita quantidade de dígitos fora de 10 ou 11 no Brasil", () => {
+    expect(validarTelefoneComercial("(11) 333-4444", "BR")).toBe(false);
+    expect(validarTelefoneComercial("(11) 99999-88889", "BR")).toBe(false);
+  });
+
+  it("delega pra validação padrão do país fora do Brasil", () => {
+    expect(validarTelefoneComercial("(212) 555-0100", "US")).toBe(true);
+    expect(validarTelefoneComercial("(212) 555-010", "US")).toBe(false);
   });
 });
 
