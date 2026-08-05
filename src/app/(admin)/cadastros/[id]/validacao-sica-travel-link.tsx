@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
+import { useFormStatus } from "react-dom";
+import { RefreshCw } from "lucide-react";
 import { BotaoSubmitComLoading } from "./botao-submit-loading";
 import { DadosEmpresaSecao } from "./dados-empresa-secao";
 import { TravelLinkSwitch } from "./travel-link-switch";
@@ -26,6 +28,23 @@ const INPUT_CLASSNAME =
 // domínio com toJSON — ver formatarData em dossie-campos.util.ts.
 function formatarDataHora(data: Date | string): string {
   return (data instanceof Date ? data : new Date(data)).toLocaleString("pt-BR");
+}
+
+// Botão de submit dentro do <form action={atualizarSicaAction}> — mesmo
+// motivo de BotaoReconsultar (consulta-amat-sofia.tsx) usar useFormStatus
+// em vez de useState: só funciona lendo o form que o referencia.
+function BotaoAtualizarSica() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="border-input text-foreground hover:bg-accent flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <RefreshCw className={pending ? "size-3 animate-spin" : "size-3"} />
+      {pending ? "Atualizando..." : "Atualizar"}
+    </button>
+  );
 }
 
 interface ValidacaoSicaTravelLinkProps {
@@ -54,8 +73,14 @@ interface ValidacaoSicaTravelLinkProps {
     agenciaId: string,
     formData: FormData,
   ) => Promise<{ ok: true } | { ok: false; motivo: string }>;
+  // Reconsulta o SST pelo código já salvo (metodo "codigo_empresa") — botão
+  // "Atualizar" ao lado do código, ver AtualizarSicaUseCase. Diferente de
+  // reconsultarSica (abaixo), que busca por CNPJ.
+  atualizarSicaAction: () => Promise<void>;
   salvarTravelLinkAction: (agenciaId: string, criado: boolean) => Promise<void>;
-  confirmarCadastramentoAction: (id: string) => Promise<void>;
+  confirmarCadastramentoAction: (
+    id: string,
+  ) => Promise<{ ok: true } | { ok: false; motivo: string }>;
   // true quando o analista está revendo esta etapa a partir de uma etapa
   // posterior (ver `etapaExibida` na page) — some com os botões de ação,
   // só sobra a leitura do que foi preenchido.
@@ -107,6 +132,7 @@ export function ValidacaoSicaTravelLink({
   travelLinkSalvoPor,
   travelLinkSalvoEm,
   salvarSicaAction,
+  atualizarSicaAction,
   salvarTravelLinkAction,
   confirmarCadastramentoAction,
   somenteLeitura = false,
@@ -135,9 +161,18 @@ export function ValidacaoSicaTravelLink({
   const [rascunhoSica, setRascunhoSica] = useState(sicaCodigo ?? codigoSugeridoSst ?? "");
   const [salvandoSica, setSalvandoSica] = useState(false);
   const [erroSica, setErroSica] = useState<string | null>(null);
+  const [erroConfirmar, setErroConfirmar] = useState<string | null>(null);
   const [alertaTravelLinkAberto, setAlertaTravelLinkAberto] = useState(false);
 
-  const sicaPronta = sicaCodigo !== null;
+  const codigoSalvo = sicaCodigo !== null;
+  // "Ativo no SICA" vem da consulta mais recente ao SST (qualquer método,
+  // ver ConsultaSicaView) — não só ter um código salvo, mas confirmar que
+  // ele está ativo de verdade (decisão do usuário, 2026-08-05: SICA/TL ->
+  // Ativação exige os dois). Mesma checagem que ConfirmarCadastramentoUseCase
+  // faz de novo no backend (trava real, não só esse disabled).
+  const sicaAtivaNoSst =
+    consultaSica.atual?.encontrado === true && consultaSica.atual.empresaStatus === "ativo";
+  const sicaPronta = codigoSalvo && sicaAtivaNoSst;
   const mostrarInputSica = editandoSica || sicaCodigo === null;
 
   // SICA pronto mas TravelLink ainda não criado: em vez de só desabilitar
@@ -161,6 +196,14 @@ export function ValidacaoSicaTravelLink({
       return;
     }
     setEditandoSica(false);
+  }
+
+  async function handleConfirmarCadastramento() {
+    setErroConfirmar(null);
+    const resultado = await confirmarCadastramentoAction(agenciaId);
+    if (!resultado.ok) {
+      setErroConfirmar(resultado.motivo);
+    }
   }
 
   return (
@@ -263,6 +306,11 @@ export function ValidacaoSicaTravelLink({
                 Editar
               </button>
             ) : null}
+            {!somenteLeitura ? (
+              <form action={atualizarSicaAction} className="contents">
+                <BotaoAtualizarSica />
+              </form>
+            ) : null}
           </div>
         ) : null}
 
@@ -283,18 +331,27 @@ export function ValidacaoSicaTravelLink({
       />
 
       {!somenteLeitura ? (
-        <div className="flex flex-wrap gap-2">
-          <form action={confirmarCadastramentoAction.bind(null, agenciaId)}>
+        <div className="flex flex-wrap items-center gap-2">
+          <form action={handleConfirmarCadastramento}>
             <BotaoSubmitComLoading
               labelCarregando="Confirmando..."
               disabled={!sicaPronta}
               onClick={handleClickValidar}
-              title={!sicaPronta ? "Salve o código SICA antes de confirmar" : undefined}
+              title={
+                !codigoSalvo
+                  ? "Salve o código SICA antes de confirmar"
+                  : !sicaAtivaNoSst
+                    ? "A empresa precisa estar ativa no SICA antes de confirmar"
+                    : undefined
+              }
               className="bg-primary text-primary-foreground hover:bg-sakura-600 disabled:hover:bg-primary flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirmar Cadastramento
             </BotaoSubmitComLoading>
           </form>
+          {erroConfirmar ? (
+            <p className="text-destructive text-xs font-medium">{erroConfirmar}</p>
+          ) : null}
         </div>
       ) : null}
 

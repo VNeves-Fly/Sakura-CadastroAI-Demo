@@ -3,6 +3,7 @@
 import { useEventos } from "@/modules/eventos/view-models/use-eventos.view-model";
 import { CriarEventoForm } from "@/modules/eventos/components/criar-evento-form";
 import { EventoCard } from "@/modules/eventos/components/evento-card";
+import { CadastroPadraoCard } from "@/modules/eventos/components/cadastro-padrao-card";
 import type { Executivo, AssociacaoOpcao } from "@/modules/eventos/types/evento.types";
 
 interface EventosViewProps {
@@ -38,6 +39,8 @@ export function EventosView({ executivos, associacoes }: EventosViewProps) {
           desses links carrega a atribuição correspondente automaticamente.
         </p>
       </div>
+
+      <CadastroPadraoCard executivos={executivos} associacoes={associacoes} />
 
       <CriarEventoForm isSalvando={isSalvando} onCriar={criarEvento} />
 

@@ -116,10 +116,25 @@ export async function marcarContratoAssinadoAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
-export async function confirmarCadastramentoAction(id: string) {
-  if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.confirmarCadastramento(id);
-  revalidatePath(`/cadastros/${id}`);
+// ConfirmarCadastramentoUseCase agora exige SICA ativo no SST antes de
+// avançar (2026-08-05) — mesmo padrão de resultado estruturado de
+// salvarSicaAction, pra mostrar o motivo do bloqueio em vez de só quebrar.
+export async function confirmarCadastramentoAction(
+  id: string,
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  if (!(await garantirAtendimentoAssumido(id))) {
+    return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+  }
+  try {
+    await cadastroAdminController.confirmarCadastramento(id);
+    revalidatePath(`/cadastros/${id}`);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { ok: false, motivo: error.message };
+    }
+    throw error;
+  }
 }
 
 export async function forcarAvancoStatusAction(agenciaId: string, formData: FormData) {
@@ -175,6 +190,18 @@ export async function consultarSicaAction(agenciaId: string) {
   await cadastroAdminController.consultarSica({
     agenciaId,
     consultadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+// Atualiza a situação do código SICA já salvo (botão "Atualizar" ao lado
+// do código, ver ValidacaoSicaTravelLink) — busca por código, não por CNPJ
+// (diferente de consultarSicaAction).
+export async function atualizarSicaAction(agenciaId: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.atualizarSica({
+    agenciaId,
+    atualizadoPor: await analistaLogado(),
   });
   revalidatePath(`/cadastros/${agenciaId}`);
 }

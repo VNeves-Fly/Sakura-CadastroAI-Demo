@@ -110,6 +110,7 @@ import {
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
   consultarSicaAction,
+  atualizarSicaAction,
   confirmarCadastramentoAction,
   forcarAvancoStatusAction,
   cancelarContratoAction,
@@ -1117,6 +1118,7 @@ export default async function DossieAgenciaPage({
                 reconsultarSofia={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
                 consultaSica={consultaSica}
                 reconsultarSica={consultarSicaAction.bind(null, agencia.id)}
+                atualizarSicaAction={atualizarSicaAction.bind(null, agencia.id)}
               />
             ) : null}
 

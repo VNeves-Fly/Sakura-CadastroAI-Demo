@@ -78,6 +78,11 @@ import {
   type ConsultarSicaInput,
 } from "@/modules/cadastro/application/use-cases/consultar-sica.use-case";
 import {
+  AtualizarSicaUseCase,
+  type AtualizarSicaInput,
+} from "@/modules/cadastro/application/use-cases/atualizar-sica.use-case";
+import { ConfirmarCadastramentoUseCase } from "@/modules/cadastro/application/use-cases/confirmar-cadastramento.use-case";
+import {
   SalvarTravelLinkUseCase,
   type SalvarTravelLinkInput,
 } from "@/modules/cadastro/application/use-cases/salvar-travel-link.use-case";
@@ -141,7 +146,6 @@ import { RemoverSignatarioPadraoUseCase } from "@/modules/cadastro/application/u
 import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/restaurar-signatario-padrao.use-case";
 import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import {
-  STATUS_AGUARDANDO_ATIVACAO,
   STATUS_ATIVO,
   STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
@@ -293,15 +297,25 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
+  // Atualiza a situação do código SICA já salvo (botão "Atualizar" na
+  // ficha, ao lado do código) — busca de novo pelo código, não pelo CNPJ
+  // (ver AtualizarSicaUseCase); diferente de consultarSica.
+  atualizarSica(input: AtualizarSicaInput) {
+    const useCase = new AtualizarSicaUseCase(agenciaRepository, sstService);
+    return useCase.execute(input);
+  },
+
   salvarTravelLink(input: SalvarTravelLinkInput) {
     const useCase = new SalvarTravelLinkUseCase(agenciaRepository);
     return useCase.execute(input);
   },
 
-  // SICA/TravelLink cadastrados (etapa "SICA/TL") — segue pra
-  // "aguardando_ativacao", onde falta só o Usuário Master.
+  // SICA/TravelLink cadastrados e SICA confirmado ativo no SST (etapa
+  // "SICA/TL") — segue pra "aguardando_ativacao", onde falta só o Usuário
+  // Master (ver ConfirmarCadastramentoUseCase).
   confirmarCadastramento(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_ATIVACAO });
+    const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
+    return useCase.execute({ agenciaId: id });
   },
 
   // Via de escape auditada pras duas transições que normalmente só

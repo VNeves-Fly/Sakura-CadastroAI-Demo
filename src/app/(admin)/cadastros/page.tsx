@@ -94,36 +94,36 @@ const FILAS = [
   {
     status: STATUS_EM_COMPLEMENTAR,
     chave: "emComplementar" as const,
-    label: "Em complementar",
-    sublabel: "IA sinalizou revisão",
+    label: "Análise de Documentos",
+    sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
     chave: "aguardandoAssinatura" as const,
     label: "Aguardando assinatura",
-    sublabel: "contrato enviado aos sócios",
+    sublabel: "Setor Comercial",
     cor: COR_CLIENTE,
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
     label: "Validação",
-    sublabel: "sócios assinaram, validar evidências",
+    sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_CADASTRAMENTO,
     chave: "aguardandoCadastramento" as const,
-    label: "Setor cadastro",
-    sublabel: "validado, criar SICA e TravelLink",
+    label: "Analise de Credito",
+    sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
     chave: "aguardandoAtivacao" as const,
-    label: "Setor comercial",
-    sublabel: "Usuário master e ativar agência",
+    label: "Usuário Master",
+    sublabel: "Suporte Comercial",
     cor: COR_ORIGEM_HUMANO,
   },
   {
@@ -591,7 +591,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                                         : "bg-warning/15 text-warning"
                                     }`}
                                   >
-                                    {consultaSicaMaisRecente.empresaStatus ?? "—"}
+                                    {consultaSicaMaisRecente.codigoEmpresa ?? "—"}
                                   </span>
                                 }
                               />
