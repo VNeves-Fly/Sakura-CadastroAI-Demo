@@ -1,4 +1,5 @@
 import type { PapelRepresentante } from "@/modules/cadastro/domain/enums";
+import type { EnderecoData } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 export interface RepresentanteLegalProps {
   id: string;
@@ -23,6 +24,10 @@ export interface RepresentanteLegalProps {
   ativo: boolean;
   origem: string | null;
   preenchidoPorIa: boolean;
+  // Sempre um objeto (strings vazias se nunca preenchido) — mesma
+  // convenção de RepresentanteLegalDetalhe.endereco, nunca null, pra não
+  // espalhar checagem de null pelos consumidores.
+  endereco: EnderecoData;
 
   createdAt: Date;
   updatedAt: Date;
@@ -117,6 +122,10 @@ export class RepresentanteLegal {
 
   get preenchidoPorIa(): boolean {
     return this.props.preenchidoPorIa;
+  }
+
+  get endereco(): EnderecoData {
+    return this.props.endereco;
   }
 
   get createdAt(): Date {

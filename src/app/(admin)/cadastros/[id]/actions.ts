@@ -311,6 +311,15 @@ export async function editarSocioAction(
       rgOrgaoEmissor: parseStringOuNull(formData.get("rgOrgaoEmissor")),
       dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
       administrativo: formData.get("administrativo") === "true",
+      endereco: {
+        cep: String(formData.get("enderecoCep") ?? "").trim(),
+        logradouro: String(formData.get("enderecoLogradouro") ?? "").trim(),
+        numero: String(formData.get("enderecoNumero") ?? "").trim(),
+        complemento: String(formData.get("enderecoComplemento") ?? "").trim(),
+        bairro: String(formData.get("enderecoBairro") ?? "").trim(),
+        cidade: String(formData.get("enderecoCidade") ?? "").trim(),
+        uf: String(formData.get("enderecoUf") ?? "").trim(),
+      },
     },
   });
   revalidatePath(`/cadastros/${agenciaId}`);
