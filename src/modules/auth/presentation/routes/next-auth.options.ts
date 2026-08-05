@@ -49,6 +49,7 @@ export const nextAuthOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           mustChangePassword: user.mustChangePassword,
+          cargo: user.cargo,
         };
       },
     }),
@@ -58,6 +59,7 @@ export const nextAuthOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.mustChangePassword = user.mustChangePassword;
+        token.cargo = user.cargo;
       }
 
       // Disparado por useSession().update({ mustChangePassword: false })
@@ -73,6 +75,7 @@ export const nextAuthOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.mustChangePassword = token.mustChangePassword as boolean;
+        session.user.cargo = token.cargo;
       }
       return session;
     },

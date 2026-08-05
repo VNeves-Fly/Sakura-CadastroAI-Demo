@@ -135,6 +135,36 @@ export function validarTelefone(valorMascarado: string, codigoPais: string): boo
   return digitos.length === pais.digitosEsperados;
 }
 
+// Variante do formatador BR que aceita tanto fixo (DDD + 8 dígitos) quanto
+// celular (DDD + 9 dígitos) — usada só pelo telefone comercial da empresa,
+// que ao contrário do telefone do sócio (usado pro link de assinatura via
+// WhatsApp) não precisa necessariamente ser um número com WhatsApp. Mesmo
+// motivo de format-telefone.ts (chat) ficar isolado do resto deste util.
+function formatarBrasilFixoOuCelular(digitos: string): string {
+  if (digitos.length === 0) return "";
+  if (digitos.length <= 2) return `(${digitos}`;
+  const ddd = digitos.slice(0, 2);
+  const numero = digitos.slice(2);
+  const quebra = numero.length <= 8 ? 4 : 5;
+  if (numero.length <= quebra) return `(${ddd}) ${numero}`;
+  return `(${ddd}) ${numero.slice(0, quebra)}-${numero.slice(quebra, quebra + 4)}`;
+}
+
+export function maskTelefoneComercial(valorDigitado: string, codigoPais: string): string {
+  if (codigoPais === "BR") {
+    return formatarBrasilFixoOuCelular(unmaskTelefone(valorDigitado).slice(0, 11));
+  }
+  return maskTelefone(valorDigitado, codigoPais);
+}
+
+export function validarTelefoneComercial(valorMascarado: string, codigoPais: string): boolean {
+  if (codigoPais === "BR") {
+    const digitos = unmaskTelefone(valorMascarado);
+    return digitos.length === 10 || digitos.length === 11;
+  }
+  return validarTelefone(valorMascarado, codigoPais);
+}
+
 // Candidatos de variação do número local — cobre o 9º dígito do celular
 // brasileiro, que a Meta às vezes inclui/omite de forma inconsistente
 // dependendo da operadora/registro legado.

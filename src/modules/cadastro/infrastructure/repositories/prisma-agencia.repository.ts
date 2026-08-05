@@ -70,6 +70,7 @@ interface AgenciaRecord {
   travelLinkCriado: boolean;
   travelLinkSalvoPor: string | null;
   travelLinkSalvoEm: Date | null;
+  executivoId: string | null;
 }
 
 const ENDERECO_VAZIO: EnderecoData = {
@@ -805,9 +806,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     const executivoCondicao = condicaoFiltroIn(filtros.executivoId);
     if (executivoCondicao !== undefined) filtroExecutivo.id = executivoCondicao;
     const baseCondicao = condicaoFiltroIn(filtros.base);
-    if (baseCondicao !== undefined) filtroExecutivo.bases = { some: { baseSigla: baseCondicao } };
-    const gestorCondicao = condicaoFiltroIn(filtros.gestor);
-    if (gestorCondicao !== undefined) filtroExecutivo.gestor = gestorCondicao;
+    if (baseCondicao !== undefined)
+      filtroExecutivo.bases = { some: { base: { sigla: baseCondicao } } };
+    const gestorIdCondicao = condicaoFiltroIn(filtros.gestorId);
+    if (gestorIdCondicao !== undefined) filtroExecutivo.gestorId = gestorIdCondicao;
     if (Object.keys(filtroExecutivo).length > 0) where.executivo = filtroExecutivo;
 
     const associacaoCondicao = condicaoFiltroIn(filtros.associacaoId);
@@ -832,7 +834,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
           executivo: {
-            select: { nome: true, gestor: true },
+            select: { nome: true, gestor: { select: { nome: true } } },
           },
           evento: { select: { nome: true } },
         },
@@ -868,7 +870,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         // "a base da agência" está errado (decisão do usuário, 2026-07-28:
         // melhor deixar em branco do que mostrar um dado ambíguo/errado).
         executivoBase: null,
-        executivoGestor: record.executivo?.gestor ?? null,
+        executivoGestor: record.executivo?.gestor?.nome ?? null,
         consultaSicaMaisRecente: consultaSicaPorAgenciaId.get(record.id) ?? null,
       })),
       total,
@@ -1017,6 +1019,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       travelLinkCriado: record.travelLinkCriado,
       travelLinkSalvoPor: record.travelLinkSalvoPor,
       travelLinkSalvoEm: record.travelLinkSalvoEm,
+      executivoId: record.executivoId,
     });
   }
 }

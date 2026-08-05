@@ -44,6 +44,12 @@ model User {
   solicitacoesAgenciaComoAtendenteAtual SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaAtendenteAtual")
   solicitacoesAgenciaComoNovoAtendente  SolicitacaoAtendimentoAgencia[] @relation("SolicitacaoAgenciaNovoAtendente")
 
+  // Login de um Gestor/Executivo (Cargo.GESTOR/EXECUTIVO) — opcional porque
+  // nem todo User é um desses cargos, e nem todo Gestor/Promotor tem login
+  // (ver Gestor.userId/Promotor.userId, resolvidos no momento do cadastro).
+  promotor     Promotor?
+  gestorPerfil Gestor?
+
   @@map("users")
 }
 
@@ -1259,7 +1265,12 @@ model Promotor {
   // ex.: Marcel Mazzonetto, Luis Vargas) não têm SICA, não inventado.
   sica            Int?     @unique
   nome            String
-  gestor          String
+  // Gestor responsável por este executivo (model próprio, 2026-08-03) —
+  // resolvido no cadastro (form /promotores) ou pelo backfill/seed a partir
+  // do nome anotado na planilha original (ver prisma/scripts/backfill-gestores.ts
+  // e prisma/seeds/promotores.ts). Null = ainda não atribuído.
+  gestorId        String?
+  gestor          Gestor?  @relation(fields: [gestorId], references: [id])
   // Chave de upsert do seed (ver prisma/seeds/promotores.ts) — único
   // porque promotores sem SICA (acima) precisam de outra chave estável.
   email           String   @unique
@@ -1284,7 +1295,57 @@ model Promotor {
   agenciasAtribuidas Agencia[]
   bases              PromotorBase[]
 
+  // Login desse Executivo na plataforma (Cargo.EXECUTIVO) — opcional,
+  // concedido na criação/edição via /promotores (checkbox "Criar acesso na
+  // plataforma"). Null = Promotor só de negócio, sem login.
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@index([gestorId])
   @@map("promotores")
+}
+
+// Entidade real do Gestor (2026-08-03) — antes só existia como texto livre
+// em Promotor.gestor. Um Gestor pode ter vários Executivos (Promotor.gestorId)
+// e várias Bases (GestorBase, mesmo padrão de PromotorBase).
+model Gestor {
+  id       String  @id @default(cuid())
+  nome     String
+  // Nullable+unique — Gestores criados pelo backfill a partir da string
+  // legada (ver prisma/scripts/backfill-gestores.ts) não têm e-mail
+  // conhecido até alguém preencher; Postgres permite múltiplos NULL num
+  // campo @unique.
+  email    String? @unique
+  telefone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bases      GestorBase[]
+  promotores Promotor[]
+
+  // Login desse Gestor na plataforma (Cargo.GESTOR) — opcional, mesmo
+  // padrão de Promotor.userId acima.
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@map("gestores")
+}
+
+// Bases atendidas por um Gestor. `baseSigla` (legado) sendo substituída por
+// `baseId`/`base`, FK real pro model `Base` (2026-08-04, ver
+// prisma/scripts/importar-bases.ts) — mantida só durante a transição
+// expand/contract, removida assim que o backfill terminar.
+model GestorBase {
+  id        String   @id @default(cuid())
+  gestorId  String
+  gestor    Gestor   @relation(fields: [gestorId], references: [id], onDelete: Cascade)
+  baseId    String
+  base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([gestorId, baseId])
+  @@map("gestor_bases")
 }
 
 // Bases atendidas por um gerente/promotor — fonte real: export
@@ -1298,12 +1359,34 @@ model PromotorBase {
   id         String   @id @default(cuid())
   promotorId String
   promotor   Promotor @relation(fields: [promotorId], references: [id], onDelete: Cascade)
-  baseSigla  String
+  baseId     String
+  base       Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 
-  @@unique([promotorId, baseSigla])
-  @@index([baseSigla])
+  @@unique([promotorId, baseId])
   @@map("promotor_bases")
+}
+
+// Base comercial real (2026-08-04, ver prisma/scripts/importar-bases.ts) —
+// antes só existia como sigla livre em GestorBase/PromotorBase.baseSigla.
+// Hierarquia Base -> Gestor -> Executivo: um Gestor atende várias Bases
+// (GestorBase), um Executivo atende um subconjunto das bases do seu Gestor
+// (PromotorBase, controlado só no frontend, sem enforcement aqui).
+model Base {
+  id             String  @id @default(cuid())
+  sigla          String  @unique
+  nomeCidade     String
+  uf             String
+  // regiao_id do export antigo — guardado solto, sem model Regiao formal
+  // por ora (decisão do usuário, 2026-08-04). Não lido em nenhuma query hoje.
+  regiaoIdLegado String?
+
+  createdAt DateTime @default(now())
+
+  gestorBases   GestorBase[]
+  promotorBases PromotorBase[]
+
+  @@map("bases")
 }
 
 // Hierarquia comercial (Agência → Executivo → Gestor, por Base/Região) —
@@ -1357,7 +1440,11 @@ model SubstituicaoAtribuicao {
 // novo, pra bater com a fonte original se ela um dia virar integração
 // de verdade.
 model Associacao {
-  id        String   @id
+  // Sem default até 2026-08-04: só existiam registros de import, preservando
+  // o uuid real do export (nunca criados pelo app). Ganha @default(cuid())
+  // agora que a tela /associacoes passa a criar registros novos — não afeta
+  // as linhas existentes, só as futuras sem id explícito.
+  id        String   @id @default(cuid())
   nome      String
   ativo     Boolean  @default(true)
   createdAt DateTime @default(now())

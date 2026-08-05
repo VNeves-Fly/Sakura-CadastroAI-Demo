@@ -137,16 +137,22 @@ export default async function ColaboradorPage({ searchParams }: ColaboradorPageP
   const tipo = searchParams.tipo === "gestor" ? "gestor" : "executivo";
   const nome = searchParams.nome ?? "";
 
-  const [todasCidades, promotores] = await Promise.all([
+  const [todasCidades, promotores, gestoresReais] = await Promise.all([
     atribuicoesAdminController.listarCidades(),
     atribuicoesAdminController.listarPromotores(),
+    atribuicoesAdminController.listarGestores(),
   ]);
 
   if (tipo === "gestor") {
-    const resumo = paraGestoresView(promotores, todasCidades).find((item) => item.gestor === nome);
+    const resumo = paraGestoresView(gestoresReais, promotores, todasCidades).find(
+      (item) => item.gestor === nome,
+    );
     if (!nome || !resumo) return <NaoEncontrado tipo="gestor" />;
 
-    const subordinados = promotores.filter((promotor) => promotor.gestor === nome);
+    const gestorAtual = gestoresReais.find((gestor) => gestor.nome === nome) ?? null;
+    const subordinados = gestorAtual
+      ? promotores.filter((promotor) => promotor.gestorId === gestorAtual.id)
+      : [];
     const executivosDoGestor = subordinados
       .map((promotor) => promotor.nome)
       .sort((a, b) => a.localeCompare(b));
@@ -211,7 +217,7 @@ export default async function ColaboradorPage({ searchParams }: ColaboradorPageP
     );
   }
 
-  const resumo = paraExecutivosView(promotores, todasCidades).find(
+  const resumo = paraExecutivosView(promotores, todasCidades, gestoresReais).find(
     (item) => item.executivo === nome,
   );
   if (!nome || !resumo) return <NaoEncontrado tipo="executivo" />;

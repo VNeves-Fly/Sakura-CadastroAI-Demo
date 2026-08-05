@@ -7,12 +7,16 @@ import {
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
-import type { DadosReceitaEndereco } from "@/modules/cadastro/domain/entities/dados-receita.entity";
+import type {
+  DadosReceitaCnae,
+  DadosReceitaEndereco,
+} from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
   ContratoAssinaturaService,
   GerarContratoEndereco,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type {
+  AnaliseIaCnaePrincipal,
   AnaliseIaResultado,
   AnaliseIaService,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
@@ -117,6 +121,34 @@ function extrairEnderecoContratoSocial(valor: unknown): DadosReceitaEndereco | n
 
   const temAlgumCampo = Object.values(endereco).some((campo) => campo !== null);
   return temAlgumCampo ? endereco : null;
+}
+
+// Junta principal + secundários do stage1 (comparação da IA) numa lista
+// plana pro cache de Dados da Receita — mesma fonte que já alimenta
+// CnaesStage1Detalhe no dossiê, só que persistida (sobrevive a reconsultas
+// sem stage1 e a cadastros arquivados). `compativelTurismo` fica pra trás
+// de propósito: é um julgamento do agente sobre o cadastro específico, não
+// um dado da Receita.
+function extrairCnaes(
+  cnaePrincipal: AnaliseIaCnaePrincipal | null,
+  cnaesSecundarios: AnaliseIaCnaePrincipal[],
+): DadosReceitaCnae[] {
+  const cnaes: DadosReceitaCnae[] = [];
+  if (cnaePrincipal) {
+    cnaes.push({
+      codigo: cnaePrincipal.codigo,
+      descricao: cnaePrincipal.descricao,
+      principal: true,
+    });
+  }
+  for (const secundario of cnaesSecundarios) {
+    cnaes.push({
+      codigo: secundario.codigo,
+      descricao: secundario.descricao,
+      principal: false,
+    });
+  }
+  return cnaes;
 }
 
 // Roda em background, disparado (fire-and-forget) pela rota logo após
@@ -390,8 +422,12 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
       analiseIaContratoSocial.camposExtraidos.endereco,
     );
     const situacaoCadastral = analiseIa.stage1?.situacaoCadastral ?? null;
+    const cnaes = extrairCnaes(
+      analiseIa.stage1?.cnaePrincipal ?? null,
+      analiseIa.stage1?.cnaesSecundarios ?? [],
+    );
 
-    if (situacaoCadastral || capitalSocial !== null || endereco) {
+    if (situacaoCadastral || capitalSocial !== null || endereco || cnaes.length > 0) {
       try {
         const dados = {
           situacaoCadastral,
@@ -404,7 +440,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
           optanteSimples: false,
           dataOpcaoSimples: null,
           endereco,
-          cnaes: [],
+          cnaes,
         };
         const existente = await this.dadosReceitaRepository.findByAgenciaId(agenciaId);
         if (existente) {

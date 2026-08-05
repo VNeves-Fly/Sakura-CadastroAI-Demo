@@ -33,9 +33,24 @@ function mapErrorToResponse(error: unknown) {
   return httpError("Erro interno do servidor.", 500);
 }
 
-async function requireSessionUserId(): Promise<string | null> {
+// Gestor/Executivo (2026-08-03) nunca podem assumir/transferir/consultar
+// atendimento — bloqueados aqui, escolha deliberada de checar num único
+// lugar em vez de em cada uma das 7 rotas deste arquivo. Reforço server-side
+// da mesma regra já escondida na UI (AtendimentoAgenciaAcoes) e bloqueada na
+// própria página /atendimento pelo middleware.
+const CARGOS_SEM_ATENDIMENTO = new Set(["GESTOR", "EXECUTIVO"]);
+
+async function requireAcessoAtendimento(): Promise<
+  { ok: true; analistaId: string } | { ok: false; resposta: ReturnType<typeof httpError> }
+> {
   const session = await getServerSession(nextAuthOptions);
-  return session?.user?.id ?? null;
+  if (!session?.user?.id) {
+    return { ok: false, resposta: httpError("Não autenticado.", 401) };
+  }
+  if (session.user.cargo && CARGOS_SEM_ATENDIMENTO.has(session.user.cargo)) {
+    return { ok: false, resposta: httpError("Acesso não permitido.", 403) };
+  }
+  return { ok: true, analistaId: session.user.id };
 }
 
 // "Iniciar atendimento" — só funciona quando ninguém está atendendo (ver
@@ -43,8 +58,9 @@ async function requireSessionUserId(): Promise<string | null> {
 // qualquer tela (dossiê, listagem, chat) — único caminho de escrita agora,
 // sem Server Action separada.
 export async function iniciarAtendimentoAgenciaRoute(_request: Request, agenciaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
+  const acesso = await requireAcessoAtendimento();
+  if (!acesso.ok) return acesso.resposta;
+  const { analistaId } = acesso;
 
   try {
     const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
@@ -59,8 +75,9 @@ export async function iniciarAtendimentoAgenciaRoute(_request: Request, agenciaI
 }
 
 export async function encerrarAtendimentoAgenciaRoute(_request: Request, agenciaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
+  const acesso = await requireAcessoAtendimento();
+  if (!acesso.ok) return acesso.resposta;
+  const { analistaId } = acesso;
 
   try {
     const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
@@ -75,8 +92,9 @@ export async function encerrarAtendimentoAgenciaRoute(_request: Request, agencia
 }
 
 export async function solicitarTransferenciaAgenciaRoute(request: Request, agenciaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
+  const acesso = await requireAcessoAtendimento();
+  if (!acesso.ok) return acesso.resposta;
+  const { analistaId } = acesso;
 
   try {
     const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
@@ -100,8 +118,9 @@ export async function solicitarTransferenciaAgenciaRoute(request: Request, agenc
 }
 
 export async function solicitarAssuncaoAgenciaRoute(_request: Request, agenciaId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
+  const acesso = await requireAcessoAtendimento();
+  if (!acesso.ok) return acesso.resposta;
+  const { analistaId } = acesso;
 
   try {
     const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
@@ -118,8 +137,9 @@ export async function solicitarAssuncaoAgenciaRoute(_request: Request, agenciaId
 }
 
 export async function confirmarSolicitacaoAgenciaRoute(_request: Request, solicitacaoId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
+  const acesso = await requireAcessoAtendimento();
+  if (!acesso.ok) return acesso.resposta;
+  const { analistaId } = acesso;
 
   try {
     const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
@@ -136,8 +156,9 @@ export async function confirmarSolicitacaoAgenciaRoute(_request: Request, solici
 }
 
 export async function cancelarSolicitacaoAgenciaRoute(_request: Request, solicitacaoId: string) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
+  const acesso = await requireAcessoAtendimento();
+  if (!acesso.ok) return acesso.resposta;
+  const { analistaId } = acesso;
 
   try {
     const chaveRateLimit = `atendimento-agencia-escrita:${analistaId}`;
@@ -157,8 +178,9 @@ export async function cancelarSolicitacaoAgenciaRoute(_request: Request, solicit
 // as solicitações pendentes envolvendo o analista logado, em qualquer
 // agência.
 export async function listarSolicitacoesAgenciaPendentesRoute(_request: Request) {
-  const analistaId = await requireSessionUserId();
-  if (!analistaId) return httpError("Não autenticado.", 401);
+  const acesso = await requireAcessoAtendimento();
+  if (!acesso.ok) return acesso.resposta;
+  const { analistaId } = acesso;
 
   try {
     const pendentes =

@@ -228,6 +228,26 @@ const ANALISE_HABILITADA = false;
 export default async function CadastrosPage({ searchParams }: CadastrosPageProps) {
   const session = await getServerSession(nextAuthOptions);
   const analistaId = session?.user?.id ?? "";
+  const cargo = session?.user?.cargo;
+
+  // Gestor/Executivo (2026-08-03) só acompanham (leitura) o que é deles —
+  // resolvido aqui e forçado abaixo no filtro real, ignorando qualquer
+  // executivoId/gestorId que viesse da querystring. Sentinela
+  // "__sem_vinculo__" quando o cargo é restrito mas não achou o
+  // Promotor/Gestor vinculado (não deve acontecer em uso normal) — nunca
+  // cai pra "sem filtro" = mostrar tudo.
+  const promotorDoUsuario =
+    cargo === "EXECUTIVO" && analistaId
+      ? await atribuicoesAdminController.buscarPromotorPorUserId(analistaId)
+      : null;
+  const gestorDoUsuario =
+    cargo === "GESTOR" && analistaId
+      ? await atribuicoesAdminController.buscarGestorPorUserId(analistaId)
+      : null;
+  const escopoRestrito = cargo === "GESTOR" || cargo === "EXECUTIVO";
+  const executivoIdForcado =
+    cargo === "EXECUTIVO" ? (promotorDoUsuario?.id ?? "__sem_vinculo__") : null;
+  const gestorIdForcado = cargo === "GESTOR" ? (gestorDoUsuario?.id ?? "__sem_vinculo__") : null;
 
   const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
   const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
@@ -249,56 +269,66 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   // sem sessão não há o que filtrar, então o switch é ignorado.
   const meusAtendimentosAtivo = searchParams.meusAtendimentos === "1" && !!analistaId;
 
-  const [{ items, total, kpis }, analise, promotores, associacoesTodas] = await Promise.all([
-    cadastroAdminController.listarCadastros({
-      busca: searchParams.busca,
-      status: statusCombinado.length > 0 ? statusCombinado : undefined,
-      sortBy,
-      sortDir,
-      executivoId: executivoDoFiltro,
-      associacaoId: associacaoDoFiltro,
-      base: baseDoFiltro,
-      gestor: gestorDoFiltro,
-      atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
-      pagina: paginaAtual,
-    }),
-    ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
-    atribuicoesAdminController.listarPromotores(),
-    atribuicoesAdminController.listarAssociacoes(),
-  ]);
+  const [{ items, total, kpis }, analise, promotores, associacoesTodas, gestoresReais] =
+    await Promise.all([
+      cadastroAdminController.listarCadastros({
+        busca: searchParams.busca,
+        status: statusCombinado.length > 0 ? statusCombinado : undefined,
+        sortBy,
+        sortDir,
+        executivoId: executivoIdForcado ?? executivoDoFiltro,
+        associacaoId: associacaoDoFiltro,
+        base: baseDoFiltro,
+        gestorId: gestorIdForcado ?? gestorDoFiltro,
+        atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
+        pagina: paginaAtual,
+      }),
+      ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
+      atribuicoesAdminController.listarPromotores(),
+      atribuicoesAdminController.listarAssociacoes(),
+      atribuicoesAdminController.listarGestores(),
+    ]);
   const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA_CADASTROS));
 
   const associacoesAtivas = associacoesTodas.filter((associacao) => associacao.ativo);
 
   // Opções do filtro único, agrupadas por categoria na ordem em que devem
-  // aparecer no dropdown — Base/Gestor derivados em memória (não existe
-  // query dedicada, lista é pequena) a partir dos mesmos promotores já
-  // buscados acima.
+  // aparecer no dropdown — Base derivada em memória (não existe query
+  // dedicada, lista é pequena) a partir dos mesmos promotores já buscados
+  // acima; Gestor vem do model real (Gestor.id, não mais nome/string).
+  // Gestor/Executivo (escopoRestrito) só filtram por Status — Base/Gestor/
+  // Executivo/Associação são pra ampliar o recorte, e o deles já está
+  // travado acima, então mostrar essas opções só confundiria.
   const basesUnicas = [...new Set(promotores.flatMap((p) => p.bases))];
-  const gestoresUnicos = [...new Set(promotores.map((p) => p.gestor).filter(Boolean))];
-  const opcoesFiltro: OpcaoFiltroCadastros[] = [
-    ...basesUnicas.map((base) => ({ value: `base:${base}`, label: base, categoria: "Base" })),
-    ...gestoresUnicos.map((gestor) => ({
-      value: `gestor:${gestor}`,
-      label: gestor,
-      categoria: "Gestor",
-    })),
-    ...promotores.map((promotor) => ({
-      value: `executivo:${promotor.id}`,
-      label: promotor.nome,
-      categoria: "Executivo",
-    })),
-    ...associacoesAtivas.map((associacao) => ({
-      value: `associacao:${associacao.id}`,
-      label: associacao.nome,
-      categoria: "Associação",
-    })),
-    ...Object.entries(STATUS_LABELS).map(([status, label]) => ({
-      value: `status:${status}`,
-      label,
-      categoria: "Status",
-    })),
-  ];
+  const opcoesFiltro: OpcaoFiltroCadastros[] = escopoRestrito
+    ? Object.entries(STATUS_LABELS).map(([status, label]) => ({
+        value: `status:${status}`,
+        label,
+        categoria: "Status",
+      }))
+    : [
+        ...basesUnicas.map((base) => ({ value: `base:${base}`, label: base, categoria: "Base" })),
+        ...gestoresReais.map((gestor) => ({
+          value: `gestor:${gestor.id}`,
+          label: gestor.nome,
+          categoria: "Gestor",
+        })),
+        ...promotores.map((promotor) => ({
+          value: `executivo:${promotor.id}`,
+          label: promotor.nome,
+          categoria: "Executivo",
+        })),
+        ...associacoesAtivas.map((associacao) => ({
+          value: `associacao:${associacao.id}`,
+          label: associacao.nome,
+          categoria: "Associação",
+        })),
+        ...Object.entries(STATUS_LABELS).map(([status, label]) => ({
+          value: `status:${status}`,
+          label,
+          categoria: "Status",
+        })),
+      ];
 
   // Quem está atendendo cada agência agora, ou quem foi o último a
   // atender — buscado à parte do Promise.all acima porque depende dos ids
@@ -374,17 +404,19 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             options={opcoesFiltro}
           />
         </div>
-        <label className="flex shrink-0 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="meusAtendimentos"
-            value="1"
-            defaultChecked={searchParams.meusAtendimentos === "1"}
-            className="peer sr-only"
-          />
-          <span className="peer-checked:bg-primary bg-input relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:left-0.5 before:size-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:content-[''] peer-checked:before:translate-x-5" />
-          <span className="text-foreground font-medium whitespace-nowrap">Meus atendimentos</span>
-        </label>
+        {escopoRestrito ? null : (
+          <label className="flex shrink-0 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="meusAtendimentos"
+              value="1"
+              defaultChecked={searchParams.meusAtendimentos === "1"}
+              className="peer sr-only"
+            />
+            <span className="peer-checked:bg-primary bg-input relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:left-0.5 before:size-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:content-[''] peer-checked:before:translate-x-5" />
+            <span className="text-foreground font-medium whitespace-nowrap">Meus atendimentos</span>
+          </label>
+        )}
         <button
           type="submit"
           className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"
@@ -398,35 +430,53 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           por aquele status; clicar de novo na mesma remove o filtro.
           Largura mínima por card + shrink-0 força scroll horizontal em
           telas estreitas em vez de quebrar em várias linhas; em telas
-          largas o flex-1 distribui o espaço sobrando igualmente. */}
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {FILAS.map((fila) => {
-          const ativa = searchParams.status === fila.status;
-          const cardClassName = `min-w-[168px] flex-1 shrink-0 rounded-xl border px-4 py-3 shadow-sm transition ${
-            ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
-          }`;
-          const cardStyle = fila.cor
-            ? { borderLeftColor: fila.cor, borderLeftWidth: 4 }
-            : undefined;
-          const cardConteudo = (
-            <>
-              <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide">
-                {fila.label}
-              </span>
-              <p
-                className={`mt-1 text-3xl font-bold ${fila.cor ? "" : "text-foreground"}`}
-                style={fila.cor ? { color: fila.cor } : undefined}
-              >
-                {kpis[fila.chave]}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
-            </>
-          );
+          largas o flex-1 distribui o espaço sobrando igualmente.
+          Escondido pra Gestor/Executivo (escopoRestrito): kpis vem de
+          obterKpis(), que é global (não filtrado por executivo/gestor) —
+          mostraria número da empresa inteira, não só do escopo deles. */}
+      {escopoRestrito ? null : (
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {FILAS.map((fila) => {
+            const ativa = searchParams.status === fila.status;
+            const cardClassName = `min-w-[168px] flex-1 shrink-0 rounded-xl border px-4 py-3 shadow-sm transition ${
+              ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
+            }`;
+            const cardStyle = fila.cor
+              ? { borderLeftColor: fila.cor, borderLeftWidth: 4 }
+              : undefined;
+            const cardConteudo = (
+              <>
+                <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide">
+                  {fila.label}
+                </span>
+                <p
+                  className={`mt-1 text-3xl font-bold ${fila.cor ? "" : "text-foreground"}`}
+                  style={fila.cor ? { color: fila.cor } : undefined}
+                >
+                  {kpis[fila.chave]}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
+              </>
+            );
 
-          // Único card sem cor própria — em vez disso ganha um hover com o
-          // breakdown de origem do contrato (IA x analista), já que o KPI
-          // agregado do card não distingue as duas origens.
-          if (fila.status === STATUS_AGUARDANDO_ASSINATURA) {
+            // Único card sem cor própria — em vez disso ganha um hover com o
+            // breakdown de origem do contrato (IA x analista), já que o KPI
+            // agregado do card não distingue as duas origens.
+            if (fila.status === STATUS_AGUARDANDO_ASSINATURA) {
+              return (
+                <Link
+                  key={fila.status}
+                  href={construirHref(searchParams, {
+                    status: ativa ? undefined : fila.status,
+                    page: undefined,
+                  })}
+                  className={cardClassName}
+                >
+                  {cardConteudo}
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={fila.status}
@@ -435,27 +485,14 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                   page: undefined,
                 })}
                 className={cardClassName}
+                style={cardStyle}
               >
                 {cardConteudo}
               </Link>
             );
-          }
-
-          return (
-            <Link
-              key={fila.status}
-              href={construirHref(searchParams, {
-                status: ativa ? undefined : fila.status,
-                page: undefined,
-              })}
-              className={cardClassName}
-              style={cardStyle}
-            >
-              {cardConteudo}
-            </Link>
-          );
-        })}
-      </div>
+          })}
+        </div>
+      )}
 
       {/* Tabela principal */}
       <div className="border-border bg-card overflow-hidden rounded-2xl border">

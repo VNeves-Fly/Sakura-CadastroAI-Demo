@@ -752,30 +752,69 @@ function extrairLinkExecutivoId(link: string | null): string[] {
     .filter((uuid): uuid is string => Boolean(uuid));
 }
 
+// Resolve o id do Gestor real (model próprio, 2026-08-03) a partir do nome
+// anotado em `gestor` acima — mesma lógica find-or-create do backfill
+// one-off (prisma/scripts/backfill-gestores.ts), cacheada por nome pra não
+// repetir query pra cada promotor que reporta ao mesmo gestor.
+async function resolverGestorId(
+  prisma: PrismaClient,
+  nome: string,
+  cache: Map<string, string>,
+): Promise<string> {
+  const cacheado = cache.get(nome);
+  if (cacheado) return cacheado;
+
+  const gestor =
+    (await prisma.gestor.findFirst({ where: { nome } })) ??
+    (await prisma.gestor.create({ data: { nome } }));
+  cache.set(nome, gestor.id);
+  return gestor.id;
+}
+
 export async function seedPromotores(prisma: PrismaClient): Promise<void> {
   let totalBases = 0;
+  let basesIgnoradas = 0;
+  const gestorIdPorNome = new Map<string, string>();
+  // Base virou entidade real (2026-08-04, ver prisma/scripts/importar-bases.ts)
+  // — só populada por esse import one-off, não por este seed. Num banco
+  // recém-criado (sem o import rodado ainda) a tabela `bases` está vazia, e
+  // as siglas abaixo (`bases?: string[]` de cada PROMOTORES) simplesmente
+  // não têm o que linkar — pulamos sem quebrar o seed, best-effort.
+  const basePorSigla = new Map((await prisma.base.findMany()).map((base) => [base.sigla, base]));
 
-  for (const { bases = [], ...dados } of PROMOTORES) {
+  for (const { bases = [], gestor: nomeGestor, ...dados } of PROMOTORES) {
+    const gestorId = await resolverGestorId(prisma, nomeGestor, gestorIdPorNome);
     const linkExecutivoId = extrairLinkExecutivoId(dados.link);
     // Upsert por e-mail (não por sica): promotores só do export
     // "gerentes_conta" não têm sica, então não dá pra usá-lo como chave.
     const registro = await prisma.promotor.upsert({
       where: { email: dados.email },
-      update: { ...dados, linkExecutivoId },
-      create: { ...dados, linkExecutivoId },
+      update: { ...dados, linkExecutivoId, gestorId },
+      create: { ...dados, linkExecutivoId, gestorId },
     });
 
     for (const baseSigla of bases) {
+      const base = basePorSigla.get(baseSigla);
+      if (!base) {
+        basesIgnoradas += 1;
+        continue;
+      }
       await prisma.promotorBase.upsert({
-        where: { promotorId_baseSigla: { promotorId: registro.id, baseSigla } },
+        where: { promotorId_baseId: { promotorId: registro.id, baseId: base.id } },
         update: {},
-        create: { promotorId: registro.id, baseSigla },
+        create: { promotorId: registro.id, baseId: base.id },
       });
       totalBases += 1;
     }
   }
 
+  if (basesIgnoradas > 0) {
+    console.warn(
+      `Seed: ${basesIgnoradas} vínculo(s) de base ignorado(s) (tabela "bases" vazia — rode prisma/scripts/importar-bases.ts antes pra popular).`,
+    );
+  }
+
   console.warn(
-    `Seed: ${PROMOTORES.length} promotores (executivos/gestores comerciais), ${totalBases} vínculos de base`,
+    `Seed: ${PROMOTORES.length} promotores (executivos/gestores comerciais), ${gestorIdPorNome.size} gestores, ${totalBases} vínculos de base`,
   );
 }

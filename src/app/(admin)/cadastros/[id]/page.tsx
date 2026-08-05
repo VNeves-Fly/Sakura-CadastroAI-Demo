@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
+import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import {
   Building2,
@@ -242,6 +243,33 @@ export default async function DossieAgenciaPage({
 
   const session = await getServerSession(nextAuthOptions);
   const analistaId = session?.user?.id ?? null;
+  const cargo = session?.user?.cargo;
+
+  // Gestor/Executivo (2026-08-03) só acompanham (leitura) o que é deles —
+  // mesmo escopo resolvido em /cadastros (page.tsx da listagem). 404 (em
+  // vez de só esconder ações) se a agência não pertence ao escopo, senão
+  // dava pra acessar qualquer dossiê direto pela URL.
+  if (cargo === "EXECUTIVO") {
+    const promotorDoUsuario = analistaId
+      ? await atribuicoesAdminController.buscarPromotorPorUserId(analistaId)
+      : null;
+    if (!promotorDoUsuario || view.agencia.executivoId !== promotorDoUsuario.id) {
+      notFound();
+    }
+  }
+  if (cargo === "GESTOR") {
+    const gestorDoUsuario = analistaId
+      ? await atribuicoesAdminController.buscarGestorPorUserId(analistaId)
+      : null;
+    const executivoDaAgencia = view.agencia.executivoId
+      ? await atribuicoesAdminController.buscarPromotorPorId(view.agencia.executivoId)
+      : null;
+    if (!gestorDoUsuario || executivoDaAgencia?.gestorId !== gestorDoUsuario.id) {
+      notFound();
+    }
+  }
+  const somenteLeituraPorCargo = cargo === "GESTOR" || cargo === "EXECUTIVO";
+
   const [atendimentoAtual, historicoAtendimento] = await Promise.all([
     atendimentoController.obterAtendimentoAgenciaAtual(view.agencia.id),
     atendimentoController.listarHistoricoAtendimentoAgencia(view.agencia.id),
@@ -294,8 +322,9 @@ export default async function DossieAgenciaPage({
   const etapaExibida = !trilhaRecusada && etapaValida ? etapaParam : indiceTrilha;
   // ?leitura=1 força modo leitura mesmo na etapa atual — usado quando um
   // executivo abre o dossiê pela própria ficha (Atribuições), que nunca
-  // pode agir no cadastro, só consultar.
-  const somenteLeituraExterna = searchParams?.leitura === "1";
+  // pode agir no cadastro, só consultar. Gestor/Executivo (cargo) força o
+  // mesmo modo server-side, sem depender do query param.
+  const somenteLeituraExterna = searchParams?.leitura === "1" || somenteLeituraPorCargo;
   const mostrandoEtapaAtual = etapaExibida === indiceTrilha && !somenteLeituraExterna;
   // Trava real de UI (o backend já garante isso de novo em cada Server
   // Action, ver garantirAtendimentoAssumido em actions.ts) — só libera
@@ -353,13 +382,18 @@ export default async function DossieAgenciaPage({
               "Ninguém atendendo este cadastro"
             )}
           </span>
-          <AtendimentoAgenciaAcoes
-            agenciaId={agencia.id}
-            analistaId={analistaId ?? ""}
-            atendimentoAtual={atendimentoAtual}
-          />
+          {/* Gestor/Executivo nunca podem assumir atendimento (decisão do
+              usuário, 2026-08-03) — nem o botão de ação nem o link pro
+              painel de atendimento aparecem pra esses cargos. */}
+          {somenteLeituraPorCargo ? null : (
+            <AtendimentoAgenciaAcoes
+              agenciaId={agencia.id}
+              analistaId={analistaId ?? ""}
+              atendimentoAtual={atendimentoAtual}
+            />
+          )}
           <HistoricoAtendimentoAgencia historico={historicoAtendimento} />
-          <AtendimentoButton agenciaId={agencia.id} />
+          {somenteLeituraPorCargo ? null : <AtendimentoButton agenciaId={agencia.id} />}
         </div>
       </div>
 
