@@ -350,6 +350,7 @@ export interface AnaliseIaAgenciaDetalhe {
   parecer: string | null;
   motivo: string | null;
   flagsRisco: string[];
+  razoes: string[];
   detalhamento: AnaliseIaDetalhamento | null;
   // Verificação cadastral (situação, CNAE, comparação fornecido x oficial
   // de razão social/nome fantasia/e-mail/sócios) — ver VerificacaoCadastral

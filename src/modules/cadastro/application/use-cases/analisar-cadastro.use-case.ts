@@ -17,6 +17,7 @@ import type {
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type {
   AnaliseIaCnaePrincipal,
+  AnaliseIaRawData,
   AnaliseIaResultado,
   AnaliseIaService,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
@@ -102,10 +103,12 @@ function extrairString(valor: unknown): string | null {
   return typeof valor === "string" && valor.length > 0 ? valor : null;
 }
 
-// `endereco` do contrato social é um objeto confirmado no schema do agente
-// (cep/logradouro/numero/complemento/bairro/municipio/uf) — mapeia pro
-// shape de DadosReceitaEndereco (campo "cidade", não "municipio").
-function extrairEnderecoContratoSocial(valor: unknown): DadosReceitaEndereco | null {
+// Mesmo shape em ambas as fontes que alimentam isso (cep/logradouro/
+// numero/complemento/bairro/municipio/uf): o schema do agente pro
+// contrato social e o `endereco` da consulta oficial de CNPJ (ver
+// extrairDadosOficiaisReceita) — mapeia pro shape de DadosReceitaEndereco
+// (campo "cidade", não "municipio").
+function extrairEndereco(valor: unknown): DadosReceitaEndereco | null {
   if (typeof valor !== "object" || valor === null) return null;
   const registro = valor as Record<string, unknown>;
 
@@ -148,6 +151,74 @@ function extrairCnaes(
       principal: false,
     });
   }
+  return cnaes;
+}
+
+// A tool "fetch_official_cnpj" (fonte "receita" em rawData, ver
+// AnaliseIaRawToolCall) é a resposta crua do provedor (SERPRO) — a única
+// fonte hoje pra data_abertura/natureza_juridica/telefone/email de Dados
+// da Receita (sem isso esses campos ficavam sempre null). `output` é
+// `unknown` porque o shape de cada tool call varia por fonte — checado na
+// unha aqui em vez de confiar num tipo. Pega a primeira chamada com
+// sucesso; se a tool falhou ou não rodou (cadastro antigo, ou
+// `include_raw_data` não mandado), devolve null e os campos ficam
+// ausentes, igual antes.
+function extrairDadosOficiaisReceita(
+  rawData: AnaliseIaRawData | null | undefined,
+): Record<string, unknown> | null {
+  const chamadas = rawData?.receita;
+  if (!Array.isArray(chamadas)) return null;
+
+  for (const chamada of chamadas) {
+    if (typeof chamada.output !== "object" || chamada.output === null) continue;
+    const { data, status } = chamada.output as Record<string, unknown>;
+    if (status !== "success") continue;
+    if (typeof data !== "object" || data === null) continue;
+    return data as Record<string, unknown>;
+  }
+  return null;
+}
+
+function extrairDataIso(valor: unknown): Date | null {
+  if (typeof valor !== "string" || valor.length === 0) return null;
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+// `atividade_principal`/`atividades_secundarias` da consulta oficial usam
+// code/text (em vez de codigo/descricao do stage1, ver extrairCnaes) —
+// preferida quando presente por ser a fonte bruta da Receita (sempre que a
+// tool roda), com o resumo do stage1 como fallback pra cadastros
+// processados antes dessa tool existir.
+function extrairCnaesOficiais(dadosOficiais: Record<string, unknown> | null): DadosReceitaCnae[] {
+  if (!dadosOficiais) return [];
+
+  const cnaes: DadosReceitaCnae[] = [];
+  const principal = Array.isArray(dadosOficiais.atividade_principal)
+    ? dadosOficiais.atividade_principal[0]
+    : null;
+  if (typeof principal === "object" && principal !== null) {
+    const registro = principal as Record<string, unknown>;
+    cnaes.push({
+      codigo: extrairString(registro.code),
+      descricao: extrairString(registro.text),
+      principal: true,
+    });
+  }
+
+  const secundarias = Array.isArray(dadosOficiais.atividades_secundarias)
+    ? dadosOficiais.atividades_secundarias
+    : [];
+  for (const item of secundarias) {
+    if (typeof item !== "object" || item === null) continue;
+    const registro = item as Record<string, unknown>;
+    cnaes.push({
+      codigo: extrairString(registro.code),
+      descricao: extrairString(registro.text),
+      principal: false,
+    });
+  }
+
   return cnaes;
 }
 
@@ -415,28 +486,51 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     // Mesma lógica que existia em FinalizarCadastroUseCase antes desta
     // refatoração — só passou a checar se já existe (findByAgenciaId) pra
     // ser seguro em caso de reprocessamento.
-    const capitalSocial = extrairCapitalSocial(
-      analiseIaContratoSocial.camposExtraidos.capital_social,
-    );
-    const endereco = extrairEnderecoContratoSocial(
-      analiseIaContratoSocial.camposExtraidos.endereco,
-    );
-    const situacaoCadastral = analiseIa.stage1?.situacaoCadastral ?? null;
-    const cnaes = extrairCnaes(
-      analiseIa.stage1?.cnaePrincipal ?? null,
-      analiseIa.stage1?.cnaesSecundarios ?? [],
-    );
+    const dadosOficiaisReceita = extrairDadosOficiaisReceita(analiseIa.rawData);
 
-    if (situacaoCadastral || capitalSocial !== null || endereco || cnaes.length > 0) {
+    const capitalSocial =
+      extrairCapitalSocial(analiseIaContratoSocial.camposExtraidos.capital_social) ??
+      extrairCapitalSocial(dadosOficiaisReceita?.capital_social);
+    const endereco =
+      extrairEndereco(analiseIaContratoSocial.camposExtraidos.endereco) ??
+      extrairEndereco(dadosOficiaisReceita?.endereco);
+    // Código bruto da Receita ("2", "8"...) não a string que
+    // SituacaoCadastralBadge espera — segue vindo só do stage1 (já
+    // resolvido pelo agente), de propósito não usa dadosOficiaisReceita
+    // aqui.
+    const situacaoCadastral = analiseIa.stage1?.situacaoCadastral ?? null;
+    const dataAbertura = extrairDataIso(dadosOficiaisReceita?.data_abertura);
+    const naturezaJuridica = extrairString(dadosOficiaisReceita?.natureza_juridica);
+    const telefone = extrairString(dadosOficiaisReceita?.telefone);
+    const email = extrairString(dadosOficiaisReceita?.email);
+    const cnaesOficiais = extrairCnaesOficiais(dadosOficiaisReceita);
+    const cnaes =
+      cnaesOficiais.length > 0
+        ? cnaesOficiais
+        : extrairCnaes(
+            analiseIa.stage1?.cnaePrincipal ?? null,
+            analiseIa.stage1?.cnaesSecundarios ?? [],
+          );
+
+    if (
+      situacaoCadastral ||
+      capitalSocial !== null ||
+      endereco ||
+      cnaes.length > 0 ||
+      dataAbertura ||
+      naturezaJuridica ||
+      telefone ||
+      email
+    ) {
       try {
         const dados = {
           situacaoCadastral,
-          dataAbertura: null,
-          naturezaJuridica: null,
+          dataAbertura,
+          naturezaJuridica,
           porte: null,
           capitalSocial,
-          telefone: null,
-          email: null,
+          telefone,
+          email,
           optanteSimples: false,
           dataOpcaoSimples: null,
           endereco,

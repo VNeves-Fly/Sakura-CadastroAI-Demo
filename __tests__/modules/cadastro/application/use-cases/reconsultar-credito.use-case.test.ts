@@ -264,6 +264,7 @@ describe("ReconsultarCreditoUseCase", () => {
               parecer: "APROVADO",
               motivo: null,
               flagsRisco: [],
+              razoes: [],
               detalhamento: null,
               stage1: null,
               stage2: stage2Existente,

@@ -90,6 +90,10 @@ export interface ParecerIaView {
   parecer: string | null;
   motivo: string | null;
   pontosDeAlerta: string[];
+  // Razões estruturadas (enum) por trás do parecer — ex.: AMAT_DIVIDA,
+  // DOCUMENTO_VENCIDO, CNPJ_INATIVO (ver agency_analysis_reasons.py do
+  // agents-service). Vazio em cadastros analisados antes de 2026-08-05.
+  razoes: string[];
   gruposParaChecar: ParecerIaChecklistGrupo[];
   avaliadoEm: Date;
 }

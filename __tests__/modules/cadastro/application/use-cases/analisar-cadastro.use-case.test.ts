@@ -797,6 +797,78 @@ describe("AnalisarCadastroUseCase", () => {
       );
     });
 
+    it("grava dataAbertura/naturezaJuridica/telefone/email/CNAEs a partir da consulta oficial (rawData.receita)", async () => {
+      const { useCase, dadosReceitaRepository } = criarUseCase({
+        analiseIaService: criarAnaliseIaFake({
+          avaliar: jest.fn().mockResolvedValue({
+            aprovado: true,
+            motivo: null,
+            rawData: {
+              receita: [
+                {
+                  tool: "fetch_official_cnpj",
+                  args: { cnpj: "57204666000189" },
+                  output: {
+                    status: "success",
+                    provider: "serpro_v2",
+                    data: {
+                      qsa: [],
+                      cnpj: "57204666000189",
+                      email: "THIAGOSP5@HOTMAIL.COM",
+                      endereco: {
+                        uf: "ES",
+                        cep: "29199096",
+                        bairro: "COQUEIRAL",
+                        numero: "18",
+                        municipio: "ARACRUZ",
+                        logradouro: "CLOESIANA",
+                        complemento: "CASA",
+                      },
+                      telefone: "(0)0",
+                      razao_social: "57.204.666 THIAGO SPIRANDELLI DA SILVA",
+                      data_abertura: "2024-09-09",
+                      nome_fantasia: null,
+                      capital_social: 100000,
+                      natureza_juridica: "Empresário (Individual)",
+                      situacao_cadastral: "2",
+                      atividade_principal: [{ code: "7911200", text: "Agências de viagens" }],
+                      atividades_secundarias: [],
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+        }),
+        dadosReceitaRepository: criarDadosReceitaFake({
+          findByAgenciaId: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await useCase.execute({ agenciaId: "agencia-1" });
+
+      expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agenciaId: "agencia-1",
+          dataAbertura: new Date("2024-09-09"),
+          naturezaJuridica: "Empresário (Individual)",
+          telefone: "(0)0",
+          email: "THIAGOSP5@HOTMAIL.COM",
+          capitalSocial: 100000,
+          endereco: {
+            cep: "29199096",
+            logradouro: "CLOESIANA",
+            numero: "18",
+            complemento: "CASA",
+            bairro: "COQUEIRAL",
+            cidade: "ARACRUZ",
+            uf: "ES",
+          },
+          cnaes: [{ codigo: "7911200", descricao: "Agências de viagens", principal: true }],
+        }),
+      );
+    });
+
     it("não derruba o fluxo se falhar ao persistir Dados da Receita (best-effort)", async () => {
       const { useCase, agenciaRepository } = criarUseCase({
         documentAnalysisService: criarDocumentAnalysisFake({

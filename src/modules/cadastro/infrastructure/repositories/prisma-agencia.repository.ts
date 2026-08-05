@@ -125,6 +125,7 @@ function analiseIaFinalParaPrisma(
     parecer: avaliacao.parecer ?? null,
     motivo: avaliacao.motivo,
     flagsRisco: avaliacao.flagsRisco ?? [],
+    razoes: avaliacao.razoes ?? [],
     detalhamento: avaliacao.detalhamento
       ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
@@ -150,6 +151,7 @@ interface AnaliseIaAgenciaRecord {
   parecer: string | null;
   motivo: string | null;
   flagsRisco: string[];
+  razoes: string[];
   detalhamento: Prisma.JsonValue | null;
   stage1: Prisma.JsonValue | null;
   stage2: Prisma.JsonValue | null;
@@ -166,6 +168,7 @@ function analiseIaAgenciaToDomain(
     parecer: record.parecer,
     motivo: record.motivo,
     flagsRisco: record.flagsRisco,
+    razoes: record.razoes ?? [],
     detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
     stage1: record.stage1 as unknown as AnaliseIaStage1 | null,
     stage2: record.stage2 as unknown as AnaliseIaStage2 | null,
@@ -563,6 +566,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           agenciaId: agencia.id,
           resultado: PrismaResultadoAnaliseIa.EM_ANALISE,
           flagsRisco: [],
+          razoes: [],
         },
       });
 

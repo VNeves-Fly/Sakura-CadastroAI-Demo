@@ -663,6 +663,10 @@ export default async function DossieAgenciaPage({
                       <Campo label="Situação Cadastral">
                         <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
                       </Campo>
+                      <Campo label="Natureza Jurídica">
+                        {dadosReceita.naturezaJuridica || "—"}
+                      </Campo>
+                      <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
                       <Campo label="Capital Social">
                         {formatarMoedaBrl(dadosReceita.capitalSocial)}
                       </Campo>

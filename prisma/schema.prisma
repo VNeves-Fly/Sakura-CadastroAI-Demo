@@ -714,6 +714,13 @@ model AnaliseIaAgencia {
   parecer      String?
   motivo       String?
   flagsRisco   String[]
+  // Razões estruturadas (enum) por trás do parecer — ex.: AMAT_DIVIDA,
+  // DOCUMENTO_VENCIDO, CNPJ_INATIVO (ver agency_analysis_reasons.py do
+  // agents-service). Complementa flagsRisco (texto livre do agente) com
+  // valores filtráveis; adicionado em 2026-08-05 junto da mudança do
+  // agents-service que parou de reprovar automaticamente por dívida
+  // AMAT/SOFIA (parecer final passou a ser 100% do LLM).
+  razoes       String[]
   detalhamento Json?
   // Stage1 (verificação cadastral — situação, CNAE principal/secundários
   // com compatibilidade de turismo, e comparação fornecido x oficial de
