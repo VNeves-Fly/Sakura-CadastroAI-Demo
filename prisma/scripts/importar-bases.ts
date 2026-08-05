@@ -71,11 +71,32 @@ async function contarSemBaseId(tabela: Prisma.Sql): Promise<number> {
   return Number(linha?.total ?? 0);
 }
 
+// Suporta rodar contra um banco onde a migration de contract já passou por
+// uma tabela (ex.: deploy que falhou no meio, entre gestor_bases e
+// promotor_bases) — sem isso, o SELECT abaixo quebra com "column baseSigla
+// does not exist" numa tabela que já não precisa de backfill.
+async function colunaExiste(tabelaNome: string, coluna: string): Promise<boolean> {
+  const [linha] = await prisma.$queryRaw<Array<{ existe: boolean }>>(
+    Prisma.sql`SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = ${schema} AND table_name = ${tabelaNome} AND column_name = ${coluna}
+    ) AS existe`,
+  );
+  return linha?.existe ?? false;
+}
+
 async function backfillBaseId(modelo: "gestorBase" | "promotorBase"): Promise<number> {
-  const bases = await prisma.base.findMany({ select: { id: true, sigla: true } });
-  const idPorSigla = new Map(bases.map((base) => [base.sigla, base.id]));
+  const nomeTabelaSql = modelo === "gestorBase" ? "gestor_bases" : "promotor_bases";
   const tabela = modelo === "gestorBase" ? TABELA_GESTOR_BASES : TABELA_PROMOTOR_BASES;
   const nomeTabelaLog = modelo === "gestorBase" ? "gestor_base" : "promotor_base";
+
+  if (!(await colunaExiste(nomeTabelaSql, "baseSigla"))) {
+    console.warn(`${nomeTabelaLog}: coluna baseSigla já removida — nada a fazer.`);
+    return 0;
+  }
+
+  const bases = await prisma.base.findMany({ select: { id: true, sigla: true } });
+  const idPorSigla = new Map(bases.map((base) => [base.sigla, base.id]));
 
   const semBaseId = await prisma.$queryRaw<Array<{ id: string; baseSigla: string }>>(
     Prisma.sql`SELECT id, "baseSigla" FROM ${tabela} WHERE "baseId" IS NULL`,
