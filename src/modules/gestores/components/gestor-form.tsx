@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { CamposAcessoPlataforma } from "@/modules/gestores/components/campos-acesso-plataforma";
+import { BaseMultiSelect } from "@/modules/bases/components/base-multi-select";
+import type { BaseView } from "@/modules/bases/types/base.types";
 import type { GestorFormValues, GestorView } from "@/modules/gestores/types/gestor.types";
 
 interface GestorFormProps {
@@ -11,6 +13,7 @@ interface GestorFormProps {
   // Presente = modo edição, pré-preenche os campos.
   gestorAtual?: GestorView;
   submitLabel?: string;
+  basesOptions: BaseView[];
 }
 
 const inputClassName =
@@ -20,21 +23,29 @@ const VALORES_VAZIOS: GestorFormValues = {
   nome: "",
   email: "",
   telefone: "",
-  basesTexto: "",
+  baseIds: [],
   criarAcesso: false,
   password: "",
   mustChangePassword: false,
   useTemporaryPassword: false,
 };
 
-function paraValoresIniciais(gestor?: GestorView): GestorFormValues {
+// gestor.bases vem como sigla (view de exibição) — o form trabalha com id
+// (o que a API espera), então precisa resolver de volta via basesOptions.
+function paraValoresIniciais(
+  gestor: GestorView | undefined,
+  basesOptions: BaseView[],
+): GestorFormValues {
   if (!gestor) return VALORES_VAZIOS;
+  const idsPorSigla = new Map(basesOptions.map((base) => [base.sigla, base.id]));
   return {
     ...VALORES_VAZIOS,
     nome: gestor.nome,
     email: gestor.email ?? "",
     telefone: gestor.telefone ?? "",
-    basesTexto: gestor.bases.join(", "),
+    baseIds: gestor.bases
+      .map((sigla) => idsPorSigla.get(sigla))
+      .filter((id): id is string => Boolean(id)),
   };
 }
 
@@ -44,8 +55,11 @@ export function GestorForm({
   onSubmit,
   gestorAtual,
   submitLabel,
+  basesOptions,
 }: GestorFormProps) {
-  const [values, setValues] = useState<GestorFormValues>(() => paraValoresIniciais(gestorAtual));
+  const [values, setValues] = useState<GestorFormValues>(() =>
+    paraValoresIniciais(gestorAtual, basesOptions),
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,20 +123,13 @@ export function GestorForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="basesTexto" className="text-foreground text-sm font-medium">
-          Bases atendidas
-        </label>
-        <input
-          id="basesTexto"
-          type="text"
-          placeholder="RAO, SSA, GIG"
-          value={values.basesTexto}
-          onChange={(event) => setValues({ ...values, basesTexto: event.target.value })}
-          className={inputClassName}
-        />
-        <p className="text-muted-foreground text-xs">Separe várias bases por vírgula.</p>
-      </div>
+      <BaseMultiSelect
+        label="Bases atendidas"
+        opcoes={basesOptions}
+        selecionadas={values.baseIds}
+        onChange={(baseIds) => setValues({ ...values, baseIds })}
+        vazioLabel="Nenhuma base cadastrada — crie bases em /bases primeiro."
+      />
 
       <CamposAcessoPlataforma
         value={values}

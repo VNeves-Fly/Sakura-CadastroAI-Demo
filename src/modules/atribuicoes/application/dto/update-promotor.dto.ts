@@ -4,7 +4,7 @@ export interface UpdatePromotorInput {
   email: string;
   telefone: string | null;
   gestorId: string;
-  bases: string[];
+  baseIds: string[];
   criarAcesso: boolean;
   password?: string;
   mustChangePassword: boolean;

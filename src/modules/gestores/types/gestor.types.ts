@@ -12,7 +12,7 @@ export interface GestorFormValues {
   nome: string;
   email: string;
   telefone: string;
-  basesTexto: string;
+  baseIds: string[];
   criarAcesso: boolean;
   password: string;
   mustChangePassword: boolean;
@@ -23,7 +23,7 @@ export interface GestorPayload {
   nome: string;
   email: string | null;
   telefone: string | null;
-  bases: string[];
+  baseIds: string[];
   criarAcesso: boolean;
   password?: string;
   mustChangePassword: boolean;

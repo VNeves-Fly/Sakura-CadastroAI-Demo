@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useUpdateGestorViewModel } from "@/modules/gestores/view-models/use-update-gestor.view-model";
 import { GestorForm } from "@/modules/gestores/components/gestor-form";
 import { GestorSuccess } from "@/modules/gestores/components/gestor-success";
+import type { BaseView } from "@/modules/bases/types/base.types";
 
 interface GestorEditViewProps {
   id: string;
+  basesOptions: BaseView[];
 }
 
-export function GestorEditView({ id }: GestorEditViewProps) {
+export function GestorEditView({ id, basesOptions }: GestorEditViewProps) {
   const { gestor, isLoading, loadError, isSubmitting, submitError, submit, result, dismissResult } =
     useUpdateGestorViewModel(id);
 
@@ -37,6 +39,7 @@ export function GestorEditView({ id }: GestorEditViewProps) {
           onSubmit={submit}
           gestorAtual={gestor}
           submitLabel="Salvar alterações"
+          basesOptions={basesOptions}
         />
       ) : null}
     </div>

@@ -74,7 +74,7 @@ export class UpdateGestorUseCase implements UseCase<UpdateGestorUseCaseInput, Ge
       nome: input.nome,
       email: input.email,
       telefone: input.telefone,
-      bases: input.bases,
+      baseIds: input.baseIds,
       novoUsuario,
     });
 

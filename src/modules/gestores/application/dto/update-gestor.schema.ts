@@ -5,7 +5,7 @@ export const updateGestorSchema = z
     nome: z.string().min(2, "Nome deve ter ao menos 2 caracteres."),
     email: z.string().email("E-mail inválido.").nullable().default(null),
     telefone: z.string().nullable().default(null),
-    bases: z.array(z.string()).default([]),
+    baseIds: z.array(z.string()).default([]),
     criarAcesso: z.boolean().default(false),
     password: z.string().min(8, "Senha deve ter ao menos 8 caracteres.").optional(),
     mustChangePassword: z.boolean().default(false),

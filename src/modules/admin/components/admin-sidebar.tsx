@@ -13,6 +13,8 @@ import {
   Webhook,
   ShieldCheck,
   UserPlus,
+  MapPin,
+  Building2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -59,18 +61,6 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
     itens: [
       { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
       {
-        label: "Atribuições",
-        href: "/atribuicoes",
-        icon: Users,
-        ocultoPara: CARGOS_INTERNOS_APENAS,
-      },
-      {
-        label: "Executivos",
-        href: "/promotores",
-        icon: UserPlus,
-        ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
-      },
-      {
         label: "Atendimento",
         href: "/atendimento",
         icon: MessageCircle,
@@ -83,6 +73,44 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         ocultoPara: CARGOS_INTERNOS_APENAS,
       },
       { label: "Arquivo", href: "/arquivo", icon: Archive, ocultoPara: CARGOS_INTERNOS_APENAS },
+    ],
+  },
+  {
+    // Ordem pedida pelo usuário (2026-08-04): Bases -> Gestores ->
+    // Executivos -> Associações -> Atribuições — espelha a hierarquia
+    // comercial Base -> Gestor -> Executivo.
+    label: "Comercial",
+    itens: [
+      {
+        label: "Bases",
+        href: "/bases",
+        icon: MapPin,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        label: "Gestores",
+        href: "/gestores",
+        icon: ShieldCheck,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        label: "Executivos",
+        href: "/promotores",
+        icon: UserPlus,
+        ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
+      },
+      {
+        label: "Associações",
+        href: "/associacoes",
+        icon: Building2,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        label: "Atribuições",
+        href: "/atribuicoes",
+        icon: Users,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
     ],
   },
   {
@@ -99,12 +127,6 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         href: "/cadastros/messenger",
         icon: Webhook,
         ocultoPara: CARGOS_INTERNOS_APENAS,
-      },
-      {
-        label: "Gestores",
-        href: "/gestores",
-        icon: ShieldCheck,
-        ocultoPara: CARGOS_NAO_ADMIN,
       },
     ],
   },

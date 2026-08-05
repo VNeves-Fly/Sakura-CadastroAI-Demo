@@ -1,4 +1,4 @@
-import type { PrismaClient, Gestor as GestorRecord, GestorBase } from "@prisma/client";
+import type { PrismaClient, Gestor as GestorRecord, GestorBase, Base } from "@prisma/client";
 import { Gestor } from "@/modules/gestores/domain/entities/gestor.entity";
 import type {
   AtualizarGestorData,
@@ -6,7 +6,9 @@ import type {
   GestorRepository,
 } from "@/modules/gestores/domain/repositories/gestor-repository";
 
-type GestorRecordComBases = GestorRecord & { bases: GestorBase[] };
+type GestorRecordComBases = GestorRecord & { bases: (GestorBase & { base: Base })[] };
+
+const INCLUDE_BASES = { bases: { include: { base: true } } } as const;
 
 function toDomain(record: GestorRecordComBases): Gestor {
   return Gestor.create({
@@ -15,7 +17,7 @@ function toDomain(record: GestorRecordComBases): Gestor {
     email: record.email,
     telefone: record.telefone,
     userId: record.userId,
-    bases: record.bases.map((base) => base.baseSigla),
+    bases: record.bases.map((gestorBase) => gestorBase.base.sigla),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   });
@@ -27,7 +29,7 @@ export class PrismaGestorRepository implements GestorRepository {
   async findAll(): Promise<Gestor[]> {
     const records = await this.prisma.gestor.findMany({
       orderBy: { nome: "asc" },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return records.map(toDomain);
   }
@@ -35,7 +37,7 @@ export class PrismaGestorRepository implements GestorRepository {
   async findById(id: string): Promise<Gestor | null> {
     const record = await this.prisma.gestor.findUnique({
       where: { id },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;
   }
@@ -43,7 +45,7 @@ export class PrismaGestorRepository implements GestorRepository {
   async findByUserId(userId: string): Promise<Gestor | null> {
     const record = await this.prisma.gestor.findUnique({
       where: { userId },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;
   }
@@ -51,7 +53,7 @@ export class PrismaGestorRepository implements GestorRepository {
   async findByEmail(email: string): Promise<Gestor | null> {
     const record = await this.prisma.gestor.findFirst({
       where: { email },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;
   }
@@ -84,9 +86,9 @@ export class PrismaGestorRepository implements GestorRepository {
           email: data.email,
           telefone: data.telefone,
           userId,
-          bases: { create: data.bases.map((baseSigla) => ({ baseSigla })) },
+          bases: { create: data.baseIds.map((baseId) => ({ baseId })) },
         },
-        include: { bases: true },
+        include: INCLUDE_BASES,
       });
     });
 
@@ -122,9 +124,9 @@ export class PrismaGestorRepository implements GestorRepository {
           email: data.email,
           telefone: data.telefone,
           ...(userId ? { userId } : {}),
-          bases: { create: data.bases.map((baseSigla) => ({ baseSigla })) },
+          bases: { create: data.baseIds.map((baseId) => ({ baseId })) },
         },
-        include: { bases: true },
+        include: INCLUDE_BASES,
       });
     });
 

@@ -14,7 +14,7 @@ export interface CriarGestorData {
   nome: string;
   email: string | null;
   telefone: string | null;
-  bases: string[];
+  baseIds: string[];
   novoUsuario: NovoUsuarioGestorData | null;
 }
 
@@ -22,7 +22,7 @@ export interface AtualizarGestorData {
   nome: string;
   email: string | null;
   telefone: string | null;
-  bases: string[];
+  baseIds: string[];
   // Só usado se o Gestor ainda não tiver userId — concede acesso na edição
   // (mesmo fluxo do checkbox na criação).
   novoUsuario: NovoUsuarioGestorData | null;

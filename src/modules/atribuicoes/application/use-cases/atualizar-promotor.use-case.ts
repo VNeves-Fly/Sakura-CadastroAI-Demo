@@ -82,7 +82,7 @@ export class AtualizarPromotorUseCase implements UseCase<
       email: input.email,
       telefone: input.telefone,
       gestorId: input.gestorId,
-      bases: input.bases,
+      baseIds: input.baseIds,
       novoUsuario,
     });
 

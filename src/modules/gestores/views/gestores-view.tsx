@@ -5,8 +5,13 @@ import { useCreateGestorViewModel } from "@/modules/gestores/view-models/use-cre
 import { GestorForm } from "@/modules/gestores/components/gestor-form";
 import { GestorList } from "@/modules/gestores/components/gestor-list";
 import { GestorSuccess } from "@/modules/gestores/components/gestor-success";
+import type { BaseView } from "@/modules/bases/types/base.types";
 
-export function GestoresView() {
+interface GestoresViewProps {
+  basesOptions: BaseView[];
+}
+
+export function GestoresView({ basesOptions }: GestoresViewProps) {
   const { gestores, isLoading, error } = useGestoresListViewModel();
   const {
     isSubmitting,
@@ -24,7 +29,12 @@ export function GestoresView() {
         <GestorSuccess result={lastCreatedResult} onDismiss={dismissSuccess} />
       ) : null}
 
-      <GestorForm isSubmitting={isSubmitting} error={createError} onSubmit={submit} />
+      <GestorForm
+        isSubmitting={isSubmitting}
+        error={createError}
+        onSubmit={submit}
+        basesOptions={basesOptions}
+      />
       <GestorList gestores={gestores} isLoading={isLoading} error={error} />
     </div>
   );

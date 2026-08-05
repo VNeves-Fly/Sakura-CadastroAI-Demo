@@ -220,9 +220,10 @@ export interface ListarCadastrosFiltros {
   executivoId?: string | string[];
   associacaoId?: string | string[];
   eventoId?: string | string[];
-  // Base/gestor do executivo (PromotorBase.baseSigla/Promotor.gestorId) —
+  // Base/gestor do executivo (PromotorBase.baseId -> Base.sigla/Promotor.gestorId) —
   // filtrado via relação com Agencia.executivo. gestorId é o id real do
-  // model Gestor (2026-08-03) — substitui o antigo filtro por string livre.
+  // model Gestor (2026-08-03); base agora é FK real pra Base (2026-08-04) —
+  // substitui o antigo filtro por string livre.
   base?: string | string[];
   gestorId?: string | string[];
   // Id do analista logado, quando o switch "Meus atendimentos" está

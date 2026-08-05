@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { GestoresView } from "@/modules/gestores/views/gestores-view";
+import { basesController } from "@/modules/bases/presentation/controllers/bases.controller";
 
 const CARGOS_GESTAO_DE_GESTORES = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 
@@ -11,5 +12,7 @@ export default async function GestoresPage() {
     redirect("/cadastros");
   }
 
-  return <GestoresView />;
+  const basesOptions = await basesController.list();
+
+  return <GestoresView basesOptions={basesOptions} />;
 }

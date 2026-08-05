@@ -4,13 +4,22 @@ import Link from "next/link";
 import { useUpdatePromotorViewModel } from "@/modules/atribuicoes/view-models/use-update-promotor.view-model";
 import { PromotorForm } from "@/modules/atribuicoes/components/promotor-form";
 import { PromotorSuccess } from "@/modules/atribuicoes/components/promotor-success";
+import type { BaseView } from "@/modules/bases/types/base.types";
+import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
 
 interface PromotorEditViewProps {
   id: string;
-  gestoresOptions: Array<{ id: string; nome: string }> | null;
+  gestoresOptions: GestorOpcao[] | null;
+  minhasBasesSiglas?: string[];
+  todasBases: BaseView[];
 }
 
-export function PromotorEditView({ id, gestoresOptions }: PromotorEditViewProps) {
+export function PromotorEditView({
+  id,
+  gestoresOptions,
+  minhasBasesSiglas,
+  todasBases,
+}: PromotorEditViewProps) {
   const {
     promotor,
     isLoading,
@@ -47,6 +56,8 @@ export function PromotorEditView({ id, gestoresOptions }: PromotorEditViewProps)
           promotorAtual={promotor}
           submitLabel="Salvar alterações"
           gestoresOptions={gestoresOptions}
+          minhasBasesSiglas={minhasBasesSiglas}
+          todasBases={todasBases}
         />
       ) : null}
     </div>

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { CamposAcessoPlataforma } from "@/modules/gestores/components/campos-acesso-plataforma";
+import { BaseMultiSelect } from "@/modules/bases/components/base-multi-select";
+import type { BaseView } from "@/modules/bases/types/base.types";
 import type {
+  GestorOpcao,
   PromotorCrudView,
   PromotorFormValues,
 } from "@/modules/atribuicoes/types/promotor-crud.types";
@@ -16,22 +19,26 @@ interface PromotorFormProps {
   submitLabel?: string;
   // null = usuário logado é Gestor (gestorId travado no dele, campo nem
   // aparece); array = Admin/Diretor, escolhe entre todos os Gestores.
-  gestoresOptions: Array<{ id: string; nome: string }> | null;
+  gestoresOptions: GestorOpcao[] | null;
+  // Bases do próprio Gestor logado — só usado quando gestoresOptions é null
+  // (Gestor não escolhe gestor, mas precisa saber quais bases pode
+  // atribuir ao Executivo).
+  minhasBasesSiglas?: string[];
+  // Catálogo completo de Base, pra resolver sigla <-> id.
+  todasBases: BaseView[];
 }
 
 const inputClassName =
   "rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
-function valoresVazios(
-  gestoresOptions: Array<{ id: string; nome: string }> | null,
-): PromotorFormValues {
+function valoresVazios(gestoresOptions: GestorOpcao[] | null): PromotorFormValues {
   return {
     nome: "",
     sica: "",
     email: "",
     telefone: "",
     gestorId: gestoresOptions?.[0]?.id ?? "",
-    basesTexto: "",
+    baseIds: [],
     criarAcesso: false,
     password: "",
     mustChangePassword: false,
@@ -41,9 +48,11 @@ function valoresVazios(
 
 function paraValoresIniciais(
   promotor: PromotorCrudView | undefined,
-  gestoresOptions: Array<{ id: string; nome: string }> | null,
+  gestoresOptions: GestorOpcao[] | null,
+  todasBases: BaseView[],
 ): PromotorFormValues {
   if (!promotor) return valoresVazios(gestoresOptions);
+  const idsPorSigla = new Map(todasBases.map((base) => [base.sigla, base.id]));
   return {
     ...valoresVazios(gestoresOptions),
     nome: promotor.nome,
@@ -51,7 +60,9 @@ function paraValoresIniciais(
     email: promotor.email,
     telefone: promotor.telefone ?? "",
     gestorId: promotor.gestorId ?? gestoresOptions?.[0]?.id ?? "",
-    basesTexto: promotor.bases.join(", "),
+    baseIds: promotor.bases
+      .map((sigla) => idsPorSigla.get(sigla))
+      .filter((id): id is string => Boolean(id)),
   };
 }
 
@@ -62,10 +73,23 @@ export function PromotorForm({
   promotorAtual,
   submitLabel,
   gestoresOptions,
+  minhasBasesSiglas,
+  todasBases,
 }: PromotorFormProps) {
   const [values, setValues] = useState<PromotorFormValues>(() =>
-    paraValoresIniciais(promotorAtual, gestoresOptions),
+    paraValoresIniciais(promotorAtual, gestoresOptions, todasBases),
   );
+
+  // Executivo só pode ficar com bases que o próprio Gestor dele atende
+  // (controle só no frontend, decisão do usuário 2026-08-04) — filtra as
+  // opções conforme o gestorId selecionado (ou o do Gestor logado, quando
+  // não há seletor).
+  const basesDoGestorSelecionado = useMemo(() => {
+    const siglas = gestoresOptions
+      ? (gestoresOptions.find((gestor) => gestor.id === values.gestorId)?.bases ?? [])
+      : (minhasBasesSiglas ?? []);
+    return todasBases.filter((base) => siglas.includes(base.sigla));
+  }, [gestoresOptions, minhasBasesSiglas, values.gestorId, todasBases]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -154,7 +178,11 @@ export function PromotorForm({
               id="gestorId"
               required
               value={values.gestorId}
-              onChange={(event) => setValues({ ...values, gestorId: event.target.value })}
+              onChange={(event) =>
+                // Troca de gestor esvazia as bases já marcadas — evita
+                // salvar uma base de fora do novo gestor por engano.
+                setValues({ ...values, gestorId: event.target.value, baseIds: [] })
+              }
               className={inputClassName}
             >
               {gestoresOptions.length === 0 ? (
@@ -170,20 +198,13 @@ export function PromotorForm({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="basesTexto" className="text-foreground text-sm font-medium">
-          Bases atendidas
-        </label>
-        <input
-          id="basesTexto"
-          type="text"
-          placeholder="RAO, SSA, GIG"
-          value={values.basesTexto}
-          onChange={(event) => setValues({ ...values, basesTexto: event.target.value })}
-          className={inputClassName}
-        />
-        <p className="text-muted-foreground text-xs">Separe várias bases por vírgula.</p>
-      </div>
+      <BaseMultiSelect
+        label="Bases atendidas"
+        opcoes={basesDoGestorSelecionado}
+        selecionadas={values.baseIds}
+        onChange={(baseIds) => setValues({ ...values, baseIds })}
+        vazioLabel="O gestor selecionado ainda não tem bases atribuídas."
+      />
 
       <CamposAcessoPlataforma
         value={values}

@@ -1,4 +1,4 @@
-import type { PrismaClient, Promotor as PromotorRecord, PromotorBase } from "@prisma/client";
+import type { PrismaClient, Promotor as PromotorRecord, PromotorBase, Base } from "@prisma/client";
 import { Promotor } from "@/modules/atribuicoes/domain/entities/promotor.entity";
 import type {
   AtualizarPromotorData,
@@ -6,7 +6,9 @@ import type {
   PromotorRepository,
 } from "@/modules/atribuicoes/domain/repositories/promotor-repository";
 
-type PromotorRecordComBases = PromotorRecord & { bases: PromotorBase[] };
+type PromotorRecordComBases = PromotorRecord & { bases: (PromotorBase & { base: Base })[] };
+
+const INCLUDE_BASES = { bases: { include: { base: true } } } as const;
 
 function toDomain(record: PromotorRecordComBases): Promotor {
   return Promotor.create({
@@ -18,7 +20,7 @@ function toDomain(record: PromotorRecordComBases): Promotor {
     telefone: record.telefone,
     link: record.link,
     linkExecutivoId: record.linkExecutivoId,
-    bases: record.bases.map((base) => base.baseSigla),
+    bases: record.bases.map((promotorBase) => promotorBase.base.sigla),
     userId: record.userId,
   });
 }
@@ -29,7 +31,7 @@ export class PrismaPromotorRepository implements PromotorRepository {
   async findAll(): Promise<Promotor[]> {
     const records = await this.prisma.promotor.findMany({
       orderBy: { nome: "asc" },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return records.map(toDomain);
   }
@@ -37,7 +39,7 @@ export class PrismaPromotorRepository implements PromotorRepository {
   async findById(id: string): Promise<Promotor | null> {
     const record = await this.prisma.promotor.findUnique({
       where: { id },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;
   }
@@ -45,7 +47,7 @@ export class PrismaPromotorRepository implements PromotorRepository {
   async findByLinkExecutivoId(uuid: string): Promise<Promotor | null> {
     const record = await this.prisma.promotor.findFirst({
       where: { linkExecutivoId: { has: uuid } },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;
   }
@@ -53,7 +55,7 @@ export class PrismaPromotorRepository implements PromotorRepository {
   async findByEmail(email: string): Promise<Promotor | null> {
     const record = await this.prisma.promotor.findUnique({
       where: { email },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;
   }
@@ -61,7 +63,7 @@ export class PrismaPromotorRepository implements PromotorRepository {
   async findByUserId(userId: string): Promise<Promotor | null> {
     const record = await this.prisma.promotor.findUnique({
       where: { userId },
-      include: { bases: true },
+      include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;
   }
@@ -96,9 +98,9 @@ export class PrismaPromotorRepository implements PromotorRepository {
           telefone: data.telefone,
           gestorId: data.gestorId,
           userId,
-          bases: { create: data.bases.map((baseSigla) => ({ baseSigla })) },
+          bases: { create: data.baseIds.map((baseId) => ({ baseId })) },
         },
-        include: { bases: true },
+        include: INCLUDE_BASES,
       });
     });
 
@@ -136,9 +138,9 @@ export class PrismaPromotorRepository implements PromotorRepository {
           telefone: data.telefone,
           gestorId: data.gestorId,
           ...(userId ? { userId } : {}),
-          bases: { create: data.bases.map((baseSigla) => ({ baseSigla })) },
+          bases: { create: data.baseIds.map((baseId) => ({ baseId })) },
         },
-        include: { bases: true },
+        include: INCLUDE_BASES,
       });
     });
 

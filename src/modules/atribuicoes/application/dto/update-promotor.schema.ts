@@ -7,7 +7,7 @@ export const updatePromotorSchema = z
     email: z.string().email("E-mail inválido."),
     telefone: z.string().nullable().default(null),
     gestorId: z.string().min(1, "Selecione um gestor."),
-    bases: z.array(z.string()).default([]),
+    baseIds: z.array(z.string()).default([]),
     criarAcesso: z.boolean().default(false),
     password: z.string().min(8, "Senha deve ter ao menos 8 caracteres.").optional(),
     mustChangePassword: z.boolean().default(false),

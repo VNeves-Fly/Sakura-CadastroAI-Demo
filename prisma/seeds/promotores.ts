@@ -773,7 +773,14 @@ async function resolverGestorId(
 
 export async function seedPromotores(prisma: PrismaClient): Promise<void> {
   let totalBases = 0;
+  let basesIgnoradas = 0;
   const gestorIdPorNome = new Map<string, string>();
+  // Base virou entidade real (2026-08-04, ver prisma/scripts/importar-bases.ts)
+  // — só populada por esse import one-off, não por este seed. Num banco
+  // recém-criado (sem o import rodado ainda) a tabela `bases` está vazia, e
+  // as siglas abaixo (`bases?: string[]` de cada PROMOTORES) simplesmente
+  // não têm o que linkar — pulamos sem quebrar o seed, best-effort.
+  const basePorSigla = new Map((await prisma.base.findMany()).map((base) => [base.sigla, base]));
 
   for (const { bases = [], gestor: nomeGestor, ...dados } of PROMOTORES) {
     const gestorId = await resolverGestorId(prisma, nomeGestor, gestorIdPorNome);
@@ -787,13 +794,24 @@ export async function seedPromotores(prisma: PrismaClient): Promise<void> {
     });
 
     for (const baseSigla of bases) {
+      const base = basePorSigla.get(baseSigla);
+      if (!base) {
+        basesIgnoradas += 1;
+        continue;
+      }
       await prisma.promotorBase.upsert({
-        where: { promotorId_baseSigla: { promotorId: registro.id, baseSigla } },
+        where: { promotorId_baseId: { promotorId: registro.id, baseId: base.id } },
         update: {},
-        create: { promotorId: registro.id, baseSigla },
+        create: { promotorId: registro.id, baseId: base.id },
       });
       totalBases += 1;
     }
+  }
+
+  if (basesIgnoradas > 0) {
+    console.warn(
+      `Seed: ${basesIgnoradas} vínculo(s) de base ignorado(s) (tabela "bases" vazia — rode prisma/scripts/importar-bases.ts antes pra popular).`,
+    );
   }
 
   console.warn(

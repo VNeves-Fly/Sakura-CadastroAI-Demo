@@ -2,7 +2,7 @@ export interface CreateGestorInput {
   nome: string;
   email: string | null;
   telefone: string | null;
-  bases: string[];
+  baseIds: string[];
   criarAcesso: boolean;
   password?: string;
   mustChangePassword: boolean;

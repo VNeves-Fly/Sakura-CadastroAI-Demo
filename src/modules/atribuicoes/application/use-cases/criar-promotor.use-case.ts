@@ -66,7 +66,7 @@ export class CriarPromotorUseCase implements UseCase<CreatePromotorInput, Promot
       email: input.email,
       telefone: input.telefone,
       gestorId: input.gestorId,
-      bases: input.bases,
+      baseIds: input.baseIds,
       novoUsuario,
     });
 

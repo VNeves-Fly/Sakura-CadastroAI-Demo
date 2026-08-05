@@ -16,7 +16,7 @@ export interface CriarPromotorData {
   email: string;
   telefone: string | null;
   gestorId: string;
-  bases: string[];
+  baseIds: string[];
   novoUsuario: NovoUsuarioPromotorData | null;
 }
 
@@ -26,7 +26,7 @@ export interface AtualizarPromotorData {
   email: string;
   telefone: string | null;
   gestorId: string;
-  bases: string[];
+  baseIds: string[];
   // Só usado se o Promotor ainda não tiver userId — concede acesso na
   // edição (mesmo fluxo do checkbox na criação).
   novoUsuario: NovoUsuarioPromotorData | null;

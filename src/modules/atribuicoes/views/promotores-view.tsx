@@ -5,12 +5,20 @@ import { useCreatePromotorViewModel } from "@/modules/atribuicoes/view-models/us
 import { PromotorForm } from "@/modules/atribuicoes/components/promotor-form";
 import { PromotorCrudList } from "@/modules/atribuicoes/components/promotor-crud-list";
 import { PromotorSuccess } from "@/modules/atribuicoes/components/promotor-success";
+import type { BaseView } from "@/modules/bases/types/base.types";
+import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
 
 interface PromotoresViewProps {
-  gestoresOptions: Array<{ id: string; nome: string }> | null;
+  gestoresOptions: GestorOpcao[] | null;
+  minhasBasesSiglas?: string[];
+  todasBases: BaseView[];
 }
 
-export function PromotoresView({ gestoresOptions }: PromotoresViewProps) {
+export function PromotoresView({
+  gestoresOptions,
+  minhasBasesSiglas,
+  todasBases,
+}: PromotoresViewProps) {
   const { promotores, isLoading, error } = usePromotoresListViewModel();
   const {
     isSubmitting,
@@ -33,6 +41,8 @@ export function PromotoresView({ gestoresOptions }: PromotoresViewProps) {
         error={createError}
         onSubmit={submit}
         gestoresOptions={gestoresOptions}
+        minhasBasesSiglas={minhasBasesSiglas}
+        todasBases={todasBases}
       />
       <PromotorCrudList promotores={promotores} isLoading={isLoading} error={error} />
     </div>

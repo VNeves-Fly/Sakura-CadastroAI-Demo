@@ -6,17 +6,6 @@ import type {
   PromotorPayload,
 } from "@/modules/atribuicoes/types/promotor-crud.types";
 
-function paraBases(basesTexto: string): string[] {
-  return [
-    ...new Set(
-      basesTexto
-        .split(",")
-        .map((base) => base.trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  ];
-}
-
 export const promotoresCrudAdapter = {
   toServiceInput(values: PromotorFormValues): PromotorPayload {
     return {
@@ -25,7 +14,7 @@ export const promotoresCrudAdapter = {
       email: values.email.trim().toLowerCase(),
       telefone: values.telefone.trim() ? values.telefone.trim() : null,
       gestorId: values.gestorId,
-      bases: paraBases(values.basesTexto),
+      baseIds: [...new Set(values.baseIds)],
       criarAcesso: values.criarAcesso,
       password: values.criarAcesso && !values.useTemporaryPassword ? values.password : undefined,
       mustChangePassword: values.mustChangePassword,

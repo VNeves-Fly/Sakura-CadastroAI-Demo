@@ -806,7 +806,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     const executivoCondicao = condicaoFiltroIn(filtros.executivoId);
     if (executivoCondicao !== undefined) filtroExecutivo.id = executivoCondicao;
     const baseCondicao = condicaoFiltroIn(filtros.base);
-    if (baseCondicao !== undefined) filtroExecutivo.bases = { some: { baseSigla: baseCondicao } };
+    if (baseCondicao !== undefined)
+      filtroExecutivo.bases = { some: { base: { sigla: baseCondicao } } };
     const gestorIdCondicao = condicaoFiltroIn(filtros.gestorId);
     if (gestorIdCondicao !== undefined) filtroExecutivo.gestorId = gestorIdCondicao;
     if (Object.keys(filtroExecutivo).length > 0) where.executivo = filtroExecutivo;

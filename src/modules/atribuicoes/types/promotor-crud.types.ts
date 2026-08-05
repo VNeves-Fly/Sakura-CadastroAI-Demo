@@ -15,7 +15,7 @@ export interface PromotorFormValues {
   email: string;
   telefone: string;
   gestorId: string;
-  basesTexto: string;
+  baseIds: string[];
   criarAcesso: boolean;
   password: string;
   mustChangePassword: boolean;
@@ -28,11 +28,20 @@ export interface PromotorPayload {
   email: string;
   telefone: string | null;
   gestorId: string;
-  bases: string[];
+  baseIds: string[];
   criarAcesso: boolean;
   password?: string;
   mustChangePassword: boolean;
   useTemporaryPassword: boolean;
+}
+
+// Opção do select de Gestor (Admin/Diretor) — inclui as siglas de base do
+// Gestor pra restringir o multi-select de bases do Executivo a esse
+// subconjunto (controle só no frontend, ver PromotorForm).
+export interface GestorOpcao {
+  id: string;
+  nome: string;
+  bases: string[];
 }
 
 export interface CreatedPromotorResult {
