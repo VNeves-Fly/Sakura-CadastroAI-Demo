@@ -45,12 +45,26 @@ import {
   type FonteConsultaCredito,
   type ConsultaSstItem,
   type HistoricoConsultaCreditoItem,
+  type HistoricoEtapaCadastroItem,
   type ListarCadastrosFiltros,
   type ListarCadastrosResult,
   type OrigemGeracaoContrato,
   type RepresentanteLegalDetalhe,
   type ResultadoAnaliseIa,
+  type SlaEtapaItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
+
+// Etapas "em trânsito" do funil — as únicas em que "tempo até sair dela"
+// faz sentido como métrica de SLA (ver calcularSlaPorEtapa). `ativo` e
+// `recusado` são estados finais: nunca se sai deles, então não têm SLA.
+const ETAPAS_COM_SLA = [
+  STATUS_EM_ANALISE,
+  STATUS_EM_COMPLEMENTAR,
+  STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_VALIDACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
+  STATUS_AGUARDANDO_ATIVACAO,
+];
 
 interface AgenciaRecord {
   id: string;
@@ -743,6 +757,73 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       });
       return this.toDomain(record);
     });
+  }
+
+  async contarNovosCadastros(desde: Date): Promise<number> {
+    return this.prisma.agencia.count({ where: { createdAt: { gte: desde } } });
+  }
+
+  // Percorre o histórico completo (ordenado por agência, depois por data)
+  // uma vez só: pra cada par consecutivo da MESMA agência, o tempo entre as
+  // duas linhas é quanto ela ficou na etapa `statusNovo` da linha anterior
+  // antes de sair dela. A etapa atual de um cadastro que ainda não saiu de
+  // lá (a última linha dele) não tem "próxima linha" ainda, então não entra
+  // na média — só trajetos concluídos contam pra SLA.
+  async calcularSlaPorEtapa(): Promise<SlaEtapaItem[]> {
+    const linhas = await this.prisma.historicoEtapaCadastro.findMany({
+      select: { agenciaId: true, statusNovo: true, createdAt: true },
+      orderBy: [{ agenciaId: "asc" }, { createdAt: "asc" }],
+    });
+
+    const somaMsPorStatus = new Map<string, number>();
+    const amostrasPorStatus = new Map<string, number>();
+
+    for (let i = 0; i < linhas.length - 1; i++) {
+      const atual = linhas[i];
+      const proxima = linhas[i + 1];
+      if (!atual || !proxima) continue;
+      if (atual.agenciaId !== proxima.agenciaId || !atual.statusNovo) continue;
+
+      const duracaoMs = proxima.createdAt.getTime() - atual.createdAt.getTime();
+      somaMsPorStatus.set(
+        atual.statusNovo,
+        (somaMsPorStatus.get(atual.statusNovo) ?? 0) + duracaoMs,
+      );
+      amostrasPorStatus.set(atual.statusNovo, (amostrasPorStatus.get(atual.statusNovo) ?? 0) + 1);
+    }
+
+    const MS_POR_DIA = 1000 * 60 * 60 * 24;
+    return ETAPAS_COM_SLA.map((status) => {
+      const amostras = amostrasPorStatus.get(status) ?? 0;
+      const somaMs = somaMsPorStatus.get(status) ?? 0;
+      return {
+        status,
+        amostras,
+        mediaDias: amostras > 0 ? somaMs / amostras / MS_POR_DIA : null,
+      };
+    });
+  }
+
+  async listarUltimasMovimentacoesEtapa(limite: number): Promise<HistoricoEtapaCadastroItem[]> {
+    const linhas = await this.prisma.historicoEtapaCadastro.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limite,
+      include: { agencia: { select: { razaoSocial: true, nomeFantasia: true } } },
+    });
+
+    return linhas.map((linha) => ({
+      id: linha.id,
+      agenciaId: linha.agenciaId,
+      agenciaNome: linha.agencia.nomeFantasia ?? linha.agencia.razaoSocial,
+      statusAnterior: linha.statusAnterior,
+      statusNovo: linha.statusNovo,
+      usuarioEmail: linha.usuarioEmail,
+      origem: linha.origem,
+      observacao: linha.observacao,
+      desbloqueioManual: linha.desbloqueioManual,
+      detalhes: linha.detalhes,
+      createdAt: linha.createdAt,
+    }));
   }
 
   async atualizarDadosCadastrais(

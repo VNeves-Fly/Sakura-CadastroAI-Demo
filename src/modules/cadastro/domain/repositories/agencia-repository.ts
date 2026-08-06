@@ -61,8 +61,13 @@ export interface ConsultaSstItem {
 // schema) — histórico completo do funil, pra medir SLA (tempo em cada
 // etapa) e auditar quem/o que causou cada mudança. `statusAnterior: null`
 // é o registro inicial (criação do cadastro, sem etapa anterior).
+// `agenciaId`/`agenciaNome` só importam pra listagem global (ver
+// listarUltimasMovimentacoesEtapa, usada no dashboard) — redundantes num
+// eventual uso escopado a uma agência só, mas inofensivos.
 export interface HistoricoEtapaCadastroItem {
   id: string;
+  agenciaId: string;
+  agenciaNome: string;
   statusAnterior: string | null;
   statusNovo: string | null;
   usuarioEmail: string | null;
@@ -71,6 +76,17 @@ export interface HistoricoEtapaCadastroItem {
   desbloqueioManual: boolean | null;
   detalhes: string | null;
   createdAt: Date;
+}
+
+// Tempo médio (em dias) que os cadastros passam numa etapa antes de saírem
+// dela, calculado a partir de HistoricoEtapaCadastro (ver
+// calcularSlaPorEtapa) — só considera trajetos concluídos (a etapa atual
+// de um cadastro que ainda não avançou não entra na média). `amostras: 0`
+// quando a etapa nunca foi concluída por nenhum cadastro ainda.
+export interface SlaEtapaItem {
+  status: string;
+  mediaDias: number | null;
+  amostras: number;
 }
 
 // Quem/o que causou uma transição de status, gravado junto em
@@ -473,6 +489,15 @@ export interface AgenciaRepository {
   // quem/o que causou a transição (ver ContextoMudancaStatus) em vez de
   // deixar a origem em branco.
   atualizarStatus(id: string, status: string, contexto: ContextoMudancaStatus): Promise<Agencia>;
+  // Métricas do dashboard (ver ObterMetricasDashboardUseCase) — contagem de
+  // cadastros criados desde uma data (ex.: últimos 30 dias).
+  contarNovosCadastros(desde: Date): Promise<number>;
+  // Média de dias por etapa, calculada a partir de todo o histórico de
+  // transições (ver SlaEtapaItem e ObterMetricasDashboardUseCase).
+  calcularSlaPorEtapa(): Promise<SlaEtapaItem[]>;
+  // Feed global (todas as agências) das últimas transições de etapa, mais
+  // recente primeiro — usado na lista "Últimas movimentações" do dashboard.
+  listarUltimasMovimentacoesEtapa(limite: number): Promise<HistoricoEtapaCadastroItem[]>;
   // Grava uma linha de auditoria da reconsulta (quem/quando/sucesso) e,
   // só quando `sucesso`, sobrescreve o stage2/rawData "atuais" da
   // AnaliseIaAgencia (ver ReconsultarCreditoUseCase) — nunca toca em

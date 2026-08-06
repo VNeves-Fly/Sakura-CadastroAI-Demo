@@ -134,6 +134,9 @@ function repositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRep
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
     listarPorExecutivoId: jest.fn(),
+    contarNovosCadastros: jest.fn(),
+    calcularSlaPorEtapa: jest.fn(),
+    listarUltimasMovimentacoesEtapa: jest.fn(),
     ...overrides,
   };
 }

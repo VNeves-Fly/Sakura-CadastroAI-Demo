@@ -7,6 +7,7 @@ import { cadastroAdminController } from "@/modules/cadastro/presentation/control
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import { STATUS_AGENCIA_LABEL } from "@/modules/cadastro/utils/status-agencia-label.util";
 import {
   labelStatus,
   classesBadgeStatus,
@@ -87,56 +88,56 @@ const FILAS = [
   {
     status: STATUS_EM_ANALISE,
     chave: "emAnalise" as const,
-    label: "Em análise (IA)",
+    label: STATUS_AGENCIA_LABEL[STATUS_EM_ANALISE],
     sublabel: "aguardando a IA avaliar",
     cor: COR_ORIGEM_IA,
   },
   {
     status: STATUS_EM_COMPLEMENTAR,
     chave: "emComplementar" as const,
-    label: "Análise de Documentos",
+    label: STATUS_AGENCIA_LABEL[STATUS_EM_COMPLEMENTAR],
     sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
     chave: "aguardandoAssinatura" as const,
-    label: "Aguardando assinatura",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_ASSINATURA],
     sublabel: "Setor Comercial",
     cor: COR_CLIENTE,
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
-    label: "Validação",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_VALIDACAO],
     sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_CADASTRAMENTO,
     chave: "aguardandoCadastramento" as const,
-    label: "Analise de Credito",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_CADASTRAMENTO],
     sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
     chave: "aguardandoAtivacao" as const,
-    label: "Usuário Master",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_ATIVACAO],
     sublabel: "Suporte Comercial",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_ATIVO,
     chave: "ativas" as const,
-    label: "Ativas",
+    label: STATUS_AGENCIA_LABEL[STATUS_ATIVO],
     sublabel: "agência liberada e operando",
     cor: COR_ATIVO,
   },
   {
     status: STATUS_RECUSADO,
     chave: "recusadas" as const,
-    label: "Recusadas",
+    label: STATUS_AGENCIA_LABEL[STATUS_RECUSADO],
     sublabel: "cadastro recusado",
     cor: COR_RECUSADO,
   },

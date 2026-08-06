@@ -57,6 +57,8 @@ import {
 } from "@/modules/cadastro/application/use-cases/reconsultar-credito.use-case";
 import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
 import { ObterAnaliseContratosUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-contratos.use-case";
+import { ObterKpisCadastroUseCase } from "@/modules/cadastro/application/use-cases/obter-kpis-cadastro.use-case";
+import { ObterMetricasDashboardUseCase } from "@/modules/cadastro/application/use-cases/obter-metricas-dashboard.use-case";
 import {
   AtualizarStatusCadastroUseCase,
   type AtualizarStatusCadastroInput,
@@ -352,6 +354,16 @@ export const cadastroAdminController = {
   obterAnaliseContratos(dias: number) {
     const useCase = new ObterAnaliseContratosUseCase(agenciaRepository);
     return useCase.execute(dias);
+  },
+
+  obterKpisCadastro() {
+    const useCase = new ObterKpisCadastroUseCase(agenciaRepository);
+    return useCase.execute();
+  },
+
+  obterMetricasDashboard() {
+    const useCase = new ObterMetricasDashboardUseCase(agenciaRepository);
+    return useCase.execute();
   },
 
   obterCadastroComplementar(agenciaId: string) {
