@@ -37,6 +37,7 @@ import {
   type AnaliseIaAgenciaDetalhe,
   type CadastroComplementarDetalhe,
   type CadastrosKpis,
+  type ContextoMudancaStatus,
   type ContratoPorProvedorId,
   type ContratoSignatarioData,
   type CreateAgenciaData,
@@ -570,6 +571,19 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         },
       });
 
+      // Marco inicial do SLA — sem status anterior, é o próprio cliente
+      // enviando o formulário público que faz a Agencia nascer em
+      // "em_analise" (ver FinalizarCadastroUseCase).
+      await tx.historicoEtapaCadastro.create({
+        data: {
+          agenciaId: agencia.id,
+          statusAnterior: null,
+          statusNovo: agencia.status,
+          usuarioEmail: null,
+          origem: "sistema - formulario",
+        },
+      });
+
       return this.toDomain(agencia);
     });
   }
@@ -589,6 +603,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   async registrarAnaliseFinal(
     agenciaId: string,
     avaliacao: AnaliseIaResultado,
+    statusAtual: string,
     novoStatus: string,
     resultado: ResultadoAnaliseIa,
   ): Promise<void> {
@@ -602,6 +617,19 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       this.prisma.agencia.update({
         where: { id: agenciaId },
         data: { status: novoStatus as PrismaStatusAgencia },
+      }),
+      // `statusAtual` (não um valor assumido) — a IA pode aprovar direto de
+      // em_analise pra aguardando_assinatura, sem passar por
+      // em_complementar (ver AnalisarCadastroUseCase), então o par
+      // anterior/novo tem que refletir o que de fato aconteceu.
+      this.prisma.historicoEtapaCadastro.create({
+        data: {
+          agenciaId,
+          statusAnterior: statusAtual as PrismaStatusAgencia,
+          statusNovo: novoStatus as PrismaStatusAgencia,
+          usuarioEmail: null,
+          origem: "ia",
+        },
       }),
     ]);
   }
@@ -688,12 +716,33 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     });
   }
 
-  async atualizarStatus(id: string, status: string): Promise<Agencia> {
-    const record = await this.prisma.agencia.update({
-      where: { id },
-      data: { status: status as PrismaStatusAgencia },
+  async atualizarStatus(
+    id: string,
+    status: string,
+    contexto: ContextoMudancaStatus,
+  ): Promise<Agencia> {
+    return this.prisma.$transaction(async (tx) => {
+      const atual = await tx.agencia.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
+      });
+      const record = await tx.agencia.update({
+        where: { id },
+        data: { status: status as PrismaStatusAgencia },
+      });
+      await tx.historicoEtapaCadastro.create({
+        data: {
+          agenciaId: id,
+          statusAnterior: atual.status,
+          statusNovo: status as PrismaStatusAgencia,
+          usuarioEmail: contexto.usuarioEmail,
+          origem: contexto.origem,
+          observacao: contexto.observacao ?? null,
+          desbloqueioManual: contexto.desbloqueioManual ?? null,
+        },
+      });
+      return this.toDomain(record);
     });
-    return this.toDomain(record);
   }
 
   async atualizarDadosCadastrais(

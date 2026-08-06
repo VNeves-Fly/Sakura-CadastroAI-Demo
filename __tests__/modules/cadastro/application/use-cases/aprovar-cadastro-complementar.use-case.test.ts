@@ -226,6 +226,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ASSINATURA,
+      { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
   });
@@ -374,6 +375,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ASSINATURA,
+      { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
   });

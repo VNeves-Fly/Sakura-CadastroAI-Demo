@@ -274,9 +274,9 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  marcarContratoAssinado(id: string) {
+  marcarContratoAssinado(id: string, marcadoPor: string) {
     const useCase = new MarcarContratoAssinadoUseCase(agenciaRepository);
-    return useCase.execute(id);
+    return useCase.execute({ id, marcadoPor });
   },
 
   atualizarStatus(input: AtualizarStatusCadastroInput) {
@@ -313,9 +313,9 @@ export const cadastroAdminController = {
   // SICA/TravelLink cadastrados e SICA confirmado ativo no SST (etapa
   // "SICA/TL") — segue pra "aguardando_ativacao", onde falta só o Usuário
   // Master (ver ConfirmarCadastramentoUseCase).
-  confirmarCadastramento(id: string) {
+  confirmarCadastramento(id: string, confirmadoPor: string) {
     const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
-    return useCase.execute({ agenciaId: id });
+    return useCase.execute({ agenciaId: id, confirmadoPor });
   },
 
   // Via de escape auditada pras duas transições que normalmente só
@@ -341,12 +341,12 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  ativarCliente(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_ATIVO });
+  ativarCliente(id: string, usuarioEmail: string) {
+    return this.atualizarStatus({ id, status: STATUS_ATIVO, usuarioEmail });
   },
 
-  recusarCadastro(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_RECUSADO });
+  recusarCadastro(id: string, usuarioEmail: string) {
+    return this.atualizarStatus({ id, status: STATUS_RECUSADO, usuarioEmail });
   },
 
   obterAnaliseContratos(dias: number) {
@@ -475,7 +475,7 @@ export const cadastroAdminController = {
     return useCase.execute(contratoId);
   },
 
-  sincronizarContratoD4Sign(agenciaId: string) {
+  sincronizarContratoD4Sign(agenciaId: string, sincronizadoPor: string) {
     const useCase = new SincronizarContratoD4SignUseCase(
       agenciaRepository,
       contratoAssinaturaService,
@@ -483,7 +483,7 @@ export const cadastroAdminController = {
       signatarioPadraoRepository,
       contratoAssinaturaRepository,
     );
-    return useCase.execute(agenciaId);
+    return useCase.execute({ agenciaId, sincronizadoPor });
   },
 
   listarEmailsFalhaEntregaContrato(contratoId: string) {

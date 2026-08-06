@@ -103,7 +103,10 @@ export async function sincronizarContratoD4SignAction(agenciaId: string): Promis
   if (!(await garantirAtendimentoAssumido(agenciaId))) {
     return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
   }
-  const resultado = await cadastroAdminController.sincronizarContratoD4Sign(agenciaId);
+  const resultado = await cadastroAdminController.sincronizarContratoD4Sign(
+    agenciaId,
+    await analistaLogado(),
+  );
   if (resultado.ok) {
     revalidatePath(`/cadastros/${agenciaId}`);
   }
@@ -112,7 +115,7 @@ export async function sincronizarContratoD4SignAction(agenciaId: string): Promis
 
 export async function marcarContratoAssinadoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.marcarContratoAssinado(id);
+  await cadastroAdminController.marcarContratoAssinado(id, await analistaLogado());
   revalidatePath(`/cadastros/${id}`);
 }
 
@@ -126,7 +129,7 @@ export async function confirmarCadastramentoAction(
     return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
   }
   try {
-    await cadastroAdminController.confirmarCadastramento(id);
+    await cadastroAdminController.confirmarCadastramento(id, await analistaLogado());
     revalidatePath(`/cadastros/${id}`);
     return { ok: true };
   } catch (error) {
@@ -159,13 +162,13 @@ export async function cancelarContratoAction(agenciaId: string, formData: FormDa
 
 export async function ativarClienteAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.ativarCliente(id);
+  await cadastroAdminController.ativarCliente(id, await analistaLogado());
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function recusarCadastroAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.recusarCadastro(id);
+  await cadastroAdminController.recusarCadastro(id, await analistaLogado());
   revalidatePath(`/cadastros/${id}`);
 }
 

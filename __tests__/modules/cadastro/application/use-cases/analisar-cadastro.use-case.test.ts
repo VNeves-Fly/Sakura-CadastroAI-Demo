@@ -397,6 +397,7 @@ describe("AnalisarCadastroUseCase", () => {
         aprovado: false,
         motivo: expect.stringContaining("agents-service indisponível"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "FALHA_ANALISE",
     );
@@ -441,6 +442,7 @@ describe("AnalisarCadastroUseCase", () => {
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
       analiseIa,
+      STATUS_EM_ANALISE,
       STATUS_AGUARDANDO_ASSINATURA,
       "APROVADO",
     );
@@ -466,6 +468,7 @@ describe("AnalisarCadastroUseCase", () => {
       expect.objectContaining({
         motivo: expect.stringContaining("reprovou (ou não avaliou) ao menos um documento"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "REPROVADO",
     );
@@ -651,6 +654,7 @@ describe("AnalisarCadastroUseCase", () => {
         aprovado: true,
         motivo: expect.stringContaining("D4Sign fora do ar"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "FALHA_CONTRATO",
     );
@@ -688,6 +692,7 @@ describe("AnalisarCadastroUseCase", () => {
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
       analiseIa,
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "REPROVADO",
     );

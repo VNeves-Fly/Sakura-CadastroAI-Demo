@@ -372,6 +372,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
       await this.agenciaRepository.registrarAnaliseFinal(
         agenciaId,
         { aprovado: false, motivo: `Falha técnica na análise automática: ${String(error)}` },
+        agencia.status,
         STATUS_EM_COMPLEMENTAR,
         "FALHA_ANALISE",
       );
@@ -443,6 +444,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
         await this.agenciaRepository.registrarAnaliseFinal(
           agenciaId,
           analiseIa,
+          agencia.status,
           STATUS_AGUARDANDO_ASSINATURA,
           "APROVADO",
         );
@@ -460,6 +462,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
               `IA aprovou, mas a geração do contrato falhou: ${String(error)}` +
               (analiseIa.motivo ? ` — ${analiseIa.motivo}` : ""),
           },
+          agencia.status,
           STATUS_EM_COMPLEMENTAR,
           "FALHA_CONTRATO",
         );
@@ -475,6 +478,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
                 (analiseIa.motivo ? ` — ${analiseIa.motivo}` : ""),
             }
           : analiseIa,
+        agencia.status,
         STATUS_EM_COMPLEMENTAR,
         "REPROVADO",
       );

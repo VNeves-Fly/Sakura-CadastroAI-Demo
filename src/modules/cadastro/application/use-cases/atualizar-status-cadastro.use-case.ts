@@ -6,6 +6,7 @@ import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/a
 export interface AtualizarStatusCadastroInput {
   id: string;
   status: string;
+  usuarioEmail: string;
 }
 
 // Transições simples de status, sem efeito colateral (marcar contrato
@@ -25,6 +26,9 @@ export class AtualizarStatusCadastroUseCase implements UseCase<
       throw new NotFoundError("Agência");
     }
 
-    return this.agenciaRepository.atualizarStatus(input.id, input.status);
+    return this.agenciaRepository.atualizarStatus(input.id, input.status, {
+      usuarioEmail: input.usuarioEmail,
+      origem: "usuario",
+    });
   }
 }

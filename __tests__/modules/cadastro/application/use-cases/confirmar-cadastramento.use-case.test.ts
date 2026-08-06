@@ -84,7 +84,9 @@ describe("ConfirmarCadastramentoUseCase", () => {
       repositorioFake({ obterDetalhe: jest.fn().mockResolvedValue(null) }),
     );
 
-    await expect(useCase.execute({ agenciaId: "agencia-1" })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      useCase.execute({ agenciaId: "agencia-1", confirmadoPor: "analista@x.com" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("bloqueia quando não há código SICA salvo", async () => {
@@ -95,23 +97,25 @@ describe("ConfirmarCadastramentoUseCase", () => {
     });
     const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
 
-    await expect(useCase.execute({ agenciaId: "agencia-1" })).rejects.toBeInstanceOf(DomainError);
+    await expect(
+      useCase.execute({ agenciaId: "agencia-1", confirmadoPor: "analista@x.com" }),
+    ).rejects.toBeInstanceOf(DomainError);
     expect(agenciaRepository.atualizarStatus).not.toHaveBeenCalled();
   });
 
   it("bloqueia quando a consulta mais recente não encontrou a empresa no SICA", async () => {
     const agenciaRepository = repositorioFake({
-      obterDetalhe: jest
-        .fn()
-        .mockResolvedValue(
-          detalheFake({
-            consultasSst: [consultaSstFake({ encontrado: false, empresaStatus: null })],
-          }),
-        ),
+      obterDetalhe: jest.fn().mockResolvedValue(
+        detalheFake({
+          consultasSst: [consultaSstFake({ encontrado: false, empresaStatus: null })],
+        }),
+      ),
     });
     const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
 
-    await expect(useCase.execute({ agenciaId: "agencia-1" })).rejects.toBeInstanceOf(DomainError);
+    await expect(
+      useCase.execute({ agenciaId: "agencia-1", confirmadoPor: "analista@x.com" }),
+    ).rejects.toBeInstanceOf(DomainError);
     expect(agenciaRepository.atualizarStatus).not.toHaveBeenCalled();
   });
 
@@ -125,7 +129,9 @@ describe("ConfirmarCadastramentoUseCase", () => {
     });
     const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
 
-    await expect(useCase.execute({ agenciaId: "agencia-1" })).rejects.toBeInstanceOf(DomainError);
+    await expect(
+      useCase.execute({ agenciaId: "agencia-1", confirmadoPor: "analista@x.com" }),
+    ).rejects.toBeInstanceOf(DomainError);
     expect(agenciaRepository.atualizarStatus).not.toHaveBeenCalled();
   });
 
@@ -147,11 +153,12 @@ describe("ConfirmarCadastramentoUseCase", () => {
     });
     const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", confirmadoPor: "analista@x.com" });
 
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ATIVACAO,
+      { usuarioEmail: "analista@x.com", origem: "usuario" },
     );
   });
 
@@ -159,11 +166,12 @@ describe("ConfirmarCadastramentoUseCase", () => {
     const agenciaRepository = repositorioFake();
     const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", confirmadoPor: "analista@x.com" });
 
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ATIVACAO,
+      { usuarioEmail: "analista@x.com", origem: "usuario" },
     );
   });
 });

@@ -57,6 +57,37 @@ export interface ConsultaSstItem {
   createdAt: Date;
 }
 
+// Uma linha por transição de Agencia.status (ver HistoricoEtapaCadastro no
+// schema) — histórico completo do funil, pra medir SLA (tempo em cada
+// etapa) e auditar quem/o que causou cada mudança. `statusAnterior: null`
+// é o registro inicial (criação do cadastro, sem etapa anterior).
+export interface HistoricoEtapaCadastroItem {
+  id: string;
+  statusAnterior: string | null;
+  statusNovo: string | null;
+  usuarioEmail: string | null;
+  origem: string | null;
+  observacao: string | null;
+  desbloqueioManual: boolean | null;
+  detalhes: string | null;
+  createdAt: Date;
+}
+
+// Quem/o que causou uma transição de status, gravado junto em
+// HistoricoEtapaCadastro por atualizarStatus/registrarAnaliseFinal/create.
+// `origem` é texto livre por convenção: "usuario" (ação do analista no
+// painel), "ia" (AnalisarCadastroUseCase), ou "sistema - <agente>" quando
+// não há nem analista nem IA envolvidos (ex.: "sistema - d4sign" pro
+// webhook do D4Sign, "sistema - formulario" pra criação do cadastro) —
+// nesses casos `usuarioEmail` fica null, a menos que o próprio evento
+// externo identifique alguém (ex.: e-mail do signatário no webhook).
+export interface ContextoMudancaStatus {
+  usuarioEmail: string | null;
+  origem: string;
+  observacao?: string | null;
+  desbloqueioManual?: boolean;
+}
+
 // Ciclo de vida completo da agência (decisão do usuário, 2026-07-16;
 // "em_analise" adicionado em 2026-07-24 quando o envio do cadastro passou
 // a persistir antes da IA rodar — ver AnalisarCadastroUseCase;
@@ -427,13 +458,21 @@ export interface AgenciaRepository {
   // fluxo automático quanto pelo reprocessamento manual no admin.
   // `resultado` classifica POR QUE chegou nesse status (ver
   // ResultadoAnaliseIa) — distingue reprovação real de falha técnica.
+  // `statusAtual` é o status ANTES dessa chamada (o caller já tem esse
+  // valor de obterDetalhe) — grava a linha de HistoricoEtapaCadastro com o
+  // par real de/para, sem assumir que "em_complementar" foi visitado (a IA
+  // pode aprovar direto de em_analise pra aguardando_assinatura).
   registrarAnaliseFinal(
     agenciaId: string,
     avaliacao: AnaliseIaResultado,
+    statusAtual: string,
     novoStatus: string,
     resultado: ResultadoAnaliseIa,
   ): Promise<void>;
-  atualizarStatus(id: string, status: string): Promise<Agencia>;
+  // `contexto` é obrigatório de propósito — força todo chamador a decidir
+  // quem/o que causou a transição (ver ContextoMudancaStatus) em vez de
+  // deixar a origem em branco.
+  atualizarStatus(id: string, status: string, contexto: ContextoMudancaStatus): Promise<Agencia>;
   // Grava uma linha de auditoria da reconsulta (quem/quando/sucesso) e,
   // só quando `sucesso`, sobrescreve o stage2/rawData "atuais" da
   // AnaliseIaAgencia (ver ReconsultarCreditoUseCase) — nunca toca em

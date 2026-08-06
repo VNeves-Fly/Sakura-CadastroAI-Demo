@@ -8,6 +8,7 @@ import {
 
 export interface ConfirmarCadastramentoInput {
   agenciaId: string;
+  confirmadoPor: string;
 }
 
 // Transição aguardando_cadastramento -> aguardando_ativacao (botão
@@ -22,7 +23,7 @@ export class ConfirmarCadastramentoUseCase implements UseCase<
 > {
   constructor(private readonly agenciaRepository: AgenciaRepository) {}
 
-  async execute({ agenciaId }: ConfirmarCadastramentoInput): Promise<Agencia> {
+  async execute({ agenciaId, confirmadoPor }: ConfirmarCadastramentoInput): Promise<Agencia> {
     const detalhe = await this.agenciaRepository.obterDetalhe(agenciaId);
     if (!detalhe) {
       throw new NotFoundError("Agência");
@@ -39,6 +40,9 @@ export class ConfirmarCadastramentoUseCase implements UseCase<
       );
     }
 
-    return this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_ATIVACAO);
+    return this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_ATIVACAO, {
+      usuarioEmail: confirmadoPor,
+      origem: "usuario",
+    });
   }
 }
