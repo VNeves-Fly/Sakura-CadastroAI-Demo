@@ -48,7 +48,7 @@ export default function DashboardPage() {
         />
         <DashboardKpiCard
           icon={Timer}
-          titulo="LCA"
+          titulo="SLA"
           valor="3,4 dias"
           descricao="tempo médio do cadastro, da entrada até a saída"
           cor={COR_LCA}
