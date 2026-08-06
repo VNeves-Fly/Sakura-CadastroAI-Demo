@@ -89,6 +89,35 @@ export interface SlaEtapaItem {
   amostras: number;
 }
 
+export type Granularidade = "dia" | "mes" | "ano";
+
+export interface SeriePeriodoItem {
+  periodo: string;
+  quantidade: number;
+}
+
+// Contagem de HistoricoEtapaCadastro por período, nas 3 granularidades de
+// uma vez (ver listarSeriesMovimentacoes) — alimenta o seletor DIA/MÊS/ANO
+// dos cards de KPI do dashboard. Períodos sem nenhuma linha entram com
+// `quantidade: 0` (nunca ficam faltando, pra não quebrar o gráfico).
+export interface SeriesMovimentacao {
+  dia: SeriePeriodoItem[];
+  mes: SeriePeriodoItem[];
+  ano: SeriePeriodoItem[];
+}
+
+// `apenasCriacao` conta o registro inicial de cada cadastro (statusAnterior
+// nulo — ver create() em PrismaAgenciaRepository); `statusNovo`/`origem`
+// contam quem ENTROU numa etapa específica (opcionalmente só por uma
+// origem — ex.: statusNovo=aguardando_assinatura + origem=ia é exatamente
+// "contrato gerado automaticamente pela IA", já que registrarAnaliseFinal
+// só grava origem "ia" nesse caminho).
+export interface FiltroSerieMovimentacao {
+  apenasCriacao?: boolean;
+  statusNovo?: string;
+  origem?: string;
+}
+
 // Quem/o que causou uma transição de status, gravado junto em
 // HistoricoEtapaCadastro por atualizarStatus/registrarAnaliseFinal/create.
 // `origem` é texto livre por convenção: "usuario" (ação do analista no
@@ -498,6 +527,10 @@ export interface AgenciaRepository {
   // Feed global (todas as agências) das últimas transições de etapa, mais
   // recente primeiro — usado na lista "Últimas movimentações" do dashboard.
   listarUltimasMovimentacoesEtapa(limite: number): Promise<HistoricoEtapaCadastroItem[]>;
+  // Série pro seletor DIA/MÊS/ANO dos cards de KPI (ver
+  // FiltroSerieMovimentacao/SeriesMovimentacao) — uma chamada por métrica,
+  // já devolve as 3 granularidades juntas.
+  listarSeriesMovimentacoes(filtro: FiltroSerieMovimentacao): Promise<SeriesMovimentacao>;
   // Grava uma linha de auditoria da reconsulta (quem/quando/sucesso) e,
   // só quando `sucesso`, sobrescreve o stage2/rawData "atuais" da
   // AnaliseIaAgencia (ver ReconsultarCreditoUseCase) — nunca toca em

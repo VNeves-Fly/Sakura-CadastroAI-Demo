@@ -51,6 +51,7 @@ function criarMocks(documento: Documento) {
     contarNovosCadastros: jest.fn(),
     calcularSlaPorEtapa: jest.fn(),
     listarUltimasMovimentacoesEtapa: jest.fn(),
+    listarSeriesMovimentacoes: jest.fn(),
   };
 
   const save = jest.fn((_arquivo: unknown, pathHint: string) =>

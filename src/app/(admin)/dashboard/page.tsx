@@ -28,6 +28,10 @@ export default async function DashboardPage() {
         contratosIa30Dias={analiseContratos.porOrigem.ia}
         emComplementar={kpis.emComplementar}
         ativas={kpis.ativas}
+        seriesNovosCadastros={metricas.seriesNovosCadastros}
+        seriesContratosIa={metricas.seriesContratosIa}
+        seriesEmComplementar={metricas.seriesEmComplementar}
+        seriesAtivas={metricas.seriesAtivas}
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

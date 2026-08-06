@@ -11,11 +11,26 @@ const COR_IA = "#8A2BE2";
 const COR_COMPLEMENTAR = "#008B8B";
 const COR_ATIVO = "#008000";
 
+interface SeriePeriodoItem {
+  periodo: string;
+  quantidade: number;
+}
+
+interface SeriesMovimentacao {
+  dia: SeriePeriodoItem[];
+  mes: SeriePeriodoItem[];
+  ano: SeriePeriodoItem[];
+}
+
 interface DashboardKpisGridProps {
   novosCadastros30Dias: number;
   contratosIa30Dias: number;
   emComplementar: number;
   ativas: number;
+  seriesNovosCadastros: SeriesMovimentacao;
+  seriesContratosIa: SeriesMovimentacao;
+  seriesEmComplementar: SeriesMovimentacao;
+  seriesAtivas: SeriesMovimentacao;
 }
 
 // Client Component só pra isolar os ícones do lucide-react (funções, não
@@ -24,13 +39,18 @@ interface DashboardKpisGridProps {
 // (Server Component, busca dado real) pra ele quebra em produção
 // ("Functions cannot be passed directly to Client Components"), mesmo
 // funcionando em dev por causa de diferenças de bundling entre os modos.
-// Recebendo só números como props (serializáveis) e resolvendo os ícones
-// aqui dentro, a fronteira nunca precisa serializar uma função.
+// Recebendo só números/objetos simples como props (serializáveis) e
+// resolvendo os ícones aqui dentro, a fronteira nunca precisa serializar
+// uma função.
 export function DashboardKpisGrid({
   novosCadastros30Dias,
   contratosIa30Dias,
   emComplementar,
   ativas,
+  seriesNovosCadastros,
+  seriesContratosIa,
+  seriesEmComplementar,
+  seriesAtivas,
 }: DashboardKpisGridProps) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -40,6 +60,7 @@ export function DashboardKpisGrid({
         valor={String(novosCadastros30Dias)}
         descricao="nos últimos 30 dias"
         cor={COR_ENTRADA}
+        series={seriesNovosCadastros}
       />
       <DashboardKpiCard
         icon={Bot}
@@ -47,6 +68,7 @@ export function DashboardKpisGrid({
         valor={String(contratosIa30Dias)}
         descricao="gerados pela IA nos últimos 30 dias"
         cor={COR_IA}
+        series={seriesContratosIa}
       />
       <DashboardKpiCard
         icon={FileEdit}
@@ -54,6 +76,7 @@ export function DashboardKpisGrid({
         valor={String(emComplementar)}
         descricao="cadastros parados em complementar"
         cor={COR_COMPLEMENTAR}
+        series={seriesEmComplementar}
       />
       <DashboardKpiCard
         icon={CheckCircle2}
@@ -61,6 +84,7 @@ export function DashboardKpisGrid({
         valor={String(ativas)}
         descricao="agências liberadas e operando"
         cor={COR_ATIVO}
+        series={seriesAtivas}
       />
     </div>
   );

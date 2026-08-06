@@ -42,7 +42,9 @@ import {
   type ContratoSignatarioData,
   type CreateAgenciaData,
   type EnderecoData,
+  type FiltroSerieMovimentacao,
   type FonteConsultaCredito,
+  type Granularidade,
   type ConsultaSstItem,
   type HistoricoConsultaCreditoItem,
   type HistoricoEtapaCadastroItem,
@@ -51,6 +53,8 @@ import {
   type OrigemGeracaoContrato,
   type RepresentanteLegalDetalhe,
   type ResultadoAnaliseIa,
+  type SeriePeriodoItem,
+  type SeriesMovimentacao,
   type SlaEtapaItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
@@ -65,6 +69,56 @@ const ETAPAS_COM_SLA = [
   STATUS_AGUARDANDO_CADASTRAMENTO,
   STATUS_AGUARDANDO_ATIVACAO,
 ];
+
+// Quantidade de baldes por granularidade do seletor DIA/MÊS/ANO (ver
+// listarSeriesMovimentacoes) — 14 dias, 12 meses, 5 anos.
+const QUANTIDADE_BALDES: Record<Granularidade, number> = { dia: 14, mes: 12, ano: 5 };
+
+// Mesmo formato "dd/MM" já usado em obterAnaliseContratos, estendido pra
+// mês ("MM/yyyy") e ano ("yyyy").
+function chavePeriodo(data: Date, granularidade: Granularidade): string {
+  if (granularidade === "dia") {
+    return `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+  }
+  if (granularidade === "mes") {
+    return `${String(data.getMonth() + 1).padStart(2, "0")}/${data.getFullYear()}`;
+  }
+  return String(data.getFullYear());
+}
+
+// Pré-preenche os últimos `quantidade` períodos com 0 (nenhum falta, mesmo
+// sem nenhuma linha real) e só depois soma as datas reais em cima —
+// mesma lógica de pré-preenchimento de obterAnaliseContratos, generalizada
+// pras 3 granularidades.
+function bucketarPorPeriodo(
+  datas: Date[],
+  granularidade: Granularidade,
+  quantidade: number,
+): SeriePeriodoItem[] {
+  const baldes = new Map<string, number>();
+  const chavesOrdenadas: string[] = [];
+  const agora = new Date();
+
+  for (let i = quantidade - 1; i >= 0; i--) {
+    const data = new Date(agora);
+    if (granularidade === "dia") data.setDate(data.getDate() - i);
+    else if (granularidade === "mes") data.setMonth(data.getMonth() - i);
+    else data.setFullYear(data.getFullYear() - i);
+
+    const chave = chavePeriodo(data, granularidade);
+    baldes.set(chave, 0);
+    chavesOrdenadas.push(chave);
+  }
+
+  for (const data of datas) {
+    const chave = chavePeriodo(data, granularidade);
+    if (baldes.has(chave)) {
+      baldes.set(chave, (baldes.get(chave) ?? 0) + 1);
+    }
+  }
+
+  return chavesOrdenadas.map((periodo) => ({ periodo, quantidade: baldes.get(periodo) ?? 0 }));
+}
 
 interface AgenciaRecord {
   id: string;
@@ -824,6 +878,25 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       detalhes: linha.detalhes,
       createdAt: linha.createdAt,
     }));
+  }
+
+  async listarSeriesMovimentacoes(filtro: FiltroSerieMovimentacao): Promise<SeriesMovimentacao> {
+    const where: Prisma.HistoricoEtapaCadastroWhereInput = {};
+    if (filtro.apenasCriacao) where.statusAnterior = null;
+    if (filtro.statusNovo) where.statusNovo = filtro.statusNovo as PrismaStatusAgencia;
+    if (filtro.origem) where.origem = filtro.origem;
+
+    const linhas = await this.prisma.historicoEtapaCadastro.findMany({
+      where,
+      select: { createdAt: true },
+    });
+    const datas = linhas.map((linha) => linha.createdAt);
+
+    return {
+      dia: bucketarPorPeriodo(datas, "dia", QUANTIDADE_BALDES.dia),
+      mes: bucketarPorPeriodo(datas, "mes", QUANTIDADE_BALDES.mes),
+      ano: bucketarPorPeriodo(datas, "ano", QUANTIDADE_BALDES.ano),
+    };
   }
 
   async atualizarDadosCadastrais(
