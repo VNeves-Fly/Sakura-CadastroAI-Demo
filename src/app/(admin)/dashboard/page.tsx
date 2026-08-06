@@ -10,7 +10,7 @@ const COR_ENTRADA = "#F60F9E";
 const COR_IA = "#8A2BE2";
 const COR_COMPLEMENTAR = "#008B8B";
 const COR_ATIVO = "#008000";
-const COR_LCA = "#0284C7";
+const COR_SLA = "#0284C7";
 
 export default function DashboardPage() {
   return (
@@ -51,7 +51,7 @@ export default function DashboardPage() {
           titulo="SLA"
           valor="3,4 dias"
           descricao="tempo médio do cadastro, da entrada até a saída"
-          cor={COR_LCA}
+          cor={COR_SLA}
         />
       </div>
     </div>
