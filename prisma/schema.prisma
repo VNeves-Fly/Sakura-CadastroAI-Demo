@@ -224,7 +224,7 @@ model Agencia {
   alertas                   Alerta[]
   usuarioMaster             UsuarioMaster?
   avancosForcados           AvancoForcado[]
-  kanbanHistorico           KanbanHistorico[]
+  historicoEtapaCadastro    HistoricoEtapaCadastro[]
   decisoesHumanas           DecisaoHumana[]
   notificacoes              Notificacao[]
   conversas                 Conversa[]
@@ -579,7 +579,7 @@ model AnaliseIaDocumento {
 // EditarDadosEmpresaUseCase), então cobre tanto "o que" quanto "por quê"
 // mudou, não só o antes/depois. `entidade`/`entidadeId` são referência
 // solta (string livre, sem FK formal — mesmo padrão de
-// KanbanHistorico.origem/Alerta.tipo), já que uma linha aqui pode apontar
+// HistoricoEtapaCadastro.origem/Alerta.tipo), já que uma linha aqui pode apontar
 // pra RepresentanteLegal, Agencia ou CadastroComplementar. `alteracoes` é
 // Json porque o conjunto de campos editados varia por chamada (mesma
 // razão de AnaliseIaDocumento.detalhesChecagem ser Json).
@@ -714,6 +714,13 @@ model AnaliseIaAgencia {
   parecer      String?
   motivo       String?
   flagsRisco   String[]
+  // Razões estruturadas (enum) por trás do parecer — ex.: AMAT_DIVIDA,
+  // DOCUMENTO_VENCIDO, CNPJ_INATIVO (ver agency_analysis_reasons.py do
+  // agents-service). Complementa flagsRisco (texto livre do agente) com
+  // valores filtráveis; adicionado em 2026-08-05 junto da mudança do
+  // agents-service que parou de reprovar automaticamente por dívida
+  // AMAT/SOFIA (parecer final passou a ser 100% do LLM).
+  razoes       String[]
   detalhamento Json?
   // Stage1 (verificação cadastral — situação, CNAE principal/secundários
   // com compatibilidade de turismo, e comparação fornecido x oficial de
@@ -893,23 +900,27 @@ model AvancoForcadoPendencia {
   @@map("avanco_forcado_pendencias")
 }
 
-// Roadmap — log de auditoria de transição de etapa; não usado hoje (o
-// admin já grava status diretamente em Agencia.status).
-model KanbanHistorico {
-  id                String   @id @default(cuid())
+// Log de auditoria de toda transição de Agencia.status — grava quem/o que
+// causou cada mudança (analista, IA, webhook do D4Sign, ou o próprio
+// cadastro sendo criado) e quando, pra medir SLA (tempo em cada etapa) e
+// auditoria (ver AgenciaRepository.atualizarStatus/registrarAnaliseFinal e
+// FinalizarCadastroUseCase). `statusAnterior: null` marca o registro
+// inicial (criação do cadastro, sem etapa anterior).
+model HistoricoEtapaCadastro {
+  id                String         @id @default(cuid())
   agenciaId         String
-  agencia           Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
-  etapaAnterior     Int?
-  etapaNova         Int?
+  agencia           Agencia        @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  statusAnterior    StatusAgencia?
+  statusNovo        StatusAgencia?
   usuarioEmail      String?
   origem            String?
   observacao        String?
   desbloqueioManual Boolean?
-  detalhes          String?  @db.Text
-  createdAt         DateTime @default(now())
+  detalhes          String?        @db.Text
+  createdAt         DateTime       @default(now())
 
   @@index([agenciaId])
-  @@map("kanban_historico")
+  @@map("historico_etapa_cadastro")
 }
 
 // Roadmap — decisão manual de aprovação/reprovação em qualquer etapa com

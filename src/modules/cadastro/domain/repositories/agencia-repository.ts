@@ -57,6 +57,82 @@ export interface ConsultaSstItem {
   createdAt: Date;
 }
 
+// Uma linha por transição de Agencia.status (ver HistoricoEtapaCadastro no
+// schema) — histórico completo do funil, pra medir SLA (tempo em cada
+// etapa) e auditar quem/o que causou cada mudança. `statusAnterior: null`
+// é o registro inicial (criação do cadastro, sem etapa anterior).
+// `agenciaId`/`agenciaNome` só importam pra listagem global (ver
+// listarUltimasMovimentacoesEtapa, usada no dashboard) — redundantes num
+// eventual uso escopado a uma agência só, mas inofensivos.
+export interface HistoricoEtapaCadastroItem {
+  id: string;
+  agenciaId: string;
+  agenciaNome: string;
+  statusAnterior: string | null;
+  statusNovo: string | null;
+  usuarioEmail: string | null;
+  origem: string | null;
+  observacao: string | null;
+  desbloqueioManual: boolean | null;
+  detalhes: string | null;
+  createdAt: Date;
+}
+
+// Tempo médio (em dias) que os cadastros passam numa etapa antes de saírem
+// dela, calculado a partir de HistoricoEtapaCadastro (ver
+// calcularSlaPorEtapa) — só considera trajetos concluídos (a etapa atual
+// de um cadastro que ainda não avançou não entra na média). `amostras: 0`
+// quando a etapa nunca foi concluída por nenhum cadastro ainda.
+export interface SlaEtapaItem {
+  status: string;
+  mediaDias: number | null;
+  amostras: number;
+}
+
+export type Granularidade = "dia" | "mes" | "ano";
+
+export interface SeriePeriodoItem {
+  periodo: string;
+  quantidade: number;
+}
+
+// Contagem de HistoricoEtapaCadastro por período, nas 3 granularidades de
+// uma vez (ver listarSeriesMovimentacoes) — alimenta o seletor DIA/MÊS/ANO
+// dos cards de KPI do dashboard. Períodos sem nenhuma linha entram com
+// `quantidade: 0` (nunca ficam faltando, pra não quebrar o gráfico).
+export interface SeriesMovimentacao {
+  dia: SeriePeriodoItem[];
+  mes: SeriePeriodoItem[];
+  ano: SeriePeriodoItem[];
+}
+
+// `apenasCriacao` conta o registro inicial de cada cadastro (statusAnterior
+// nulo — ver create() em PrismaAgenciaRepository); `statusNovo`/`origem`
+// contam quem ENTROU numa etapa específica (opcionalmente só por uma
+// origem — ex.: statusNovo=aguardando_assinatura + origem=ia é exatamente
+// "contrato gerado automaticamente pela IA", já que registrarAnaliseFinal
+// só grava origem "ia" nesse caminho).
+export interface FiltroSerieMovimentacao {
+  apenasCriacao?: boolean;
+  statusNovo?: string;
+  origem?: string;
+}
+
+// Quem/o que causou uma transição de status, gravado junto em
+// HistoricoEtapaCadastro por atualizarStatus/registrarAnaliseFinal/create.
+// `origem` é texto livre por convenção: "usuario" (ação do analista no
+// painel), "ia" (AnalisarCadastroUseCase), ou "sistema - <agente>" quando
+// não há nem analista nem IA envolvidos (ex.: "sistema - d4sign" pro
+// webhook do D4Sign, "sistema - formulario" pra criação do cadastro) —
+// nesses casos `usuarioEmail` fica null, a menos que o próprio evento
+// externo identifique alguém (ex.: e-mail do signatário no webhook).
+export interface ContextoMudancaStatus {
+  usuarioEmail: string | null;
+  origem: string;
+  observacao?: string | null;
+  desbloqueioManual?: boolean;
+}
+
 // Ciclo de vida completo da agência (decisão do usuário, 2026-07-16;
 // "em_analise" adicionado em 2026-07-24 quando o envio do cadastro passou
 // a persistir antes da IA rodar — ver AnalisarCadastroUseCase;
@@ -350,6 +426,7 @@ export interface AnaliseIaAgenciaDetalhe {
   parecer: string | null;
   motivo: string | null;
   flagsRisco: string[];
+  razoes: string[];
   detalhamento: AnaliseIaDetalhamento | null;
   // Verificação cadastral (situação, CNAE, comparação fornecido x oficial
   // de razão social/nome fantasia/e-mail/sócios) — ver VerificacaoCadastral
@@ -426,13 +503,34 @@ export interface AgenciaRepository {
   // fluxo automático quanto pelo reprocessamento manual no admin.
   // `resultado` classifica POR QUE chegou nesse status (ver
   // ResultadoAnaliseIa) — distingue reprovação real de falha técnica.
+  // `statusAtual` é o status ANTES dessa chamada (o caller já tem esse
+  // valor de obterDetalhe) — grava a linha de HistoricoEtapaCadastro com o
+  // par real de/para, sem assumir que "em_complementar" foi visitado (a IA
+  // pode aprovar direto de em_analise pra aguardando_assinatura).
   registrarAnaliseFinal(
     agenciaId: string,
     avaliacao: AnaliseIaResultado,
+    statusAtual: string,
     novoStatus: string,
     resultado: ResultadoAnaliseIa,
   ): Promise<void>;
-  atualizarStatus(id: string, status: string): Promise<Agencia>;
+  // `contexto` é obrigatório de propósito — força todo chamador a decidir
+  // quem/o que causou a transição (ver ContextoMudancaStatus) em vez de
+  // deixar a origem em branco.
+  atualizarStatus(id: string, status: string, contexto: ContextoMudancaStatus): Promise<Agencia>;
+  // Métricas do dashboard (ver ObterMetricasDashboardUseCase) — contagem de
+  // cadastros criados desde uma data (ex.: últimos 30 dias).
+  contarNovosCadastros(desde: Date): Promise<number>;
+  // Média de dias por etapa, calculada a partir de todo o histórico de
+  // transições (ver SlaEtapaItem e ObterMetricasDashboardUseCase).
+  calcularSlaPorEtapa(): Promise<SlaEtapaItem[]>;
+  // Feed global (todas as agências) das últimas transições de etapa, mais
+  // recente primeiro — usado na lista "Últimas movimentações" do dashboard.
+  listarUltimasMovimentacoesEtapa(limite: number): Promise<HistoricoEtapaCadastroItem[]>;
+  // Série pro seletor DIA/MÊS/ANO dos cards de KPI (ver
+  // FiltroSerieMovimentacao/SeriesMovimentacao) — uma chamada por métrica,
+  // já devolve as 3 granularidades juntas.
+  listarSeriesMovimentacoes(filtro: FiltroSerieMovimentacao): Promise<SeriesMovimentacao>;
   // Grava uma linha de auditoria da reconsulta (quem/quando/sucesso) e,
   // só quando `sucesso`, sobrescreve o stage2/rawData "atuais" da
   // AnaliseIaAgencia (ver ReconsultarCreditoUseCase) — nunca toca em

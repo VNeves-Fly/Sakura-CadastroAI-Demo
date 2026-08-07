@@ -58,6 +58,7 @@ import { RemoverSocioForm } from "./remover-socio-form";
 import { ForcarAvancoModal } from "./forcar-avanco-modal";
 import { CancelarContratoModal } from "./cancelar-contrato-modal";
 import { EditarEmpresaForm } from "./editar-empresa-form";
+import { EditarDadosBancariosForm } from "./editar-dados-bancarios-form";
 import { FilaAssinatura } from "./fila-assinatura";
 import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-button";
 import { ContratoIdManual } from "./contrato-id-manual";
@@ -103,6 +104,7 @@ import {
   adicionarSocioAction,
   removerSocioAction,
   editarEmpresaAction,
+  editarDadosBancariosAction,
   solicitarReenvioDocumentosAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
@@ -110,6 +112,7 @@ import {
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
   consultarSicaAction,
+  atualizarSicaAction,
   confirmarCadastramentoAction,
   forcarAvancoStatusAction,
   cancelarContratoAction,
@@ -663,6 +666,10 @@ export default async function DossieAgenciaPage({
                       <Campo label="Situação Cadastral">
                         <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
                       </Campo>
+                      <Campo label="Natureza Jurídica">
+                        {dadosReceita.naturezaJuridica || "—"}
+                      </Campo>
+                      <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
                       <Campo label="Capital Social">
                         {formatarMoedaBrl(dadosReceita.capitalSocial)}
                       </Campo>
@@ -811,6 +818,15 @@ export default async function DossieAgenciaPage({
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Banco" icon={<Landmark className="size-4" />}>
+                <div className="mb-3 flex justify-end">
+                  <EditarDadosBancariosForm
+                    agenciaId={agencia.id}
+                    complementar={complementar}
+                    historico={historicoEdicoesEmpresa}
+                    editarDadosBancariosAction={editarDadosBancariosAction}
+                    disabled={!podeAgir}
+                  />
+                </div>
                 <CamposGrid>
                   <Campo label="Banco">
                     {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
@@ -1113,6 +1129,7 @@ export default async function DossieAgenciaPage({
                 reconsultarSofia={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
                 consultaSica={consultaSica}
                 reconsultarSica={consultarSicaAction.bind(null, agencia.id)}
+                atualizarSicaAction={atualizarSicaAction.bind(null, agencia.id)}
               />
             ) : null}
 

@@ -136,7 +136,10 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
       });
     }
 
-    const agencia = await this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_ASSINATURA);
+    const agencia = await this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_ASSINATURA, {
+      usuarioEmail: analistaEmail,
+      origem: "usuario",
+    });
 
     // Auditoria de quem aprovou manualmente — best-effort: a agência já
     // avançou pro contrato, então uma falha aqui nunca deve reverter o

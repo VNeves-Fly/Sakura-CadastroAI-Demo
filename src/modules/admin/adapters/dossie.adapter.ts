@@ -440,6 +440,7 @@ export function paraParecerView(analiseIa: AnaliseIaAgenciaDetalhe | null): Pare
     parecer: analiseIa.parecer,
     motivo: analiseIa.motivo,
     pontosDeAlerta: analiseIa.flagsRisco,
+    razoes: analiseIa.razoes,
     gruposParaChecar,
     avaliadoEm: analiseIa.avaliadoEm,
   };

@@ -94,6 +94,12 @@ describe("ForcarAvancoStatusUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "ag-1",
       STATUS_AGUARDANDO_VALIDACAO,
+      {
+        usuarioEmail: "analista@sakuratur.com.br",
+        origem: "usuario",
+        observacao: "webhook não chegou, confirmado com o sócio",
+        desbloqueioManual: true,
+      },
     );
     expect(historicoEdicaoCadastroRepository.create).toHaveBeenCalledWith({
       agenciaId: "ag-1",
@@ -128,6 +134,12 @@ describe("ForcarAvancoStatusUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "ag-1",
       STATUS_AGUARDANDO_CADASTRAMENTO,
+      {
+        usuarioEmail: "analista@sakuratur.com.br",
+        origem: "usuario",
+        observacao: "D4Sign fora do ar, aprovador confirmou por telefone",
+        desbloqueioManual: true,
+      },
     );
     expect(historicoEdicaoCadastroRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -38,6 +38,8 @@ import { InserirDocumentoManualUseCase } from "@/modules/cadastro/application/us
 import type { InserirDocumentoManualInput } from "@/modules/cadastro/application/use-cases/inserir-documento-manual.use-case";
 import { EditarDadosEmpresaUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
 import type { EditarDadosEmpresaInput } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
+import { EditarDadosBancariosUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-bancarios.use-case";
+import type { EditarDadosBancariosInput } from "@/modules/cadastro/application/use-cases/editar-dados-bancarios.use-case";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { ObterDadosReceitaUseCase } from "@/modules/cadastro/application/use-cases/obter-dados-receita.use-case";
@@ -57,6 +59,8 @@ import {
 } from "@/modules/cadastro/application/use-cases/reconsultar-credito.use-case";
 import { MarcarContratoAssinadoUseCase } from "@/modules/cadastro/application/use-cases/marcar-contrato-assinado.use-case";
 import { ObterAnaliseContratosUseCase } from "@/modules/cadastro/application/use-cases/obter-analise-contratos.use-case";
+import { ObterKpisCadastroUseCase } from "@/modules/cadastro/application/use-cases/obter-kpis-cadastro.use-case";
+import { ObterMetricasDashboardUseCase } from "@/modules/cadastro/application/use-cases/obter-metricas-dashboard.use-case";
 import {
   AtualizarStatusCadastroUseCase,
   type AtualizarStatusCadastroInput,
@@ -77,6 +81,11 @@ import {
   ConsultarSicaUseCase,
   type ConsultarSicaInput,
 } from "@/modules/cadastro/application/use-cases/consultar-sica.use-case";
+import {
+  AtualizarSicaUseCase,
+  type AtualizarSicaInput,
+} from "@/modules/cadastro/application/use-cases/atualizar-sica.use-case";
+import { ConfirmarCadastramentoUseCase } from "@/modules/cadastro/application/use-cases/confirmar-cadastramento.use-case";
 import {
   SalvarTravelLinkUseCase,
   type SalvarTravelLinkInput,
@@ -141,7 +150,6 @@ import { RemoverSignatarioPadraoUseCase } from "@/modules/cadastro/application/u
 import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/restaurar-signatario-padrao.use-case";
 import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import {
-  STATUS_AGUARDANDO_ATIVACAO,
   STATUS_ATIVO,
   STATUS_RECUSADO,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
@@ -270,9 +278,9 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  marcarContratoAssinado(id: string) {
+  marcarContratoAssinado(id: string, marcadoPor: string) {
     const useCase = new MarcarContratoAssinadoUseCase(agenciaRepository);
-    return useCase.execute(id);
+    return useCase.execute({ id, marcadoPor });
   },
 
   atualizarStatus(input: AtualizarStatusCadastroInput) {
@@ -293,15 +301,25 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
+  // Atualiza a situação do código SICA já salvo (botão "Atualizar" na
+  // ficha, ao lado do código) — busca de novo pelo código, não pelo CNPJ
+  // (ver AtualizarSicaUseCase); diferente de consultarSica.
+  atualizarSica(input: AtualizarSicaInput) {
+    const useCase = new AtualizarSicaUseCase(agenciaRepository, sstService);
+    return useCase.execute(input);
+  },
+
   salvarTravelLink(input: SalvarTravelLinkInput) {
     const useCase = new SalvarTravelLinkUseCase(agenciaRepository);
     return useCase.execute(input);
   },
 
-  // SICA/TravelLink cadastrados (etapa "SICA/TL") — segue pra
-  // "aguardando_ativacao", onde falta só o Usuário Master.
-  confirmarCadastramento(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_AGUARDANDO_ATIVACAO });
+  // SICA/TravelLink cadastrados e SICA confirmado ativo no SST (etapa
+  // "SICA/TL") — segue pra "aguardando_ativacao", onde falta só o Usuário
+  // Master (ver ConfirmarCadastramentoUseCase).
+  confirmarCadastramento(id: string, confirmadoPor: string) {
+    const useCase = new ConfirmarCadastramentoUseCase(agenciaRepository);
+    return useCase.execute({ agenciaId: id, confirmadoPor });
   },
 
   // Via de escape auditada pras duas transições que normalmente só
@@ -327,17 +345,27 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  ativarCliente(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_ATIVO });
+  ativarCliente(id: string, usuarioEmail: string) {
+    return this.atualizarStatus({ id, status: STATUS_ATIVO, usuarioEmail });
   },
 
-  recusarCadastro(id: string) {
-    return this.atualizarStatus({ id, status: STATUS_RECUSADO });
+  recusarCadastro(id: string, usuarioEmail: string) {
+    return this.atualizarStatus({ id, status: STATUS_RECUSADO, usuarioEmail });
   },
 
   obterAnaliseContratos(dias: number) {
     const useCase = new ObterAnaliseContratosUseCase(agenciaRepository);
     return useCase.execute(dias);
+  },
+
+  obterKpisCadastro() {
+    const useCase = new ObterKpisCadastroUseCase(agenciaRepository);
+    return useCase.execute();
+  },
+
+  obterMetricasDashboard() {
+    const useCase = new ObterMetricasDashboardUseCase(agenciaRepository);
+    return useCase.execute();
   },
 
   obterCadastroComplementar(agenciaId: string) {
@@ -461,7 +489,7 @@ export const cadastroAdminController = {
     return useCase.execute(contratoId);
   },
 
-  sincronizarContratoD4Sign(agenciaId: string) {
+  sincronizarContratoD4Sign(agenciaId: string, sincronizadoPor: string) {
     const useCase = new SincronizarContratoD4SignUseCase(
       agenciaRepository,
       contratoAssinaturaService,
@@ -469,7 +497,7 @@ export const cadastroAdminController = {
       signatarioPadraoRepository,
       contratoAssinaturaRepository,
     );
-    return useCase.execute(agenciaId);
+    return useCase.execute({ agenciaId, sincronizadoPor });
   },
 
   listarEmailsFalhaEntregaContrato(contratoId: string) {
@@ -569,6 +597,14 @@ export const cadastroAdminController = {
       agenciaRepository,
       cadastroComplementarRepository,
       enderecoRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
+  },
+
+  editarDadosBancarios(input: EditarDadosBancariosInput) {
+    const useCase = new EditarDadosBancariosUseCase(
+      cadastroComplementarRepository,
       historicoEdicaoCadastroRepository,
     );
     return useCase.execute(input);

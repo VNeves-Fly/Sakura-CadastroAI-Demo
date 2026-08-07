@@ -103,7 +103,10 @@ export async function sincronizarContratoD4SignAction(agenciaId: string): Promis
   if (!(await garantirAtendimentoAssumido(agenciaId))) {
     return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
   }
-  const resultado = await cadastroAdminController.sincronizarContratoD4Sign(agenciaId);
+  const resultado = await cadastroAdminController.sincronizarContratoD4Sign(
+    agenciaId,
+    await analistaLogado(),
+  );
   if (resultado.ok) {
     revalidatePath(`/cadastros/${agenciaId}`);
   }
@@ -112,14 +115,29 @@ export async function sincronizarContratoD4SignAction(agenciaId: string): Promis
 
 export async function marcarContratoAssinadoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.marcarContratoAssinado(id);
+  await cadastroAdminController.marcarContratoAssinado(id, await analistaLogado());
   revalidatePath(`/cadastros/${id}`);
 }
 
-export async function confirmarCadastramentoAction(id: string) {
-  if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.confirmarCadastramento(id);
-  revalidatePath(`/cadastros/${id}`);
+// ConfirmarCadastramentoUseCase agora exige SICA ativo no SST antes de
+// avançar (2026-08-05) — mesmo padrão de resultado estruturado de
+// salvarSicaAction, pra mostrar o motivo do bloqueio em vez de só quebrar.
+export async function confirmarCadastramentoAction(
+  id: string,
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  if (!(await garantirAtendimentoAssumido(id))) {
+    return { ok: false, motivo: "Assuma o atendimento desta agência antes de agir." };
+  }
+  try {
+    await cadastroAdminController.confirmarCadastramento(id, await analistaLogado());
+    revalidatePath(`/cadastros/${id}`);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { ok: false, motivo: error.message };
+    }
+    throw error;
+  }
 }
 
 export async function forcarAvancoStatusAction(agenciaId: string, formData: FormData) {
@@ -144,13 +162,13 @@ export async function cancelarContratoAction(agenciaId: string, formData: FormDa
 
 export async function ativarClienteAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.ativarCliente(id);
+  await cadastroAdminController.ativarCliente(id, await analistaLogado());
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function recusarCadastroAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.recusarCadastro(id);
+  await cadastroAdminController.recusarCadastro(id, await analistaLogado());
   revalidatePath(`/cadastros/${id}`);
 }
 
@@ -175,6 +193,18 @@ export async function consultarSicaAction(agenciaId: string) {
   await cadastroAdminController.consultarSica({
     agenciaId,
     consultadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+// Atualiza a situação do código SICA já salvo (botão "Atualizar" ao lado
+// do código, ver ValidacaoSicaTravelLink) — busca por código, não por CNPJ
+// (diferente de consultarSicaAction).
+export async function atualizarSicaAction(agenciaId: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.atualizarSica({
+    agenciaId,
+    atualizadoPor: await analistaLogado(),
   });
   revalidatePath(`/cadastros/${agenciaId}`);
 }
@@ -311,6 +341,15 @@ export async function editarSocioAction(
       rgOrgaoEmissor: parseStringOuNull(formData.get("rgOrgaoEmissor")),
       dataNascimento: parseDataIso(String(formData.get("dataNascimento") ?? "")),
       administrativo: formData.get("administrativo") === "true",
+      endereco: {
+        cep: String(formData.get("enderecoCep") ?? "").trim(),
+        logradouro: String(formData.get("enderecoLogradouro") ?? "").trim(),
+        numero: String(formData.get("enderecoNumero") ?? "").trim(),
+        complemento: String(formData.get("enderecoComplemento") ?? "").trim(),
+        bairro: String(formData.get("enderecoBairro") ?? "").trim(),
+        cidade: String(formData.get("enderecoCidade") ?? "").trim(),
+        uf: String(formData.get("enderecoUf") ?? "").trim(),
+      },
     },
   });
   revalidatePath(`/cadastros/${agenciaId}`);
@@ -395,6 +434,28 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
       bairro: String(formData.get("bairro") ?? "").trim(),
       cidade: String(formData.get("cidade") ?? "").trim(),
       uf: String(formData.get("uf") ?? "").trim(),
+    },
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+export async function editarDadosBancariosAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.editarDadosBancarios({
+    agenciaId,
+    editadoPor: await analistaLogado(),
+    justificativa: String(formData.get("justificativa") ?? ""),
+    dadosBancarios: {
+      bancoPais: parseStringOuNull(formData.get("bancoPais")),
+      bancoNome: parseStringOuNull(formData.get("bancoNome")),
+      bancoCodigo: parseStringOuNull(formData.get("bancoCodigo")),
+      bancoAgencia: parseStringOuNull(formData.get("bancoAgencia")),
+      bancoConta: parseStringOuNull(formData.get("bancoConta")),
+      bancoSwift: parseStringOuNull(formData.get("bancoSwift")),
+      tipoConta: parseStringOuNull(formData.get("tipoConta")),
+      favorecidoEhEmpresa: formData.get("favorecidoEhEmpresa") === "on",
+      favorecidoNome: parseStringOuNull(formData.get("favorecidoNome")),
+      favorecidoDoc: parseStringOuNull(formData.get("favorecidoDoc")),
     },
   });
   revalidatePath(`/cadastros/${agenciaId}`);

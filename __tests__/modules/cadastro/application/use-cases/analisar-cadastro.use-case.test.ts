@@ -397,6 +397,7 @@ describe("AnalisarCadastroUseCase", () => {
         aprovado: false,
         motivo: expect.stringContaining("agents-service indisponível"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "FALHA_ANALISE",
     );
@@ -441,6 +442,7 @@ describe("AnalisarCadastroUseCase", () => {
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
       analiseIa,
+      STATUS_EM_ANALISE,
       STATUS_AGUARDANDO_ASSINATURA,
       "APROVADO",
     );
@@ -466,6 +468,7 @@ describe("AnalisarCadastroUseCase", () => {
       expect.objectContaining({
         motivo: expect.stringContaining("reprovou (ou não avaliou) ao menos um documento"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "REPROVADO",
     );
@@ -651,6 +654,7 @@ describe("AnalisarCadastroUseCase", () => {
         aprovado: true,
         motivo: expect.stringContaining("D4Sign fora do ar"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "FALHA_CONTRATO",
     );
@@ -688,6 +692,7 @@ describe("AnalisarCadastroUseCase", () => {
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
       analiseIa,
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "REPROVADO",
     );
@@ -793,6 +798,78 @@ describe("AnalisarCadastroUseCase", () => {
             { codigo: "7912-1/00", descricao: "Operadores turísticos", principal: false },
             { codigo: "8299-7/99", descricao: "Outras atividades", principal: false },
           ],
+        }),
+      );
+    });
+
+    it("grava dataAbertura/naturezaJuridica/telefone/email/CNAEs a partir da consulta oficial (rawData.receita)", async () => {
+      const { useCase, dadosReceitaRepository } = criarUseCase({
+        analiseIaService: criarAnaliseIaFake({
+          avaliar: jest.fn().mockResolvedValue({
+            aprovado: true,
+            motivo: null,
+            rawData: {
+              receita: [
+                {
+                  tool: "fetch_official_cnpj",
+                  args: { cnpj: "57204666000189" },
+                  output: {
+                    status: "success",
+                    provider: "serpro_v2",
+                    data: {
+                      qsa: [],
+                      cnpj: "57204666000189",
+                      email: "THIAGOSP5@HOTMAIL.COM",
+                      endereco: {
+                        uf: "ES",
+                        cep: "29199096",
+                        bairro: "COQUEIRAL",
+                        numero: "18",
+                        municipio: "ARACRUZ",
+                        logradouro: "CLOESIANA",
+                        complemento: "CASA",
+                      },
+                      telefone: "(0)0",
+                      razao_social: "57.204.666 THIAGO SPIRANDELLI DA SILVA",
+                      data_abertura: "2024-09-09",
+                      nome_fantasia: null,
+                      capital_social: 100000,
+                      natureza_juridica: "Empresário (Individual)",
+                      situacao_cadastral: "2",
+                      atividade_principal: [{ code: "7911200", text: "Agências de viagens" }],
+                      atividades_secundarias: [],
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+        }),
+        dadosReceitaRepository: criarDadosReceitaFake({
+          findByAgenciaId: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await useCase.execute({ agenciaId: "agencia-1" });
+
+      expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agenciaId: "agencia-1",
+          dataAbertura: new Date("2024-09-09"),
+          naturezaJuridica: "Empresário (Individual)",
+          telefone: "(0)0",
+          email: "THIAGOSP5@HOTMAIL.COM",
+          capitalSocial: 100000,
+          endereco: {
+            cep: "29199096",
+            logradouro: "CLOESIANA",
+            numero: "18",
+            complemento: "CASA",
+            bairro: "COQUEIRAL",
+            cidade: "ARACRUZ",
+            uf: "ES",
+          },
+          cnaes: [{ codigo: "7911200", descricao: "Agências de viagens", principal: true }],
         }),
       );
     });

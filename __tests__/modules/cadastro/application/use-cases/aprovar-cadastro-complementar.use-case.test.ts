@@ -226,6 +226,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ASSINATURA,
+      { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
   });
@@ -240,6 +241,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
               parecer: "REPROVADO",
               motivo: "CNAE incompatível",
               flagsRisco: [],
+              razoes: [],
               detalhamento: null,
               stage1: null,
               stage2: null,
@@ -273,6 +275,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
               parecer: "APROVADO",
               motivo: "D4Sign indisponível",
               flagsRisco: [],
+              razoes: [],
               detalhamento: null,
               stage1: null,
               stage2: null,
@@ -372,6 +375,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ASSINATURA,
+      { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
   });

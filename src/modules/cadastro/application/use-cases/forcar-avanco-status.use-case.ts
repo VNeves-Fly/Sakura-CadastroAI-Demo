@@ -54,7 +54,12 @@ export class ForcarAvancoStatusUseCase implements UseCase<ForcarAvancoStatusInpu
     }
 
     const justificativa = input.justificativa.trim();
-    const agencia = await this.agenciaRepository.atualizarStatus(input.agenciaId, statusDestino);
+    const agencia = await this.agenciaRepository.atualizarStatus(input.agenciaId, statusDestino, {
+      usuarioEmail: input.forcadoPor,
+      origem: "usuario",
+      observacao: justificativa,
+      desbloqueioManual: true,
+    });
 
     await this.historicoEdicaoCadastroRepository.create({
       agenciaId: input.agenciaId,

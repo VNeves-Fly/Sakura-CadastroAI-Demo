@@ -161,6 +161,7 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       await this.agenciaRepository.atualizarStatus(
         referencia.agenciaId,
         STATUS_AGUARDANDO_CADASTRAMENTO,
+        { usuarioEmail: input.email ?? null, origem: "sistema - d4sign" },
       );
       return { processado: true };
     }
@@ -192,7 +193,14 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       };
     }
 
-    await this.agenciaRepository.atualizarStatus(referencia.agenciaId, STATUS_AGUARDANDO_VALIDACAO);
+    await this.agenciaRepository.atualizarStatus(
+      referencia.agenciaId,
+      STATUS_AGUARDANDO_VALIDACAO,
+      {
+        usuarioEmail: input.email ?? null,
+        origem: "sistema - d4sign",
+      },
+    );
 
     return { processado: true };
   }
@@ -228,15 +236,18 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
 
     // Nunca regride — só "alcança" o próximo estágio se a agência ainda
     // não tiver avançado sozinha via os "4" individuais.
+    const contextoWebhook = { usuarioEmail: null, origem: "sistema - d4sign" };
     if (statusAtual === STATUS_AGUARDANDO_ASSINATURA) {
       await this.agenciaRepository.atualizarStatus(
         referencia.agenciaId,
         STATUS_AGUARDANDO_VALIDACAO,
+        contextoWebhook,
       );
     } else if (statusAtual === STATUS_AGUARDANDO_VALIDACAO) {
       await this.agenciaRepository.atualizarStatus(
         referencia.agenciaId,
         STATUS_AGUARDANDO_CADASTRAMENTO,
+        contextoWebhook,
       );
     }
 

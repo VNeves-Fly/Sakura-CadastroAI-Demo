@@ -54,6 +54,7 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       motivo: null,
       parecer: "APROVADO",
       flagsRisco: [],
+      razoes: [],
       detalhamento: null,
       stage1: null,
       stage2: null,
@@ -113,11 +114,29 @@ describe("FlysakuraAnaliseIaAdapter", () => {
       motivo: "CNAE incompatível com agência de viagem",
       parecer: "REPROVADO",
       flagsRisco: ["cnae_incompativel"],
+      razoes: [],
       detalhamento: null,
       stage1: null,
       stage2: null,
       rawData: null,
     });
+  });
+
+  it("mapeia razoes (enum estruturado do agents-service) quando presente, e vazio quando ausente", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parecer: "PENDENTE",
+        justificativa: "Dívida AMAT e documento vencido",
+        flags_risco: ["divida_amat_detectada"],
+        razoes: ["AMAT_DIVIDA", "DOCUMENTO_VENCIDO"],
+      }),
+    });
+
+    const resultado = await new FlysakuraAnaliseIaAdapter().avaliar(input);
+
+    expect(resultado.razoes).toEqual(["AMAT_DIVIDA", "DOCUMENTO_VENCIDO"]);
   });
 
   it("mapeia a stage1 (dados oficiais da Receita/BrasilAPI, via AgentsService)", async () => {

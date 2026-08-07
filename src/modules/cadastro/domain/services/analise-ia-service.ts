@@ -169,6 +169,12 @@ export interface AnaliseIaResultado {
   // (ver FlysakuraAnaliseIaAdapter) — o mock não popula.
   parecer?: string;
   flagsRisco?: string[];
+  // Razões estruturadas (enum) por trás do parecer — ex.: AMAT_DIVIDA,
+  // DOCUMENTO_VENCIDO, CNPJ_INATIVO (ver agency_analysis_reasons.py do
+  // agents-service). Complementa flagsRisco (texto livre) com valores
+  // filtráveis; só preenchido por implementações que devolvem parecer
+  // estruturado (ver FlysakuraAnaliseIaAdapter) — o mock não popula.
+  razoes?: string[];
   // Idem — detalhamento do cruzamento (stage3), null quando a resposta não
   // trouxer (ex.: mock, ou API antiga sem esse campo).
   detalhamento?: AnaliseIaDetalhamento | null;

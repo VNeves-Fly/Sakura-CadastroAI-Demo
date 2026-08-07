@@ -11,6 +11,11 @@ import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/rep
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import { todosSociosAssinaram } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 
+export interface SincronizarContratoD4SignInput {
+  agenciaId: string;
+  sincronizadoPor: string;
+}
+
 export type SincronizarContratoD4SignOutput =
   | {
       ok: true;
@@ -37,7 +42,7 @@ function normalizarEmail(email: string): string {
 // checagens de avanço de status que o webhook usa, pras duas transições
 // (todos os sócios assinaram; aprovador assinou com a validação pendente).
 export class SincronizarContratoD4SignUseCase implements UseCase<
-  string,
+  SincronizarContratoD4SignInput,
   SincronizarContratoD4SignOutput
 > {
   constructor(
@@ -48,7 +53,10 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
   ) {}
 
-  async execute(agenciaId: string): Promise<SincronizarContratoD4SignOutput> {
+  async execute({
+    agenciaId,
+    sincronizadoPor,
+  }: SincronizarContratoD4SignInput): Promise<SincronizarContratoD4SignOutput> {
     const detalhe = await this.agenciaRepository.obterDetalhe(agenciaId);
     if (!detalhe) {
       return { ok: false, motivo: "Agência não encontrada." };
@@ -187,7 +195,10 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
           [...emailsAssinadosHistorico, ...emailsAssinadosAgora],
         )
       ) {
-        await this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_VALIDACAO);
+        await this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_VALIDACAO, {
+          usuarioEmail: sincronizadoPor,
+          origem: "usuario",
+        });
         avancouStatus = true;
       }
     } else if (detalhe.agencia.status === STATUS_AGUARDANDO_VALIDACAO) {
@@ -204,7 +215,10 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
         );
 
         if (aprovadorJaAssinado || aprovadorAssinouAgora) {
-          await this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_CADASTRAMENTO);
+          await this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_CADASTRAMENTO, {
+            usuarioEmail: sincronizadoPor,
+            origem: "usuario",
+          });
           avancouStatus = true;
         }
       }

@@ -48,6 +48,10 @@ function criarMocks(documento: Documento) {
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
     listarPorExecutivoId: jest.fn(),
+    contarNovosCadastros: jest.fn(),
+    calcularSlaPorEtapa: jest.fn(),
+    listarUltimasMovimentacoesEtapa: jest.fn(),
+    listarSeriesMovimentacoes: jest.fn(),
   };
 
   const save = jest.fn((_arquivo: unknown, pathHint: string) =>
