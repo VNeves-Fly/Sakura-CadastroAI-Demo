@@ -38,6 +38,8 @@ import { InserirDocumentoManualUseCase } from "@/modules/cadastro/application/us
 import type { InserirDocumentoManualInput } from "@/modules/cadastro/application/use-cases/inserir-documento-manual.use-case";
 import { EditarDadosEmpresaUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
 import type { EditarDadosEmpresaInput } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
+import { EditarDadosBancariosUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-bancarios.use-case";
+import type { EditarDadosBancariosInput } from "@/modules/cadastro/application/use-cases/editar-dados-bancarios.use-case";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
 import { ObterDetalheAgenciaUseCase } from "@/modules/cadastro/application/use-cases/obter-detalhe-agencia.use-case";
 import { ObterDadosReceitaUseCase } from "@/modules/cadastro/application/use-cases/obter-dados-receita.use-case";
@@ -595,6 +597,14 @@ export const cadastroAdminController = {
       agenciaRepository,
       cadastroComplementarRepository,
       enderecoRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
+  },
+
+  editarDadosBancarios(input: EditarDadosBancariosInput) {
+    const useCase = new EditarDadosBancariosUseCase(
+      cadastroComplementarRepository,
       historicoEdicaoCadastroRepository,
     );
     return useCase.execute(input);

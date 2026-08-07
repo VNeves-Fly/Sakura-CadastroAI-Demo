@@ -58,6 +58,7 @@ import { RemoverSocioForm } from "./remover-socio-form";
 import { ForcarAvancoModal } from "./forcar-avanco-modal";
 import { CancelarContratoModal } from "./cancelar-contrato-modal";
 import { EditarEmpresaForm } from "./editar-empresa-form";
+import { EditarDadosBancariosForm } from "./editar-dados-bancarios-form";
 import { FilaAssinatura } from "./fila-assinatura";
 import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-button";
 import { ContratoIdManual } from "./contrato-id-manual";
@@ -103,6 +104,7 @@ import {
   adicionarSocioAction,
   removerSocioAction,
   editarEmpresaAction,
+  editarDadosBancariosAction,
   solicitarReenvioDocumentosAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
@@ -816,6 +818,15 @@ export default async function DossieAgenciaPage({
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Banco" icon={<Landmark className="size-4" />}>
+                <div className="mb-3 flex justify-end">
+                  <EditarDadosBancariosForm
+                    agenciaId={agencia.id}
+                    complementar={complementar}
+                    historico={historicoEdicoesEmpresa}
+                    editarDadosBancariosAction={editarDadosBancariosAction}
+                    disabled={!podeAgir}
+                  />
+                </div>
                 <CamposGrid>
                   <Campo label="Banco">
                     {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}

@@ -439,6 +439,28 @@ export async function editarEmpresaAction(agenciaId: string, formData: FormData)
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+export async function editarDadosBancariosAction(agenciaId: string, formData: FormData) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.editarDadosBancarios({
+    agenciaId,
+    editadoPor: await analistaLogado(),
+    justificativa: String(formData.get("justificativa") ?? ""),
+    dadosBancarios: {
+      bancoPais: parseStringOuNull(formData.get("bancoPais")),
+      bancoNome: parseStringOuNull(formData.get("bancoNome")),
+      bancoCodigo: parseStringOuNull(formData.get("bancoCodigo")),
+      bancoAgencia: parseStringOuNull(formData.get("bancoAgencia")),
+      bancoConta: parseStringOuNull(formData.get("bancoConta")),
+      bancoSwift: parseStringOuNull(formData.get("bancoSwift")),
+      tipoConta: parseStringOuNull(formData.get("tipoConta")),
+      favorecidoEhEmpresa: formData.get("favorecidoEhEmpresa") === "on",
+      favorecidoNome: parseStringOuNull(formData.get("favorecidoNome")),
+      favorecidoDoc: parseStringOuNull(formData.get("favorecidoDoc")),
+    },
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function salvarTravelLinkAction(agenciaId: string, criado: boolean) {
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.salvarTravelLink({
