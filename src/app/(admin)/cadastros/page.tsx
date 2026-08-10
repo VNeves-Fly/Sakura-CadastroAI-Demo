@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { UserCog } from "lucide-react";
+import type { ReactNode } from "react";
+import { UserCog, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { CadastrosLive } from "./cadastros-live";
@@ -16,8 +17,13 @@ import {
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import { FiltroCadastrosField } from "@/modules/admin/components/filtro-cadastros-field";
+import { SeletorTamanhoPagina } from "@/modules/admin/components/seletor-tamanho-pagina";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
+import {
+  paraArray,
+  resolverFiltrosCadastros,
+} from "@/modules/admin/utils/resolver-filtros-cadastros.util";
 import {
   STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -28,6 +34,7 @@ import {
   STATUS_ATIVO,
   STATUS_RECUSADO,
   TAMANHO_PAGINA_CADASTROS,
+  TAMANHOS_PAGINA_CADASTROS_PERMITIDOS,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface CadastrosPageProps {
@@ -39,22 +46,8 @@ interface CadastrosPageProps {
     filtro?: string | string[];
     meusAtendimentos?: string;
     page?: string;
+    pageSize?: string;
   };
-}
-
-function paraArray(valor: string | string[] | undefined): string[] {
-  if (!valor) return [];
-  return Array.isArray(valor) ? valor : [valor];
-}
-
-// Categoria de cada opção do filtro único (ver FiltroCadastrosField) vem
-// prefixada no próprio value (ex.: "base:SP") pra sobreviver ao roundtrip
-// do form GET — aqui desfaz o prefixo pra montar os filtros da query.
-function extrairCategoria(valores: string[], prefixo: string): string[] {
-  const marca = `${prefixo}:`;
-  return valores
-    .filter((valor) => valor.startsWith(marca))
-    .map((valor) => valor.slice(marca.length));
 }
 
 // Filas clicáveis — ciclo completo de estados (decisão do usuário,
@@ -174,6 +167,7 @@ function formatarDataHora(data: Date): string {
 function construirHref(
   searchParams: CadastrosPageProps["searchParams"],
   patch: Record<string, string | undefined>,
+  basePath = "/cadastros",
 ): string {
   const params = new URLSearchParams();
   const combinado: Record<string, string | string[] | undefined> = { ...searchParams, ...patch };
@@ -184,7 +178,73 @@ function construirHref(
     }
   }
   const query = params.toString();
-  return query ? `/cadastros?${query}` : "/cadastros";
+  return query ? `${basePath}?${query}` : basePath;
+}
+
+// Janela de páginas numeradas no rodapé da tabela (« ‹ 1 2 3 4 5 › »),
+// centrada na página atual — não usa "..." pros extremos, a lista é curta
+// o bastante pra não precisar.
+function calcularPaginasVisiveis(paginaAtual: number, totalPaginas: number): number[] {
+  const JANELA = 5;
+  if (totalPaginas <= JANELA) {
+    return Array.from({ length: totalPaginas }, (_, indice) => indice + 1);
+  }
+  const fim = Math.min(totalPaginas, Math.max(JANELA, paginaAtual + Math.floor(JANELA / 2)));
+  const inicio = fim - JANELA + 1;
+  return Array.from({ length: JANELA }, (_, indice) => inicio + indice);
+}
+
+function BotaoPaginacao({
+  href,
+  desabilitado,
+  ariaLabel,
+  children,
+}: {
+  href: string;
+  desabilitado: boolean;
+  ariaLabel: string;
+  children: ReactNode;
+}) {
+  if (desabilitado) {
+    return (
+      <span
+        aria-label={ariaLabel}
+        className="border-input text-muted-foreground flex size-7 shrink-0 cursor-not-allowed items-center justify-center rounded-full border opacity-40"
+      >
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      aria-label={ariaLabel}
+      className="border-input text-foreground hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-full border transition"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function BotaoPagina({ pagina, ativa, href }: { pagina: number; ativa: boolean; href: string }) {
+  if (ativa) {
+    return (
+      <span
+        aria-current="page"
+        className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+      >
+        {pagina}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="border-input text-foreground hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition"
+    >
+      {pagina}
+    </Link>
+  );
 }
 
 function ThOrdenavel({
@@ -237,59 +297,29 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
   // "__sem_vinculo__" quando o cargo é restrito mas não achou o
   // Promotor/Gestor vinculado (não deve acontecer em uso normal) — nunca
   // cai pra "sem filtro" = mostrar tudo.
-  const promotorDoUsuario =
-    cargo === "EXECUTIVO" && analistaId
-      ? await atribuicoesAdminController.buscarPromotorPorUserId(analistaId)
-      : null;
-  const gestorDoUsuario =
-    cargo === "GESTOR" && analistaId
-      ? await atribuicoesAdminController.buscarGestorPorUserId(analistaId)
-      : null;
-  const escopoRestrito = cargo === "GESTOR" || cargo === "EXECUTIVO";
-  const executivoIdForcado =
-    cargo === "EXECUTIVO" ? (promotorDoUsuario?.id ?? "__sem_vinculo__") : null;
-  const gestorIdForcado = cargo === "GESTOR" ? (gestorDoUsuario?.id ?? "__sem_vinculo__") : null;
-
-  const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
-  const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
   const paginaAtual = Math.max(1, Math.trunc(Number(searchParams.page)) || 1);
+  const tamanhoPaginaSolicitado = Number(searchParams.pageSize);
+  const tamanhoPagina = (TAMANHOS_PAGINA_CADASTROS_PERMITIDOS as readonly number[]).includes(
+    tamanhoPaginaSolicitado,
+  )
+    ? tamanhoPaginaSolicitado
+    : TAMANHO_PAGINA_CADASTROS;
 
-  // Filtro único (ver FiltroCadastrosField) — cada categoria vem
-  // prefixada dentro de searchParams.filtro; Status também pode chegar
-  // pelos cards de "Filas" (searchParams.status) — as duas fontes só se
-  // combinam na query, sem sincronizar visualmente entre si.
+  const { filtros, escopoRestrito, sortBy, sortDir } = await resolverFiltrosCadastros(
+    searchParams,
+    { analistaId, cargo },
+  );
   const valoresFiltro = paraArray(searchParams.filtro);
-  const baseDoFiltro = extrairCategoria(valoresFiltro, "base");
-  const gestorDoFiltro = extrairCategoria(valoresFiltro, "gestor");
-  const executivoDoFiltro = extrairCategoria(valoresFiltro, "executivo");
-  const associacaoDoFiltro = extrairCategoria(valoresFiltro, "associacao");
-  const statusDoFiltro = extrairCategoria(valoresFiltro, "status");
-  const statusCombinado = [...new Set([...paraArray(searchParams.status), ...statusDoFiltro])];
-  // Switch "Meus atendimentos" (decisão do usuário, 2026-07-30): filtra
-  // no banco pelas agências onde o analista logado é o atendente ATIVO —
-  // sem sessão não há o que filtrar, então o switch é ignorado.
-  const meusAtendimentosAtivo = searchParams.meusAtendimentos === "1" && !!analistaId;
 
   const [{ items, total, kpis }, analise, promotores, associacoesTodas, gestoresReais] =
     await Promise.all([
-      cadastroAdminController.listarCadastros({
-        busca: searchParams.busca,
-        status: statusCombinado.length > 0 ? statusCombinado : undefined,
-        sortBy,
-        sortDir,
-        executivoId: executivoIdForcado ?? executivoDoFiltro,
-        associacaoId: associacaoDoFiltro,
-        base: baseDoFiltro,
-        gestorId: gestorIdForcado ?? gestorDoFiltro,
-        atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
-        pagina: paginaAtual,
-      }),
+      cadastroAdminController.listarCadastros({ ...filtros, pagina: paginaAtual, tamanhoPagina }),
       ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
       atribuicoesAdminController.listarPromotores(),
       atribuicoesAdminController.listarAssociacoes(),
       atribuicoesAdminController.listarGestores(),
     ]);
-  const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA_CADASTROS));
+  const totalPaginas = Math.max(1, Math.ceil(total / tamanhoPagina));
 
   const associacoesAtivas = associacoesTodas.filter((associacao) => associacao.ativo);
 
@@ -680,37 +710,82 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             </table>
           </div>
         )}
-      </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-muted-foreground text-xs">
-          {total} agência(s) encontrada(s) — página {paginaAtual} de {totalPaginas}
-        </p>
-        <div className="flex items-center gap-2">
-          {paginaAtual > 1 ? (
-            <Link
+        {/* Rodapé — mesma bg-card do corpo da tabela (extensão dela, sem
+            contraste como no header) e mesmo padding horizontal do
+            thead/tbody, só com border-t em vez de border-b. */}
+        <div className="border-border bg-card flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <p className="text-muted-foreground text-xs">{total} agência(s) encontrada(s)</p>
+            <div className="flex items-center gap-2">
+              <label htmlFor="pageSize" className="text-muted-foreground text-xs whitespace-nowrap">
+                Itens por página
+              </label>
+              <SeletorTamanhoPagina
+                id="pageSize"
+                valor={tamanhoPagina}
+                opcoes={TAMANHOS_PAGINA_CADASTROS_PERMITIDOS}
+                hrefPorTamanho={Object.fromEntries(
+                  TAMANHOS_PAGINA_CADASTROS_PERMITIDOS.map((tamanho) => [
+                    String(tamanho),
+                    construirHref(searchParams, { pageSize: String(tamanho), page: "1" }),
+                  ]),
+                )}
+              />
+            </div>
+            <a
+              href={construirHref(
+                searchParams,
+                { page: undefined, pageSize: undefined },
+                "/cadastros/exportar",
+              )}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+            >
+              Exportar CSV
+            </a>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground mr-1 text-xs whitespace-nowrap">
+              Página {paginaAtual} de {totalPaginas}
+            </span>
+            <BotaoPaginacao
+              href={construirHref(searchParams, { page: "1" })}
+              desabilitado={paginaAtual === 1}
+              ariaLabel="Primeira página"
+            >
+              <ChevronsLeft className="size-4" />
+            </BotaoPaginacao>
+            <BotaoPaginacao
               href={construirHref(searchParams, { page: String(paginaAtual - 1) })}
-              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+              desabilitado={paginaAtual === 1}
+              ariaLabel="Página anterior"
             >
-              ← Anterior
-            </Link>
-          ) : (
-            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
-              ← Anterior
-            </span>
-          )}
-          {paginaAtual < totalPaginas ? (
-            <Link
+              <ChevronLeft className="size-4" />
+            </BotaoPaginacao>
+            {calcularPaginasVisiveis(paginaAtual, totalPaginas).map((pagina) => (
+              <BotaoPagina
+                key={pagina}
+                pagina={pagina}
+                ativa={pagina === paginaAtual}
+                href={construirHref(searchParams, { page: String(pagina) })}
+              />
+            ))}
+            <BotaoPaginacao
               href={construirHref(searchParams, { page: String(paginaAtual + 1) })}
-              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+              desabilitado={paginaAtual === totalPaginas}
+              ariaLabel="Próxima página"
             >
-              Próxima →
-            </Link>
-          ) : (
-            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
-              Próxima →
-            </span>
-          )}
+              <ChevronRight className="size-4" />
+            </BotaoPaginacao>
+            <BotaoPaginacao
+              href={construirHref(searchParams, { page: String(totalPaginas) })}
+              desabilitado={paginaAtual === totalPaginas}
+              ariaLabel="Última página"
+            >
+              <ChevronsRight className="size-4" />
+            </BotaoPaginacao>
+          </div>
         </div>
       </div>
     </div>

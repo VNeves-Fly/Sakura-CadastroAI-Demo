@@ -283,10 +283,14 @@ export interface CreateAgenciaData {
   enderecoBanco: EnderecoBancoData;
 }
 
-// Tamanho fixo de página da listagem de cadastros (não configurável pelo
-// usuário) — usado tanto pelo repositório (skip/take) quanto pela página
-// (calcular o total de páginas), ver PrismaAgenciaRepository.listar.
+// Tamanho de página default da listagem de cadastros, usado quando
+// `tamanhoPagina` não vem na querystring (ou vem um valor fora de
+// TAMANHOS_PAGINA_CADASTROS_PERMITIDOS) — ver PrismaAgenciaRepository.listar.
 export const TAMANHO_PAGINA_CADASTROS = 20;
+
+// Opções do seletor "itens por página" na tabela de /cadastros — qualquer
+// outro valor recebido pela querystring é ignorado, cai no default acima.
+export const TAMANHOS_PAGINA_CADASTROS_PERMITIDOS = [10, 20, 50, 100] as const;
 
 export interface ListarCadastrosFiltros {
   busca?: string;
@@ -311,6 +315,13 @@ export interface ListarCadastrosFiltros {
   // page, que é a fronteira real de confiança pra esse parâmetro vindo da
   // querystring).
   pagina?: number;
+  // Sobrescreve TAMANHO_PAGINA_CADASTROS — já validada por quem chama
+  // (deve ser um de TAMANHOS_PAGINA_CADASTROS_PERMITIDOS).
+  tamanhoPagina?: number;
+  // Ignora pagina/tamanhoPagina e devolve todos os registros que casam com
+  // o filtro — usado só pela exportação (CSV de /cadastros/exportar), que
+  // precisa do recorte completo, não da página visível na tela.
+  todos?: boolean;
 }
 
 export interface ListarCadastrosItem {

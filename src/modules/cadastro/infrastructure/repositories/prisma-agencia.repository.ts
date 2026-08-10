@@ -1031,12 +1031,18 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       };
     }
 
+    const tamanhoPagina = filtros.tamanhoPagina ?? TAMANHO_PAGINA_CADASTROS;
+
     const [records, total] = await Promise.all([
       this.prisma.agencia.findMany({
         where,
         orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
-        skip: ((filtros.pagina ?? 1) - 1) * TAMANHO_PAGINA_CADASTROS,
-        take: TAMANHO_PAGINA_CADASTROS,
+        ...(filtros.todos
+          ? {}
+          : {
+              skip: ((filtros.pagina ?? 1) - 1) * tamanhoPagina,
+              take: tamanhoPagina,
+            }),
         include: {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
