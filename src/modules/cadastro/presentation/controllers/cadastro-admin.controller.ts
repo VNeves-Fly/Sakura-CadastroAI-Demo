@@ -74,6 +74,10 @@ import {
   type CancelarContratoInput,
 } from "@/modules/cadastro/application/use-cases/cancelar-contrato.use-case";
 import {
+  RecusarCadastroUseCase,
+  type RecusarCadastroInput,
+} from "@/modules/cadastro/application/use-cases/recusar-cadastro.use-case";
+import {
   SalvarSicaUseCase,
   type SalvarSicaInput,
 } from "@/modules/cadastro/application/use-cases/salvar-sica.use-case";
@@ -149,10 +153,7 @@ import {
 import { RemoverSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/remover-signatario-padrao.use-case";
 import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/restaurar-signatario-padrao.use-case";
 import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
-import {
-  STATUS_ATIVO,
-  STATUS_RECUSADO,
-} from "@/modules/cadastro/domain/repositories/agencia-repository";
+import { STATUS_ATIVO } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { ListarCadastrosFiltros } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 // Composition root do módulo cadastro (área Admin) — mesmo domínio do
@@ -349,8 +350,15 @@ export const cadastroAdminController = {
     return this.atualizarStatus({ id, status: STATUS_ATIVO, usuarioEmail });
   },
 
-  recusarCadastro(id: string, usuarioEmail: string) {
-    return this.atualizarStatus({ id, status: STATUS_RECUSADO, usuarioEmail });
+  // Exige motivo (ver RecusarCadastroUseCase) — grava tanto no histórico
+  // de etapa (observacao) quanto no HistoricoEdicaoCadastro, mesmo padrão
+  // de quem/quando/por quê de cancelarContrato/forcarAvancoStatus.
+  recusarCadastro(input: RecusarCadastroInput) {
+    const useCase = new RecusarCadastroUseCase(
+      agenciaRepository,
+      historicoEdicaoCadastroRepository,
+    );
+    return useCase.execute(input);
   },
 
   obterAnaliseContratos(dias: number) {

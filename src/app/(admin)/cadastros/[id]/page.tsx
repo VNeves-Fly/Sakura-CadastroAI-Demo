@@ -57,6 +57,7 @@ import { NovoSocioForm } from "./novo-socio-form";
 import { RemoverSocioForm } from "./remover-socio-form";
 import { ForcarAvancoModal } from "./forcar-avanco-modal";
 import { CancelarContratoModal } from "./cancelar-contrato-modal";
+import { RecusarCadastroModal } from "./recusar-cadastro-modal";
 import { EditarEmpresaForm } from "./editar-empresa-form";
 import { EditarDadosBancariosForm } from "./editar-dados-bancarios-form";
 import { FilaAssinatura } from "./fila-assinatura";
@@ -308,6 +309,14 @@ export default async function DossieAgenciaPage({
     historicoEdicoesEmpresa,
     decisaoComplementar,
   } = view;
+
+  // Item mais recente do histórico de edições da própria Agencia cujo
+  // alteracoes.status.para seja "recusado" (ver RecusarCadastroUseCase) —
+  // undefined em cadastros recusados antes desta funcionalidade existir
+  // (a recusa aconteceu, mas sem motivo registrado).
+  const registroRecusa = historicoEdicoesEmpresa.find(
+    (item) => item.entidade === "Agencia" && item.alteracoes.status?.para === STATUS_RECUSADO,
+  );
 
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
   const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
@@ -992,14 +1001,10 @@ export default async function DossieAgenciaPage({
                       disabled={documentosNaoAprovados.length > 0}
                     />
                   ) : null}
-                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <BotaoSubmitComLoading
-                      labelCarregando="Recusando..."
-                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      Recusar
-                    </BotaoSubmitComLoading>
-                  </form>
+                  <RecusarCadastroModal
+                    agenciaId={agencia.id}
+                    recusarCadastroAction={recusarCadastroAction}
+                  />
                   <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
                     <BotaoSubmitComLoading
                       labelCarregando="Reprocessando..."
@@ -1051,14 +1056,10 @@ export default async function DossieAgenciaPage({
                     agenciaId={agencia.id}
                     cancelarContratoAction={cancelarContratoAction}
                   />
-                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <BotaoSubmitComLoading
-                      labelCarregando="Recusando..."
-                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      Recusar
-                    </BotaoSubmitComLoading>
-                  </form>
+                  <RecusarCadastroModal
+                    agenciaId={agencia.id}
+                    recusarCadastroAction={recusarCadastroAction}
+                  />
                 </div>
               ) : null}
             </div>
@@ -1075,7 +1076,17 @@ export default async function DossieAgenciaPage({
           ) : null}
 
           {agencia.status === STATUS_RECUSADO ? (
-            <p className="text-destructive text-sm font-medium">Cadastro recusado.</p>
+            <div className="flex flex-col gap-1">
+              <p className="text-destructive text-sm font-medium">Cadastro recusado.</p>
+              {registroRecusa ? (
+                <p className="text-muted-foreground text-xs">
+                  Por{" "}
+                  <span className="text-foreground font-medium">{registroRecusa.editadoPor}</span>{" "}
+                  em {formatarData(registroRecusa.createdAt)} — motivo:{" "}
+                  {registroRecusa.justificativa}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </SecaoColapsavel>
@@ -1182,14 +1193,10 @@ export default async function DossieAgenciaPage({
                         Ativar cliente
                       </BotaoSubmitComLoading>
                     </form>
-                    <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                      <BotaoSubmitComLoading
-                        labelCarregando="Recusando..."
-                        className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        Recusar
-                      </BotaoSubmitComLoading>
-                    </form>
+                    <RecusarCadastroModal
+                      agenciaId={agencia.id}
+                      recusarCadastroAction={recusarCadastroAction}
+                    />
                   </div>
                 ) : null}
               </>

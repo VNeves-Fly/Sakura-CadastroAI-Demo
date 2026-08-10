@@ -166,9 +166,13 @@ export async function ativarClienteAction(id: string) {
   revalidatePath(`/cadastros/${id}`);
 }
 
-export async function recusarCadastroAction(id: string) {
+export async function recusarCadastroAction(id: string, formData: FormData) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.recusarCadastro(id, await analistaLogado());
+  await cadastroAdminController.recusarCadastro({
+    agenciaId: id,
+    motivo: String(formData.get("motivo") ?? ""),
+    recusadoPor: await analistaLogado(),
+  });
   revalidatePath(`/cadastros/${id}`);
 }
 

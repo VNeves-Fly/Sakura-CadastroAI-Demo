@@ -138,6 +138,7 @@ export default async function ArquivoDossiePage({
     analiseCredito,
     verificacaoCadastral,
     dadosReceita,
+    historicoEdicoesEmpresa,
   } = view;
 
   // Arquivo só existe pra estados finais — qualquer outro status ainda
@@ -148,6 +149,12 @@ export default async function ArquivoDossiePage({
 
   const abaAtual = ABAS.find((aba) => aba.chave === searchParams.aba) ?? ABAS[0];
   const reprovada = agencia.status === STATUS_RECUSADO;
+  // Item mais recente do histórico de edições da própria Agencia cujo
+  // alteracoes.status.para seja "recusado" (ver RecusarCadastroUseCase) —
+  // undefined em cadastros recusados antes desta funcionalidade existir.
+  const registroRecusa = historicoEdicoesEmpresa.find(
+    (item) => item.entidade === "Agencia" && item.alteracoes.status?.para === STATUS_RECUSADO,
+  );
   // Atualizar documentação (upload mantendo histórico) só faz sentido pra
   // quem já está finalizado como cliente — Recusada continua 100%
   // somente-leitura (decisão do usuário, 2026-07-29).
@@ -194,14 +201,23 @@ export default async function ArquivoDossiePage({
             cliente ativo é uma decisão que não deve virar 1 clique dentro
             do arquivo. */}
         {reprovada ? (
-          <form action={reativarClienteAction.bind(null, agencia.id)} className="w-fit">
-            <button
-              type="submit"
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
-            >
-              Tornar Ativa
-            </button>
-          </form>
+          <>
+            {registroRecusa ? (
+              <p className="text-muted-foreground text-sm">
+                Recusado por{" "}
+                <span className="text-foreground font-medium">{registroRecusa.editadoPor}</span> em{" "}
+                {formatarData(registroRecusa.createdAt)} — motivo: {registroRecusa.justificativa}
+              </p>
+            ) : null}
+            <form action={reativarClienteAction.bind(null, agencia.id)} className="w-fit">
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground hover:bg-sakura-600 rounded-full px-4 py-2 text-sm font-semibold transition"
+              >
+                Tornar Ativa
+              </button>
+            </form>
+          </>
         ) : null}
       </div>
 
