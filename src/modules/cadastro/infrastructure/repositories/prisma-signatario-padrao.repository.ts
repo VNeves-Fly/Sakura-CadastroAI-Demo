@@ -15,7 +15,7 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
 
   async findAll(): Promise<SignatarioPadrao[]> {
     const records = await this.prisma.signatarioPadrao.findMany({
-      orderBy: { ordem: "asc" },
+      orderBy: { estagio: "asc" },
     });
     return records.map((record) => this.toDomain(record));
   }
@@ -23,7 +23,7 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
   async findAtivos(): Promise<SignatarioPadrao[]> {
     const records = await this.prisma.signatarioPadrao.findMany({
       where: { deletedAt: null },
-      orderBy: { ordem: "asc" },
+      orderBy: { estagio: "asc" },
     });
     return records.map((record) => this.toDomain(record));
   }
@@ -62,6 +62,17 @@ export class PrismaSignatarioPadraoRepository implements SignatarioPadraoReposit
       where: { id },
       data: { deletedAt: null },
     });
+  }
+
+  async reordenar(idsEmOrdem: string[]): Promise<void> {
+    await this.prisma.$transaction(
+      idsEmOrdem.map((id, index) =>
+        this.prisma.signatarioPadrao.update({
+          where: { id },
+          data: { estagio: index + 1 },
+        }),
+      ),
+    );
   }
 
   private toDomain(record: SignatarioPadraoRecord): SignatarioPadrao {

@@ -26,6 +26,9 @@ function fakeSignatarioPadraoRepository(
     restaurar: async () => {
       throw new Error("restaurar não implementado no fake de teste");
     },
+    reordenar: async () => {
+      throw new Error("reordenar não implementado no fake de teste");
+    },
   };
 }
 

@@ -145,14 +145,17 @@ import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
 import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
 import { ObterSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/obter-signatario-padrao.use-case";
-import { CriarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/criar-signatario-padrao.use-case";
+import {
+  CriarSignatarioPadraoUseCase,
+  type CriarSignatarioPadraoInput,
+} from "@/modules/cadastro/application/use-cases/criar-signatario-padrao.use-case";
+import { ReordenarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/reordenar-signatarios-padrao.use-case";
 import {
   AtualizarSignatarioPadraoUseCase,
   type AtualizarSignatarioPadraoInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-signatario-padrao.use-case";
 import { RemoverSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/remover-signatario-padrao.use-case";
 import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/restaurar-signatario-padrao.use-case";
-import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import { STATUS_ATIVO } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { ListarCadastrosFiltros } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
@@ -576,7 +579,7 @@ export const cadastroAdminController = {
     return useCase.execute(id);
   },
 
-  criarSignatarioPadrao(data: CreateSignatarioPadraoData) {
+  criarSignatarioPadrao(data: CriarSignatarioPadraoInput) {
     const useCase = new CriarSignatarioPadraoUseCase(signatarioPadraoRepository);
     return useCase.execute(data);
   },
@@ -594,6 +597,13 @@ export const cadastroAdminController = {
   restaurarSignatarioPadrao(id: string) {
     const useCase = new RestaurarSignatarioPadraoUseCase(signatarioPadraoRepository);
     return useCase.execute(id);
+  },
+
+  // Persiste a nova ordem da fila de assinatura (drag-and-drop na tela de
+  // Signatários do Contrato) — ver ReordenarSignatariosPadraoUseCase.
+  reordenarSignatariosPadrao(idsEmOrdem: string[]) {
+    const useCase = new ReordenarSignatariosPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(idsEmOrdem);
   },
 
   listarHistoricoEdicoes(entidadeId: string) {
