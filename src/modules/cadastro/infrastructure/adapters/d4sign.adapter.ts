@@ -5,6 +5,7 @@ import type {
   DocumentoD4SignInfo,
   GerarContratoInput,
   GerarContratoResult,
+  SignatarioKeySigner,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { PapelSignatarioPadrao } from "@/modules/cadastro/domain/enums";
 import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
@@ -66,10 +67,10 @@ export class D4SignAdapter implements ContratoAssinaturaService {
 
     await this.registrarWebhook(documentUuid);
 
-    await this.cadastrarSignatarios(documentUuid, input.signatarios);
+    const signatariosKeySigner = await this.cadastrarSignatarios(documentUuid, input.signatarios);
     await this.enviarParaAssinatura(documentUuid);
 
-    return { provedorId: documentUuid, status: "aguardando_assinatura" };
+    return { provedorId: documentUuid, status: "aguardando_assinatura", signatariosKeySigner };
   }
 
   private async criarDocumento(
@@ -263,10 +264,16 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     return link;
   }
 
+  // Devolve o key_signer de cada signatário cadastrado, em melhor esforço
+  // (ver extrairKeySignerPorEmail) — nunca lança por causa disso: um
+  // parsing que falhar só significa que ninguém ganha keySigner agora
+  // (mesmo estado de antes desta captura existir, backfillável depois via
+  // sync manual). O que NÃO pode falhar silenciosamente é o cadastro dos
+  // signatários em si — esse `request` continua exatamente como era.
   private async cadastrarSignatarios(
     documentUuid: string,
     signatarios: GerarContratoInput["signatarios"],
-  ): Promise<void> {
+  ): Promise<SignatarioKeySigner[]> {
     const signatariosPadrao = await this.signatarioPadraoRepository.findAtivos();
 
     const socios = signatarios.map((socio) => ({
@@ -291,9 +298,11 @@ export class D4SignAdapter implements ContratoAssinaturaService {
         after_position: String(padrao.estagio),
       }));
 
-    await this.request("POST", `/documents/${documentUuid}/createlist`, {
+    const resultado = await this.request("POST", `/documents/${documentUuid}/createlist`, {
       signers: [...socios, ...fixos],
     });
+
+    return extrairKeySignerPorEmail(resultado);
   }
 
   private async enviarParaAssinatura(documentUuid: string): Promise<void> {
@@ -317,6 +326,46 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     }
 
     return resultado;
+  }
+}
+
+// ⚠️ Especulativo — a doc oficial (docapi.d4sign.com.br/docs/endpoints-1)
+// só mostra um exemplo de resposta com o formato de UM signatário
+// (`{ key_signer, email, act, ..., status: "created" }`, objeto plano, sem
+// colchete de array), mesmo pro request que manda vários signatários de
+// uma vez (`signers: [...]`) — não confirma se a resposta real pra um
+// request com múltiplos signatários vem como array (um item por
+// signatário, o mais provável, espelhando o request) ou só um objeto.
+// Nunca testado ao vivo. Tenta as duas formas (array na raiz, ou
+// `{ list: [...] }`) e cai pro objeto único como último recurso; qualquer
+// erro de parsing (ou formato não reconhecido) devolve `[]` — nunca lança,
+// porque isso é só um bônus (captura o keySigner na hora da geração em vez
+// de esperar um sync manual depois) e jamais pode derrubar a geração do
+// contrato em si (ver histórico de regressões neste adapter,
+// docs/d4sign.md).
+function extrairKeySignerPorEmail(resultado: unknown): SignatarioKeySigner[] {
+  try {
+    const candidatos: unknown[] = Array.isArray(resultado)
+      ? resultado
+      : resultado && typeof resultado === "object"
+        ? Array.isArray((resultado as Record<string, unknown>).list)
+          ? ((resultado as Record<string, unknown>).list as unknown[])
+          : [resultado]
+        : [];
+
+    return candidatos
+      .filter(
+        (item): item is Record<string, unknown> & { email: string } =>
+          Boolean(item) &&
+          typeof item === "object" &&
+          typeof (item as Record<string, unknown>).email === "string",
+      )
+      .map((item) => ({
+        email: item.email,
+        keySigner: typeof item.key_signer === "string" ? item.key_signer : null,
+      }));
+  } catch {
+    return [];
   }
 }
 

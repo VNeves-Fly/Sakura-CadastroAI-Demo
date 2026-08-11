@@ -247,6 +247,7 @@ export const cadastroAdminController = {
       agenciaRepository,
       contratoAssinaturaService,
       decisaoHumanaRepository,
+      contratoAssinaturaRepository,
     );
     return useCase.execute(input);
   },
@@ -270,6 +271,7 @@ export const cadastroAdminController = {
       dadosReceitaRepository,
       documentoRepository,
       sstService,
+      contratoAssinaturaRepository,
     );
     return useCase.execute({ agenciaId: id });
   },

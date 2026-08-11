@@ -3,6 +3,7 @@ import { PrismaAgenciaRepository } from "@/modules/cadastro/infrastructure/repos
 import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import { PrismaDadosReceitaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-dados-receita.repository";
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
+import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaExecutivoResolver } from "@/modules/cadastro/infrastructure/repositories/prisma-executivo-resolver";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
@@ -43,6 +44,7 @@ const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const documentoRepository = new PrismaDocumentoRepository(prisma);
 const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
+const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const executivoResolver = new PrismaExecutivoResolver(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 // BrasilAPI é pública e gratuita (sem token) — diferente de
@@ -80,6 +82,7 @@ export const cadastroPublicoController = {
       dadosReceitaRepository,
       documentoRepository,
       sstService,
+      contratoAssinaturaRepository,
     );
     return useCase.execute({ agenciaId });
   },

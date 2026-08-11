@@ -241,7 +241,7 @@ export const ETAPAS_PIPELINE = [
 // "Recusado" não é uma etapa da trilha (é uma saída do fluxo normal) —
 // usa a existência de um Contrato como sinal real de onde a recusa
 // aconteceu (com contrato = recusado depois de enviado; sem contrato =
-// recusado ainda em Complementar) em vez de inventar um campo novo.
+// recusado ainda Análise de Documentos) em vez de inventar um campo novo.
 export function calcularProgressoTrilha(
   status: string,
   temContrato: boolean,

@@ -22,7 +22,17 @@ const PDF_PLACEHOLDER = Buffer.from(
 export class MockD4SignService implements ContratoAssinaturaService {
   async gerarEEnviar(input: GerarContratoInput): Promise<GerarContratoResult> {
     const provedorId = `mock-d4sign-${input.cnpj}`;
-    return { provedorId, status: "aguardando_assinatura" };
+    return {
+      provedorId,
+      status: "aguardando_assinatura",
+      // Só os sócios (input.signatarios) — o mock não conhece os
+      // signatários fixos da Sakura (cadastrados só dentro do
+      // D4SignAdapter real, via SignatarioPadraoRepository).
+      signatariosKeySigner: input.signatarios.map((signatario) => ({
+        email: signatario.email,
+        keySigner: Buffer.from(`mock-key-signer-${signatario.email}`).toString("base64"),
+      })),
+    };
   }
 
   async visualizarDocumento(): Promise<ArquivoContrato> {

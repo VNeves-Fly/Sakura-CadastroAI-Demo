@@ -950,8 +950,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       origemGeracao: OrigemGeracaoContrato;
       signatarios: ContratoSignatarioData[];
     },
-  ): Promise<void> {
-    await this.prisma.contrato.create({
+  ): Promise<{ id: string }> {
+    const contrato = await this.prisma.contrato.create({
       data: {
         agenciaId,
         provedorId: data.provedorId,
@@ -978,6 +978,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         },
       },
     });
+    return { id: contrato.id };
   }
 
   async atualizarStatusContrato(contratoId: string, status: string): Promise<void> {

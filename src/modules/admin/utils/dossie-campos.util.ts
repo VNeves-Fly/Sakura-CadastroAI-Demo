@@ -51,7 +51,7 @@ export function formatarEnderecoReceita(endereco: DadosReceitaEndereco | null): 
 
 // Fundo do Campo de Contrato Social/RG-CNH/Procuração conforme a decisão
 // do analista — verde aprovado, vermelho reprovado, amarelo enquanto
-// ainda pendente (documento enviado, aguardando revisão em Complementar,
+// ainda pendente (documento enviado, aguardando revisão Análise de Documentos,
 // ver PENDENTE em Arquivo) — decisão do usuário, 2026-07-27. `null`
 // (nenhum arquivo enviado ainda) mantém o fundo neutro de sempre.
 export function corFundoDocumento(documento: Documento | null): string {

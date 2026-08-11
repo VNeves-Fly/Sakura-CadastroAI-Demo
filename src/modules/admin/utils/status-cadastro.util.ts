@@ -11,7 +11,7 @@ import {
 
 export const STATUS_LABELS: Record<string, string> = {
   [STATUS_EM_ANALISE]: "Em análise (IA)",
-  [STATUS_EM_COMPLEMENTAR]: "Em complementar",
+  [STATUS_EM_COMPLEMENTAR]: "Análise de Documentos",
   [STATUS_AGUARDANDO_ASSINATURA]: "Aguardando assinatura",
   [STATUS_AGUARDANDO_VALIDACAO]: "Aguardando validação",
   [STATUS_AGUARDANDO_CADASTRAMENTO]: "Aguardando cadastramento",

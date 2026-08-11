@@ -131,12 +131,18 @@ describe("D4SignAdapter", () => {
   it("gera o documento a partir do template, cadastra o sócio no estágio 0 e envia pra assinatura, nessa ordem", async () => {
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
-      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(
+        okJson([{ key_signer: "a2V5LWZ1bGFubw==", email: "fulano@teste.com", status: "created" }]),
+      )
       .mockResolvedValueOnce(okJson({}));
 
     const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
 
-    expect(resultado).toEqual({ provedorId: "doc-uuid-123", status: "aguardando_assinatura" });
+    expect(resultado).toEqual({
+      provedorId: "doc-uuid-123",
+      status: "aguardando_assinatura",
+      signatariosKeySigner: [{ email: "fulano@teste.com", keySigner: "a2V5LWZ1bGFubw==" }],
+    });
     expect(global.fetch).toHaveBeenCalledTimes(3);
 
     const [criarUrl, criarOpts] = (global.fetch as jest.Mock).mock.calls[0];
@@ -203,7 +209,11 @@ describe("D4SignAdapter", () => {
 
     const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
 
-    expect(resultado).toEqual({ provedorId: "doc-uuid-123", status: "aguardando_assinatura" });
+    expect(resultado).toEqual({
+      provedorId: "doc-uuid-123",
+      status: "aguardando_assinatura",
+      signatariosKeySigner: [],
+    });
     expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 
@@ -381,6 +391,64 @@ describe("D4SignAdapter", () => {
 
       expect(resultado).toEqual({ registrado: false });
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("cadastrarSignatarios — captura do key_signer (via gerarEEnviar)", () => {
+    it("casa key_signer com email pra cada signatário quando a resposta vem como array", async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+        .mockResolvedValueOnce(
+          okJson([
+            { key_signer: "a2V5LWZ1bGFubw==", email: "fulano@teste.com", status: "created" },
+            {
+              key_signer: "a2V5LWNhZGFzdHJv",
+              email: "cadastro@sakuratur.com.br",
+              status: "created",
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(okJson({}));
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository([JEAN]),
+      ).gerarEEnviar(input);
+
+      expect(resultado.signatariosKeySigner).toEqual([
+        { email: "fulano@teste.com", keySigner: "a2V5LWZ1bGFubw==" },
+        { email: "cadastro@sakuratur.com.br", keySigner: "a2V5LWNhZGFzdHJv" },
+      ]);
+    });
+
+    it("reconhece a resposta envolta em { list: [...] }", async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+        .mockResolvedValueOnce(
+          okJson({ list: [{ key_signer: "a2V5LWZ1bGFubw==", email: "fulano@teste.com" }] }),
+        )
+        .mockResolvedValueOnce(okJson({}));
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(
+        input,
+      );
+
+      expect(resultado.signatariosKeySigner).toEqual([
+        { email: "fulano@teste.com", keySigner: "a2V5LWZ1bGFubw==" },
+      ]);
+    });
+
+    it("nunca lança e devolve lista vazia quando o formato da resposta não é reconhecido — não pode derrubar a geração do contrato", async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+        .mockResolvedValueOnce(okJson({ algumCampoInesperado: true }))
+        .mockResolvedValueOnce(okJson({}));
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(
+        input,
+      );
+
+      expect(resultado.signatariosKeySigner).toEqual([]);
+      expect(resultado.provedorId).toBe("doc-uuid-123");
     });
   });
 

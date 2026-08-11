@@ -28,6 +28,8 @@ import type {
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
+import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import { persistirKeySigners } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 
 // Mesma convenção de "quem" usada em AuditoriaDocumento (dossie-campos.tsx)
 // pra distinguir aprovação humana de automática — quem consultou tem
@@ -248,6 +250,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     private readonly dadosReceitaRepository: DadosReceitaRepository,
     private readonly documentoRepository: DocumentoRepository,
     private readonly sstService: SstService,
+    private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
   ) {}
 
   // A IA aprovando um documento (contrato social ou RG de um sócio) não
@@ -435,12 +438,17 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
           signatarios,
         });
 
-        await this.agenciaRepository.criarContrato(agenciaId, {
+        const contrato = await this.agenciaRepository.criarContrato(agenciaId, {
           provedorId: contratoResult.provedorId,
           status: contratoResult.status,
           origemGeracao: "ia",
           signatarios,
         });
+        await persistirKeySigners(
+          this.contratoAssinaturaRepository,
+          contrato.id,
+          contratoResult.signatariosKeySigner,
+        );
         await this.agenciaRepository.registrarAnaliseFinal(
           agenciaId,
           analiseIa,
