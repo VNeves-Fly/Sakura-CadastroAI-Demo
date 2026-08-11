@@ -58,6 +58,7 @@ function fakeContratoAssinaturaService(
     obterDestinatarios: jest.fn().mockResolvedValue([]),
     registrarWebhook: jest.fn().mockResolvedValue({ registrado: true }),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }

@@ -113,6 +113,12 @@ export async function sincronizarContratoD4SignAction(agenciaId: string): Promis
   return resultado;
 }
 
+// Leitura pura (chama o D4Sign, não muda nada no nosso banco) — mesmo
+// critério de visualizarDocumento: não passa por garantirAtendimentoAssumido.
+export async function obterLinkAssinaturaAction(agenciaId: string, email: string) {
+  return cadastroAdminController.obterLinkAssinatura({ agenciaId, email });
+}
+
 export async function marcarContratoAssinadoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.marcarContratoAssinado(id, await analistaLogado());

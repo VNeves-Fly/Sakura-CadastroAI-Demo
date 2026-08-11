@@ -105,8 +105,13 @@ export async function obterDossieView(id: string) {
     cadastroAdminController.listarDecisoesHumanas(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
+  // `keySigner` também vem daqui — precisa pro botão "Ver/copiar link" na
+  // Fila de Assinatura (ver ObterLinkAssinaturaUseCase).
   const assinaturasPorEmail = new Map(
-    assinaturasContrato.map((assinatura) => [assinatura.email, assinatura.assinadoEm]),
+    assinaturasContrato.map((assinatura) => [
+      assinatura.email,
+      { assinadoEm: assinatura.assinadoEm, keySigner: assinatura.keySigner },
+    ]),
   );
   const analiseIaContratoSocial = paraAnaliseIaResumo(analiseContratoSocialRaw);
   const empresaExtraido = paraEmpresaExtraidoView(analiseIaContratoSocial);

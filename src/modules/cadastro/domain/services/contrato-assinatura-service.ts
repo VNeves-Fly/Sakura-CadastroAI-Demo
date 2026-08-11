@@ -84,4 +84,12 @@ export interface ContratoAssinaturaService {
   // Cancela o documento no D4Sign — usado por CancelarContratoUseCase
   // quando o analista cancela um contrato ainda em Assinatura/Validação.
   cancelarDocumento(provedorId: string, motivo: string): Promise<void>;
+  // Link direto de assinatura de UM destinatário (botão "Ver/copiar link"
+  // na Fila de Assinatura do dossiê) — `keySigner` é o valor bruto salvo em
+  // ContratoAssinatura (base64, confirmado ao vivo — ver D4SignAdapter).
+  // Lança se o D4Sign não devolver um link (ex.: documento ainda não foi
+  // enviado pra esse signatário — estágios posteriores só são notificados
+  // depois que o(s) estágio(s) anterior(es) assinar(em), ver workflow="1"
+  // em cadastrarSignatarios).
+  obterLinkAssinatura(provedorId: string, keySigner: string): Promise<string>;
 }

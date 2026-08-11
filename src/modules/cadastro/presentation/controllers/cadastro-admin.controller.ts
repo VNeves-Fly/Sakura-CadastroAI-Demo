@@ -142,6 +142,10 @@ import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application
 import { SincronizarContratoD4SignUseCase } from "@/modules/cadastro/application/use-cases/sincronizar-contrato-d4sign.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
 import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-assinaturas-contrato.use-case";
+import {
+  ObterLinkAssinaturaUseCase,
+  type ObterLinkAssinaturaInput,
+} from "@/modules/cadastro/application/use-cases/obter-link-assinatura.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
 import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
 import { ObterSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/obter-signatario-padrao.use-case";
@@ -521,6 +525,17 @@ export const cadastroAdminController = {
   listarAssinaturasContrato(contratoId: string) {
     const useCase = new ListarAssinaturasContratoUseCase(contratoAssinaturaRepository);
     return useCase.execute(contratoId);
+  },
+
+  // Link direto de assinatura de um destinatário (botão "Ver/copiar link"
+  // na Fila de Assinatura) — ver ObterLinkAssinaturaUseCase.
+  obterLinkAssinatura(input: ObterLinkAssinaturaInput) {
+    const useCase = new ObterLinkAssinaturaUseCase(
+      agenciaRepository,
+      contratoAssinaturaRepository,
+      contratoAssinaturaService,
+    );
+    return useCase.execute(input);
   },
 
   async registrarContratoExterno(input: {

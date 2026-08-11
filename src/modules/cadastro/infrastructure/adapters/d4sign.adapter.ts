@@ -239,6 +239,30 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     await this.request("POST", `/documents/${provedorId}/cancel`, { comment: motivo });
   }
 
+  // Confirmado na doc oficial (docapi.d4sign.com.br/reference/link-assinatura,
+  // 2026-08 — ver docs/d4sign.md §9): `key_signer` (o que salvamos em
+  // ContratoAssinatura) vem em base64 de QUALQUER endpoint que o retorne
+  // (list/createlist/listpins); o parâmetro da URL aqui (`ID_linkassinatura`)
+  // é esse valor DECODIFICADO de base64, não o `key_signer` bruto. Resposta
+  // confirmada: `{ "link": "https://..." }`.
+  async obterLinkAssinatura(provedorId: string, keySigner: string): Promise<string> {
+    const idLinkAssinatura = Buffer.from(keySigner, "base64").toString("utf-8");
+    const resultado = await this.request(
+      "GET",
+      `/documents/${provedorId}/signaturelink/${encodeURIComponent(idLinkAssinatura)}`,
+      undefined,
+    );
+
+    const link = (resultado as { link?: unknown } | null)?.link;
+    if (typeof link !== "string" || link.length === 0) {
+      throw new Error(
+        `D4Sign não retornou um link de assinatura pra esse signatário (provedorId=${provedorId}) — o documento pode ainda não ter sido enviado pra ele (fila de estágios).`,
+      );
+    }
+
+    return link;
+  }
+
   private async cadastrarSignatarios(
     documentUuid: string,
     signatarios: GerarContratoInput["signatarios"],

@@ -279,7 +279,7 @@ export function montarFilaAssinatura(
   signatariosPadraoAtivos: SignatarioPadrao[],
   statusContrato: string | null,
   emailsNaoEntregues: Set<string>,
-  assinaturasPorEmail: Map<string, Date | null>,
+  assinaturasPorEmail: Map<string, { assinadoEm: Date | null; keySigner: string | null }>,
 ): SignatarioFila[] {
   const socioAssinadoInferido =
     statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
@@ -291,23 +291,28 @@ export function montarFilaAssinatura(
   const filaSocios: SignatarioFila[] = representantesLegais
     .filter((socio) => socio.administrativo !== false)
     .map((socio, index) => {
-      const assinadoEm = assinaturasPorEmail.get(socio.email) ?? null;
+      const registro = assinaturasPorEmail.get(socio.email) ?? null;
       return {
         id: socio.id,
         nome: socio.nome,
         email: socio.email,
         grupo: "Agência",
         ordem: index + 1,
-        assinado: assinadoEm !== null || socioAssinadoInferido,
-        assinadoEm,
+        assinado: registro?.assinadoEm != null || socioAssinadoInferido,
+        assinadoEm: registro?.assinadoEm ?? null,
         emailNaoEntregue: emailsNaoEntregues.has(socio.email),
+        keySigner: registro?.keySigner ?? null,
       };
     });
 
+  // Ordenado por `estagio` (a fila real de assinatura no D4Sign, ver
+  // SignatarioPadraoRepository) — não mais por `ordem`, campo aposentado
+  // desde que a tela de Signatários do Contrato passou a reordenar via
+  // drag-and-drop (ver signatarios_padrao_admin_gate_e_drag_order).
   const filaSakura: SignatarioFila[] = [...signatariosPadraoAtivos]
-    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+    .sort((a, b) => a.estagio - b.estagio)
     .map((signatario) => {
-      const assinadoEm = signatario.email
+      const registro = signatario.email
         ? (assinaturasPorEmail.get(signatario.email) ?? null)
         : null;
       const assinadoInferido =
@@ -318,10 +323,11 @@ export function montarFilaAssinatura(
         nome: signatario.nome ?? signatario.email ?? "—",
         email: signatario.email,
         grupo: "Sakura" as const,
-        ordem: filaSocios.length + (signatario.ordem ?? 0),
-        assinado: assinadoEm !== null || assinadoInferido,
-        assinadoEm,
+        ordem: filaSocios.length + signatario.estagio,
+        assinado: registro?.assinadoEm != null || assinadoInferido,
+        assinadoEm: registro?.assinadoEm ?? null,
         emailNaoEntregue: signatario.email ? emailsNaoEntregues.has(signatario.email) : false,
+        keySigner: registro?.keySigner ?? null,
       };
     });
 

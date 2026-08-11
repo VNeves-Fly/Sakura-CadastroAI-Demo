@@ -193,6 +193,7 @@ function criarContratoAssinaturaFake(
     obterDestinatarios: jest.fn(),
     registrarWebhook: jest.fn(),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }

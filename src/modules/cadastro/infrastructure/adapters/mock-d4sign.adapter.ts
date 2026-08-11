@@ -48,4 +48,8 @@ export class MockD4SignService implements ContratoAssinaturaService {
   async cancelarDocumento(): Promise<void> {
     return;
   }
+
+  async obterLinkAssinatura(provedorId: string): Promise<string> {
+    return `https://mock-d4sign.example.com/w/i/${provedorId}/link-de-assinatura`;
+  }
 }
