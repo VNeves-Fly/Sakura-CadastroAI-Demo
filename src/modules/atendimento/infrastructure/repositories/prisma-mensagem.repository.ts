@@ -130,6 +130,12 @@ export class PrismaMensagemRepository implements MensagemRepository {
     });
   }
 
+  async contarNaoLidas(): Promise<number> {
+    return this.prisma.mensagem.count({
+      where: { autor: AutorMensagem.CLIENTE, lido: false },
+    });
+  }
+
   async findByWaMessageId(waMessageId: string): Promise<MensagemEntity | null> {
     const record = await this.prisma.mensagem.findUnique({
       where: { waMessageId },

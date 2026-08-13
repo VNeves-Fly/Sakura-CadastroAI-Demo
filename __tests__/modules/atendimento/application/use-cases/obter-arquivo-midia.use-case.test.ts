@@ -12,6 +12,7 @@ function criarMensagemRepositoryFake(midia: MidiaArmazenada | null): MensagemRep
     criarMidia: jest.fn(),
     findMidiaById: jest.fn().mockResolvedValue(midia),
     marcarClienteComoLidas: jest.fn(),
+    contarNaoLidas: jest.fn(),
     findByWaMessageId: jest.fn(),
     atualizarStatusPorWaMessageId: jest.fn(),
   };

@@ -27,10 +27,12 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import type { Cargo } from "@/modules/users/domain/enums";
+import { useAtendimentoNaoLidasStore } from "@/modules/atendimento/stores/atendimento-nao-lidas.store";
 
 interface AdminNavItem {
   label: string;
@@ -166,6 +168,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
 
 export function AdminSidebar({ cargo }: { cargo: Cargo }) {
   const pathname = usePathname();
+  const totalNaoLidas = useAtendimentoNaoLidasStore((state) => state.total);
   const gruposVisiveis = GRUPOS_NAV.map((grupo) => ({
     ...grupo,
     itens: grupo.itens.filter((item) => !item.ocultoPara?.includes(cargo)),
@@ -213,6 +216,11 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                         <item.icon />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
+                      {item.href === "/atendimento" && totalNaoLidas > 0 && (
+                        <SidebarMenuBadge className="bg-success text-success-foreground">
+                          {totalNaoLidas}
+                        </SidebarMenuBadge>
+                      )}
                     </SidebarMenuItem>
                   ) : (
                     <SidebarMenuItem key={item.label}>
