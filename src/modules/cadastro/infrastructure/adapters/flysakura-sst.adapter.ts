@@ -2,6 +2,7 @@ import type {
   SicaConsultaResultado,
   SicaEmpresaRegistro,
   SstService,
+  SstStatusConexao,
 } from "@/modules/cadastro/domain/services/sst-service";
 import {
   sstBaseUrl,
@@ -33,6 +34,11 @@ interface RawAgenciasAtivasResponse {
   offset: number;
 }
 
+interface RawHealthResponse {
+  status: string;
+  databases: Record<string, string>;
+}
+
 function paraRegistro(raw: RawAgenciaAtivaSst): SicaEmpresaRegistro {
   return {
     codigoEmpresa: Number(raw.codigo_empresa),
@@ -61,6 +67,25 @@ export class FlysakuraSstAdapter implements SstService {
 
   async consultarSicaCodigoEmpresa(codigoEmpresa: number): Promise<SicaConsultaResultado> {
     return this.consultar("codigoEmpresa", String(codigoEmpresa));
+  }
+
+  // GET /health não exige X-Internal-Secret (confirmado via curl direto,
+  // 2026-08-13) — mas segue o mesmo liga/desliga por SST_API_KEY das outras
+  // operações deste adapter, já que sem a chave elas não funcionam de
+  // verdade mesmo (ver MockSstService).
+  async verificarConexao(): Promise<SstStatusConexao> {
+    const url = new URL("/health", sstBaseUrl());
+
+    const response = await fetch(url, {
+      headers: { accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      throw new Error(`SST respondeu ${response.status}: ${await response.text()}`);
+    }
+
+    const resultado = (await response.json()) as RawHealthResponse;
+    return { status: resultado.status, databases: resultado.databases };
   }
 
   private async consultar(

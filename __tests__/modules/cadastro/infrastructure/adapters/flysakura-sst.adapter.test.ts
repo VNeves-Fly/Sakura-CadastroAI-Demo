@@ -139,4 +139,60 @@ describe("FlysakuraSstAdapter", () => {
       "SST_API_KEY não configurada",
     );
   });
+
+  describe("verificarConexao", () => {
+    it("chama GET /health sem X-Internal-Secret e devolve status/databases", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "healthy",
+          timestamp: "2026-08-13T21:45:44.570Z",
+          databases: {
+            sica: "healthy",
+            sigot: "healthy",
+            travellink: "healthy",
+            mirror: "healthy",
+          },
+        }),
+      });
+
+      const resultado = await new FlysakuraSstAdapter().verificarConexao();
+
+      expect(resultado).toEqual({
+        status: "healthy",
+        databases: { sica: "healthy", sigot: "healthy", travellink: "healthy", mirror: "healthy" },
+      });
+
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(String(url)).toBe("https://sst.teste/health");
+      expect(opts.headers["X-Internal-Secret"]).toBeUndefined();
+    });
+
+    it("lança erro claro quando a resposta não é 2xx", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => "serviço indisponível",
+      });
+
+      await expect(new FlysakuraSstAdapter().verificarConexao()).rejects.toThrow(
+        "SST respondeu 503",
+      );
+    });
+
+    it("funciona mesmo sem SST_API_KEY, já que /health não exige credencial", async () => {
+      delete process.env.SST_API_KEY;
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: "healthy", databases: {} }),
+      });
+
+      await expect(new FlysakuraSstAdapter().verificarConexao()).resolves.toEqual({
+        status: "healthy",
+        databases: {},
+      });
+    });
+  });
 });
