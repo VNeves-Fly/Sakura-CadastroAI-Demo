@@ -1,0 +1,63 @@
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+
+export interface RankedListItem {
+  posicao?: number;
+  icone?: ReactNode;
+  nome: string;
+  subtitulo?: string;
+  valorPrincipal: string;
+  valorSecundario?: string;
+}
+
+interface RankedListProps {
+  icon: LucideIcon;
+  titulo: string;
+  subtitulo: string;
+  acoes?: ReactNode;
+  itens: RankedListItem[];
+}
+
+// Lista numerada com header + seletor de período à direita — "Top 10
+// Agências"/"Top 10 Fornecedores" (4.10).
+export function RankedList({ icon: Icon, titulo, subtitulo, acoes, itens }: RankedListProps) {
+  return (
+    <div className="border-border bg-card flex flex-col rounded-2xl border p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+          <div>
+            <h2 className="text-foreground text-sm font-semibold">{titulo}</h2>
+            <p className="text-muted-foreground mt-0.5 text-xs">{subtitulo}</p>
+          </div>
+        </div>
+        {acoes}
+      </div>
+
+      <ul className="mt-3 flex flex-col gap-2.5">
+        {itens.map((item, indice) => (
+          <li key={`${item.nome}-${indice}`} className="flex items-center gap-3">
+            {item.posicao ? (
+              <span className="text-muted-foreground w-4 shrink-0 text-xs font-bold">
+                {item.posicao}
+              </span>
+            ) : null}
+            {item.icone}
+            <div className="min-w-0 flex-1">
+              <p className="text-foreground truncate text-sm font-medium">{item.nome}</p>
+              {item.subtitulo ? (
+                <p className="text-muted-foreground text-xs">{item.subtitulo}</p>
+              ) : null}
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-foreground text-sm font-bold">{item.valorPrincipal}</p>
+              {item.valorSecundario ? (
+                <p className="text-muted-foreground text-xs">{item.valorSecundario}</p>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
