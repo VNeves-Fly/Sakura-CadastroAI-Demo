@@ -3,6 +3,8 @@ interface MultiMetricCardProps {
   valor: string;
   submetricas: { label: string; valor: string }[];
   linhasExtras?: { label: string; valor: string }[];
+  // Opcional — card inteiro fica clicável (abre modal de detalhamento).
+  aoClicar?: () => void;
 }
 
 // Valor principal + lista de submétricas — "Compraram (30D)", "Compraram
@@ -12,9 +14,10 @@ export function MultiMetricCard({
   valor,
   submetricas,
   linhasExtras,
+  aoClicar,
 }: MultiMetricCardProps) {
-  return (
-    <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4 sm:p-5">
+  const conteudo = (
+    <>
       <div>
         <p className="text-muted-foreground text-xs font-bold tracking-wide uppercase">{titulo}</p>
         <p className="text-foreground mt-1 text-2xl font-black sm:text-[28px]">{valor}</p>
@@ -39,6 +42,24 @@ export function MultiMetricCard({
           ))}
         </dl>
       ) : null}
+    </>
+  );
+
+  if (aoClicar) {
+    return (
+      <button
+        type="button"
+        onClick={aoClicar}
+        className="border-border bg-card hover:border-primary/40 flex flex-col gap-3 rounded-2xl border p-4 text-left transition sm:p-5"
+      >
+        {conteudo}
+      </button>
+    );
+  }
+
+  return (
+    <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4 sm:p-5">
+      {conteudo}
     </div>
   );
 }

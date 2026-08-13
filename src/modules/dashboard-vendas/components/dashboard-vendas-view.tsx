@@ -21,7 +21,11 @@ interface DashboardVendasViewProps {
 // dados já adaptados prontos — zero regra de negócio aqui, só layout.
 export function DashboardVendasView({ dados }: DashboardVendasViewProps) {
   return (
-    <div className="flex flex-col gap-4">
+    // "dashboard-vendas-scope" dá vida às vars --dv-* (ver
+    // constants/dashboard-vendas.constants.ts + .dashboard-vendas-scope
+    // em globals.css) — sem esta classe em algum ancestral, os
+    // `var(--dv-*)` não resolvem e as cores somem.
+    <div className="dashboard-vendas-scope flex flex-col gap-4">
       <ResumoDoDiaCard resumoPorPeriodo={dados.resumoPorPeriodo} />
       <MiniKpisGrid {...dados.miniKpis} />
       <VendasIntradayChart
@@ -30,7 +34,7 @@ export function DashboardVendasView({ dados }: DashboardVendasViewProps) {
       />
       <ProjecaoDoDiaCard projecao={dados.projecao} />
       <AcuraciaProjecaoPanel acuracia={dados.acuracia} />
-      <RecenciaKpisGrid recencia={dados.recencia} />
+      <RecenciaKpisGrid recencia={dados.recencia} recenciaDetalhe={dados.recenciaDetalhe} />
       <ConversaoPanel conversao={dados.conversao} />
       <VendasMensaisChart vendasMensais={dados.vendasMensais} />
       <VendasDiariasChart vendasDiarias={dados.vendasDiarias} />
@@ -43,7 +47,10 @@ export function DashboardVendasView({ dados }: DashboardVendasViewProps) {
         />
       </div>
 
-      <CruzamentoCanaisCard cruzamento={dados.cruzamentoCanais} />
+      <CruzamentoCanaisCard
+        cruzamento={dados.cruzamentoCanais}
+        cruzamentoDetalhe={dados.cruzamentoDetalhe}
+      />
     </div>
   );
 }

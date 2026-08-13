@@ -16,13 +16,38 @@ interface RankedListProps {
   subtitulo: string;
   acoes?: ReactNode;
   itens: RankedListItem[];
+  // Opcional — card inteiro fica clicável (abre modal com o ranking
+  // completo). `acoes` (o toggle Mês/Ano) para a propagação, senão
+  // trocar de período também abriria o modal.
+  aoClicar?: () => void;
 }
 
 // Lista numerada com header + seletor de período à direita — "Top 10
 // Agências"/"Top 10 Fornecedores" (4.10).
-export function RankedList({ icon: Icon, titulo, subtitulo, acoes, itens }: RankedListProps) {
+export function RankedList({
+  icon: Icon,
+  titulo,
+  subtitulo,
+  acoes,
+  itens,
+  aoClicar,
+}: RankedListProps) {
   return (
-    <div className="border-border bg-card flex flex-col rounded-2xl border p-5">
+    <div
+      role={aoClicar ? "button" : undefined}
+      tabIndex={aoClicar ? 0 : undefined}
+      onClick={aoClicar}
+      onKeyDown={
+        aoClicar
+          ? (evento) => {
+              if (evento.key === "Enter" || evento.key === " ") aoClicar();
+            }
+          : undefined
+      }
+      className={`border-border bg-card flex flex-col rounded-2xl border p-5 text-left ${
+        aoClicar ? "hover:border-primary/40 cursor-pointer transition" : ""
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
@@ -31,7 +56,7 @@ export function RankedList({ icon: Icon, titulo, subtitulo, acoes, itens }: Rank
             <p className="text-muted-foreground mt-0.5 text-xs">{subtitulo}</p>
           </div>
         </div>
-        {acoes}
+        {acoes ? <div onClick={(evento) => evento.stopPropagation()}>{acoes}</div> : null}
       </div>
 
       <ul className="mt-3 flex flex-col gap-2.5">

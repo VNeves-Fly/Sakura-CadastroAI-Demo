@@ -85,6 +85,25 @@ export interface RecenciaAgencias {
   };
 }
 
+// Linha de detalhamento por agência dos 4 cards de recência (4.6) — o
+// que o modal "Ver detalhes" lista. `canal` aqui é o canal histórico da
+// agência (pra filtrar a tabela), independente de qual dimensão (canal
+// ou faixa de dias) definiu a agência entrar naquele card específico.
+export interface AgenciaRecenciaDetalhe {
+  nome: string;
+  cnpj: string;
+  filial: string;
+  executivo: string;
+  gestor: string;
+  canal: Canal;
+  ultimaVenda: string; // "DD/MM/AAAA"
+  dias: number;
+  aereo365d: number;
+  terrestre365d: number;
+}
+
+export type ChaveRecencia = "compraram30d" | "compraramAno" | "semVendas30dMais" | "semVendasAno";
+
 export interface ConversaoCanal {
   saudePct: number;
   volumeMesVarPct: number;
@@ -138,6 +157,24 @@ export interface CruzamentoCanais {
   nenhum: { qtd: number; pct: number };
 }
 
+export type ChaveCruzamento = "ambos" | "soAereo" | "soTerrestre" | "nenhum";
+
+// Linha de detalhamento por agência dos 4 cards de cruzamento (4.11) —
+// "Última" fica null quando aquele canal nunca teve venda (categoria
+// "Só aéreo" nunca tem ultimaTerrestre, "Nenhum" não tem nenhuma das duas).
+export interface AgenciaCruzamentoDetalhe {
+  nome: string;
+  cnpj: string;
+  base: string;
+  executivo: string;
+  bilhetesAereo: number;
+  aereo365d: number;
+  vendasTerrestre: number;
+  terrestre365d: number;
+  ultimaAereo: string | null;
+  ultimaTerrestre: string | null;
+}
+
 export interface DashboardVendasData {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
   miniKpis: MiniKpis;
@@ -145,6 +182,7 @@ export interface DashboardVendasData {
   projecao: ProjecaoDia;
   acuracia: AcuraciaProjecao;
   recencia: RecenciaAgencias;
+  recenciaDetalhe: Record<ChaveRecencia, AgenciaRecenciaDetalhe[]>;
   conversao: Conversao;
   vendasMensais: VendaMensal[];
   vendasDiarias: VendaDiaria[];
@@ -152,4 +190,5 @@ export interface DashboardVendasData {
   fornecedoresPorMes: Record<string, TopFornecedor[]>;
   nacionalInternacionalPorMes: Record<string, NacionalInternacional>;
   cruzamentoCanais: CruzamentoCanais;
+  cruzamentoDetalhe: Record<ChaveCruzamento, AgenciaCruzamentoDetalhe[]>;
 }

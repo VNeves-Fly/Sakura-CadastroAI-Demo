@@ -1,5 +1,8 @@
-import { Ban, Bus, GitCompareArrows, Plane, Users } from "lucide-react";
-import { KpiCard } from "@/modules/dashboard-vendas/components/ui/kpi-card";
+"use client";
+
+import { useState } from "react";
+import { Bus, GitCompareArrows, Info, Plane, Users } from "lucide-react";
+import { CruzamentoDetalheModal } from "@/modules/dashboard-vendas/components/cruzamento-detalhe-modal";
 import {
   formatarNumero,
   formatarPercentual,
@@ -7,21 +10,35 @@ import {
 import {
   COR_AZUL,
   COR_AZUL_BG,
-  COR_PERIGO,
   COR_ROSA,
   COR_ROSA_BG,
   COR_VERDE,
 } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
-import type { CruzamentoCanais } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
+import type {
+  AgenciaCruzamentoDetalhe,
+  ChaveCruzamento,
+  CruzamentoCanais,
+} from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 interface CruzamentoCanaisCardProps {
   cruzamento: CruzamentoCanais;
+  cruzamentoDetalhe: Record<ChaveCruzamento, AgenciaCruzamentoDetalhe[]>;
 }
 
-// 4.11 — cruzamento Aéreo x Terrestre nos últimos 365 dias. O dropdown de
-// escopo (total de agências na carteira) é só informativo aqui — não
-// existe filtro de carteira real neste projeto ainda.
-export function CruzamentoCanaisCard({ cruzamento }: CruzamentoCanaisCardProps) {
+const TITULO_MODAL: Record<ChaveCruzamento, string> = {
+  ambos: "Vendem AMBOS",
+  soAereo: "Só AÉREO",
+  soTerrestre: "Só TERRESTRE",
+  nenhum: "NENHUM canal",
+};
+
+// 4.11 — cruzamento Aéreo x Terrestre nos últimos 365 dias. Estilo dos 4
+// cards replicado do print de referência (preenchimento sólido em 3 dos
+// 4). O dropdown de escopo (total de agências na carteira) é só
+// informativo aqui — não existe filtro de carteira real neste projeto.
+export function CruzamentoCanaisCard({ cruzamento, cruzamentoDetalhe }: CruzamentoCanaisCardProps) {
+  const [modalAberto, setModalAberto] = useState<ChaveCruzamento | null>(null);
+
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -40,39 +57,94 @@ export function CruzamentoCanaisCard({ cruzamento }: CruzamentoCanaisCardProps) 
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          icon={Users}
-          cor={COR_VERDE}
-          corFundoIcone="#D1FAE5"
-          label="Vendem AMBOS"
-          valor={formatarNumero(cruzamento.ambos.qtd)}
-          legenda={`Aéreo + Terrestre · ${formatarPercentual(cruzamento.ambos.pct)} da carteira`}
-        />
-        <KpiCard
-          icon={Plane}
-          cor={COR_ROSA}
-          corFundoIcone={COR_ROSA_BG}
-          label="Só AÉREO"
-          valor={formatarNumero(cruzamento.soAereo.qtd)}
-          legenda={`Compraram aéreo, nunca terrestre · ${formatarPercentual(cruzamento.soAereo.pct)} da carteira`}
-        />
-        <KpiCard
-          icon={Bus}
-          cor={COR_AZUL}
-          corFundoIcone={COR_AZUL_BG}
-          label="Só TERRESTRE"
-          valor={formatarNumero(cruzamento.soTerrestre.qtd)}
-          legenda={`Compraram terrestre, nunca aéreo · ${formatarPercentual(cruzamento.soTerrestre.pct)} da carteira`}
-        />
-        <KpiCard
-          icon={Ban}
-          cor={COR_PERIGO}
-          corFundoIcone="#FEE2E2"
-          label="NENHUM canal"
-          valor={formatarNumero(cruzamento.nenhum.qtd)}
-          legenda={`Aprovadas sem nenhuma venda · ${formatarPercentual(cruzamento.nenhum.pct)} da carteira`}
-        />
+        <button
+          type="button"
+          onClick={() => setModalAberto("ambos")}
+          className="flex flex-col gap-1 rounded-2xl p-4 text-left transition hover:brightness-105"
+          style={{ backgroundColor: COR_VERDE }}
+        >
+          <Users className="size-4 text-white/90" />
+          <p className="mt-1 text-[11px] font-bold tracking-wide text-white/90 uppercase">
+            Vendem AMBOS
+          </p>
+          <p className="text-2xl font-black text-white sm:text-[28px]">
+            {formatarNumero(cruzamento.ambos.qtd)}
+          </p>
+          <p className="text-xs text-white/75">
+            Aéreo + Terrestre · {formatarPercentual(cruzamento.ambos.pct, 0)} da carteira
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setModalAberto("soAereo")}
+          className="hover:border-primary/40 flex flex-col gap-1 rounded-2xl border p-4 text-left transition"
+          style={{ backgroundColor: COR_ROSA_BG, borderColor: `${COR_ROSA}40` }}
+        >
+          <Plane className="size-4" style={{ color: COR_ROSA }} />
+          <p
+            className="mt-1 text-[11px] font-bold tracking-wide uppercase"
+            style={{ color: COR_ROSA }}
+          >
+            Só AÉREO
+          </p>
+          <p className="text-foreground text-2xl font-black sm:text-[28px]">
+            {formatarNumero(cruzamento.soAereo.qtd)}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Compraram aéreo, nunca terrestre · {formatarPercentual(cruzamento.soAereo.pct, 0)} da
+            carteira
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setModalAberto("soTerrestre")}
+          className="hover:border-primary/40 flex flex-col gap-1 rounded-2xl border p-4 text-left transition"
+          style={{ backgroundColor: COR_AZUL_BG, borderColor: `${COR_AZUL}40` }}
+        >
+          <Bus className="size-4" style={{ color: COR_AZUL }} />
+          <p
+            className="mt-1 text-[11px] font-bold tracking-wide uppercase"
+            style={{ color: COR_AZUL }}
+          >
+            Só TERRESTRE
+          </p>
+          <p className="text-foreground text-2xl font-black sm:text-[28px]">
+            {formatarNumero(cruzamento.soTerrestre.qtd)}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Compraram terrestre, nunca aéreo · {formatarPercentual(cruzamento.soTerrestre.pct, 0)}{" "}
+            da carteira
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setModalAberto("nenhum")}
+          className="border-border bg-card hover:border-primary/40 flex flex-col gap-1 rounded-2xl border p-4 text-left transition"
+        >
+          <Info className="text-muted-foreground size-4" />
+          <p className="text-muted-foreground mt-1 text-[11px] font-bold tracking-wide uppercase">
+            NENHUM canal
+          </p>
+          <p className="text-foreground text-2xl font-black sm:text-[28px]">
+            {formatarNumero(cruzamento.nenhum.qtd)}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Aprovadas sem nenhuma venda · {formatarPercentual(cruzamento.nenhum.pct, 0)} da carteira
+          </p>
+        </button>
       </div>
+
+      <CruzamentoDetalheModal
+        aberto={modalAberto !== null}
+        onOpenChange={(aberto) => setModalAberto(aberto ? modalAberto : null)}
+        titulo={modalAberto ? TITULO_MODAL[modalAberto] : ""}
+        totalReal={modalAberto ? cruzamento[modalAberto].qtd : 0}
+        pct={modalAberto ? cruzamento[modalAberto].pct : 0}
+        itens={modalAberto ? cruzamentoDetalhe[modalAberto] : []}
+      />
     </div>
   );
 }

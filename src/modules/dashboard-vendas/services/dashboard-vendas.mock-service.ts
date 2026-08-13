@@ -1,7 +1,11 @@
 import type {
   AcuraciaProjecao,
+  AgenciaCruzamentoDetalhe,
+  AgenciaRecenciaDetalhe,
   BucketIntraday,
   Canal,
+  ChaveCruzamento,
+  ChaveRecencia,
   CruzamentoCanais,
   DashboardVendasData,
   NacionalInternacional,
@@ -195,7 +199,10 @@ function construirAcuracia(): AcuraciaProjecao {
 
 function construirRecencia(): RecenciaAgencias {
   return {
-    compraram30d: { total: 2_376, soAereo: 1_920, soTerrestre: 134, ambos: 322 },
+    // soAereo/soTerrestre/ambos de compraram30d conferidos contra o print
+    // de referência do modal "Compraram (30d)" (chips Aéreo 1.279 /
+    // Terrestre 47 / Ambos 1.050) — corrigido do valor estimado anterior.
+    compraram30d: { total: 2_376, soAereo: 1_279, soTerrestre: 47, ambos: 1_050 },
     compraramAno: { total: 4_058, soAereo: 3_102, soTerrestre: 298, ambos: 658 },
     semVendas30dMais: { total: 1_682, faixa31a89: 612, faixa90a179: 504, faixa180Mais: 566 },
     semVendasAno: {
@@ -207,6 +214,181 @@ function construirRecencia(): RecenciaAgencias {
       compraramAnoAtual: 4_058,
       soAnoAnterior: 58,
     },
+  };
+}
+
+const NOMES_AGENCIAS_DETALHE = [
+  "DANIELA CRISTINA DE OLIVEIRA ZILIO",
+  "GUARATUR",
+  "MAIORCA TURISMO",
+  "RF TURISMO",
+  "GAZIN VIAGENS",
+  "LURBOL AGENCIA D",
+  "FLASH TEC",
+  "DECOLAR.COM",
+  "DUCATO TURISMO",
+  "ULTRATRAVEL",
+  "VAI DE PROMO",
+  "SIDNEY ALVES TUR",
+  "CH TUR AGENCIA",
+  "TRAVEL CORP",
+  "RP TURISMO",
+  "KALINA VIAGENS",
+  "BOREAL TURISMO",
+  "ANDROMEDA VIAGENS",
+  "PORTAL DO TURISMO",
+  "CONFIANÇA TUR",
+  "VOA MAIS VIAGENS",
+  "TERRA NOVA TURISMO",
+  "AZUL MARINHO VIAGENS",
+  "CAMINHOS TUR",
+  "ROTA CERTA VIAGENS",
+  "BRISA TUR",
+  "SOL NASCENTE VIAGENS",
+  "PONTA DE PRAIA TUR",
+  "MONTANHA AZUL VIAGENS",
+  "VALE DO SOL TURISMO",
+];
+const FILIAIS_DETALHE = [
+  "SAO",
+  "BHZ",
+  "CWB",
+  "POA",
+  "BSB",
+  "REC",
+  "SSA",
+  "FOR",
+  "CGH",
+  "GIG",
+  "CNF",
+  "VIX",
+  "GYN",
+  "MAO",
+  "BEL",
+];
+const EXECUTIVOS_DETALHE = [
+  "NARA DANTAS",
+  "MARCELO FELIX",
+  "SEKAI",
+  "MARCO OLICHEVIS",
+  "JORGE BORGES",
+  "FABIANA SANTOS",
+  "SAKURA",
+  "JADY OLIVEIRA",
+  "CONECTA",
+  "IVAIR PEREIRA",
+  "PAULA FAGUNDES",
+  "JONATHAS MENDES",
+  "MARCOS BOARATI",
+  "RENATA ALVES",
+  "THIAGO SOUZA",
+];
+const GESTORES_DETALHE = [
+  "Filipe Gouvêa",
+  "Douglas Mendes",
+  "Miguel Ramos",
+  "Grasiele Carara",
+  "Wesley Andrade",
+  "Marcos Boarati",
+  "Camila Reis",
+  "Eduardo Lima",
+];
+
+// CNPJ visualmente plausível (não validado, é só fixture de UI) — hash
+// multiplicativo determinístico a partir do índice, mesmo padrão de
+// "sem Math.random" do resto do arquivo.
+function cnpjFicticio(indice: number): string {
+  const n = (indice * 2_654_435_761 + 97) % 100_000_000;
+  const d = String(10_000_000 + (n % 90_000_000));
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/0001-${String(10 + (indice % 90)).padStart(2, "0")}`;
+}
+
+// Embaralha determinística (hash multiplicativo por índice) — evita ficar
+// em blocos por canal/faixa na tabela, sem recorrer a `Math.random`.
+function embaralhar<T>(itens: T[]): T[] {
+  return itens
+    .map((item, indice) => ({ item, chave: (indice * 2_654_435_761 + 12_345) % 1_000_000_007 }))
+    .sort((a, b) => a.chave - b.chave)
+    .map((x) => x.item);
+}
+
+interface FaixaDias {
+  qtd: number;
+  diasMin: number;
+  diasMax: number;
+}
+
+// Gerador comum aos 4 modais de detalhamento (4.6) — `porCanal` define o
+// canal de cada linha (pra bater com os chips de filtro Aéreo/Terrestre/
+// Ambos), `faixasDias` define a faixa de "dias desde a última venda"
+// (pra bater com o total do card, que pode ser segmentado por canal OU
+// por faixa de inatividade — dimensões independentes, por isso embaralha
+// cada uma separadamente em vez de gerar as duas juntas).
+function construirDetalheAgencias(
+  porCanal: { aereo: number; terrestre: number; ambos: number },
+  faixasDias: FaixaDias[],
+): AgenciaRecenciaDetalhe[] {
+  const total = porCanal.aereo + porCanal.terrestre + porCanal.ambos;
+  const canaisOrdenados: Canal[] = [
+    ...Array<Canal>(porCanal.aereo).fill("aereo"),
+    ...Array<Canal>(porCanal.terrestre).fill("terrestre"),
+    ...Array<Canal>(porCanal.ambos).fill("ambos"),
+  ];
+  const faixasOrdenadas = faixasDias.flatMap((faixa) => Array<FaixaDias>(faixa.qtd).fill(faixa));
+
+  const canaisEmbaralhados = embaralhar(canaisOrdenados);
+  const faixasEmbaralhadas = embaralhar(faixasOrdenadas);
+
+  return Array.from({ length: total }, (_, indice) => {
+    const canal = canaisEmbaralhados[indice]!;
+    const faixa = faixasEmbaralhadas[indice]!;
+    const dias = faixa.diasMin + ((indice * 37) % (faixa.diasMax - faixa.diasMin + 1));
+    const nomeBase = NOMES_AGENCIAS_DETALHE[indice % NOMES_AGENCIAS_DETALHE.length]!;
+    const filial = FILIAIS_DETALHE[indice % FILIAIS_DETALHE.length]!;
+    // Repetições do pool de nomes (índice ≥ tamanho do pool) ganham o
+    // código da filial no nome, igual ao padrão real visto no print
+    // ("MAIORCA TURISMO (SAO)") — evita nome duplicado idêntico na tabela.
+    const nome = indice >= NOMES_AGENCIAS_DETALHE.length ? `${nomeBase} (${filial})` : nomeBase;
+    const valorBase = 50_000 + ((indice * 9_137) % 900_000);
+    const aereo365d = canal === "terrestre" ? 0 : valorBase;
+    const terrestre365d = canal === "aereo" ? 0 : Math.round(valorBase * 0.15) + 500;
+    const dataVenda = new Date(2026, 7, 13 - dias);
+
+    return {
+      nome,
+      cnpj: cnpjFicticio(indice),
+      filial,
+      executivo: EXECUTIVOS_DETALHE[indice % EXECUTIVOS_DETALHE.length]!,
+      gestor: GESTORES_DETALHE[indice % GESTORES_DETALHE.length]!,
+      canal,
+      ultimaVenda: `${dataVenda.getDate().toString().padStart(2, "0")}/${(dataVenda.getMonth() + 1).toString().padStart(2, "0")}/${dataVenda.getFullYear()}`,
+      dias,
+      aereo365d,
+      terrestre365d,
+    };
+  });
+}
+
+function construirRecenciaDetalhe(): Record<ChaveRecencia, AgenciaRecenciaDetalhe[]> {
+  return {
+    compraram30d: construirDetalheAgencias({ aereo: 1_279, terrestre: 47, ambos: 1_050 }, [
+      { qtd: 2_376, diasMin: 1, diasMax: 30 },
+    ]),
+    compraramAno: construirDetalheAgencias({ aereo: 3_102, terrestre: 298, ambos: 658 }, [
+      { qtd: 4_058, diasMin: 1, diasMax: 225 },
+    ]),
+    // Card é segmentado por faixa de inatividade, não por canal — a spec
+    // não dá o breakdown por canal deste card, então assume a mesma
+    // proporção aéreo/terrestre/ambos observada em compraram30d (única
+    // com número real conferido), escalada pro total de 1.682.
+    semVendas30dMais: construirDetalheAgencias({ aereo: 905, terrestre: 33, ambos: 744 }, [
+      { qtd: 612, diasMin: 31, diasMax: 89 },
+      { qtd: 504, diasMin: 90, diasMax: 179 },
+      { qtd: 566, diasMin: 180, diasMax: 365 },
+    ]),
+    semVendasAno: construirDetalheAgencias({ aereo: 2, terrestre: 1, ambos: 1 }, [
+      { qtd: 4, diasMin: 230, diasMax: 420 },
+    ]),
   };
 }
 
@@ -240,7 +422,13 @@ function construirConversao(): DashboardVendasData["conversao"] {
 }
 
 function construirVendasMensais(): VendaMensal[] {
-  const meses = ["Jan/26", "Fev/26", "Mar/26", "Abr/26", "Mai/26", "Jun/26", "Jul/26", "Ago/26"];
+  // Sufixo do ano dinâmico (ver anoAtual()) — só o RÓTULO acompanha o
+  // ano corrente; os valores por mês (Jan→Ago) continuam fixos, a
+  // fixture não representa o ano corrente de verdade.
+  const sufixoAno = String(new Date().getFullYear()).slice(-2);
+  const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago"].map(
+    (mes) => `${mes}/${sufixoAno}`,
+  );
   const pesosCrescimento = meses.map((_, indice) => Math.max(0.4, onda(indice, 1, 0.25, 0.09)));
 
   const nacional = distribuirPorPesos(423_500_000, pesosCrescimento);
@@ -282,10 +470,27 @@ const NOMES_AGENCIAS = [
   "Estrela Guia Turismo",
 ];
 
+// Tamanho do ranking completo (modal com scroll infinito, 4.10) — o
+// card mostra só os 10 primeiros (`.slice(0, 10)`), o modal usa a lista
+// inteira, sempre nesta mesma ordem (nunca reordena).
+const TAMANHO_RANKING_AGENCIAS = 300;
+const CANAIS_CICLO_CAUDA: Canal[] = [
+  "aereo",
+  "ambos",
+  "aereo",
+  "terrestre",
+  "aereo",
+  "ambos",
+  "aereo",
+  "aereo",
+];
+
 function construirTopAgencias(escala: number): TopAgencia[] {
-  const pesos = NOMES_AGENCIAS.map((_, indice) => 1 / (indice + 1) ** 0.75);
-  const valores = distribuirPorPesos(3_900_000 * escala, pesos);
-  const canais: Canal[] = [
+  const pesosTop10 = NOMES_AGENCIAS.map((_, indice) => 1 / (indice + 1) ** 0.75);
+  const somaPesosTop10 = pesosTop10.reduce((acc, peso) => acc + peso, 0);
+  const valorTotalTop10 = 3_900_000 * escala;
+  const valoresTop10 = distribuirPorPesos(valorTotalTop10, pesosTop10);
+  const canaisTop10: Canal[] = [
     "aereo",
     "aereo",
     "ambos",
@@ -299,13 +504,36 @@ function construirTopAgencias(escala: number): TopAgencia[] {
   ];
   // Ticket médio ~R$1.000 — calibrado pra bater com o exemplo da spec
   // (agência #1: "R$ 3,9M" / "3.899" bilhetes/vendas).
-  return NOMES_AGENCIAS.map((nome, indice) => ({
+  const top10 = NOMES_AGENCIAS.map((nome, indice) => ({
     posicao: indice + 1,
     nome,
-    canal: canais[indice]!,
-    valor: valores[indice]!,
-    qtd: Math.round(valores[indice]! / 1_000),
+    canal: canaisTop10[indice]!,
+    valor: valoresTop10[indice]!,
+    qtd: Math.round(valoresTop10[indice]! / 1_000),
   }));
+
+  // Continuação da mesma curva de peso (1/posição^0.75) além do Top 10 —
+  // `fator` é o mesmo "valor por unidade de peso" do Top 10, então a
+  // cauda emenda sem descontinuidade e sem alterar os 10 primeiros já
+  // conferidos contra a spec.
+  const fator = valorTotalTop10 / somaPesosTop10;
+  const cauda = Array.from({ length: TAMANHO_RANKING_AGENCIAS - NOMES_AGENCIAS.length }, (_, i) => {
+    const posicao = NOMES_AGENCIAS.length + i + 1;
+    const valor = fator / posicao ** 0.75;
+    const indiceNome = NOMES_AGENCIAS.length + i;
+    const nomeBase = NOMES_AGENCIAS_DETALHE[indiceNome % NOMES_AGENCIAS_DETALHE.length]!;
+    const filial = FILIAIS_DETALHE[indiceNome % FILIAIS_DETALHE.length]!;
+    const nome = indiceNome >= NOMES_AGENCIAS_DETALHE.length ? `${nomeBase} (${filial})` : nomeBase;
+    return {
+      posicao,
+      nome,
+      canal: CANAIS_CICLO_CAUDA[i % CANAIS_CICLO_CAUDA.length]!,
+      valor,
+      qtd: Math.round(valor / 1_000),
+    };
+  });
+
+  return [...top10, ...cauda];
 }
 
 const FORNECEDORES = [
@@ -321,18 +549,73 @@ const FORNECEDORES = [
   "ITA AIRWAYS",
 ];
 
+// Companhias reais além do Top 10 — mesma lógica do ranking de agências:
+// cauda decrescente pela mesma curva de peso, sem alterar os 10 primeiros.
+const FORNECEDORES_EXTRA = [
+  "COPA AIRLINES",
+  "AEROMEXICO",
+  "IBERIA",
+  "LUFTHANSA",
+  "AIR EUROPA",
+  "AVIANCA",
+  "JETBLUE",
+  "DELTA AIR LINES",
+  "UNITED AIRLINES",
+  "QATAR AIRWAYS",
+  "SWISS",
+  "KLM",
+  "AIR CANADA",
+  "ETIHAD AIRWAYS",
+  "SAS",
+  "FINNAIR",
+  "AUSTRIAN AIRLINES",
+  "LOT POLISH AIRLINES",
+  "VIRGIN ATLANTIC",
+  "AEROLINEAS ARGENTINAS",
+  "SKY AIRLINE",
+  "JETSMART",
+  "PASSAREDO",
+  "MAP LINHAS AÉREAS",
+  "VOEPASS",
+  "TOTAL LINHAS AÉREAS",
+  "AZUL CARGO",
+  "SINGAPORE AIRLINES",
+  "CATHAY PACIFIC",
+  "AIR CHINA",
+];
+
 function construirTopFornecedores(escala: number): TopFornecedor[] {
-  const pesos = FORNECEDORES.map((_, indice) => 1 / (indice + 1) ** 0.65);
-  const somaPesos = pesos.reduce((acc, peso) => acc + peso, 0);
-  const valorTotal = 62_000_000 * escala;
-  const valores = distribuirPorPesos(valorTotal, pesos);
-  const bilhetes = distribuirPorPesos(38_500 * escala, pesos);
-  return FORNECEDORES.map((nome, indice) => ({
+  const pesosTop10 = FORNECEDORES.map((_, indice) => 1 / (indice + 1) ** 0.65);
+  const somaPesosTop10 = pesosTop10.reduce((acc, peso) => acc + peso, 0);
+  const valorTotalTop10 = 62_000_000 * escala;
+  const bilhetesTotalTop10 = 38_500 * escala;
+  const valoresTop10 = distribuirPorPesos(valorTotalTop10, pesosTop10);
+  const bilhetesTop10 = distribuirPorPesos(bilhetesTotalTop10, pesosTop10);
+
+  const top10 = FORNECEDORES.map((nome, indice) => ({
     nome,
-    qtdBilhetes: bilhetes[indice]!,
-    valor: valores[indice]!,
-    participacaoPct: (pesos[indice]! / somaPesos) * 100,
+    qtdBilhetes: bilhetesTop10[indice]!,
+    valor: valoresTop10[indice]!,
+    participacaoPct: (pesosTop10[indice]! / somaPesosTop10) * 100,
   }));
+
+  // Mesmo "valor/bilhetes por unidade de peso" do Top 10 — a cauda
+  // continua a curva sem descontinuidade na posição 11.
+  const fatorValor = valorTotalTop10 / somaPesosTop10;
+  const fatorBilhetes = bilhetesTotalTop10 / somaPesosTop10;
+  const cauda = FORNECEDORES_EXTRA.map((nome, i) => {
+    const posicao = FORNECEDORES.length + i + 1;
+    const peso = 1 / posicao ** 0.65;
+    const valor = fatorValor * peso;
+    return {
+      nome,
+      qtdBilhetes: Math.round(fatorBilhetes * peso),
+      valor,
+      participacaoPct: (peso / somaPesosTop10) * 100,
+    };
+  });
+
+  return [...top10, ...cauda];
 }
 
 function construirNacionalInternacional(escala: number): NacionalInternacional {
@@ -352,8 +635,66 @@ function construirCruzamentoCanais(): CruzamentoCanais {
   };
 }
 
+// Teto de linhas geradas por categoria — "Nenhum canal" tem 12.581
+// agências reais, mas gerar 12.581 objetos só pra uma lista de UI mock
+// não tem propósito; o modal mostra o total real no cabeçalho e carrega
+// até este teto via scroll infinito (mesmo padrão de rankingPorMes).
+const TETO_LISTA_CRUZAMENTO = 400;
+
+function formatarDataCruzamento(data: Date): string {
+  return `${data.getDate().toString().padStart(2, "0")}/${(data.getMonth() + 1).toString().padStart(2, "0")}/${data.getFullYear()}`;
+}
+
+function construirLinhaCruzamento(
+  indice: number,
+  categoria: ChaveCruzamento,
+): AgenciaCruzamentoDetalhe {
+  const nomeBase = NOMES_AGENCIAS_DETALHE[indice % NOMES_AGENCIAS_DETALHE.length]!;
+  const filial = FILIAIS_DETALHE[indice % FILIAIS_DETALHE.length]!;
+  const nome = indice >= NOMES_AGENCIAS_DETALHE.length ? `${nomeBase} (${filial})` : nomeBase;
+  const valorBase = 40_000 + ((indice * 7_919) % 1_800_000);
+
+  const temAereo = categoria === "ambos" || categoria === "soAereo";
+  const temTerrestre = categoria === "ambos" || categoria === "soTerrestre";
+  const dataAereo = new Date(2026, 7, 13 - (1 + ((indice * 13) % 40)));
+  const dataTerrestre = new Date(2026, 7, 13 - (1 + ((indice * 29) % 90)));
+
+  return {
+    nome,
+    // Offset no índice do hash só pra não colidir com os CNPJs já usados
+    // em construirDetalheAgencias (fixture diferente, mesma origem).
+    cnpj: cnpjFicticio(indice + 100_000),
+    base: filial,
+    executivo: EXECUTIVOS_DETALHE[indice % EXECUTIVOS_DETALHE.length]!,
+    bilhetesAereo: temAereo ? 5 + (indice % 120) : 0,
+    aereo365d: temAereo ? valorBase : 0,
+    vendasTerrestre: temTerrestre ? 1 + (indice % 90) : 0,
+    terrestre365d: temTerrestre ? Math.round(valorBase * 0.18) + 300 : 0,
+    ultimaAereo: temAereo ? formatarDataCruzamento(dataAereo) : null,
+    ultimaTerrestre: temTerrestre ? formatarDataCruzamento(dataTerrestre) : null,
+  };
+}
+
+function construirCruzamentoDetalhe(
+  cruzamento: CruzamentoCanais,
+): Record<ChaveCruzamento, AgenciaCruzamentoDetalhe[]> {
+  const gerar = (categoria: ChaveCruzamento, total: number) =>
+    Array.from({ length: Math.min(total, TETO_LISTA_CRUZAMENTO) }, (_, indice) =>
+      construirLinhaCruzamento(indice, categoria),
+    );
+
+  return {
+    ambos: gerar("ambos", cruzamento.ambos.qtd),
+    soAereo: gerar("soAereo", cruzamento.soAereo.qtd),
+    soTerrestre: gerar("soTerrestre", cruzamento.soTerrestre.qtd),
+    nenhum: gerar("nenhum", cruzamento.nenhum.qtd),
+  };
+}
+
 export const dashboardVendasMockService = {
   async obterDashboard(): Promise<DashboardVendasData> {
+    const cruzamentoCanais = construirCruzamentoCanais();
+
     return {
       resumoPorPeriodo: construirResumoPorPeriodo(),
       miniKpis: { clientesDistintos: 29, bilhetesAereo: 158, ticketMedioAereo: 1_786.5 },
@@ -361,6 +702,7 @@ export const dashboardVendasMockService = {
       projecao: construirProjecao(),
       acuracia: construirAcuracia(),
       recencia: construirRecencia(),
+      recenciaDetalhe: construirRecenciaDetalhe(),
       conversao: construirConversao(),
       vendasMensais: construirVendasMensais(),
       vendasDiarias: construirVendasDiarias(),
@@ -370,7 +712,8 @@ export const dashboardVendasMockService = {
         mes: construirNacionalInternacional(1),
         ano: construirNacionalInternacional(11.4),
       },
-      cruzamentoCanais: construirCruzamentoCanais(),
+      cruzamentoCanais,
+      cruzamentoDetalhe: construirCruzamentoDetalhe(cruzamentoCanais),
     };
   },
 };

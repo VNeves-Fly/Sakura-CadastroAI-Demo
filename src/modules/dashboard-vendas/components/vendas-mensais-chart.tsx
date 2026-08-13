@@ -11,6 +11,7 @@ import {
   formatarMoedaBrl,
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import { linhaTooltip, wrapperTooltip } from "@/modules/dashboard-vendas/utils/apex-tooltip.util";
+import { anoAtual } from "@/modules/dashboard-vendas/utils/formatar-data.util";
 import {
   COR_AZUL,
   COR_ROSA,
@@ -107,14 +108,14 @@ export function VendasMensaisChart({ vendasMensais }: VendasMensaisChartProps) {
           <div>
             <h2 className="text-foreground text-sm font-semibold">Vendas mensais por modalidade</h2>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              Ano 2026 · passe o mouse nas barras para ver detalhes
+              Ano {anoAtual()} · passe o mouse nas barras para ver detalhes
             </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-right">
             <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-              Total 2026
+              Total {anoAtual()}
             </p>
             <p className="text-foreground text-lg font-bold">
               {formatarMoedaAbreviada(totalAno)}{" "}
