@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { SignatarioPadraoForm } from "../signatario-padrao-form";
 import {
@@ -8,7 +10,14 @@ import {
   restaurarSignatarioPadraoAction,
 } from "../actions";
 
+const CARGOS_GESTAO_DE_SIGNATARIOS = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
+
 export default async function EditarSignatarioPadraoPage({ params }: { params: { id: string } }) {
+  const session = await getServerSession(nextAuthOptions);
+  if (!session || !CARGOS_GESTAO_DE_SIGNATARIOS.has(session.user.cargo)) {
+    redirect("/cadastros");
+  }
+
   const signatario = await cadastroAdminController.obterSignatarioPadrao(params.id);
 
   if (!signatario) {

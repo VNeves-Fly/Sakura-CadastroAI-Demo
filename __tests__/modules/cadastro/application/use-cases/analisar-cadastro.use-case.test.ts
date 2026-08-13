@@ -22,6 +22,7 @@ import type {
 import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
+import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -171,7 +172,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
     atualizarStatus: jest.fn(),
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
-    criarContrato: jest.fn(),
+    criarContrato: jest.fn().mockResolvedValue({ id: "contrato-1" }),
     atualizarStatusContrato: jest.fn(),
     listar: jest.fn(),
     obterKpis: jest.fn(),
@@ -185,14 +186,17 @@ function criarContratoAssinaturaFake(
   overrides: Partial<ContratoAssinaturaService> = {},
 ): ContratoAssinaturaService {
   return {
-    gerarEEnviar: jest
-      .fn()
-      .mockResolvedValue({ provedorId: "d4sign-1", status: "aguardando_assinatura" }),
+    gerarEEnviar: jest.fn().mockResolvedValue({
+      provedorId: "d4sign-1",
+      status: "aguardando_assinatura",
+      signatariosKeySigner: [],
+    }),
     visualizarDocumento: jest.fn(),
     obterDocumento: jest.fn(),
     obterDestinatarios: jest.fn(),
     registrarWebhook: jest.fn(),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }
@@ -232,6 +236,19 @@ interface Deps {
   dadosReceitaRepository: DadosReceitaRepository;
   documentoRepository: DocumentoRepository;
   sstService: SstService;
+  contratoAssinaturaRepository: ContratoAssinaturaRepository;
+}
+
+function criarContratoAssinaturaRepositoryFake(
+  overrides: Partial<ContratoAssinaturaRepository> = {},
+): ContratoAssinaturaRepository {
+  return {
+    registrar: jest.fn(),
+    registrarDestinatario: jest.fn(),
+    findByContratoId: jest.fn().mockResolvedValue([]),
+    marcarRemocaoDoDocumento: jest.fn(),
+    ...overrides,
+  };
 }
 
 function criarSstServiceFake(overrides: Partial<SstService> = {}): SstService {
@@ -264,6 +281,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     dadosReceitaRepository: criarDadosReceitaFake(),
     documentoRepository: criarDocumentoRepositoryFake(),
     sstService: criarSstServiceFake(),
+    contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake(),
     ...overrides,
   };
 
@@ -275,6 +293,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.dadosReceitaRepository,
     deps.documentoRepository,
     deps.sstService,
+    deps.contratoAssinaturaRepository,
   );
 
   return { useCase, ...deps };
@@ -445,6 +464,28 @@ describe("AnalisarCadastroUseCase", () => {
       STATUS_EM_ANALISE,
       STATUS_AGUARDANDO_ASSINATURA,
       "APROVADO",
+    );
+  });
+
+  it("persiste o keySigner de cada signatário capturado na resposta do createlist", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, contratoAssinaturaRepository } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+      contratoAssinaturaService: criarContratoAssinaturaFake({
+        gerarEEnviar: jest.fn().mockResolvedValue({
+          provedorId: "d4sign-1",
+          status: "aguardando_assinatura",
+          signatariosKeySigner: [{ email: "fulano@example.com", keySigner: "a2V5LWZ1bGFubw==" }],
+        }),
+      }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    expect(contratoAssinaturaRepository.registrarDestinatario).toHaveBeenCalledWith(
+      "contrato-1",
+      "fulano@example.com",
+      "a2V5LWZ1bGFubw==",
     );
   });
 

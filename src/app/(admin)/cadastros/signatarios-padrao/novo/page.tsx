@@ -1,8 +1,18 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { SignatarioPadraoForm } from "../signatario-padrao-form";
 import { criarSignatarioPadraoAction } from "../actions";
 
-export default function NovoSignatarioPadraoPage() {
+const CARGOS_GESTAO_DE_SIGNATARIOS = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
+
+export default async function NovoSignatarioPadraoPage() {
+  const session = await getServerSession(nextAuthOptions);
+  if (!session || !CARGOS_GESTAO_DE_SIGNATARIOS.has(session.user.cargo)) {
+    redirect("/cadastros");
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div>

@@ -585,6 +585,9 @@ export interface AgenciaRepository {
   ): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
   salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;
+  // Devolve o id do Contrato criado — precisa pra gravar ContratoAssinatura
+  // (keySigner capturado na hora da geração, ver AprovarCadastroComplementarUseCase/
+  // AnalisarCadastroUseCase) logo em seguida.
   criarContrato(
     agenciaId: string,
     data: {
@@ -593,7 +596,7 @@ export interface AgenciaRepository {
       origemGeracao: OrigemGeracaoContrato;
       signatarios: ContratoSignatarioData[];
     },
-  ): Promise<void>;
+  ): Promise<{ id: string }>;
   atualizarStatusContrato(contratoId: string, status: string): Promise<void>;
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;

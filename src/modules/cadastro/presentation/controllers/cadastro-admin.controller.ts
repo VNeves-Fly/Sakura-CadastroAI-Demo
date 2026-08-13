@@ -142,17 +142,24 @@ import { ListarSignatariosContratoUseCase } from "@/modules/cadastro/application
 import { SincronizarContratoD4SignUseCase } from "@/modules/cadastro/application/use-cases/sincronizar-contrato-d4sign.use-case";
 import { ListarEmailsFalhaEntregaContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-emails-falha-entrega-contrato.use-case";
 import { ListarAssinaturasContratoUseCase } from "@/modules/cadastro/application/use-cases/listar-assinaturas-contrato.use-case";
+import {
+  ObterLinkAssinaturaUseCase,
+  type ObterLinkAssinaturaInput,
+} from "@/modules/cadastro/application/use-cases/obter-link-assinatura.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
 import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
 import { ObterSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/obter-signatario-padrao.use-case";
-import { CriarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/criar-signatario-padrao.use-case";
+import {
+  CriarSignatarioPadraoUseCase,
+  type CriarSignatarioPadraoInput,
+} from "@/modules/cadastro/application/use-cases/criar-signatario-padrao.use-case";
+import { ReordenarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/reordenar-signatarios-padrao.use-case";
 import {
   AtualizarSignatarioPadraoUseCase,
   type AtualizarSignatarioPadraoInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-signatario-padrao.use-case";
 import { RemoverSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/remover-signatario-padrao.use-case";
 import { RestaurarSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/restaurar-signatario-padrao.use-case";
-import type { CreateSignatarioPadraoData } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import { STATUS_ATIVO } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { ListarCadastrosFiltros } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
@@ -240,6 +247,7 @@ export const cadastroAdminController = {
       agenciaRepository,
       contratoAssinaturaService,
       decisaoHumanaRepository,
+      contratoAssinaturaRepository,
     );
     return useCase.execute(input);
   },
@@ -263,6 +271,7 @@ export const cadastroAdminController = {
       dadosReceitaRepository,
       documentoRepository,
       sstService,
+      contratoAssinaturaRepository,
     );
     return useCase.execute({ agenciaId: id });
   },
@@ -520,6 +529,17 @@ export const cadastroAdminController = {
     return useCase.execute(contratoId);
   },
 
+  // Link direto de assinatura de um destinatário (botão "Ver/copiar link"
+  // na Fila de Assinatura) — ver ObterLinkAssinaturaUseCase.
+  obterLinkAssinatura(input: ObterLinkAssinaturaInput) {
+    const useCase = new ObterLinkAssinaturaUseCase(
+      agenciaRepository,
+      contratoAssinaturaRepository,
+      contratoAssinaturaService,
+    );
+    return useCase.execute(input);
+  },
+
   async registrarContratoExterno(input: {
     agenciaId: string;
     contratoId: string;
@@ -576,7 +596,7 @@ export const cadastroAdminController = {
     return useCase.execute(id);
   },
 
-  criarSignatarioPadrao(data: CreateSignatarioPadraoData) {
+  criarSignatarioPadrao(data: CriarSignatarioPadraoInput) {
     const useCase = new CriarSignatarioPadraoUseCase(signatarioPadraoRepository);
     return useCase.execute(data);
   },
@@ -594,6 +614,13 @@ export const cadastroAdminController = {
   restaurarSignatarioPadrao(id: string) {
     const useCase = new RestaurarSignatarioPadraoUseCase(signatarioPadraoRepository);
     return useCase.execute(id);
+  },
+
+  // Persiste a nova ordem da fila de assinatura (drag-and-drop na tela de
+  // Signatários do Contrato) — ver ReordenarSignatariosPadraoUseCase.
+  reordenarSignatariosPadrao(idsEmOrdem: string[]) {
+    const useCase = new ReordenarSignatariosPadraoUseCase(signatarioPadraoRepository);
+    return useCase.execute(idsEmOrdem);
   },
 
   listarHistoricoEdicoes(entidadeId: string) {

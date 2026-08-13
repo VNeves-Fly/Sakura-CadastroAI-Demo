@@ -17,6 +17,7 @@ import {
   UserPlus,
   MapPin,
   Building2,
+  FileSignature,
 } from "lucide-react";
 import {
   Sidebar,
@@ -149,6 +150,15 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         href: "/cadastros/messenger",
         icon: Webhook,
         ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Signatários do Contrato",
+        href: "/cadastros/signatarios-padrao",
+        icon: FileSignature,
+        // Quem assina o contrato pela Sakura é restrito a Admin/Diretor
+        // (decisão do usuário, 2026-07-31) — mesmo guard checado de novo
+        // nas próprias pages/actions (ver actions.ts do módulo).
+        ocultoPara: CARGOS_NAO_ADMIN,
       },
     ],
   },

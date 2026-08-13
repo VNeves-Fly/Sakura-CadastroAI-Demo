@@ -72,9 +72,9 @@ export function DashboardKpisGrid({
       />
       <DashboardKpiCard
         icon={FileEdit}
-        titulo="Em complementar"
+        titulo="Análise de Documentos"
         valor={String(emComplementar)}
-        descricao="cadastros parados em complementar"
+        descricao="cadastros em análise de documentos"
         cor={COR_COMPLEMENTAR}
         series={seriesEmComplementar}
       />

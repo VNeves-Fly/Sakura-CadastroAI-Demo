@@ -12,7 +12,7 @@ interface GraficoOrigemContratoProps {
 
 // Rosca comparando quantos contratos foram gerados automaticamente pela
 // IA (cadastro aprovado direto) vs gerados manualmente pelo analista
-// (depois de uma revisão em Complementar) — dado real de
+// (depois de uma revisão Análise de Documentos) — dado real de
 // Contrato.signatarios, sem estimativa.
 export function GraficoOrigemContrato({ ia, humano }: GraficoOrigemContratoProps) {
   const total = ia + humano;

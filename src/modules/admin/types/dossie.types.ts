@@ -113,6 +113,10 @@ export interface SignatarioFila {
   assinado: boolean;
   assinadoEm: Date | null;
   emailNaoEntregue: boolean;
+  // ID do signatário no D4Sign (base64) — presente só depois de um webhook
+  // ou sync manual registrar esse destinatário (ver ContratoAssinatura).
+  // Habilita o botão "Ver/copiar link" (ObterLinkAssinaturaUseCase).
+  keySigner: string | null;
 }
 
 // AMAT/SOFIA reais (ver ConsultaAmatCard/ConsultaSofiaCard), lidos do

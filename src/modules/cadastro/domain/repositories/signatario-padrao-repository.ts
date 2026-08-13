@@ -32,4 +32,10 @@ export interface SignatarioPadraoRepository {
   // Soft delete — marca deletedAt (agora); reversível via restaurar().
   softDelete(id: string): Promise<void>;
   restaurar(id: string): Promise<void>;
+  // Drag-and-drop da fila de assinatura (tela de Signatários do Contrato):
+  // reescreve estagio = índice+1 pra cada id, na ordem dada — a lista vira
+  // uma fila sequencial (uma pessoa por estágio). `idsEmOrdem` precisa
+  // conter exatamente os ids dos signatários ativos (validado pelo
+  // use-case antes de chamar aqui).
+  reordenar(idsEmOrdem: string[]): Promise<void>;
 }

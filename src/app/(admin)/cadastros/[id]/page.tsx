@@ -885,7 +885,7 @@ export default async function DossieAgenciaPage({
         <div className="flex flex-col gap-3">
           {contratoAtual && etapaExibida === indiceAssinatura ? (
             <>
-              <FilaAssinatura fila={filaAssinatura} />
+              <FilaAssinatura fila={filaAssinatura} agenciaId={agencia.id} />
               {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 
               <div className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
@@ -1028,7 +1028,7 @@ export default async function DossieAgenciaPage({
                   : "Confira as evidências de assinatura (selfie, documento e vídeo selfie de cada sócio) no documento assinado. Assim que o aprovador do time de cadastro assinar no D4Sign, o cadastro avança sozinho para Cadastramento."}
               </p>
 
-              <FilaAssinatura fila={filaAssinatura} />
+              <FilaAssinatura fila={filaAssinatura} agenciaId={agencia.id} />
               {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 
               {contratoAtual ? (

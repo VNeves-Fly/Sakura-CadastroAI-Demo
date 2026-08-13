@@ -58,6 +58,7 @@ function fakeContratoAssinaturaService(
     obterDestinatarios: jest.fn().mockResolvedValue([]),
     registrarWebhook: jest.fn().mockResolvedValue({ registrado: true }),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }
@@ -91,6 +92,9 @@ function fakeSignatarioPadraoRepository(
       throw new Error("não implementado");
     },
     restaurar: async () => {
+      throw new Error("não implementado");
+    },
+    reordenar: async () => {
       throw new Error("não implementado");
     },
   };
