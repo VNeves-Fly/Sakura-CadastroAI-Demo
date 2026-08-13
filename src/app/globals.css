@@ -153,6 +153,23 @@
     --warning-foreground: 0 0% 100%;
     --ring: 319 100% 47%;
   }
+
+  /* Paleta do /dashboard-new (dashboard-vendas.constants.ts) — mesmo
+     padrão do .chat-scope acima: escopada a uma classe própria, nunca em
+     :root, pra não virar token global nem arriscar o resto do app.
+     Consumida só via var(--dv-*) pelas próprias constantes do módulo. */
+  .dashboard-vendas-scope {
+    --dv-rosa: 323 93% 51%;
+    --dv-rosa-bg: 326 78% 95%;
+    --dv-azul: 217 91% 60%;
+    --dv-azul-bg: 214 95% 93%;
+    --dv-roxo: 258 90% 66%;
+    --dv-verde: 160 84% 39%;
+    --dv-amarelo: 38 92% 50%;
+    --dv-cinza: 218 11% 65%;
+    --dv-sucesso: 142 76% 36%;
+    --dv-perigo: 0 72% 51%;
+  }
 }
 
 @layer utilities {

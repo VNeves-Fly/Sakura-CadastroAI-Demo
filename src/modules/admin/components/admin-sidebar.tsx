@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  BarChart2,
   ClipboardList,
   Users,
   MessageCircle,
@@ -44,6 +45,8 @@ interface AdminNavGrupo {
   itens: AdminNavItem[];
 }
 
+const ROTAS_EXATAS = new Set(["/cadastros", "/dashboard"]);
+
 const CARGOS_INTERNOS_APENAS: Cargo[] = ["GESTOR", "EXECUTIVO"];
 // "Gestores" só pra quem pode cadastrar Gestor (decisão do usuário,
 // 2026-08-03) — Admin/Diretor, ninguém mais.
@@ -51,6 +54,10 @@ const CARGOS_NAO_ADMIN: Cargo[] = ["ANALISTA", "GESTOR", "EXECUTIVO"];
 // "Executivos" (/promotores) — Admin/Diretor cadastram qualquer um, Gestor
 // só os seus; Analista/Executivo não cadastram.
 const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
+// "Dashboard (novo)" — restrito a ADMIN (pedido do usuário, 2026-08-13);
+// diferente de CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica
+// de fora (guard real é no page.tsx — isto só evita mostrar o item).
+const CARGOS_SEM_DASHBOARD_NOVO: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GESTOR", "EXECUTIVO"];
 
 // Lista de itens extraída direto do produto real (print de referência,
 // onboarding.flysakura.com/admin/onboarding/cadastros) — só "Cadastros"
@@ -59,7 +66,17 @@ const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
 const GRUPOS_NAV: AdminNavGrupo[] = [
   {
     label: "Painéis",
-    itens: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+    itens: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      // Reprodução da SPEC do CRM Sakura (SPEC_Dashboard_Sakura.md),
+      // dados mock — ver dashboard-vendas.mock-service.ts.
+      {
+        label: "Dashboard (novo)",
+        href: "/dashboard-new",
+        icon: BarChart2,
+        ocultoPara: CARGOS_SEM_DASHBOARD_NOVO,
+      },
+    ],
   },
   {
     label: "Onboarding",
@@ -173,11 +190,11 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                       <SidebarMenuButton
                         isActive={
                           // "/cadastros" é prefixo de toda subrota (usuários,
-                          // eventos, messenger) — só marca "Cadastros" ativo
-                          // na rota exata, senão os dois ficam destacados
-                          // juntos em qualquer página dentro de /cadastros.
-                          item.href === "/cadastros"
-                            ? pathname === "/cadastros"
+                          // eventos, messenger) e "/dashboard" é prefixo de
+                          // "/dashboard-new" — esses dois precisam de match
+                          // exato, senão o item errado também fica ativo.
+                          ROTAS_EXATAS.has(item.href)
+                            ? pathname === item.href
                             : pathname.startsWith(item.href)
                         }
                         tooltip={item.label}
