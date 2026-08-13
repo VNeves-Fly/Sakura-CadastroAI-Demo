@@ -8,6 +8,7 @@ import type {
   NumeroContato,
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
+import { useAtendimentoNaoLidasStore } from "@/modules/atendimento/stores/atendimento-nao-lidas.store";
 import { paraWhatsappId, telefonesEquivalentes } from "@/modules/shared/utils/telefone.util";
 
 export type AbaListaLateral = "conversas" | "contatos";
@@ -137,6 +138,12 @@ export function useAtendimento(
 
       void atendimentoApi.marcarComoLida(id).then((conversaAtualizada) => {
         setConversas((atual) => atual.map((item) => (item.id === id ? conversaAtualizada : item)));
+        // A trigger Postgres do canal SSE só dispara em INSERT de mensagem
+        // (ver docs/realtime-sse.md) — marcar como lida é um UPDATE, então
+        // o badge do sidebar não cai sozinho sem esta chamada explícita.
+        void atendimentoApi
+          .contarNaoLidas()
+          .then(({ total }) => useAtendimentoNaoLidasStore.getState().definirTotal(total));
       });
     },
     [conversas, analistaId],

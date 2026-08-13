@@ -7,6 +7,7 @@ function criarMensagemRepositoryFake(): MensagemRepository {
     criarMidia: jest.fn(),
     findMidiaById: jest.fn(),
     marcarClienteComoLidas: jest.fn(),
+    contarNaoLidas: jest.fn(),
     findByWaMessageId: jest.fn(),
     atualizarStatusPorWaMessageId: jest.fn(),
   };

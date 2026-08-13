@@ -161,6 +161,12 @@ export const atendimentoController = {
     return useCase.execute(id);
   },
 
+  // Contagem agregada no banco (não a lista inteira de conversas) — usada
+  // pelo Live component do sidebar, montado em toda página do admin.
+  contarMensagensNaoLidas() {
+    return mensagemRepository.contarNaoLidas();
+  },
+
   marcarComoLida(conversaId: string) {
     const useCase = new MarcarComoLidaUseCase(
       conversaRepository,

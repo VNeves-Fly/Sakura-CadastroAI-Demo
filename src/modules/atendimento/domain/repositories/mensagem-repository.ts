@@ -41,6 +41,9 @@ export interface MensagemRepository {
   criarMidia(data: CriarMidiaData): Promise<{ id: string }>;
   findMidiaById(midiaId: string): Promise<MidiaArmazenada | null>;
   marcarClienteComoLidas(conversaId: string): Promise<void>;
+  // Total de mensagens do cliente ainda não lidas, em qualquer conversa —
+  // alimenta o badge do sidebar (contagem global, não por analista).
+  contarNaoLidas(): Promise<number>;
   // Chave de idempotência do webhook — Meta redelivera eventos em retry.
   findByWaMessageId(waMessageId: string): Promise<MensagemEntity | null>;
   atualizarStatusPorWaMessageId(

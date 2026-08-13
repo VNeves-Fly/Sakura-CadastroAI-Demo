@@ -53,6 +53,18 @@ export async function listarConversasRoute(_request: Request) {
   }
 }
 
+export async function contarMensagensNaoLidasRoute(_request: Request) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const total = await atendimentoController.contarMensagensNaoLidas();
+    return httpOk({ total });
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
 export async function listarTemplatesAprovadosRoute(_request: Request) {
   const analistaId = await requireSessionUserId();
   if (!analistaId) return httpError("Não autenticado.", 401);
