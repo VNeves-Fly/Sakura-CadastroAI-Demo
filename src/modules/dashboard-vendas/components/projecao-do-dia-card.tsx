@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { Info, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MockBadge } from "@/modules/dashboard-vendas/components/ui/mock-badge";
 import {
   formatarMoedaAbreviada,
   formatarMoedaBrl,
@@ -66,6 +67,7 @@ export function ProjecaoDoDiaCard({ projecao }: ProjecaoDoDiaCardProps) {
         <div className="flex items-center gap-2">
           <TrendingUp className="text-muted-foreground size-4 shrink-0" />
           <h2 className="text-foreground text-sm font-semibold">Projeção do dia</h2>
+          <MockBadge />
           <span className="bg-primary/10 text-primary rounded-full px-2.5 py-1 text-xs font-semibold">
             Histórico do dia da semana
           </span>

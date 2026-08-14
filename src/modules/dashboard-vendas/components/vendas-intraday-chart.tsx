@@ -5,6 +5,7 @@ import type { ApexOptions } from "apexcharts";
 import { BarChart2 } from "lucide-react";
 import { ChartCard } from "@/modules/dashboard-vendas/components/ui/chart-card";
 import { LegendaItem } from "@/modules/dashboard-vendas/components/ui/legenda-item";
+import { MockBadge } from "@/modules/dashboard-vendas/components/ui/mock-badge";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
 import { formatarMoedaBrl } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import { linhaTooltip, wrapperTooltip } from "@/modules/dashboard-vendas/utils/apex-tooltip.util";
@@ -96,6 +97,7 @@ export function VendasIntradayChart({ intraday, atualizadoEm }: VendasIntradayCh
       icon={BarChart2}
       titulo="Vendas Intraday (hoje – buckets de 15 min)"
       subtitulo={`Atualizado em ${formatarAtualizadoEm(atualizadoEm)}`}
+      acoes={<MockBadge />}
       legenda={
         <div className="flex flex-wrap gap-4">
           <LegendaItem

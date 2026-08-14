@@ -2,7 +2,6 @@ import {
   __limparCacheParaTestes,
   dashboardVendasSstService,
 } from "@/modules/dashboard-vendas/services/dashboard-vendas.sst-service";
-import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 
 const originalEnv = process.env;
 
@@ -59,9 +58,75 @@ const saudeBasesFixture = {
   total: 2,
 };
 
+// Datas relativas a "agora" (não fixas) — o teste roda em qualquer dia,
+// então a classificação em buckets de recência precisa ser calculada a
+// partir do momento em que o teste de fato executa.
+function isoHaDias(dias: number): string {
+  const data = new Date();
+  data.setDate(data.getDate() - dias);
+  return `${data.toISOString().slice(0, 10)}T03:00:00.000Z`;
+}
+
+// GET /api/consolidado/air/resumo-agrupado — array plano (sem wrapper),
+// um item por agência. Cenário: agência 1 só aéreo (5d atrás, entra em
+// "compraram30d"); agência 2 aéreo (100d atrás) + terrestre (40d atrás,
+// ver abaixo) → canal "ambos", última venda = 40d (a mais recente) →
+// cai em "31-89 sem vender". Reaproveitado também como resposta pro ano
+// anterior (mesma fixture, sem discriminar por data) — dá churn=0 no
+// teste, o que é uma simplificação aceitável aqui.
+const resumoAgrupadoAereoFixture = [
+  {
+    codigo: 1,
+    nome: "AGENCIA UM",
+    tarifa: 100_000,
+    quantidade_bilhetes: 50,
+    data_ultima_venda: isoHaDias(5),
+  },
+  {
+    codigo: 2,
+    nome: "AGENCIA DOIS",
+    tarifa: 200_000,
+    quantidade_bilhetes: 80,
+    data_ultima_venda: isoHaDias(100),
+  },
+];
+
+// GET /api/resumos/terrestre — paginado. Agência 2 (também aparece no
+// aéreo, vira "ambos") vendeu terrestre 40d atrás; agência 3 (só
+// terrestre) vendeu 10d atrás → entra em "compraram30d", canal
+// "terrestre". União de códigos aéreo {1,2} ∪ terrestre {2,3} = {1,2,3}.
+const resumosTerrestreFixture = {
+  data: [
+    { codigo_cliente: 2, cliente: "AGENCIA DOIS", tarifa_cliente: 5_000, data: isoHaDias(40) },
+    { codigo_cliente: 3, cliente: "AGENCIA TRES", tarifa_cliente: 3_000, data: isoHaDias(10) },
+  ],
+  total: 2,
+  page: 1,
+  limit: 500,
+  offset: 0,
+};
+
+// GET /api/agencias/top é reaproveitado pra dois usos (ranking mês/ano,
+// já coberto por `topAgenciasFixture`; e identidade base/executivo pra
+// recência/cruzamento, com `limit=10000`) — precisa distinguir pela URL.
+const identidadeAereaFixture = {
+  data: [
+    { codigo_empresa: 1, codigo_base: "SAO", nome_executivo: "EXEC UM" },
+    { codigo_empresa: 2, codigo_base: "BHZ", nome_executivo: "EXEC DOIS" },
+  ],
+  total: 2,
+  page: 1,
+  limit: 10_000,
+  offset: 0,
+};
+
 function respostaPara(url: string) {
+  if (url.includes("/api/consolidado/air/resumo-agrupado")) return resumoAgrupadoAereoFixture;
+  if (url.includes("/api/resumos/terrestre")) return resumosTerrestreFixture;
   if (url.includes("/api/consolidado/overview")) return overviewFixture;
-  if (url.includes("/api/agencias/top")) return topAgenciasFixture;
+  if (url.includes("/api/agencias/top")) {
+    return url.includes("limit=10000") ? identidadeAereaFixture : topAgenciasFixture;
+  }
   if (url.includes("/api/reports/ranking-cias")) return rankingCiasFixture;
   if (url.includes("/api/reports/saude-bases")) return saudeBasesFixture;
   if (url.includes("/api/consolidado/nacional-vs-internacional")) return nacIntFixture;
@@ -167,11 +232,8 @@ describe("dashboardVendasSstService", () => {
     });
   });
 
-  it("monta conversao real pra aereo/terrestre e mantém ambos.saudePct/agenciasMesVarPct do mock", async () => {
-    const [resultado, mock] = await Promise.all([
-      dashboardVendasSstService.obterDashboard(),
-      dashboardVendasMockService.obterDashboard(),
-    ]);
+  it("monta conversao real pra aereo/terrestre/ambos, incluindo a união de agências ativas", async () => {
+    const resultado = await dashboardVendasSstService.obterDashboard();
     const totalAtivas = 300;
 
     expect(resultado.conversao.aereo).toMatchObject({
@@ -185,11 +247,62 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.conversao.terrestre.saudePct).toBeCloseTo(
       (nonAirFixture.clientes / totalAtivas) * 100,
     );
-    expect(resultado.conversao.ambos.saudePct).toBe(mock.conversao.ambos.saudePct);
-    expect(resultado.conversao.ambos.agenciasMesVarPct).toBe(
-      mock.conversao.ambos.agenciasMesVarPct,
-    );
+    // União {1,2} (aéreo) ∪ {2,3} (terrestre) = {1,2,3} → 3 agências.
+    expect(resultado.conversao.ambos.saudePct).toBeCloseTo((3 / totalAtivas) * 100);
+    expect(resultado.conversao.ambos.agenciasMesVarPct).toBe(0);
     expect(resultado.conversao.ambos.volumeMesVarPct).toBe(0);
+  });
+
+  it("classifica recencia usando a união aéreo(365d)/terrestre(90d) por agência", async () => {
+    const resultado = await dashboardVendasSstService.obterDashboard();
+
+    // Agência 1 (só aéreo, 5d atrás) e agência 3 (só terrestre, 10d atrás)
+    // caem em compraram30d; agência 2 (ambos, última venda 40d atrás) fica
+    // de fora desse grupo.
+    expect(resultado.recencia.compraram30d).toEqual({
+      total: 2,
+      soAereo: 1,
+      soTerrestre: 1,
+      ambos: 0,
+    });
+    // Agência 2 (ambos, 40d atrás) cai na faixa 31-89.
+    expect(resultado.recencia.semVendas30dMais).toMatchObject({
+      total: 1,
+      faixa31a89: 1,
+      faixa90a179: 0,
+      faixa180Mais: 0,
+    });
+
+    const detalheCompraram30d = resultado.recenciaDetalhe.compraram30d;
+    expect(detalheCompraram30d).toHaveLength(2);
+    expect(detalheCompraram30d.map((item) => item.canal).sort()).toEqual(["aereo", "terrestre"]);
+    expect(detalheCompraram30d.find((item) => item.nome === "AGENCIA UM")).toMatchObject({
+      filial: "SAO",
+      executivo: "EXEC UM",
+      aereo365d: 100_000,
+    });
+  });
+
+  it("monta cruzamentoCanais como união de agências (aéreo, terrestre, ambos) sobre o total de ativas", async () => {
+    const resultado = await dashboardVendasSstService.obterDashboard();
+
+    // ambos: agência 2 (aéreo + terrestre); soAereo: agência 1; soTerrestre:
+    // agência 3; total de carteira = 300 (soma do saude-bases fixture).
+    expect(resultado.cruzamentoCanais).toMatchObject({
+      totalAgenciasCarteira: 300,
+      ambos: { qtd: 1 },
+      soAereo: { qtd: 1 },
+      soTerrestre: { qtd: 1 },
+      nenhum: { qtd: 297 },
+    });
+    expect(resultado.cruzamentoDetalhe.ambos[0]).toMatchObject({
+      nome: "AGENCIA DOIS",
+      base: "BHZ",
+    });
+    // Sem identidade conhecida pra quem não vendeu nada nas janelas usadas
+    // — lista de detalhe fica vazia, só a contagem é real (ver
+    // docs/faltante.md).
+    expect(resultado.cruzamentoDetalhe.nenhum).toEqual([]);
   });
 
   it("mantém as seções ainda sem fonte real vindas do mock (ex.: projeção)", async () => {

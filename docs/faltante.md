@@ -1,13 +1,13 @@
 # `/dashboard-new` — o que ainda falta
 
-8 seções do `DashboardVendasData` já vêm de dado real via SST
+10 das 13 seções do `DashboardVendasData` já vêm de dado real via SST
 (`resumoPorPeriodo`, `miniKpis`, `rankingPorMes`, `fornecedoresPorMes`,
 `nacionalInternacionalPorMes`, `conversao`, `vendasMensais`,
-`vendasDiarias` — código em
+`vendasDiarias`, `recencia`/`recenciaDetalhe`,
+`cruzamentoCanais`/`cruzamentoDetalhe` — código em
 `src/modules/dashboard-vendas/services/dashboard-vendas.sst-service.ts`).
-Este documento cobre só o que **ainda não está implementado**: as 5 seções
-que continuam em `dashboard-vendas.mock-service.ts`, uma lacuna parcial
-dentro de `conversao`, e a lista de pendências pra destravar o resto.
+Só `intraday`, `projecao` e `acuracia` continuam em
+`dashboard-vendas.mock-service.ts`.
 
 ---
 
@@ -47,52 +47,91 @@ realizado no fim do dia. O SST já tem infra de cron própria (BullMQ) e
 ofereceu hospedar esse job lá — falta decidir onde hospedar (SST ou este
 projeto).
 
-### 4. `recencia` / `recenciaDetalhe` — Inatividade da carteira
-
-**O que é:** classifica agências por última compra — quem comprou nos
-últimos 30 dias, quem comprou este ano, quem está sumido há 31-89 / 90-179
-/ 180+ dias. Insumo de campanhas de reativação.
-
-**Dado que falta:** data da última venda por agência, por canal (aéreo e
-terrestre separados). O lado aéreo já existe
-(`/api/consolidado/air/resumo-agrupado?agruparPor=codigoEmpresa`); o lado
-terrestre **não existe ainda no SST**, mas é só backlog de engenharia — as
-peças pra construir já existem no código deles (mesmo padrão de
-`buildConsolidadoAirResumoAgrupadoSql`, replicável pro par SICA+SIGOT
-terrestre via `selectTerrestreStrategy`/`mergeClientePorClienteRows`, já
-usados em outros endpoints). Não é mais uma dúvida — é pedido de construir
-um endpoint novo.
-
-### 5. `cruzamentoCanais` / `cruzamentoDetalhe` — Cruzamento de canais
-
-**O que é:** classifica a carteira em 4 grupos — só aéreo, só terrestre,
-ambos, nenhum — pra identificar oportunidades de cross-sell.
-
-**Dado que falta:** mesma dependência do item 4 (endpoint terrestre "por
-agência" ainda não construído no SST) + cruzar essa informação com o
-aéreo por agência no código deste projeto. Total de carteira (denominador)
-já está resolvido: campo `total` de
-`/api/reports/base-empresa-cadastro?empresaAtiva=SIM`.
-
 ---
 
-## Lacuna parcial dentro de `conversao`
+## Como `conversao.ambos`, `recencia` e `cruzamentoCanais` foram resolvidos sem endpoint novo do SST
 
-`conversao.aereo`/`.terrestre` estão implementados com dado real.
-`conversao.ambos.saudePct` e `.agenciasMesVarPct` continuam do mock: somar
-o nº de agências de aéreo + terrestre contaria duas vezes quem vende nos
-dois canais — resolver isso direito depende do mesmo endpoint terrestre
-"por agência" do item 4 acima.
+Os três dependiam de saber, por agência, se ela vendeu aéreo e/ou
+terrestre — o SST tem um endpoint pronto pra isso do lado aéreo
+(`/api/consolidado/air/resumo-agrupado`, já agrupado por empresa, uma
+chamada só, sem paginação), mas **não** tem equivalente pro terrestre.
+Resolvido calculando isso no próprio código: paginar
+`/api/resumos/terrestre` (bruto, uma linha por venda) e reduzir a um
+`Map<codigo_cliente, {última venda, valor, qtd}>` aqui — o mesmo que um
+"resumo-agrupado" faria, só que do nosso lado.
+
+**Duas decisões explícitas tomadas nesse processo, com impacto real nos números:**
+
+1. **Janela do terrestre reduzida pra 90 dias (não 365).** Paginar 365
+   dias de terrestre é ~122 páginas (60.904 registros, testado contra o
+   SST real) — concorrência alta demais, risco real de sobrecarregar o
+   servidor deles (já vimos um 500 transiente até com uma janela menor).
+   Com 90 dias fica em torno de ~30 páginas, dentro do que já testamos
+   funcionar com retry. **Efeito**: uma agência cuja única venda
+   terrestre foi entre 91 e 365 dias atrás **não aparece** nos dados —
+   ela é sub-contada nas faixas "90-179"/"180+ dias sem vender" e no
+   cruzamento de canais (pode aparecer como "só aéreo" quando na
+   verdade também vende terrestre, só que fora da nossa janela de
+   visão).
+2. **`base-empresa-cadastro` não é "o roster de agências"** — checado
+   contra o SST real: de uma amostra de 2.000 registros, só **8** eram
+   `descricao_tipo_empresa = "AGENCIA"`; a esmagadora maioria (1.941) era
+   `CIA AEREA`. Esse endpoint é um cadastro geral de empresas (fornecedores
+   inclusos), não uma lista de agências. O denominador real de "carteira"
+   usado aqui é o mesmo já usado em `conversao`: soma de `agencias_ativas`
+   de `/api/reports/saude-bases` (17.763 num teste real, mesma ordem de
+   grandeza do valor de referência da spec, 16.598).
+
+**Consequências práticas dessas decisões:**
+
+- **`recencia`/`recenciaDetalhe`**: `compraram30d`/`semVendas30dMais`
+  (faixa 31-89) são precisos pros dois canais (30/89 dias cabem dentro da
+  janela de 90 dias do terrestre). As faixas "90-179"/"180+" e
+  `compraramAno` são precisas pro **aéreo** (janela de 365 dias) mas
+  sub-contam o **terrestre** além dos 90 dias. `semVendasAno` (churn —
+  comprou ano anterior, não comprou este ano) é calculado **só com
+  aéreo** — cobrir o ano anterior inteiro do terrestre dobraria o custo de
+  paginação já alto; por isso `soAereo` carrega o total inteiro dessa
+  métrica e `soTerrestre`/`ambos` ficam em 0 (não fabricado).
+- **`cruzamentoCanais`/`cruzamentoDetalhe`**: mesma limitação de janela —
+  "últimos 365 dias" no nome da seção só é literalmente verdade pro lado
+  aéreo; o terrestre olha só os últimos 90. `cruzamentoDetalhe.nenhum`
+  fica com contagem real (por subtração do total de carteira) mas **lista
+  de detalhe vazia** — não temos identidade de agências com zero venda
+  detectada nas janelas usadas (não existe uma fonte confiável de "todas
+  as agências, mesmo as que nunca compraram", pelo motivo #2 acima).
+- **Identidade (nome/filial/executivo) incompleta pra quem só vende
+  terrestre**: a fonte de identidade usada (`/api/agencias/top`, com
+  janela de 365 dias numa chamada só) só cobre quem vendeu aéreo. Agências
+  cujo único canal é terrestre aparecem com `filial`/`executivo` = `"—"`.
+  `cnpj` fica vazio em ambas as seções — nenhuma das fontes usadas aqui
+  (`resumo-agrupado`, `resumos/terrestre`, `agencias/top`) traz CNPJ.
+  `gestor` também fica `"—"` — essa hierarquia (Executivo→Gestor) só
+  existe no banco deste projeto (`Promotor.gestorId → Gestor`), não foi
+  cruzada com o SST nesta rodada.
+
+**Descoberto no processo**: sob a concorrência da paginação, o SST
+devolveu um 500 transiente (`"[sigot] rawQuery failed"`) numa das
+tentativas — adicionado retry curto (até 2 tentativas, só em 5xx) em
+`sstGet`.
+
+**Testado contra o SST real** (14/08/2026): carga fria completa do
+dashboard em ~35s; números plausíveis (17.763 agências na carteira, 6,4%
+vendendo os dois canais, 20,9% só aéreo, 0,6% só terrestre, 72,1% nenhum
+detectado nas janelas usadas).
 
 ---
 
 ## Pendências — o que precisa ser pedido, e pra quem
 
-### Backlog de engenharia (pedir pro SST construir — não é mais dúvida)
+### Melhoria de performance/precisão pro SST (não bloqueia, mas ajudaria)
 
-1. **Equivalente terrestre do `/api/consolidado/air/resumo-agrupado`**
-   (data da última venda por empresa, non-air). Desbloqueia `recencia`,
-   `cruzamentoCanais` e o resto de `conversao`.
+1. **Um "resumo-agrupado" pronto pro terrestre** (mesmo formato do aéreo:
+   agrupado por empresa, com data da última venda) eliminaria a
+   necessidade de paginar `/api/resumos/terrestre` no código deste
+   projeto — permitiria usar uma janela de 365 dias completa (não 90) sem
+   o risco de sobrecarregar o servidor deles, resolvendo as sub-contagens
+   descritas acima em `recencia`/`cruzamentoCanais`.
 
 ### Pergunta técnica pro SST (só eles sabem responder)
 
@@ -114,3 +153,6 @@ dois canais — resolver isso direito depende do mesmo endpoint terrestre
    histórico, método de extrapolação, cálculo da faixa min/max.
 5. **Onde hospedar o job diário de snapshot** da acurácia — SST ou este
    projeto.
+6. **Aceitar a janela reduzida de 90 dias pro terrestre em `recencia`/
+   `cruzamentoCanais` como definitivo, ou vale investir em paginar mais
+   (ou pedir o endpoint do item 1 acima) pra ter 365 dias completos?**

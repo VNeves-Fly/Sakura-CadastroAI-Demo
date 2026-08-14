@@ -4,12 +4,20 @@ import {
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import type {
+  AgenciaCruzamentoDetalhe,
+  AgenciaRecenciaDetalhe,
+  Canal,
   CanalResumo,
+  ChaveCruzamento,
+  ChaveRecencia,
   Conversao,
   ConversaoCanal,
+  CruzamentoCanais,
   DashboardVendasData,
+  GrupoRecencia,
   MiniKpis,
   NacionalInternacional,
+  RecenciaAgencias,
   ResumoDia,
   TopAgencia,
   TopFornecedor,
@@ -20,11 +28,11 @@ import type {
 // Integração real com o SST (sst.flysakura.com, "Financial Adapter
 // Service" — spec em /docs/json) pras seções do dashboard que já têm
 // endpoint direto (ver docs/crm-backend.md, seção de match). O resto
-// (intraday, projeção, acurácia, recência e cruzamento de canais) continua
-// vindo do mock — não tem endpoint pronto no SST pra essas, e algumas
-// exigem decisão de negócio e/ou tabela+job próprios (ver crm-backend.md,
-// seção 4, e docs/faltante.md). Igual ao mock, só esta função troca de
-// implementação quando o resto for destravado.
+// (intraday, projeção, acurácia) continua vindo do mock — não tem
+// endpoint pronto no SST pra essas, e exigem decisão de negócio e/ou
+// tabela+job próprios (ver crm-backend.md, seção 4, e docs/faltante.md).
+// Igual ao mock, só esta função troca de implementação quando o resto for
+// destravado.
 //
 // `painel=FILIAL`/`situacao=ATIVOS` confirmados contra o código-fonte do
 // SST (ver docs/resposta.md): os 3 endpoints de ranking/nac-int abaixo já
@@ -168,6 +176,18 @@ function ultimosNDias(quantidade: number): Array<{ label: string; data: string }
   });
 }
 
+function esperar(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Só as séries (`vendasMensais`/`vendasDiarias`/`conversao`) disparam
+// dezenas de chamadas concorrentes ao paginar `/api/resumos/terrestre` —
+// já observado um 500 transiente do SST ("[sigot] rawQuery failed") sob
+// essa concorrência. Retry curto só em 5xx (erro do servidor deles, vale
+// tentar de novo); 4xx não se beneficia de retry (é erro nosso de
+// parâmetro).
+const TENTATIVAS_5XX = 2;
+
 async function sstGet<T>(
   caminho: string,
   parametros: Record<string, string | number | undefined>,
@@ -177,15 +197,21 @@ async function sstGet<T>(
     if (valor !== undefined) url.searchParams.set(chave, String(valor));
   }
 
-  const response = await fetch(url, {
-    headers: { accept: "application/json", "X-Internal-Secret": requireSstApiKey() },
-  });
+  for (let tentativa = 0; ; tentativa++) {
+    const response = await fetch(url, {
+      headers: { accept: "application/json", "X-Internal-Secret": requireSstApiKey() },
+    });
 
-  if (!response.ok) {
-    throw new Error(`SST respondeu ${response.status}: ${await response.text()}`);
+    if (response.ok) {
+      return (await response.json()) as T;
+    }
+
+    const corpo = await response.text();
+    if (response.status < 500 || tentativa >= TENTATIVAS_5XX) {
+      throw new Error(`SST respondeu ${response.status}: ${corpo}`);
+    }
+    await esperar(300 * (tentativa + 1));
   }
-
-  return (await response.json()) as T;
 }
 
 // Shape bruto de GET /api/consolidado/overview (confirmado contra o SST
@@ -318,6 +344,76 @@ function calcularVariacaoPct(atual: number, anterior: number): number {
   return anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
 }
 
+// GET /api/consolidado/air/resumo-agrupado — confirmado contra o SST
+// real: devolve um array já agrupado por empresa (uma linha por
+// agência, sem paginação/wrapper) — dá o conjunto de códigos de agência
+// que venderam aéreo no intervalo direto, sem precisar paginar.
+interface RawResumoAgrupadoLinha {
+  codigo: number;
+}
+
+async function codigosAgenciasAereo(inicio: string, fim: string): Promise<Set<number>> {
+  return comCache(`codigos-aereo:${inicio}:${fim}`, async () => {
+    const linhas = await sstGet<RawResumoAgrupadoLinha[]>("/api/consolidado/air/resumo-agrupado", {
+      agruparPor: "codigoEmpresa",
+      startDate: inicio,
+      endDate: fim,
+    });
+    return new Set(linhas.map((linha) => linha.codigo));
+  });
+}
+
+// GET /api/resumos/terrestre — ao contrário do aéreo, não existe uma
+// versão "resumo-agrupado" pra non-air ainda (backlog de engenharia do
+// SST, ver docs/faltante.md). Mas dá pra chegar no mesmo resultado
+// paginando o bruto e reduzindo pra um Set de `codigo_cliente` no
+// próprio código — só custa mais chamadas (paginado, ~500/página).
+interface RawResumoTerrestreLinha {
+  codigo_cliente: number;
+}
+
+const LIMITE_PAGINA_TERRESTRE = 500;
+
+async function codigosAgenciasTerrestre(inicio: string, fim: string): Promise<Set<number>> {
+  return comCache(`codigos-terrestre:${inicio}:${fim}`, async () => {
+    const primeira = await sstGet<RawPaginado<RawResumoTerrestreLinha>>("/api/resumos/terrestre", {
+      startDate: inicio,
+      endDate: fim,
+      page: 1,
+      limit: LIMITE_PAGINA_TERRESTRE,
+    });
+    const totalPaginas = Math.ceil(primeira.total / LIMITE_PAGINA_TERRESTRE);
+    const paginasRestantes = await Promise.all(
+      Array.from({ length: Math.max(0, totalPaginas - 1) }, (_, indice) =>
+        sstGet<RawPaginado<RawResumoTerrestreLinha>>("/api/resumos/terrestre", {
+          startDate: inicio,
+          endDate: fim,
+          page: indice + 2,
+          limit: LIMITE_PAGINA_TERRESTRE,
+        }),
+      ),
+    );
+
+    const codigos = new Set<number>();
+    for (const pagina of [primeira, ...paginasRestantes]) {
+      for (const linha of pagina.data) codigos.add(linha.codigo_cliente);
+    }
+    return codigos;
+  });
+}
+
+// União aéreo ∪ terrestre — nº de agências distintas que venderam em
+// pelo menos um dos dois canais no intervalo. Soma ingênua de
+// `clientes` de cada canal contaria duas vezes quem vende os dois;
+// união de conjuntos resolve isso de verdade.
+async function contarAgenciasAtivasAmbos(inicio: string, fim: string): Promise<number> {
+  const [aereo, terrestre] = await Promise.all([
+    codigosAgenciasAereo(inicio, fim),
+    codigosAgenciasTerrestre(inicio, fim),
+  ]);
+  return new Set([...aereo, ...terrestre]).size;
+}
+
 function paraCanalResumo(periodo: RawPeriodoOverview): CanalResumo {
   return {
     valor: periodo.tarifa,
@@ -410,13 +506,14 @@ async function construirVendasDiarias(): Promise<VendaDiaria[]> {
   );
 }
 
-// `saudePct`/`agenciasMesVarPct` de "ambos" continuam do mock: somar
-// aéreo+terrestre é seguro pra valor/bilhetes (não se sobrepõem), mas nº
-// de agências e saúde exigiriam contar cada agência uma vez só entre os
-// dois canais (união, não soma) — precisa do endpoint terrestre "por
-// agência" que o SST ainda não construiu (docs/faltante.md, seção
-// `recencia`/backlog de engenharia).
-async function construirConversao(conversaoMock: Conversao): Promise<Conversao> {
+// `saudePct`/`agenciasMesVarPct` de "ambos" precisam contar cada agência
+// uma vez só entre os dois canais (união, não soma — somar `clientes` de
+// aéreo + terrestre contaria duas vezes quem vende os dois). O SST ainda
+// não expõe um "resumo-agrupado" pronto pro terrestre, mas dá pra chegar
+// no mesmo resultado paginando `/api/resumos/terrestre` e reduzindo pra
+// um Set no código (ver `codigosAgenciasTerrestre` acima) — por isso os
+// campos abaixo já são reais, mesmo sem esse endpoint novo do SST.
+async function construirConversao(): Promise<Conversao> {
   const hoje = hojeIso();
   const inicioMes = inicioMesIso();
   const anterior = janelaMesAnterior();
@@ -430,6 +527,9 @@ async function construirConversao(conversaoMock: Conversao): Promise<Conversao> 
     airUltimos30d,
     nonAirUltimos30d,
     ativas,
+    ativasAmbos30d,
+    ativasAmbosMesAtual,
+    ativasAmbosMesAnterior,
   ] = await Promise.all([
     buscarAir(inicioMes, hoje),
     buscarAir(anterior.inicio, anterior.fim),
@@ -438,6 +538,9 @@ async function construirConversao(conversaoMock: Conversao): Promise<Conversao> 
     buscarAir(trintaDiasAtras, hoje),
     buscarNonAir(trintaDiasAtras, hoje),
     totalAgenciasAtivas(),
+    contarAgenciasAtivasAmbos(trintaDiasAtras, hoje),
+    contarAgenciasAtivasAmbos(inicioMes, hoje),
+    contarAgenciasAtivasAmbos(anterior.inicio, anterior.fim),
   ]);
 
   const periodoComparativo = `${formatarPeriodo(anterior.inicio, anterior.fim)} vs ${formatarPeriodo(inicioMes, hoje)}`;
@@ -465,7 +568,7 @@ async function construirConversao(conversaoMock: Conversao): Promise<Conversao> 
   };
 
   const ambos: ConversaoCanal = {
-    saudePct: conversaoMock.ambos.saudePct,
+    saudePct: ativas > 0 ? (ativasAmbos30d / ativas) * 100 : 0,
     volumeMesVarPct: calcularVariacaoPct(
       airAtual.tarifa + nonAirAtual.tarifa,
       airAnterior.tarifa + nonAirAnterior.tarifa,
@@ -474,13 +577,435 @@ async function construirConversao(conversaoMock: Conversao): Promise<Conversao> 
       airAtual.tickets + nonAirAtual.tickets,
       airAnterior.tickets + nonAirAnterior.tickets,
     ),
-    agenciasMesVarPct: conversaoMock.ambos.agenciasMesVarPct,
+    agenciasMesVarPct: calcularVariacaoPct(ativasAmbosMesAtual, ativasAmbosMesAnterior),
     periodoComparativo,
     aereoMes,
     terrestreMes,
   };
 
   return { ambos, aereo, terrestre };
+}
+
+// =====================================================================
+// recencia / cruzamentoCanais
+//
+// Mesmo princípio de `conversao.ambos` (união de conjuntos aéreo ∪
+// terrestre, calculada aqui em vez de vir pronta do SST). Duas
+// simplificações reais, aceitas conscientemente (ver docs/faltante.md):
+//
+// 1. Janela do aéreo = 365 dias (uma chamada só, sem paginação — o
+//    `resumo-agrupado` já vem agrupado por empresa). Janela do terrestre
+//    = 90 dias, não 365 — paginar 365 dias de terrestre é ~122 páginas
+//    (60.904 registros testados contra o SST real), risco real de
+//    sobrecarregar o servidor deles mesmo com retry. Decisão explícita:
+//    reduzir a janela do terrestre em vez de arriscar. Efeito prático:
+//    uma agência cujo único histórico é uma venda terrestre entre 91 e
+//    365 dias atrás não aparece nos dados — fica sub-contada nas faixas
+//    "90-179"/"180+" e no cruzamento de canais.
+// 2. `base-empresa-cadastro` (usado antes como possível "roster completo
+//    de agências") **não serve pra isso** — na prática é dominado por
+//    outros tipos de empresa (CIA AEREA, HOTEL etc.), só ~0,4% dos
+//    registros são de fato `descricao_tipo_empresa = "AGENCIA"` (checado
+//    contra o SST real). Por isso a identidade (nome/filial/executivo)
+//    aqui vem só de quem aparece nas fontes de venda
+//    (`resumo-agrupado`/`agencias/top` pro aéreo, `cliente` do próprio
+//    registro bruto pro terrestre) — não existe uma lista de "agências
+//    sem nenhuma venda detectada" com identidade conhecida, então
+//    `cruzamentoDetalhe.nenhum` fica com contagem real mas lista vazia.
+// =====================================================================
+
+const JANELA_AEREO_RECENCIA_DIAS = 365;
+const JANELA_TERRESTRE_RECENCIA_DIAS = 90;
+const LIMITE_IDENTIDADE_AEREO = 10_000; // cobre o universo testado (5.438 agências/365 dias) numa chamada só.
+const TETO_DETALHE = 400; // mesmo teto usado no resto do dashboard (ex.: TAMANHO_RANKING).
+
+function dataIsoDoCampo(valor: string): string {
+  return valor.slice(0, 10);
+}
+
+function diferencaDias(dataIso: string, referenciaIso: string): number {
+  const dataMs = Date.parse(`${dataIso}T00:00:00Z`);
+  const referenciaMs = Date.parse(`${referenciaIso}T00:00:00Z`);
+  return Math.round((referenciaMs - dataMs) / 86_400_000);
+}
+
+function formatarDataBr(dataIso: string): string {
+  const [ano, mes, dia] = dataIso.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function maiorDataIso(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}
+
+interface RawResumoAgrupadoCompleto {
+  codigo: number;
+  nome: string;
+  tarifa: number;
+  quantidade_bilhetes: number;
+  data_ultima_venda: string;
+}
+
+interface RawResumoTerrestreLinhaCompleta {
+  codigo_cliente: number;
+  cliente: string;
+  tarifa_cliente: number;
+  data: string;
+}
+
+// GET /api/agencias/top só pra pegar identidade (base/executivo) — já é
+// usado em `rankingPorMes` com janela mês/ano; aqui pedimos os últimos
+// 365 dias inteiros, numa chamada só (testado: 5.438 linhas, sem paginar).
+interface RawIdentidadeAerea {
+  codigo_empresa: number;
+  codigo_base: string;
+  nome_executivo: string;
+}
+
+interface DadosPorAgencia {
+  nome: string;
+  valor: number;
+  qtd: number;
+  ultima: string;
+}
+
+async function buscarAereoJanela(dias: number): Promise<Map<number, DadosPorAgencia>> {
+  const inicio = diasAtrasIso(dias);
+  const hoje = hojeIso();
+  return comCache(`aereo-janela:${dias}:${hoje}`, async () => {
+    const linhas = await sstGet<RawResumoAgrupadoCompleto[]>(
+      "/api/consolidado/air/resumo-agrupado",
+      {
+        agruparPor: "codigoEmpresa",
+        startDate: inicio,
+        endDate: hoje,
+      },
+    );
+    const mapa = new Map<number, DadosPorAgencia>();
+    for (const linha of linhas) {
+      mapa.set(linha.codigo, {
+        nome: linha.nome,
+        valor: linha.tarifa,
+        qtd: linha.quantidade_bilhetes,
+        ultima: dataIsoDoCampo(linha.data_ultima_venda),
+      });
+    }
+    return mapa;
+  });
+}
+
+async function buscarTerrestreJanela(dias: number): Promise<Map<number, DadosPorAgencia>> {
+  const inicio = diasAtrasIso(dias);
+  const hoje = hojeIso();
+  return comCache(`terrestre-janela:${dias}:${hoje}`, async () => {
+    const primeira = await sstGet<RawPaginado<RawResumoTerrestreLinhaCompleta>>(
+      "/api/resumos/terrestre",
+      { startDate: inicio, endDate: hoje, page: 1, limit: LIMITE_PAGINA_TERRESTRE },
+    );
+    const totalPaginas = Math.ceil(primeira.total / LIMITE_PAGINA_TERRESTRE);
+    const paginasRestantes = await Promise.all(
+      Array.from({ length: Math.max(0, totalPaginas - 1) }, (_, indice) =>
+        sstGet<RawPaginado<RawResumoTerrestreLinhaCompleta>>("/api/resumos/terrestre", {
+          startDate: inicio,
+          endDate: hoje,
+          page: indice + 2,
+          limit: LIMITE_PAGINA_TERRESTRE,
+        }),
+      ),
+    );
+
+    const mapa = new Map<number, DadosPorAgencia>();
+    for (const pagina of [primeira, ...paginasRestantes]) {
+      for (const linha of pagina.data) {
+        const dataLinha = dataIsoDoCampo(linha.data);
+        const atual = mapa.get(linha.codigo_cliente);
+        if (atual) {
+          atual.valor += linha.tarifa_cliente;
+          atual.qtd += 1;
+          atual.ultima = maiorDataIso(atual.ultima, dataLinha)!;
+        } else {
+          mapa.set(linha.codigo_cliente, {
+            nome: linha.cliente,
+            valor: linha.tarifa_cliente,
+            qtd: 1,
+            ultima: dataLinha,
+          });
+        }
+      }
+    }
+    return mapa;
+  });
+}
+
+async function buscarIdentidadeAerea(
+  dias: number,
+): Promise<Map<number, { filial: string; executivo: string }>> {
+  const inicio = diasAtrasIso(dias);
+  const hoje = hojeIso();
+  return comCache(`identidade-aereo:${dias}:${hoje}`, async () => {
+    const resposta = await sstGet<RawPaginado<RawIdentidadeAerea>>("/api/agencias/top", {
+      startDate: inicio,
+      endDate: hoje,
+      limit: LIMITE_IDENTIDADE_AEREO,
+    });
+    const mapa = new Map<number, { filial: string; executivo: string }>();
+    for (const linha of resposta.data) {
+      mapa.set(linha.codigo_empresa, {
+        filial: linha.codigo_base,
+        executivo: linha.nome_executivo,
+      });
+    }
+    return mapa;
+  });
+}
+
+interface AgenciaComputada {
+  codigo: number;
+  nome: string;
+  // "—" quando a agência só aparece no lado terrestre — `agencias/top`
+  // (fonte de identidade) só cobre quem vendeu aéreo. Ver comentário no
+  // topo desta seção.
+  filial: string;
+  executivo: string;
+  aereoValor: number;
+  aereoQtd: number;
+  aereoUltima: string | null;
+  terrestreValor: number;
+  terrestreQtd: number;
+  terrestreUltima: string | null;
+}
+
+async function construirAgenciasComputadas(): Promise<AgenciaComputada[]> {
+  const [aereo, terrestre, identidade] = await Promise.all([
+    buscarAereoJanela(JANELA_AEREO_RECENCIA_DIAS),
+    buscarTerrestreJanela(JANELA_TERRESTRE_RECENCIA_DIAS),
+    buscarIdentidadeAerea(JANELA_AEREO_RECENCIA_DIAS),
+  ]);
+
+  const codigos = new Set<number>([...aereo.keys(), ...terrestre.keys()]);
+  return Array.from(codigos, (codigo): AgenciaComputada => {
+    const dadosAereo = aereo.get(codigo);
+    const dadosTerrestre = terrestre.get(codigo);
+    const dadosIdentidade = identidade.get(codigo);
+    return {
+      codigo,
+      nome: dadosAereo?.nome ?? dadosTerrestre?.nome ?? `Agência ${codigo}`,
+      filial: dadosIdentidade?.filial ?? "—",
+      executivo: dadosIdentidade?.executivo ?? "—",
+      aereoValor: dadosAereo?.valor ?? 0,
+      aereoQtd: dadosAereo?.qtd ?? 0,
+      aereoUltima: dadosAereo?.ultima ?? null,
+      terrestreValor: dadosTerrestre?.valor ?? 0,
+      terrestreQtd: dadosTerrestre?.qtd ?? 0,
+      terrestreUltima: dadosTerrestre?.ultima ?? null,
+    };
+  });
+}
+
+function ultimaVendaDe(agencia: AgenciaComputada): string | null {
+  return maiorDataIso(agencia.aereoUltima, agencia.terrestreUltima);
+}
+
+function canalHistorico(agencia: AgenciaComputada): Canal {
+  if (agencia.aereoUltima && agencia.terrestreUltima) return "ambos";
+  if (agencia.terrestreUltima) return "terrestre";
+  return "aereo";
+}
+
+function construirGrupoRecencia(itens: AgenciaComputada[]): GrupoRecencia {
+  return {
+    total: itens.length,
+    soAereo: itens.filter((item) => canalHistorico(item) === "aereo").length,
+    soTerrestre: itens.filter((item) => canalHistorico(item) === "terrestre").length,
+    ambos: itens.filter((item) => canalHistorico(item) === "ambos").length,
+  };
+}
+
+function paraAgenciaRecenciaDetalhe(
+  agencia: AgenciaComputada,
+  hoje: string,
+): AgenciaRecenciaDetalhe {
+  const ultima = ultimaVendaDe(agencia)!;
+  return {
+    nome: agencia.nome,
+    // Sem CNPJ nas fontes usadas aqui (`resumo-agrupado`/`resumos/
+    // terrestre` não trazem esse campo) — ver docs/faltante.md.
+    cnpj: "",
+    filial: agencia.filial,
+    executivo: agencia.executivo,
+    // Hierarquia Executivo→Gestor só existe no banco deste projeto
+    // (Promotor→Gestor), não no SST — não cruzado nesta rodada.
+    gestor: "—",
+    canal: canalHistorico(agencia),
+    ultimaVenda: formatarDataBr(ultima),
+    dias: diferencaDias(ultima, hoje),
+    aereo365d: agencia.aereoValor,
+    terrestre365d: agencia.terrestreValor,
+  };
+}
+
+async function construirRecencia(
+  agencias: AgenciaComputada[],
+): Promise<{
+  recencia: RecenciaAgencias;
+  recenciaDetalhe: Record<ChaveRecencia, AgenciaRecenciaDetalhe[]>;
+}> {
+  const hoje = hojeIso();
+  const anoAtual = hoje.slice(0, 4);
+  const anoAnteriorNum = Number(anoAtual) - 1;
+
+  const comVenda = agencias
+    .map((agencia) => ({ agencia, ultima: ultimaVendaDe(agencia) }))
+    .filter((item): item is { agencia: AgenciaComputada; ultima: string } => item.ultima !== null);
+
+  const compraram30dItens = comVenda
+    .filter((item) => diferencaDias(item.ultima, hoje) <= 30)
+    .map((item) => item.agencia);
+  const faixa31a89Itens = comVenda
+    .filter((item) => {
+      const dias = diferencaDias(item.ultima, hoje);
+      return dias > 30 && dias <= 89;
+    })
+    .map((item) => item.agencia);
+  const faixa90a179Itens = comVenda
+    .filter((item) => {
+      const dias = diferencaDias(item.ultima, hoje);
+      return dias > 89 && dias <= 179;
+    })
+    .map((item) => item.agencia);
+  const faixa180MaisItens = comVenda
+    .filter((item) => diferencaDias(item.ultima, hoje) > 179)
+    .map((item) => item.agencia);
+  const semVendas30dMaisItens = [...faixa31a89Itens, ...faixa90a179Itens, ...faixa180MaisItens];
+
+  // "Comprou este ano" — funciona porque a janela aérea (365 dias) já
+  // cobre qualquer data de janeiro em diante; o corte de calendário
+  // (ano civil) é aplicado aqui comparando o prefixo AAAA da data.
+  const compraramAnoItens = comVenda
+    .filter((item) => item.ultima.slice(0, 4) === anoAtual)
+    .map((item) => item.agencia);
+
+  // Churn (comprou ano anterior, não comprou este ano) — só aéreo: pra
+  // cobrir o ano anterior inteiro precisaria de +1 ano de terrestre
+  // paginado (dobra o custo já alto da janela reduzida) — decisão
+  // explícita de escopo, ver docs/faltante.md.
+  const aereoAnoAnterior = await comCache(`aereo-ano-anterior:${anoAnteriorNum}`, () =>
+    sstGet<RawResumoAgrupadoCompleto[]>("/api/consolidado/air/resumo-agrupado", {
+      agruparPor: "codigoEmpresa",
+      startDate: `${anoAnteriorNum}-01-01`,
+      endDate: `${anoAnteriorNum}-12-31`,
+    }),
+  );
+  const codigosAnoAtual = new Set(compraramAnoItens.map((agencia) => agencia.codigo));
+  const churnLinhas = aereoAnoAnterior.filter((linha) => !codigosAnoAtual.has(linha.codigo));
+
+  const recencia: RecenciaAgencias = {
+    compraram30d: construirGrupoRecencia(compraram30dItens),
+    compraramAno: construirGrupoRecencia(compraramAnoItens),
+    semVendas30dMais: {
+      total: semVendas30dMaisItens.length,
+      faixa31a89: faixa31a89Itens.length,
+      faixa90a179: faixa90a179Itens.length,
+      faixa180Mais: faixa180MaisItens.length,
+    },
+    semVendasAno: {
+      // Detectado só via aéreo (ver comentário acima) — soAereo carrega
+      // o total todo, soTerrestre/ambos ficam em 0 (não fabricado).
+      total: churnLinhas.length,
+      soAereo: churnLinhas.length,
+      soTerrestre: 0,
+      ambos: 0,
+      compraramAnoAnterior: aereoAnoAnterior.length,
+      compraramAnoAtual: compraramAnoItens.length,
+      soAnoAnterior: churnLinhas.length,
+    },
+  };
+
+  const paraDetalheChurn = (linha: RawResumoAgrupadoCompleto): AgenciaRecenciaDetalhe => {
+    const ultima = dataIsoDoCampo(linha.data_ultima_venda);
+    return {
+      nome: linha.nome,
+      cnpj: "",
+      filial: "—",
+      executivo: "—",
+      gestor: "—",
+      canal: "aereo",
+      ultimaVenda: formatarDataBr(ultima),
+      dias: diferencaDias(ultima, hoje),
+      aereo365d: linha.tarifa,
+      terrestre365d: 0,
+    };
+  };
+
+  const recenciaDetalhe: Record<ChaveRecencia, AgenciaRecenciaDetalhe[]> = {
+    compraram30d: compraram30dItens
+      .slice(0, TETO_DETALHE)
+      .map((a) => paraAgenciaRecenciaDetalhe(a, hoje)),
+    compraramAno: compraramAnoItens
+      .slice(0, TETO_DETALHE)
+      .map((a) => paraAgenciaRecenciaDetalhe(a, hoje)),
+    semVendas30dMais: semVendas30dMaisItens
+      .slice(0, TETO_DETALHE)
+      .map((a) => paraAgenciaRecenciaDetalhe(a, hoje)),
+    semVendasAno: churnLinhas.slice(0, TETO_DETALHE).map(paraDetalheChurn),
+  };
+
+  return { recencia, recenciaDetalhe };
+}
+
+async function construirCruzamento(agencias: AgenciaComputada[]): Promise<{
+  cruzamentoCanais: CruzamentoCanais;
+  cruzamentoDetalhe: Record<ChaveCruzamento, AgenciaCruzamentoDetalhe[]>;
+}> {
+  const totalCarteira = await totalAgenciasAtivas();
+
+  const ambosItens = agencias.filter((a) => a.aereoUltima && a.terrestreUltima);
+  const soAereoItens = agencias.filter((a) => a.aereoUltima && !a.terrestreUltima);
+  const soTerrestreItens = agencias.filter((a) => !a.aereoUltima && a.terrestreUltima);
+  const nenhumQtd = Math.max(
+    0,
+    totalCarteira - ambosItens.length - soAereoItens.length - soTerrestreItens.length,
+  );
+
+  const comPct = (qtd: number) => ({
+    qtd,
+    pct: totalCarteira > 0 ? (qtd / totalCarteira) * 100 : 0,
+  });
+
+  const cruzamentoCanais: CruzamentoCanais = {
+    totalAgenciasCarteira: totalCarteira,
+    ambos: comPct(ambosItens.length),
+    soAereo: comPct(soAereoItens.length),
+    soTerrestre: comPct(soTerrestreItens.length),
+    nenhum: comPct(nenhumQtd),
+  };
+
+  const paraDetalhe = (agencia: AgenciaComputada): AgenciaCruzamentoDetalhe => ({
+    nome: agencia.nome,
+    cnpj: "",
+    base: agencia.filial,
+    executivo: agencia.executivo,
+    bilhetesAereo: agencia.aereoQtd,
+    aereo365d: agencia.aereoValor,
+    vendasTerrestre: agencia.terrestreQtd,
+    terrestre365d: agencia.terrestreValor,
+    ultimaAereo: agencia.aereoUltima ? formatarDataBr(agencia.aereoUltima) : null,
+    ultimaTerrestre: agencia.terrestreUltima ? formatarDataBr(agencia.terrestreUltima) : null,
+  });
+
+  const cruzamentoDetalhe: Record<ChaveCruzamento, AgenciaCruzamentoDetalhe[]> = {
+    ambos: ambosItens.slice(0, TETO_DETALHE).map(paraDetalhe),
+    soAereo: soAereoItens.slice(0, TETO_DETALHE).map(paraDetalhe),
+    soTerrestre: soTerrestreItens.slice(0, TETO_DETALHE).map(paraDetalhe),
+    // Sem identidade de agências com zero venda detectada nas janelas
+    // usadas (365d aéreo / 90d terrestre) — só a contagem é real (por
+    // subtração), a lista de detalhe fica vazia. Ver docs/faltante.md.
+    nenhum: [],
+  };
+
+  return { cruzamentoCanais, cruzamentoDetalhe };
 }
 
 // Só pra teste — limpa o cache em memória entre casos, já que ele é
@@ -553,8 +1078,15 @@ export const dashboardVendasSstService = {
       }),
       construirVendasMensais(),
       construirVendasDiarias(),
-      construirConversao(mock.conversao),
+      construirConversao(),
     ]);
+
+    const agenciasComputadas = await construirAgenciasComputadas();
+    const [{ recencia, recenciaDetalhe }, { cruzamentoCanais, cruzamentoDetalhe }] =
+      await Promise.all([
+        construirRecencia(agenciasComputadas),
+        construirCruzamento(agenciasComputadas),
+      ]);
 
     return {
       ...mock,
@@ -568,6 +1100,10 @@ export const dashboardVendasSstService = {
       conversao,
       vendasMensais,
       vendasDiarias,
+      recencia,
+      recenciaDetalhe,
+      cruzamentoCanais,
+      cruzamentoDetalhe,
       rankingPorMes: {
         mes: paraTopAgencias(topAgenciasMes.data),
         ano: paraTopAgencias(topAgenciasAno.data),
