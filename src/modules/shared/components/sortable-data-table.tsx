@@ -23,7 +23,9 @@ export interface SortableColumn<T> {
   // Valor usado só pra ordenação — pode divergir do `render` (ex.: ordenar
   // pelo valor numérico "cru" enquanto o render mostra formatado/mascarado).
   sortValue?: (row: T) => number | string;
-  render: (row: T) => ReactNode;
+  // `indice` é a posição da linha na lista já ordenada/filtrada exibida
+  // (não no array original) — útil pra colunas de ranking ("#").
+  render: (row: T, indice: number) => ReactNode;
   headerClassName?: string;
   cellClassName?: string;
 }
@@ -137,7 +139,7 @@ export function SortableDataTable<T>({
             </TableCell>
           </TableRow>
         ) : (
-          linhasOrdenadas.map((row) => (
+          linhasOrdenadas.map((row, indice) => (
             <TableRow
               key={rowKey(row)}
               onClick={() => onRowClick?.(row)}
@@ -153,7 +155,7 @@ export function SortableDataTable<T>({
                     coluna.cellClassName,
                   )}
                 >
-                  {coluna.render(row)}
+                  {coluna.render(row, indice)}
                 </TableCell>
               ))}
             </TableRow>
