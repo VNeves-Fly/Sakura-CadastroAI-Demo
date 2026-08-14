@@ -2,8 +2,11 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { montarExecutivoDetalheView } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
-import { ExecutivoEmConstrucaoView } from "@/modules/atribuicoes/views/executivo-em-construcao-view";
+import {
+  mapAgencia,
+  montarExecutivoDetalheView,
+} from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
+import { ExecutivoAgendaView } from "@/modules/atribuicoes/views/executivo-agenda-view";
 
 const CARGOS_ADMIN = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 
@@ -18,21 +21,19 @@ export default async function ExecutivoAgendaPage({ params }: { params: { id: st
   const promotor = await atribuicoesAdminController.buscarPromotorPorId(params.id);
   if (!promotor) notFound();
 
-  const gestores = await atribuicoesAdminController.listarGestores();
+  const [gestores, agencias] = await Promise.all([
+    atribuicoesAdminController.listarGestores(),
+    atribuicoesAdminController.listarAgenciasPorPromotor(params.id),
+  ]);
   const gestoresPorId = new Map(
     gestores.map((gestor) => [
       gestor.id,
       { id: gestor.id, nome: gestor.nome, bases: gestor.bases },
     ]),
   );
-  const { perfil } = montarExecutivoDetalheView(promotor.toJSON(), gestoresPorId, []);
 
-  return (
-    <ExecutivoEmConstrucaoView
-      perfil={perfil}
-      aba="agenda"
-      titulo="Agenda do Executivo — em construção"
-      descricao="Calendário, Kanban de visitas e carteira financeira do mês chegam na Fase 3."
-    />
-  );
+  const { perfil } = montarExecutivoDetalheView(promotor.toJSON(), gestoresPorId, agencias);
+  const agenciasReais = agencias.map(mapAgencia);
+
+  return <ExecutivoAgendaView perfil={perfil} agenciasReais={agenciasReais} />;
 }

@@ -6,6 +6,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -35,6 +36,10 @@ interface SortableDataTableProps<T> {
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T) => string | undefined;
   emptyMessage?: string;
+  // Linha fixa de rodapé (ex.: "Total" somando colunas monetárias, SPEC
+  // Agenda · Lista) — mesmas colunas da tabela, sem participar da
+  // ordenação.
+  footerCells?: (columns: SortableColumn<T>[]) => ReactNode;
 }
 
 // Tabela genérica com header ordenável por clique (asc/desc), coluna ativa
@@ -48,6 +53,7 @@ export function SortableDataTable<T>({
   onRowClick,
   rowClassName,
   emptyMessage = "Nenhum registro encontrado.",
+  footerCells,
 }: SortableDataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; direction: SortDirection } | null>(
     defaultSort ?? null,
@@ -154,6 +160,11 @@ export function SortableDataTable<T>({
           ))
         )}
       </TableBody>
+      {footerCells ? (
+        <TableFooter>
+          <TableRow className="hover:bg-transparent">{footerCells(columns)}</TableRow>
+        </TableFooter>
+      ) : null}
     </Table>
   );
 }

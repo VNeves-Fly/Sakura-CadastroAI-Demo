@@ -44,7 +44,7 @@ const COMPANHIAS_AEREAS = [
   "SWISS",
 ];
 
-function mapAgencia(agencia: AgenciaResumoPromotor): ExecutivoAgenciaResumo {
+export function mapAgencia(agencia: AgenciaResumoPromotor): ExecutivoAgenciaResumo {
   return {
     id: agencia.id,
     nome: agencia.razaoSocial,
