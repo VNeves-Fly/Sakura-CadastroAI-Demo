@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, EyeOff, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useDataVisibility } from "@/modules/shared/stores/data-visibility.store";
+import { ToggleVisibilidadeButton } from "@/modules/shared/components/toggle-visibilidade-button";
 import type { PromotorListaFiltros } from "@/modules/atribuicoes/types/promotor-lista.types";
 
 interface ExecutivosListaToolbarProps {
@@ -21,8 +21,6 @@ export function ExecutivosListaToolbar({
   onAtualizarFiltro,
   total,
 }: ExecutivosListaToolbarProps) {
-  const { dadosVisiveis, alternarVisibilidade } = useDataVisibility();
-
   return (
     <div className="border-border flex flex-wrap items-center gap-4 border-b pb-4">
       <div className="relative w-full max-w-[230px]">
@@ -56,15 +54,7 @@ export function ExecutivosListaToolbar({
           <span className="text-foreground font-semibold">{total}</span> promotor(es)
         </span>
 
-        <button
-          type="button"
-          onClick={alternarVisibilidade}
-          aria-pressed={dadosVisiveis}
-          title={dadosVisiveis ? "Ocultar valores sensíveis" : "Mostrar valores sensíveis"}
-          className="border-border text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 items-center justify-center rounded-full border transition"
-        >
-          {dadosVisiveis ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-        </button>
+        <ToggleVisibilidadeButton />
 
         <Link
           href="/executivos/novo"

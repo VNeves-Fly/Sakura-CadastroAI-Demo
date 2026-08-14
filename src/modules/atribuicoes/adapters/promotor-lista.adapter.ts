@@ -3,17 +3,7 @@ import type {
   PromotorCrudView,
 } from "@/modules/atribuicoes/types/promotor-crud.types";
 import type { PromotorListaView } from "@/modules/atribuicoes/types/promotor-lista.types";
-
-// Hash determinístico (djb2) — o mesmo id sempre gera os mesmos números
-// mockados, em qualquer render/navegação (evita mismatch de hidratação
-// SSR × cliente e mantém a lista estável, sem parecer "quebrada").
-function hashParaNumero(texto: string): number {
-  let hash = 5381;
-  for (let indice = 0; indice < texto.length; indice += 1) {
-    hash = (hash * 33) ^ texto.charCodeAt(indice);
-  }
-  return Math.abs(hash);
-}
+import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 
 // Métricas de carteira SEM fonte real hoje (ver comentário em
 // promotor-lista.types.ts) — mock determinístico só pra a lista não nascer
