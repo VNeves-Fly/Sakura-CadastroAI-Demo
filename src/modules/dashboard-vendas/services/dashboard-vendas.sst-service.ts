@@ -180,13 +180,14 @@ function esperar(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Só as séries (`vendasMensais`/`vendasDiarias`/`conversao`) disparam
-// dezenas de chamadas concorrentes ao paginar `/api/resumos/terrestre` —
-// já observado um 500 transiente do SST ("[sigot] rawQuery failed") sob
-// essa concorrência. Retry curto só em 5xx (erro do servidor deles, vale
-// tentar de novo); 4xx não se beneficia de retry (é erro nosso de
-// parâmetro).
-const TENTATIVAS_5XX = 2;
+// Só as séries (`vendasMensais`/`vendasDiarias`/`conversao`/`recencia`/
+// `cruzamentoCanais`) disparam dezenas de chamadas concorrentes ao
+// paginar `/api/resumos/terrestre` — já observado mais de um 500
+// transiente do SST ("[sigot] rawQuery failed") sob essa concorrência,
+// inclusive esgotando o retry abaixo numa carga real (não só em teste).
+// Retry curto só em 5xx (erro do servidor deles, vale tentar de novo);
+// 4xx não se beneficia de retry (é erro nosso de parâmetro).
+const TENTATIVAS_5XX = 3;
 
 async function sstGet<T>(
   caminho: string,
@@ -211,6 +212,23 @@ async function sstGet<T>(
       throw new Error(`SST respondeu ${response.status}: ${corpo}`);
     }
     await esperar(300 * (tentativa + 1));
+  }
+}
+
+// Degrada uma seção pro mock em vez de derrubar o dashboard inteiro — já
+// aconteceu de um 500 do SST (sob a concorrência da paginação de
+// terrestre) esgotar todas as tentativas de retry e quebrar a página
+// inteira. Cada seção pesada (série/recência/cruzamento) fica isolada:
+// se ela falhar, só ela volta a ser mock, o resto continua real.
+async function comFallback<T>(rotulo: string, tarefa: Promise<T>, valorMock: T): Promise<T> {
+  try {
+    return await tarefa;
+  } catch (erro) {
+    console.error(
+      `[dashboard-vendas] "${rotulo}" falhou contra o SST — usando mock só nesta seção.`,
+      erro,
+    );
+    return valorMock;
   }
 }
 
@@ -846,9 +864,7 @@ function paraAgenciaRecenciaDetalhe(
   };
 }
 
-async function construirRecencia(
-  agencias: AgenciaComputada[],
-): Promise<{
+async function construirRecencia(agencias: AgenciaComputada[]): Promise<{
   recencia: RecenciaAgencias;
   recenciaDetalhe: Record<ChaveRecencia, AgenciaRecenciaDetalhe[]>;
 }> {
@@ -1076,17 +1092,33 @@ export const dashboardVendasSstService = {
         startDate: inicioAno,
         endDate: hoje,
       }),
-      construirVendasMensais(),
-      construirVendasDiarias(),
-      construirConversao(),
+      comFallback("vendasMensais", construirVendasMensais(), mock.vendasMensais),
+      comFallback("vendasDiarias", construirVendasDiarias(), mock.vendasDiarias),
+      comFallback("conversao", construirConversao(), mock.conversao),
     ]);
 
-    const agenciasComputadas = await construirAgenciasComputadas();
-    const [{ recencia, recenciaDetalhe }, { cruzamentoCanais, cruzamentoDetalhe }] =
-      await Promise.all([
-        construirRecencia(agenciasComputadas),
-        construirCruzamento(agenciasComputadas),
-      ]);
+    const { recencia, recenciaDetalhe, cruzamentoCanais, cruzamentoDetalhe } = await comFallback(
+      "recencia/cruzamentoCanais",
+      (async () => {
+        const agenciasComputadas = await construirAgenciasComputadas();
+        const [recenciaResultado, cruzamentoResultado] = await Promise.all([
+          construirRecencia(agenciasComputadas),
+          construirCruzamento(agenciasComputadas),
+        ]);
+        return {
+          recencia: recenciaResultado.recencia,
+          recenciaDetalhe: recenciaResultado.recenciaDetalhe,
+          cruzamentoCanais: cruzamentoResultado.cruzamentoCanais,
+          cruzamentoDetalhe: cruzamentoResultado.cruzamentoDetalhe,
+        };
+      })(),
+      {
+        recencia: mock.recencia,
+        recenciaDetalhe: mock.recenciaDetalhe,
+        cruzamentoCanais: mock.cruzamentoCanais,
+        cruzamentoDetalhe: mock.cruzamentoDetalhe,
+      },
+    );
 
     return {
       ...mock,

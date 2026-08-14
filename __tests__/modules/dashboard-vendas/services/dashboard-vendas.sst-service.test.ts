@@ -311,4 +311,31 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.projecao).toBeDefined();
     expect(resultado.intraday.length).toBeGreaterThan(0);
   });
+
+  it("degrada só recencia/cruzamentoCanais pro mock quando o SST devolve 500 persistente, sem derrubar o resto da página", async () => {
+    global.fetch = jest.fn(async (url: RequestInfo | URL) => {
+      if (String(url).includes("/api/resumos/terrestre")) {
+        return {
+          ok: false,
+          status: 500,
+          text: async () => '{"message":"[sigot] rawQuery failed"}',
+        };
+      }
+      return { ok: true, status: 200, json: async () => respostaPara(String(url)) };
+    }) as unknown as typeof fetch;
+
+    // Não deve rejeitar mesmo com o SST falhando persistentemente numa
+    // das chamadas — é exatamente o bug relatado (página inteira quebrava).
+    const resultado = await dashboardVendasSstService.obterDashboard();
+
+    // Seções que dependem da paginação de terrestre voltam pro mock...
+    expect(resultado.recencia).toBeDefined();
+    expect(resultado.cruzamentoCanais.totalAgenciasCarteira).not.toBe(300);
+    // ...mas o resto do dashboard (que não depende disso) continua real.
+    expect(resultado.miniKpis).toEqual({
+      clientesDistintos: 62,
+      bilhetesAereo: 270,
+      ticketMedioAereo: 1941.64,
+    });
+  });
 });
