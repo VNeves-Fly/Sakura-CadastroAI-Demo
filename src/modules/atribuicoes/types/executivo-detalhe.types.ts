@@ -72,14 +72,30 @@ export interface VendaMensal {
   terrestre: number;
 }
 
+// Linha de detalhe usada nos modais de "ver lista" (cross-canal e saúde
+// da carteira) — mock (ver comentário do topo do arquivo), gerada só pra
+// os cards clicáveis abrirem uma lista de verdade em vez de um número
+// solto.
+export interface AgenciaSegmentoResumo {
+  nome: string;
+  cnpj: string;
+  valor: number;
+}
+
+export interface SegmentoComLista {
+  quantidade: number;
+  pct: number;
+  agencias: AgenciaSegmentoResumo[];
+}
+
 export interface CrossCanal {
   ativasUltimos12m: number;
   aprovadas: number; // real (= totalAgencias)
   volAereo: number;
   volTerrestre: number;
-  soAereo: { quantidade: number; pct: number };
-  soTerrestre: { quantidade: number; pct: number };
-  ambos: { quantidade: number; pct: number };
+  soAereo: SegmentoComLista;
+  soTerrestre: SegmentoComLista;
+  ambos: SegmentoComLista;
 }
 
 export interface SegmentoSaude {
@@ -88,6 +104,7 @@ export interface SegmentoSaude {
   descricao: string;
   quantidade: number;
   pct: number;
+  agencias: AgenciaSegmentoResumo[];
 }
 
 export interface RankingAgencia {

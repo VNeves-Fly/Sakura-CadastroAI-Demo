@@ -1,14 +1,28 @@
+"use client";
+
+import { useState } from "react";
 import { Plane, Bus, Layers } from "lucide-react";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
+import { AgenciaSegmentoModal } from "@/modules/atribuicoes/components/executivo/dashboard/agencia-segmento-modal";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
-import type { CrossCanal } from "@/modules/atribuicoes/types/executivo-detalhe.types";
+import type {
+  AgenciaSegmentoResumo,
+  CrossCanal,
+} from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 interface CrossCanalCardProps {
   crossCanal: CrossCanal;
 }
 
-// Card "Cross-canal — agências do executivo" (SPEC 4.7).
+// Card "Cross-canal — agências do executivo" (SPEC 4.7) — os 3 blocos são
+// clicáveis e abrem o modal padrão de "ver lista" com as agências
+// daquele segmento (mock, ver adapter).
 export function CrossCanalCard({ crossCanal }: CrossCanalCardProps) {
+  const [segmentoAberto, setSegmentoAberto] = useState<{
+    titulo: string;
+    agencias: AgenciaSegmentoResumo[];
+  } | null>(null);
+
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -44,12 +58,18 @@ export function CrossCanalCard({ crossCanal }: CrossCanalCardProps) {
           label="Só aéreo"
           quantidade={crossCanal.soAereo.quantidade}
           pct={crossCanal.soAereo.pct}
+          onClick={() =>
+            setSegmentoAberto({ titulo: "Só aéreo", agencias: crossCanal.soAereo.agencias })
+          }
         />
         <CanalBloco
           icon={Bus}
           label="Só terrestre"
           quantidade={crossCanal.soTerrestre.quantidade}
           pct={crossCanal.soTerrestre.pct}
+          onClick={() =>
+            setSegmentoAberto({ titulo: "Só terrestre", agencias: crossCanal.soTerrestre.agencias })
+          }
         />
         <CanalBloco
           icon={Layers}
@@ -57,8 +77,18 @@ export function CrossCanalCard({ crossCanal }: CrossCanalCardProps) {
           quantidade={crossCanal.ambos.quantidade}
           pct={crossCanal.ambos.pct}
           destaque
+          onClick={() =>
+            setSegmentoAberto({ titulo: "Ambos os canais", agencias: crossCanal.ambos.agencias })
+          }
         />
       </div>
+
+      <AgenciaSegmentoModal
+        aberto={segmentoAberto !== null}
+        onOpenChange={(aberto) => !aberto && setSegmentoAberto(null)}
+        titulo={segmentoAberto?.titulo ?? ""}
+        agencias={segmentoAberto?.agencias ?? []}
+      />
     </div>
   );
 }
@@ -69,19 +99,23 @@ function CanalBloco({
   quantidade,
   pct,
   destaque,
+  onClick,
 }: {
   icon: typeof Plane;
   label: string;
   quantidade: number;
   pct: number;
   destaque?: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       className={
         destaque
-          ? "bg-success/5 border-success/20 flex items-center gap-3 rounded-xl border p-4"
-          : "border-border flex items-center gap-3 rounded-xl border p-4"
+          ? "bg-success/5 border-success/20 hover:bg-success/10 flex items-center gap-3 rounded-xl border p-4 text-left transition"
+          : "border-border hover:bg-muted/40 flex items-center gap-3 rounded-xl border p-4 text-left transition"
       }
     >
       <Icon className="text-muted-foreground size-5" />
@@ -93,6 +127,6 @@ function CanalBloco({
           <SensitiveValue value={quantidade} /> <span className="text-sm">({pct}%)</span>
         </p>
       </div>
-    </div>
+    </button>
   );
 }

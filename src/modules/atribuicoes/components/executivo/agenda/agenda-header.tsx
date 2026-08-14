@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { CalendarPlus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { AgendaVisao } from "@/modules/atribuicoes/view-models/use-executivo-agenda.view-model";
@@ -10,6 +10,7 @@ interface AgendaHeaderProps {
   onVisaoChange: (visao: AgendaVisao) => void;
   busca: string;
   onBuscaChange: (busca: string) => void;
+  onAgendarClick: () => void;
 }
 
 const OPCOES: { chave: AgendaVisao; label: string }[] = [
@@ -19,8 +20,16 @@ const OPCOES: { chave: AgendaVisao; label: string }[] = [
 ];
 
 // Header da Agenda (SPEC seção 5) — título + subtítulo à esquerda,
-// seletor de visão em pill group + busca à direita.
-export function AgendaHeader({ visao, onVisaoChange, busca, onBuscaChange }: AgendaHeaderProps) {
+// seletor de visão em pill group + busca à direita. O botão "Agendar
+// visita" fica aqui (não dentro de cada visão) justamente pra estar
+// disponível nas 3 modalidades (Calendário/Kanban/Lista) sem duplicar.
+export function AgendaHeader({
+  visao,
+  onVisaoChange,
+  busca,
+  onBuscaChange,
+  onAgendarClick,
+}: AgendaHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div>
@@ -58,6 +67,15 @@ export function AgendaHeader({ visao, onVisaoChange, busca, onBuscaChange }: Age
             className="rounded-full pl-8"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={onAgendarClick}
+          className="bg-primary text-primary-foreground hover:bg-sakura-600 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap"
+        >
+          <CalendarPlus className="size-4" />
+          Agendar visita
+        </button>
       </div>
     </div>
   );

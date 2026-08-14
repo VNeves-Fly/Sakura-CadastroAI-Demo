@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { AlertTriangle, TrendingDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

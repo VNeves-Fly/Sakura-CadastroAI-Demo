@@ -3,6 +3,7 @@ import type { AgenciaResumoPromotor } from "@/modules/cadastro/domain/repositori
 import type { PromotorProps } from "@/modules/atribuicoes/domain/entities/promotor.entity";
 import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
 import type {
+  AgenciaSegmentoResumo,
   ExecutivoAgenciaResumo,
   ExecutivoDetalheView,
   LoyaltyChip,
@@ -124,6 +125,40 @@ function gerarTendencia30d(base: number, mediaDiaria: number): number[] {
   });
 }
 
+// Nomes/CNPJs só pra preencher as listas dos modais de "ver lista"
+// (cross-canal e saúde da carteira, seção abaixo) — claramente sintéticos
+// (CNPJ com dígito verificador não validado), sem fonte real (ver
+// comentário no topo do arquivo).
+const PREFIXOS_AGENCIA_MOCK = [
+  "Turismo",
+  "Viagens",
+  "Tour",
+  "Travel",
+  "Turismundo",
+  "Destinos",
+  "Rotas",
+  "Voyage",
+];
+const SUFIXOS_AGENCIA_MOCK = ["SP", "RJ", "FLN", "BSB", "CWB", "POA", "BHZ", "SSA", "REC", "MAO"];
+
+function gerarCnpjMock(seed: number): string {
+  const digitos = String(10_000_000_000_000 + (seed % 89_999_999_999_999)).padStart(14, "0");
+  return `${digitos.slice(0, 2)}.${digitos.slice(2, 5)}.${digitos.slice(5, 8)}/${digitos.slice(8, 12)}-${digitos.slice(12, 14)}`;
+}
+
+function gerarListaAgenciasSegmento(quantidade: number, seedBase: number): AgenciaSegmentoResumo[] {
+  return Array.from({ length: quantidade }, (_, indice) => {
+    const seed = seedBase + indice * 53;
+    const prefixo = PREFIXOS_AGENCIA_MOCK[seed % PREFIXOS_AGENCIA_MOCK.length]!;
+    const sufixo = SUFIXOS_AGENCIA_MOCK[(seed >> 3) % SUFIXOS_AGENCIA_MOCK.length]!;
+    return {
+      nome: `${prefixo} ${sufixo} ${100 + (seed % 900)}`,
+      cnpj: gerarCnpjMock(seed),
+      valor: 5_000 + (seed % 300_000),
+    };
+  });
+}
+
 function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
   const [ativas, potenciais, ociosas, inativas] = particionar(total, [
     5 + (base % 10),
@@ -140,6 +175,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
       descricao: "Vendendo nos últimos 30d",
       quantidade: ativas,
       pct: pct(ativas),
+      agencias: gerarListaAgenciasSegmento(ativas, base + 101),
     },
     {
       chave: "potenciais",
@@ -147,6 +183,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
       descricao: "Vendem sem crédito",
       quantidade: potenciais,
       pct: pct(potenciais),
+      agencias: gerarListaAgenciasSegmento(potenciais, base + 202),
     },
     {
       chave: "ociosas",
@@ -154,6 +191,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
       descricao: "Sem compra há +90d",
       quantidade: ociosas,
       pct: pct(ociosas),
+      agencias: gerarListaAgenciasSegmento(ociosas, base + 303),
     },
     {
       chave: "inativas",
@@ -161,6 +199,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
       descricao: "Nunca compraram",
       quantidade: inativas,
       pct: pct(inativas),
+      agencias: gerarListaAgenciasSegmento(inativas, base + 404),
     },
   ];
 }
@@ -246,9 +285,21 @@ export function montarExecutivoDetalheView(
         aprovadas: totalAgencias,
         volAereo: Math.round(valorMesAtual * 0.92),
         volTerrestre: Math.round(valorMesAtual * 0.03),
-        soAereo: { quantidade: soAereoQtd, pct: pctCanal(soAereoQtd) },
-        soTerrestre: { quantidade: soTerrestreQtd, pct: pctCanal(soTerrestreQtd) },
-        ambos: { quantidade: ambosQtd, pct: pctCanal(ambosQtd) },
+        soAereo: {
+          quantidade: soAereoQtd,
+          pct: pctCanal(soAereoQtd),
+          agencias: gerarListaAgenciasSegmento(soAereoQtd, base + 501),
+        },
+        soTerrestre: {
+          quantidade: soTerrestreQtd,
+          pct: pctCanal(soTerrestreQtd),
+          agencias: gerarListaAgenciasSegmento(soTerrestreQtd, base + 602),
+        },
+        ambos: {
+          quantidade: ambosQtd,
+          pct: pctCanal(ambosQtd),
+          agencias: gerarListaAgenciasSegmento(ambosQtd, base + 703),
+        },
       },
       saudeCarteira: gerarSaudeCarteira(totalAgencias, base),
       topAgenciasMes: agencias

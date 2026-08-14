@@ -62,6 +62,10 @@ export function useExecutivoAgendaViewModel(
     busca,
     setBusca,
     agencias: agenciasFiltradas,
+    // Lista completa (sem o filtro de busca) — usada no seletor de
+    // agência do diálogo de agendamento, pra não depender do que está
+    // digitado na busca da tela.
+    todasAgencias: agencias,
     semVisita,
     agendadas,
     visitadas,

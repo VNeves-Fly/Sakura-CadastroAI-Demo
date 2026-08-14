@@ -16,14 +16,15 @@ import {
 import { ptBR } from "date-fns/locale";
 import { CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AgendarVisitaDialog } from "@/modules/atribuicoes/components/executivo/agenda/agendar-visita-dialog";
 import { formatarDataHoraAgendada } from "@/modules/atribuicoes/utils/formatar-agenda.util";
 import type { AgendaAgenciaView } from "@/modules/atribuicoes/types/executivo-agenda.types";
 import { cn } from "@/lib/utils";
 
 interface AgendaCalendarioProps {
   agencias: AgendaAgenciaView[];
-  onAgendar: (agenciaId: string, data: string, hora: string, observacao: string) => void;
+  // Abre o diálogo de agendamento (dono do estado é ExecutivoAgendaView,
+  // pra ser o mesmo botão/diálogo do AgendaHeader nas 3 modalidades).
+  onAbrirAgendar: (data?: string) => void;
 }
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -31,11 +32,9 @@ const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 // MonthCalendarGrid (SPEC 5.2) — grade "estilo agenda", com caixas maiores
 // por dia (não o mini-calendário de date-picker), clique num dia abre o
 // resumo daquele dia, e uma lista com o resumo do mês inteiro embaixo.
-export function AgendaCalendario({ agencias, onAgendar }: AgendaCalendarioProps) {
+export function AgendaCalendario({ agencias, onAbrirAgendar }: AgendaCalendarioProps) {
   const [mesAtual, setMesAtual] = useState(() => new Date());
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
-  const [dialogAgendarAberto, setDialogAgendarAberto] = useState(false);
-  const [dataParaAgendar, setDataParaAgendar] = useState<string | undefined>(undefined);
 
   const agendadas = useMemo(
     () => agencias.filter((a) => a.status === "agendada" && a.dataAgendada),
@@ -67,11 +66,6 @@ export function AgendaCalendario({ agencias, onAgendar }: AgendaCalendarioProps)
       isSameMonth(parse(a.concluidaEm, "yyyy-MM-dd", new Date()), mesAtual),
   );
 
-  function abrirDialogAgendar(data: Date) {
-    setDataParaAgendar(format(data, "yyyy-MM-dd"));
-    setDialogAgendarAberto(true);
-  }
-
   const visitasDoDiaSelecionado = diaSelecionado
     ? (visitasPorDia.get(format(diaSelecionado, "yyyy-MM-dd")) ?? [])
     : [];
@@ -90,14 +84,6 @@ export function AgendaCalendario({ agencias, onAgendar }: AgendaCalendarioProps)
             {format(mesAtual, "MMMM 'de' yyyy", { locale: ptBR })}
           </h3>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => abrirDialogAgendar(new Date())}
-              className="bg-primary text-primary-foreground hover:bg-sakura-600 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium"
-            >
-              <CalendarPlus className="size-4" />
-              Agendar visita
-            </button>
             <div className="border-border flex items-center rounded-full border">
               <button
                 type="button"
@@ -208,14 +194,6 @@ export function AgendaCalendario({ agencias, onAgendar }: AgendaCalendarioProps)
         )}
       </div>
 
-      <AgendarVisitaDialog
-        open={dialogAgendarAberto}
-        onOpenChange={setDialogAgendarAberto}
-        agencias={agencias}
-        dataInicial={dataParaAgendar}
-        onConfirmar={onAgendar}
-      />
-
       <Dialog
         open={diaSelecionado !== null}
         onOpenChange={(aberto) => !aberto && setDiaSelecionado(null)}
@@ -251,7 +229,7 @@ export function AgendaCalendario({ agencias, onAgendar }: AgendaCalendarioProps)
               onClick={() => {
                 const data = diaSelecionado;
                 setDiaSelecionado(null);
-                if (data) abrirDialogAgendar(data);
+                if (data) onAbrirAgendar(format(data, "yyyy-MM-dd"));
               }}
               className="border-border text-foreground hover:bg-muted inline-flex items-center justify-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium"
             >
