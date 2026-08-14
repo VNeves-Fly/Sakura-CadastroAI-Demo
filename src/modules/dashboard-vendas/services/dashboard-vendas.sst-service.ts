@@ -1030,124 +1030,171 @@ export function __limparCacheParaTestes(): void {
   cacheConsolidado.clear();
 }
 
+// Seções "rápidas" — poucas chamadas, sem paginação. Separado do resto
+// pra poder ser exibido (via Suspense, ver dashboard-new/page.tsx)
+// enquanto as seções pesadas abaixo ainda carregam.
+async function obterResumoEDia(): Promise<
+  Pick<
+    DashboardVendasData,
+    | "resumoPorPeriodo"
+    | "miniKpis"
+    | "rankingPorMes"
+    | "fornecedoresPorMes"
+    | "nacionalInternacionalPorMes"
+  >
+> {
+  const hoje = hojeIso();
+  const ontem = ontemIso();
+  const inicioMes = inicioMesIso();
+  const inicioAno = inicioAnoIso();
+
+  const [
+    overviewHoje,
+    overviewOntem,
+    topAgenciasMes,
+    topAgenciasAno,
+    rankingCiasMes,
+    rankingCiasAno,
+    nacIntMes,
+    nacIntAno,
+  ] = await Promise.all([
+    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+      data: hoje,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    }),
+    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+      data: ontem,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    }),
+    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+      startDate: inicioMes,
+      endDate: hoje,
+      limit: TAMANHO_RANKING,
+    }),
+    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+      startDate: inicioAno,
+      endDate: hoje,
+      limit: TAMANHO_RANKING,
+    }),
+    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+      startDate: inicioMes,
+      endDate: hoje,
+      limit: TAMANHO_RANKING_FORNECEDORES,
+    }),
+    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+      startDate: inicioAno,
+      endDate: hoje,
+      limit: TAMANHO_RANKING_FORNECEDORES,
+    }),
+    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
+      startDate: inicioMes,
+      endDate: hoje,
+    }),
+    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
+      startDate: inicioAno,
+      endDate: hoje,
+    }),
+  ]);
+
+  return {
+    resumoPorPeriodo: {
+      hoje: paraResumoDia(overviewHoje, "dia"),
+      ontem: paraResumoDia(overviewOntem, "dia"),
+      mes: paraResumoDia(overviewHoje, "mes"),
+      ano: paraResumoDia(overviewHoje, "ano"),
+    },
+    miniKpis: paraMiniKpis(overviewHoje),
+    rankingPorMes: {
+      mes: paraTopAgencias(topAgenciasMes.data),
+      ano: paraTopAgencias(topAgenciasAno.data),
+    },
+    fornecedoresPorMes: {
+      mes: paraTopFornecedores(rankingCiasMes.data),
+      ano: paraTopFornecedores(rankingCiasAno.data),
+    },
+    nacionalInternacionalPorMes: {
+      mes: paraNacionalInternacional(nacIntMes.data),
+      ano: paraNacionalInternacional(nacIntAno.data),
+    },
+  };
+}
+
+async function obterVendasMensaisComFallback(): Promise<VendaMensal[]> {
+  const mock = await dashboardVendasMockService.obterDashboard();
+  return comFallback("vendasMensais", construirVendasMensais(), mock.vendasMensais);
+}
+
+async function obterVendasDiariasComFallback(): Promise<VendaDiaria[]> {
+  const mock = await dashboardVendasMockService.obterDashboard();
+  return comFallback("vendasDiarias", construirVendasDiarias(), mock.vendasDiarias);
+}
+
+async function obterConversaoComFallback(): Promise<Conversao> {
+  const mock = await dashboardVendasMockService.obterDashboard();
+  return comFallback("conversao", construirConversao(), mock.conversao);
+}
+
+async function obterRecenciaECruzamentoComFallback(): Promise<
+  Pick<
+    DashboardVendasData,
+    "recencia" | "recenciaDetalhe" | "cruzamentoCanais" | "cruzamentoDetalhe"
+  >
+> {
+  const mock = await dashboardVendasMockService.obterDashboard();
+  return comFallback(
+    "recencia/cruzamentoCanais",
+    (async () => {
+      const agenciasComputadas = await construirAgenciasComputadas();
+      const [recenciaResultado, cruzamentoResultado] = await Promise.all([
+        construirRecencia(agenciasComputadas),
+        construirCruzamento(agenciasComputadas),
+      ]);
+      return {
+        recencia: recenciaResultado.recencia,
+        recenciaDetalhe: recenciaResultado.recenciaDetalhe,
+        cruzamentoCanais: cruzamentoResultado.cruzamentoCanais,
+        cruzamentoDetalhe: cruzamentoResultado.cruzamentoDetalhe,
+      };
+    })(),
+    {
+      recencia: mock.recencia,
+      recenciaDetalhe: mock.recenciaDetalhe,
+      cruzamentoCanais: mock.cruzamentoCanais,
+      cruzamentoDetalhe: mock.cruzamentoDetalhe,
+    },
+  );
+}
+
 export const dashboardVendasSstService = {
+  obterResumoEDia,
+  obterVendasMensais: obterVendasMensaisComFallback,
+  obterVendasDiarias: obterVendasDiariasComFallback,
+  obterConversao: obterConversaoComFallback,
+  obterRecenciaECruzamento: obterRecenciaECruzamentoComFallback,
+
+  // Mantido pra quem ainda quer tudo de uma vez (testes, scripts) — por
+  // baixo dos panos já é só a composição das peças acima, cada uma com
+  // seu próprio fallback isolado (ver `comFallback`).
   async obterDashboard(): Promise<DashboardVendasData> {
-    // Fallback pras seções ainda sem fonte real (ver comentário no topo
-    // do arquivo) — substituídas abaixo só nos campos já destravados.
-    const mock = await dashboardVendasMockService.obterDashboard();
-
-    const hoje = hojeIso();
-    const ontem = ontemIso();
-    const inicioMes = inicioMesIso();
-    const inicioAno = inicioAnoIso();
-
-    const [
-      overviewHoje,
-      overviewOntem,
-      topAgenciasMes,
-      topAgenciasAno,
-      rankingCiasMes,
-      rankingCiasAno,
-      nacIntMes,
-      nacIntAno,
-      vendasMensais,
-      vendasDiarias,
-      conversao,
-    ] = await Promise.all([
-      sstGet<RawOverviewResponse>("/api/consolidado/overview", {
-        data: hoje,
-        painel: "FILIAL",
-        situacao: "ATIVOS",
-      }),
-      sstGet<RawOverviewResponse>("/api/consolidado/overview", {
-        data: ontem,
-        painel: "FILIAL",
-        situacao: "ATIVOS",
-      }),
-      sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
-        startDate: inicioMes,
-        endDate: hoje,
-        limit: TAMANHO_RANKING,
-      }),
-      sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
-        startDate: inicioAno,
-        endDate: hoje,
-        limit: TAMANHO_RANKING,
-      }),
-      sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
-        startDate: inicioMes,
-        endDate: hoje,
-        limit: TAMANHO_RANKING_FORNECEDORES,
-      }),
-      sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
-        startDate: inicioAno,
-        endDate: hoje,
-        limit: TAMANHO_RANKING_FORNECEDORES,
-      }),
-      sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
-        startDate: inicioMes,
-        endDate: hoje,
-      }),
-      sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
-        startDate: inicioAno,
-        endDate: hoje,
-      }),
-      comFallback("vendasMensais", construirVendasMensais(), mock.vendasMensais),
-      comFallback("vendasDiarias", construirVendasDiarias(), mock.vendasDiarias),
-      comFallback("conversao", construirConversao(), mock.conversao),
-    ]);
-
-    const { recencia, recenciaDetalhe, cruzamentoCanais, cruzamentoDetalhe } = await comFallback(
-      "recencia/cruzamentoCanais",
-      (async () => {
-        const agenciasComputadas = await construirAgenciasComputadas();
-        const [recenciaResultado, cruzamentoResultado] = await Promise.all([
-          construirRecencia(agenciasComputadas),
-          construirCruzamento(agenciasComputadas),
-        ]);
-        return {
-          recencia: recenciaResultado.recencia,
-          recenciaDetalhe: recenciaResultado.recenciaDetalhe,
-          cruzamentoCanais: cruzamentoResultado.cruzamentoCanais,
-          cruzamentoDetalhe: cruzamentoResultado.cruzamentoDetalhe,
-        };
-      })(),
-      {
-        recencia: mock.recencia,
-        recenciaDetalhe: mock.recenciaDetalhe,
-        cruzamentoCanais: mock.cruzamentoCanais,
-        cruzamentoDetalhe: mock.cruzamentoDetalhe,
-      },
-    );
+    const [mockEstatico, resumoEDia, vendasMensais, vendasDiarias, conversao, recenciaECruzamento] =
+      await Promise.all([
+        dashboardVendasMockService.obterDashboard(),
+        obterResumoEDia(),
+        obterVendasMensaisComFallback(),
+        obterVendasDiariasComFallback(),
+        obterConversaoComFallback(),
+        obterRecenciaECruzamentoComFallback(),
+      ]);
 
     return {
-      ...mock,
-      resumoPorPeriodo: {
-        hoje: paraResumoDia(overviewHoje, "dia"),
-        ontem: paraResumoDia(overviewOntem, "dia"),
-        mes: paraResumoDia(overviewHoje, "mes"),
-        ano: paraResumoDia(overviewHoje, "ano"),
-      },
-      miniKpis: paraMiniKpis(overviewHoje),
-      conversao,
+      ...mockEstatico,
+      ...resumoEDia,
       vendasMensais,
       vendasDiarias,
-      recencia,
-      recenciaDetalhe,
-      cruzamentoCanais,
-      cruzamentoDetalhe,
-      rankingPorMes: {
-        mes: paraTopAgencias(topAgenciasMes.data),
-        ano: paraTopAgencias(topAgenciasAno.data),
-      },
-      fornecedoresPorMes: {
-        mes: paraTopFornecedores(rankingCiasMes.data),
-        ano: paraTopFornecedores(rankingCiasAno.data),
-      },
-      nacionalInternacionalPorMes: {
-        mes: paraNacionalInternacional(nacIntMes.data),
-        ano: paraNacionalInternacional(nacIntAno.data),
-      },
+      conversao,
+      ...recenciaECruzamento,
     };
   },
 };

@@ -26,7 +26,21 @@ function normalizarResumo(resumo: ResumoDia): ResumoDia {
   };
 }
 
-function normalizarCruzamento(cruzamento: CruzamentoCanais): CruzamentoCanais {
+// Exportadas à parte (além de `toViewModel`) pra uso no carregamento
+// progressivo (ver dashboard-new/page.tsx) — cada seção streamada via
+// Suspense normaliza só o próprio pedaço, sem esperar o resto.
+export function normalizarResumoPorPeriodo(
+  resumoPorPeriodo: DashboardVendasData["resumoPorPeriodo"],
+): DashboardVendasData["resumoPorPeriodo"] {
+  return Object.fromEntries(
+    Object.entries(resumoPorPeriodo).map(([periodo, resumo]) => [
+      periodo,
+      normalizarResumo(resumo),
+    ]),
+  ) as DashboardVendasData["resumoPorPeriodo"];
+}
+
+export function normalizarCruzamento(cruzamento: CruzamentoCanais): CruzamentoCanais {
   const total = cruzamento.totalAgenciasCarteira;
   const comPct = (grupo: { qtd: number; pct: number }) => ({
     ...grupo,
@@ -43,16 +57,9 @@ function normalizarCruzamento(cruzamento: CruzamentoCanais): CruzamentoCanais {
 
 export const dashboardVendasAdapter = {
   toViewModel(raw: DashboardVendasData): DashboardVendasData {
-    const resumoPorPeriodo = Object.fromEntries(
-      Object.entries(raw.resumoPorPeriodo).map(([periodo, resumo]) => [
-        periodo,
-        normalizarResumo(resumo),
-      ]),
-    ) as DashboardVendasData["resumoPorPeriodo"];
-
     return {
       ...raw,
-      resumoPorPeriodo,
+      resumoPorPeriodo: normalizarResumoPorPeriodo(raw.resumoPorPeriodo),
       cruzamentoCanais: normalizarCruzamento(raw.cruzamentoCanais),
     };
   },
