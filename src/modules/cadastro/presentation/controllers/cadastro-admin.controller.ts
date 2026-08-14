@@ -89,7 +89,6 @@ import {
   AtualizarSicaUseCase,
   type AtualizarSicaInput,
 } from "@/modules/cadastro/application/use-cases/atualizar-sica.use-case";
-import { TestarConexaoSstUseCase } from "@/modules/cadastro/application/use-cases/testar-conexao-sst.use-case";
 import { ConfirmarCadastramentoUseCase } from "@/modules/cadastro/application/use-cases/confirmar-cadastramento.use-case";
 import {
   SalvarTravelLinkUseCase,
@@ -318,13 +317,6 @@ export const cadastroAdminController = {
   atualizarSica(input: AtualizarSicaInput) {
     const useCase = new AtualizarSicaUseCase(agenciaRepository, sstService);
     return useCase.execute(input);
-  },
-
-  // "Testar conexão" com o SST (GET /health) — diagnóstico manual, mesmo
-  // padrão de AtendimentoController.testarConexaoWhatsapp.
-  testarConexaoSst() {
-    const useCase = new TestarConexaoSstUseCase(sstService);
-    return useCase.execute();
   },
 
   salvarTravelLink(input: SalvarTravelLinkInput) {
