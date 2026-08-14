@@ -1,5 +1,6 @@
 import type { RepresentanteLegal } from "@/modules/cadastro/domain/entities/representante-legal.entity";
 import type { PapelRepresentante } from "@/modules/cadastro/domain/enums";
+import type { EnderecoData } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 export interface CreateRepresentanteLegalData {
   agenciaId: string;
@@ -27,6 +28,10 @@ export type UpdateRepresentanteLegalData = Partial<
   Omit<CreateRepresentanteLegalData, "agenciaId">
 > & {
   ativo?: boolean;
+  // Editável pelo analista junto do resto do sócio (dossiê, 2026-08-05) —
+  // relação 1:1 opcional (RepresentanteLegal.endereco), upsertada no
+  // repositório (o sócio pode não ter endereço nenhum ainda).
+  endereco?: EnderecoData;
 };
 
 export interface RepresentanteLegalRepository {

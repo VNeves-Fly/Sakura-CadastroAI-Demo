@@ -8,13 +8,21 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 
+export interface MarcarContratoAssinadoInput {
+  id: string;
+  marcadoPor: string;
+}
+
 // Ação do analista: sem webhook real do D4Sign ainda, o analista marca
 // manualmente quando os sócios já assinaram — atualiza o Contrato (pra
 // "assinado") e a Agência (pra "aguardando_validacao") juntos.
-export class MarcarContratoAssinadoUseCase implements UseCase<string, Agencia> {
+export class MarcarContratoAssinadoUseCase implements UseCase<
+  MarcarContratoAssinadoInput,
+  Agencia
+> {
   constructor(private readonly agenciaRepository: AgenciaRepository) {}
 
-  async execute(id: string): Promise<Agencia> {
+  async execute({ id, marcadoPor }: MarcarContratoAssinadoInput): Promise<Agencia> {
     const detalhe = await this.agenciaRepository.obterDetalhe(id);
 
     if (!detalhe) {
@@ -36,6 +44,9 @@ export class MarcarContratoAssinadoUseCase implements UseCase<string, Agencia> {
       CONTRATO_STATUS_ASSINADO,
     );
 
-    return this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_VALIDACAO);
+    return this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_VALIDACAO, {
+      usuarioEmail: marcadoPor,
+      origem: "usuario",
+    });
   }
 }

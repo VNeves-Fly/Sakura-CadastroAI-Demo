@@ -31,6 +31,13 @@ const LABEL_CAMPO: Record<string, string> = {
   rgOrgaoEmissor: "Órgão emissor do RG",
   dataNascimento: "Data de nascimento",
   administrativo: "Assina o contrato",
+  "endereco.cep": "CEP",
+  "endereco.logradouro": "Logradouro",
+  "endereco.numero": "Número",
+  "endereco.complemento": "Complemento",
+  "endereco.bairro": "Bairro",
+  "endereco.cidade": "Cidade",
+  "endereco.uf": "UF",
 };
 
 export const INPUT_CLASSES =
@@ -167,6 +174,62 @@ export function EditarSocioForm({
                     name="dataNascimento"
                     type="date"
                     defaultValue={dataParaInput(socio.dataNascimento)}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
+              </div>
+
+              <span className="text-foreground text-xs font-bold tracking-wide uppercase">
+                Endereço
+              </span>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <CampoForm label="CEP">
+                  <input
+                    name="enderecoCep"
+                    defaultValue={socio.endereco.cep}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
+                <CampoForm label="Logradouro">
+                  <input
+                    name="enderecoLogradouro"
+                    defaultValue={socio.endereco.logradouro}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
+                <CampoForm label="Número">
+                  <input
+                    name="enderecoNumero"
+                    defaultValue={socio.endereco.numero}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
+                <CampoForm label="Complemento">
+                  <input
+                    name="enderecoComplemento"
+                    defaultValue={socio.endereco.complemento}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
+                <CampoForm label="Bairro">
+                  <input
+                    name="enderecoBairro"
+                    defaultValue={socio.endereco.bairro}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
+                <CampoForm label="Cidade">
+                  <input
+                    name="enderecoCidade"
+                    defaultValue={socio.endereco.cidade}
+                    className={INPUT_CLASSES}
+                  />
+                </CampoForm>
+                <CampoForm label="UF">
+                  <input
+                    name="enderecoUf"
+                    maxLength={2}
+                    defaultValue={socio.endereco.uf}
                     className={INPUT_CLASSES}
                   />
                 </CampoForm>

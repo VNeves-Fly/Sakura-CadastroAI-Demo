@@ -57,6 +57,11 @@ export const atendimentoApi = {
     return fetchJson<Conversa[]>("/api/atendimento/conversas");
   },
 
+  // Contagem agregada (não a lista inteira) — alimenta o badge do sidebar.
+  async contarNaoLidas(): Promise<{ total: number }> {
+    return fetchJson<{ total: number }>("/api/atendimento/nao-lidas");
+  },
+
   // Aba "Contatos" — todas as agências, tenham conversa iniciada ou não.
   async listarContatos(busca?: string): Promise<ContatoAgencia[]> {
     const query = busca ? `?busca=${encodeURIComponent(busca)}` : "";

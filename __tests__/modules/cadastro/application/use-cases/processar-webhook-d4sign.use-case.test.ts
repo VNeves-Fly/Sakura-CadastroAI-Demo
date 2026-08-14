@@ -51,6 +51,9 @@ function fakeSignatarioPadraoRepository(
     restaurar: async () => {
       throw new Error("restaurar não implementado no fake de teste");
     },
+    reordenar: async () => {
+      throw new Error("reordenar não implementado no fake de teste");
+    },
   };
 }
 
@@ -192,7 +195,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
 
     expect(repo.atualizarStatusContrato).toHaveBeenCalledWith("ct-1", CONTRATO_STATUS_ASSINADO);
-    expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO);
+    expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO, {
+      usuarioEmail: null,
+      origem: "sistema - d4sign",
+    });
     expect(resultado).toEqual({ processado: true });
   });
 
@@ -402,7 +408,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       // Quem assinou agora é sócio, não o aprovador — Contrato.status não
       // muda por esse evento, só Agencia.status avança.
       expect(repo.atualizarStatusContrato).not.toHaveBeenCalled();
-      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO);
+      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO, {
+        usuarioEmail: SOCIO_2,
+        origem: "sistema - d4sign",
+      });
       expect(resultado).toEqual({ processado: true });
     });
 
@@ -474,7 +483,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         "ct-1",
         CONTRATO_STATUS_ASSINADO_AGENCIA,
       );
-      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO);
+      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO, {
+        usuarioEmail: "cadastro@sakuratur.com.br",
+        origem: "sistema - d4sign",
+      });
       expect(resultado).toEqual({ processado: true });
     });
 
@@ -510,7 +522,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
 
       expect(assinaturaRepo.registrar).toHaveBeenCalledWith("ct-1", "cadastro@sakuratur.com.br");
       expect(repo.atualizarStatusContrato).not.toHaveBeenCalled();
-      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO);
+      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_VALIDACAO, {
+        usuarioEmail: "cadastro@sakuratur.com.br",
+        origem: "sistema - d4sign",
+      });
       expect(resultado).toEqual({ processado: true });
     });
 
@@ -540,7 +555,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       });
 
       expect(assinaturaRepo.registrar).toHaveBeenCalledWith("ct-1", "cadastro@sakuratur.com.br");
-      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO);
+      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO, {
+        usuarioEmail: "cadastro@sakuratur.com.br",
+        origem: "sistema - d4sign",
+      });
       expect(resultado).toEqual({ processado: true });
     });
 
@@ -598,7 +616,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
 
     expect(repo.atualizarStatusContrato).toHaveBeenCalledWith("ct-1", CONTRATO_STATUS_ASSINADO);
-    expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO);
+    expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO, {
+      usuarioEmail: null,
+      origem: "sistema - d4sign",
+    });
     expect(resultado).toEqual({ processado: true });
   });
 

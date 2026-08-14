@@ -17,6 +17,11 @@ export interface AgenciaProps {
   travelLinkCriado: boolean;
   travelLinkSalvoPor: string | null;
   travelLinkSalvoEm: Date | null;
+  // Id real do Promotor atribuído (null = nenhum executivo atribuído) —
+  // usado pro escopo de leitura de Gestor/Executivo em /cadastros
+  // (2026-08-03), não só pra exibir o nome (ver executivoNome em
+  // ListarCadastrosItem/AgenciaDetalhe).
+  executivoId: string | null;
 }
 
 export class Agencia {
@@ -94,6 +99,10 @@ export class Agencia {
     return this.props.travelLinkSalvoEm;
   }
 
+  get executivoId(): string | null {
+    return this.props.executivoId;
+  }
+
   toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt" | "sicaSalvoEm" | "travelLinkSalvoEm"> & {
     createdAt: string;
     updatedAt: string;
@@ -119,6 +128,7 @@ export class Agencia {
       travelLinkCriado: this.props.travelLinkCriado,
       travelLinkSalvoPor: this.props.travelLinkSalvoPor,
       travelLinkSalvoEm: this.props.travelLinkSalvoEm?.toISOString() ?? null,
+      executivoId: this.props.executivoId,
     };
   }
 }

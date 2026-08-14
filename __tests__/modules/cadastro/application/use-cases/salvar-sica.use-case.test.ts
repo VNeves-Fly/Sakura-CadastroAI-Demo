@@ -24,6 +24,7 @@ function agenciaFake(): Agencia {
     travelLinkCriado: false,
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
+    executivoId: null,
   });
 }
 
@@ -53,6 +54,7 @@ function sstServiceFake(overrides: Partial<SstService> = {}): SstService {
     consultarSicaCodigoEmpresa: jest
       .fn()
       .mockResolvedValue({ encontrado: true, registro: REGISTRO_CNPJ_BATENDO }),
+    verificarConexao: jest.fn(),
     ...overrides,
   };
 }

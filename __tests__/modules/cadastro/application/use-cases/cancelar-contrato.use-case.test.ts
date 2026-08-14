@@ -39,6 +39,7 @@ function fakeContratoAssinaturaService(
     obterDestinatarios: jest.fn(),
     registrarWebhook: jest.fn(),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }
@@ -141,7 +142,11 @@ describe("CancelarContratoUseCase", () => {
       "contrato-1",
       CONTRATO_STATUS_CANCELADO,
     );
-    expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_EM_COMPLEMENTAR);
+    expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_EM_COMPLEMENTAR, {
+      usuarioEmail: "analista@sakuratur.com.br",
+      origem: "usuario",
+      observacao: "sócio pediu pra recomeçar o cadastro",
+    });
     expect(historicoEdicaoCadastroRepository.create).toHaveBeenCalledWith({
       agenciaId: "ag-1",
       entidade: "Agencia",

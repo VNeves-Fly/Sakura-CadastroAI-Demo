@@ -120,6 +120,7 @@ export function fakeMensagemRepository(
     criarMidia: jest.fn(),
     findMidiaById: jest.fn(),
     marcarClienteComoLidas: jest.fn(),
+    contarNaoLidas: jest.fn().mockResolvedValue(0),
     findByWaMessageId: jest.fn().mockResolvedValue(null),
     atualizarStatusPorWaMessageId: jest.fn(),
     ...overrides,

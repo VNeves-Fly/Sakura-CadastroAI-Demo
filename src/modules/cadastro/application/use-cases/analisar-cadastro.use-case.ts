@@ -7,12 +7,17 @@ import {
   type AgenciaRepository,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
-import type { DadosReceitaEndereco } from "@/modules/cadastro/domain/entities/dados-receita.entity";
+import type {
+  DadosReceitaCnae,
+  DadosReceitaEndereco,
+} from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
   ContratoAssinaturaService,
   GerarContratoEndereco,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type {
+  AnaliseIaCnaePrincipal,
+  AnaliseIaRawData,
   AnaliseIaResultado,
   AnaliseIaService,
 } from "@/modules/cadastro/domain/services/analise-ia-service";
@@ -23,6 +28,8 @@ import type {
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
+import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import { persistirKeySigners } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 
 // Mesma convenção de "quem" usada em AuditoriaDocumento (dossie-campos.tsx)
 // pra distinguir aprovação humana de automática — quem consultou tem
@@ -98,10 +105,12 @@ function extrairString(valor: unknown): string | null {
   return typeof valor === "string" && valor.length > 0 ? valor : null;
 }
 
-// `endereco` do contrato social é um objeto confirmado no schema do agente
-// (cep/logradouro/numero/complemento/bairro/municipio/uf) — mapeia pro
-// shape de DadosReceitaEndereco (campo "cidade", não "municipio").
-function extrairEnderecoContratoSocial(valor: unknown): DadosReceitaEndereco | null {
+// Mesmo shape em ambas as fontes que alimentam isso (cep/logradouro/
+// numero/complemento/bairro/municipio/uf): o schema do agente pro
+// contrato social e o `endereco` da consulta oficial de CNPJ (ver
+// extrairDadosOficiaisReceita) — mapeia pro shape de DadosReceitaEndereco
+// (campo "cidade", não "municipio").
+function extrairEndereco(valor: unknown): DadosReceitaEndereco | null {
   if (typeof valor !== "object" || valor === null) return null;
   const registro = valor as Record<string, unknown>;
 
@@ -117,6 +126,102 @@ function extrairEnderecoContratoSocial(valor: unknown): DadosReceitaEndereco | n
 
   const temAlgumCampo = Object.values(endereco).some((campo) => campo !== null);
   return temAlgumCampo ? endereco : null;
+}
+
+// Junta principal + secundários do stage1 (comparação da IA) numa lista
+// plana pro cache de Dados da Receita — mesma fonte que já alimenta
+// CnaesStage1Detalhe no dossiê, só que persistida (sobrevive a reconsultas
+// sem stage1 e a cadastros arquivados). `compativelTurismo` fica pra trás
+// de propósito: é um julgamento do agente sobre o cadastro específico, não
+// um dado da Receita.
+function extrairCnaes(
+  cnaePrincipal: AnaliseIaCnaePrincipal | null,
+  cnaesSecundarios: AnaliseIaCnaePrincipal[],
+): DadosReceitaCnae[] {
+  const cnaes: DadosReceitaCnae[] = [];
+  if (cnaePrincipal) {
+    cnaes.push({
+      codigo: cnaePrincipal.codigo,
+      descricao: cnaePrincipal.descricao,
+      principal: true,
+    });
+  }
+  for (const secundario of cnaesSecundarios) {
+    cnaes.push({
+      codigo: secundario.codigo,
+      descricao: secundario.descricao,
+      principal: false,
+    });
+  }
+  return cnaes;
+}
+
+// A tool "fetch_official_cnpj" (fonte "receita" em rawData, ver
+// AnaliseIaRawToolCall) é a resposta crua do provedor (SERPRO) — a única
+// fonte hoje pra data_abertura/natureza_juridica/telefone/email de Dados
+// da Receita (sem isso esses campos ficavam sempre null). `output` é
+// `unknown` porque o shape de cada tool call varia por fonte — checado na
+// unha aqui em vez de confiar num tipo. Pega a primeira chamada com
+// sucesso; se a tool falhou ou não rodou (cadastro antigo, ou
+// `include_raw_data` não mandado), devolve null e os campos ficam
+// ausentes, igual antes.
+function extrairDadosOficiaisReceita(
+  rawData: AnaliseIaRawData | null | undefined,
+): Record<string, unknown> | null {
+  const chamadas = rawData?.receita;
+  if (!Array.isArray(chamadas)) return null;
+
+  for (const chamada of chamadas) {
+    if (typeof chamada.output !== "object" || chamada.output === null) continue;
+    const { data, status } = chamada.output as Record<string, unknown>;
+    if (status !== "success") continue;
+    if (typeof data !== "object" || data === null) continue;
+    return data as Record<string, unknown>;
+  }
+  return null;
+}
+
+function extrairDataIso(valor: unknown): Date | null {
+  if (typeof valor !== "string" || valor.length === 0) return null;
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+// `atividade_principal`/`atividades_secundarias` da consulta oficial usam
+// code/text (em vez de codigo/descricao do stage1, ver extrairCnaes) —
+// preferida quando presente por ser a fonte bruta da Receita (sempre que a
+// tool roda), com o resumo do stage1 como fallback pra cadastros
+// processados antes dessa tool existir.
+function extrairCnaesOficiais(dadosOficiais: Record<string, unknown> | null): DadosReceitaCnae[] {
+  if (!dadosOficiais) return [];
+
+  const cnaes: DadosReceitaCnae[] = [];
+  const principal = Array.isArray(dadosOficiais.atividade_principal)
+    ? dadosOficiais.atividade_principal[0]
+    : null;
+  if (typeof principal === "object" && principal !== null) {
+    const registro = principal as Record<string, unknown>;
+    cnaes.push({
+      codigo: extrairString(registro.code),
+      descricao: extrairString(registro.text),
+      principal: true,
+    });
+  }
+
+  const secundarias = Array.isArray(dadosOficiais.atividades_secundarias)
+    ? dadosOficiais.atividades_secundarias
+    : [];
+  for (const item of secundarias) {
+    if (typeof item !== "object" || item === null) continue;
+    const registro = item as Record<string, unknown>;
+    cnaes.push({
+      codigo: extrairString(registro.code),
+      descricao: extrairString(registro.text),
+      principal: false,
+    });
+  }
+
+  return cnaes;
 }
 
 // Roda em background, disparado (fire-and-forget) pela rota logo após
@@ -145,6 +250,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     private readonly dadosReceitaRepository: DadosReceitaRepository,
     private readonly documentoRepository: DocumentoRepository,
     private readonly sstService: SstService,
+    private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
   ) {}
 
   // A IA aprovando um documento (contrato social ou RG de um sócio) não
@@ -269,6 +375,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
       await this.agenciaRepository.registrarAnaliseFinal(
         agenciaId,
         { aprovado: false, motivo: `Falha técnica na análise automática: ${String(error)}` },
+        agencia.status,
         STATUS_EM_COMPLEMENTAR,
         "FALHA_ANALISE",
       );
@@ -331,15 +438,21 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
           signatarios,
         });
 
-        await this.agenciaRepository.criarContrato(agenciaId, {
+        const contrato = await this.agenciaRepository.criarContrato(agenciaId, {
           provedorId: contratoResult.provedorId,
           status: contratoResult.status,
           origemGeracao: "ia",
           signatarios,
         });
+        await persistirKeySigners(
+          this.contratoAssinaturaRepository,
+          contrato.id,
+          contratoResult.signatariosKeySigner,
+        );
         await this.agenciaRepository.registrarAnaliseFinal(
           agenciaId,
           analiseIa,
+          agencia.status,
           STATUS_AGUARDANDO_ASSINATURA,
           "APROVADO",
         );
@@ -357,6 +470,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
               `IA aprovou, mas a geração do contrato falhou: ${String(error)}` +
               (analiseIa.motivo ? ` — ${analiseIa.motivo}` : ""),
           },
+          agencia.status,
           STATUS_EM_COMPLEMENTAR,
           "FALHA_CONTRATO",
         );
@@ -372,6 +486,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
                 (analiseIa.motivo ? ` — ${analiseIa.motivo}` : ""),
             }
           : analiseIa,
+        agencia.status,
         STATUS_EM_COMPLEMENTAR,
         "REPROVADO",
       );
@@ -383,28 +498,55 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     // Mesma lógica que existia em FinalizarCadastroUseCase antes desta
     // refatoração — só passou a checar se já existe (findByAgenciaId) pra
     // ser seguro em caso de reprocessamento.
-    const capitalSocial = extrairCapitalSocial(
-      analiseIaContratoSocial.camposExtraidos.capital_social,
-    );
-    const endereco = extrairEnderecoContratoSocial(
-      analiseIaContratoSocial.camposExtraidos.endereco,
-    );
-    const situacaoCadastral = analiseIa.stage1?.situacaoCadastral ?? null;
+    const dadosOficiaisReceita = extrairDadosOficiaisReceita(analiseIa.rawData);
 
-    if (situacaoCadastral || capitalSocial !== null || endereco) {
+    const capitalSocial =
+      extrairCapitalSocial(analiseIaContratoSocial.camposExtraidos.capital_social) ??
+      extrairCapitalSocial(dadosOficiaisReceita?.capital_social);
+    const endereco =
+      extrairEndereco(analiseIaContratoSocial.camposExtraidos.endereco) ??
+      extrairEndereco(dadosOficiaisReceita?.endereco);
+    // Código bruto da Receita ("2", "8"...) não a string que
+    // SituacaoCadastralBadge espera — segue vindo só do stage1 (já
+    // resolvido pelo agente), de propósito não usa dadosOficiaisReceita
+    // aqui.
+    const situacaoCadastral = analiseIa.stage1?.situacaoCadastral ?? null;
+    const dataAbertura = extrairDataIso(dadosOficiaisReceita?.data_abertura);
+    const naturezaJuridica = extrairString(dadosOficiaisReceita?.natureza_juridica);
+    const telefone = extrairString(dadosOficiaisReceita?.telefone);
+    const email = extrairString(dadosOficiaisReceita?.email);
+    const cnaesOficiais = extrairCnaesOficiais(dadosOficiaisReceita);
+    const cnaes =
+      cnaesOficiais.length > 0
+        ? cnaesOficiais
+        : extrairCnaes(
+            analiseIa.stage1?.cnaePrincipal ?? null,
+            analiseIa.stage1?.cnaesSecundarios ?? [],
+          );
+
+    if (
+      situacaoCadastral ||
+      capitalSocial !== null ||
+      endereco ||
+      cnaes.length > 0 ||
+      dataAbertura ||
+      naturezaJuridica ||
+      telefone ||
+      email
+    ) {
       try {
         const dados = {
           situacaoCadastral,
-          dataAbertura: null,
-          naturezaJuridica: null,
+          dataAbertura,
+          naturezaJuridica,
           porte: null,
           capitalSocial,
-          telefone: null,
-          email: null,
+          telefone,
+          email,
           optanteSimples: false,
           dataOpcaoSimples: null,
           endereco,
-          cnaes: [],
+          cnaes,
         };
         const existente = await this.dadosReceitaRepository.findByAgenciaId(agenciaId);
         if (existente) {

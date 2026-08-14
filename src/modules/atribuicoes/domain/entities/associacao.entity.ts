@@ -25,4 +25,8 @@ export class Associacao {
   get ativo(): boolean {
     return this.props.ativo;
   }
+
+  toJSON(): AssociacaoProps {
+    return { ...this.props };
+  }
 }

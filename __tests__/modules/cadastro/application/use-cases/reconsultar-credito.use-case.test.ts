@@ -45,6 +45,7 @@ function agenciaFake(): Agencia {
     travelLinkCriado: false,
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
+    executivoId: null,
   });
 }
 
@@ -133,6 +134,10 @@ function repositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRep
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
     listarPorExecutivoId: jest.fn(),
+    contarNovosCadastros: jest.fn(),
+    calcularSlaPorEtapa: jest.fn(),
+    listarUltimasMovimentacoesEtapa: jest.fn(),
+    listarSeriesMovimentacoes: jest.fn(),
     ...overrides,
   };
 }
@@ -263,6 +268,7 @@ describe("ReconsultarCreditoUseCase", () => {
               parecer: "APROVADO",
               motivo: null,
               flagsRisco: [],
+              razoes: [],
               detalhamento: null,
               stage1: null,
               stage2: stage2Existente,

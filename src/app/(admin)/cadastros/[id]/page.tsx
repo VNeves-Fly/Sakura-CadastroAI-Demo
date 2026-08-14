@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
+import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import {
   Building2,
@@ -56,7 +57,9 @@ import { NovoSocioForm } from "./novo-socio-form";
 import { RemoverSocioForm } from "./remover-socio-form";
 import { ForcarAvancoModal } from "./forcar-avanco-modal";
 import { CancelarContratoModal } from "./cancelar-contrato-modal";
+import { RecusarCadastroModal } from "./recusar-cadastro-modal";
 import { EditarEmpresaForm } from "./editar-empresa-form";
+import { EditarDadosBancariosForm } from "./editar-dados-bancarios-form";
 import { FilaAssinatura } from "./fila-assinatura";
 import { SincronizarContratoD4SignButton } from "./sincronizar-contrato-d4sign-button";
 import { ContratoIdManual } from "./contrato-id-manual";
@@ -102,6 +105,7 @@ import {
   adicionarSocioAction,
   removerSocioAction,
   editarEmpresaAction,
+  editarDadosBancariosAction,
   solicitarReenvioDocumentosAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
@@ -109,6 +113,7 @@ import {
   reprocessarAnaliseAction,
   reconsultarCreditoAction,
   consultarSicaAction,
+  atualizarSicaAction,
   confirmarCadastramentoAction,
   forcarAvancoStatusAction,
   cancelarContratoAction,
@@ -242,6 +247,33 @@ export default async function DossieAgenciaPage({
 
   const session = await getServerSession(nextAuthOptions);
   const analistaId = session?.user?.id ?? null;
+  const cargo = session?.user?.cargo;
+
+  // Gestor/Executivo (2026-08-03) só acompanham (leitura) o que é deles —
+  // mesmo escopo resolvido em /cadastros (page.tsx da listagem). 404 (em
+  // vez de só esconder ações) se a agência não pertence ao escopo, senão
+  // dava pra acessar qualquer dossiê direto pela URL.
+  if (cargo === "EXECUTIVO") {
+    const promotorDoUsuario = analistaId
+      ? await atribuicoesAdminController.buscarPromotorPorUserId(analistaId)
+      : null;
+    if (!promotorDoUsuario || view.agencia.executivoId !== promotorDoUsuario.id) {
+      notFound();
+    }
+  }
+  if (cargo === "GESTOR") {
+    const gestorDoUsuario = analistaId
+      ? await atribuicoesAdminController.buscarGestorPorUserId(analistaId)
+      : null;
+    const executivoDaAgencia = view.agencia.executivoId
+      ? await atribuicoesAdminController.buscarPromotorPorId(view.agencia.executivoId)
+      : null;
+    if (!gestorDoUsuario || executivoDaAgencia?.gestorId !== gestorDoUsuario.id) {
+      notFound();
+    }
+  }
+  const somenteLeituraPorCargo = cargo === "GESTOR" || cargo === "EXECUTIVO";
+
   const [atendimentoAtual, historicoAtendimento] = await Promise.all([
     atendimentoController.obterAtendimentoAgenciaAtual(view.agencia.id),
     atendimentoController.listarHistoricoAtendimentoAgencia(view.agencia.id),
@@ -278,6 +310,14 @@ export default async function DossieAgenciaPage({
     decisaoComplementar,
   } = view;
 
+  // Item mais recente do histórico de edições da própria Agencia cujo
+  // alteracoes.status.para seja "recusado" (ver RecusarCadastroUseCase) —
+  // undefined em cadastros recusados antes desta funcionalidade existir
+  // (a recusa aconteceu, mas sem motivo registrado).
+  const registroRecusa = historicoEdicoesEmpresa.find(
+    (item) => item.entidade === "Agencia" && item.alteracoes.status?.para === STATUS_RECUSADO,
+  );
+
   const usuarioMasterView = paraUsuarioMasterView(usuarioMaster);
   const reenviosAguardandoRevisao = documentosAguardandoRevisaoPosReenvio(documentosAtivos);
   // Mesmo conjunto do banner acima, só que como lookup por id — usado pra
@@ -294,8 +334,9 @@ export default async function DossieAgenciaPage({
   const etapaExibida = !trilhaRecusada && etapaValida ? etapaParam : indiceTrilha;
   // ?leitura=1 força modo leitura mesmo na etapa atual — usado quando um
   // executivo abre o dossiê pela própria ficha (Atribuições), que nunca
-  // pode agir no cadastro, só consultar.
-  const somenteLeituraExterna = searchParams?.leitura === "1";
+  // pode agir no cadastro, só consultar. Gestor/Executivo (cargo) força o
+  // mesmo modo server-side, sem depender do query param.
+  const somenteLeituraExterna = searchParams?.leitura === "1" || somenteLeituraPorCargo;
   const mostrandoEtapaAtual = etapaExibida === indiceTrilha && !somenteLeituraExterna;
   // Trava real de UI (o backend já garante isso de novo em cada Server
   // Action, ver garantirAtendimentoAssumido em actions.ts) — só libera
@@ -353,13 +394,18 @@ export default async function DossieAgenciaPage({
               "Ninguém atendendo este cadastro"
             )}
           </span>
-          <AtendimentoAgenciaAcoes
-            agenciaId={agencia.id}
-            analistaId={analistaId ?? ""}
-            atendimentoAtual={atendimentoAtual}
-          />
+          {/* Gestor/Executivo nunca podem assumir atendimento (decisão do
+              usuário, 2026-08-03) — nem o botão de ação nem o link pro
+              painel de atendimento aparecem pra esses cargos. */}
+          {somenteLeituraPorCargo ? null : (
+            <AtendimentoAgenciaAcoes
+              agenciaId={agencia.id}
+              analistaId={analistaId ?? ""}
+              atendimentoAtual={atendimentoAtual}
+            />
+          )}
           <HistoricoAtendimentoAgencia historico={historicoAtendimento} />
-          <AtendimentoButton agenciaId={agencia.id} />
+          {somenteLeituraPorCargo ? null : <AtendimentoButton agenciaId={agencia.id} />}
         </div>
       </div>
 
@@ -629,6 +675,10 @@ export default async function DossieAgenciaPage({
                       <Campo label="Situação Cadastral">
                         <SituacaoCadastralBadge situacao={dadosReceita.situacaoCadastral} />
                       </Campo>
+                      <Campo label="Natureza Jurídica">
+                        {dadosReceita.naturezaJuridica || "—"}
+                      </Campo>
+                      <Campo label="Porte">{dadosReceita.porte || "—"}</Campo>
                       <Campo label="Capital Social">
                         {formatarMoedaBrl(dadosReceita.capitalSocial)}
                       </Campo>
@@ -777,6 +827,15 @@ export default async function DossieAgenciaPage({
               </SecaoColapsavel>
 
               <SecaoColapsavel titulo="Banco" icon={<Landmark className="size-4" />}>
+                <div className="mb-3 flex justify-end">
+                  <EditarDadosBancariosForm
+                    agenciaId={agencia.id}
+                    complementar={complementar}
+                    historico={historicoEdicoesEmpresa}
+                    editarDadosBancariosAction={editarDadosBancariosAction}
+                    disabled={!podeAgir}
+                  />
+                </div>
                 <CamposGrid>
                   <Campo label="Banco">
                     {complementar.bancoCodigo ? `${complementar.bancoCodigo} - ` : ""}
@@ -826,7 +885,7 @@ export default async function DossieAgenciaPage({
         <div className="flex flex-col gap-3">
           {contratoAtual && etapaExibida === indiceAssinatura ? (
             <>
-              <FilaAssinatura fila={filaAssinatura} />
+              <FilaAssinatura fila={filaAssinatura} agenciaId={agencia.id} />
               {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 
               <div className="border-border bg-card border-l-primary/60 rounded-2xl border border-l-4 p-5">
@@ -942,14 +1001,10 @@ export default async function DossieAgenciaPage({
                       disabled={documentosNaoAprovados.length > 0}
                     />
                   ) : null}
-                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <BotaoSubmitComLoading
-                      labelCarregando="Recusando..."
-                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      Recusar
-                    </BotaoSubmitComLoading>
-                  </form>
+                  <RecusarCadastroModal
+                    agenciaId={agencia.id}
+                    recusarCadastroAction={recusarCadastroAction}
+                  />
                   <form action={reprocessarAnaliseAction.bind(null, agencia.id)}>
                     <BotaoSubmitComLoading
                       labelCarregando="Reprocessando..."
@@ -973,7 +1028,7 @@ export default async function DossieAgenciaPage({
                   : "Confira as evidências de assinatura (selfie, documento e vídeo selfie de cada sócio) no documento assinado. Assim que o aprovador do time de cadastro assinar no D4Sign, o cadastro avança sozinho para Cadastramento."}
               </p>
 
-              <FilaAssinatura fila={filaAssinatura} />
+              <FilaAssinatura fila={filaAssinatura} agenciaId={agencia.id} />
               {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 
               {contratoAtual ? (
@@ -1001,14 +1056,10 @@ export default async function DossieAgenciaPage({
                     agenciaId={agencia.id}
                     cancelarContratoAction={cancelarContratoAction}
                   />
-                  <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                    <BotaoSubmitComLoading
-                      labelCarregando="Recusando..."
-                      className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      Recusar
-                    </BotaoSubmitComLoading>
-                  </form>
+                  <RecusarCadastroModal
+                    agenciaId={agencia.id}
+                    recusarCadastroAction={recusarCadastroAction}
+                  />
                 </div>
               ) : null}
             </div>
@@ -1025,7 +1076,17 @@ export default async function DossieAgenciaPage({
           ) : null}
 
           {agencia.status === STATUS_RECUSADO ? (
-            <p className="text-destructive text-sm font-medium">Cadastro recusado.</p>
+            <div className="flex flex-col gap-1">
+              <p className="text-destructive text-sm font-medium">Cadastro recusado.</p>
+              {registroRecusa ? (
+                <p className="text-muted-foreground text-xs">
+                  Por{" "}
+                  <span className="text-foreground font-medium">{registroRecusa.editadoPor}</span>{" "}
+                  em {formatarData(registroRecusa.createdAt)} — motivo:{" "}
+                  {registroRecusa.justificativa}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </SecaoColapsavel>
@@ -1079,6 +1140,7 @@ export default async function DossieAgenciaPage({
                 reconsultarSofia={reconsultarCreditoAction.bind(null, agencia.id, "SOFIA")}
                 consultaSica={consultaSica}
                 reconsultarSica={consultarSicaAction.bind(null, agencia.id)}
+                atualizarSicaAction={atualizarSicaAction.bind(null, agencia.id)}
               />
             ) : null}
 
@@ -1131,14 +1193,10 @@ export default async function DossieAgenciaPage({
                         Ativar cliente
                       </BotaoSubmitComLoading>
                     </form>
-                    <form action={recusarCadastroAction.bind(null, agencia.id)}>
-                      <BotaoSubmitComLoading
-                        labelCarregando="Recusando..."
-                        className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        Recusar
-                      </BotaoSubmitComLoading>
-                    </form>
+                    <RecusarCadastroModal
+                      agenciaId={agencia.id}
+                      recusarCadastroAction={recusarCadastroAction}
+                    />
                   </div>
                 ) : null}
               </>

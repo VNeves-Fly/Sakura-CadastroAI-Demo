@@ -121,6 +121,13 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
         parecer: "APROVADO" | "PENDENTE" | "REPROVADO" | null;
         justificativa: string;
         flags_risco: string[];
+        // Razões estruturadas (enum) por trás do parecer — ex.:
+        // AMAT_DIVIDA, DOCUMENTO_VENCIDO, CNPJ_INATIVO. Adicionado
+        // 2026-08-05 junto da mudança do agents-service que parou de
+        // reprovar automaticamente por dívida AMAT/SOFIA (o parecer final
+        // passou a ser 100% do LLM, `razoes` é o motivo estruturado).
+        // Ausente em respostas de versões anteriores do agents-service.
+        razoes?: string[];
         stage1?: RawStage1 | null;
         stage2?: RawStage2 | null;
         stage3?: {
@@ -136,6 +143,7 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
       motivo: resultado.parecer === "APROVADO" ? null : resultado.justificativa || null,
       parecer: resultado.parecer ?? undefined,
       flagsRisco: resultado.flags_risco,
+      razoes: resultado.razoes ?? [],
       detalhamento: resultado.stage3 ? mapDetalhamento(resultado.stage3) : null,
       stage1: resultado.stage1 ? mapStage1(resultado.stage1) : null,
       stage2: resultado.stage2 ? mapStage2(resultado.stage2) : null,

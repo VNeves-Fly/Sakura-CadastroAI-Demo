@@ -26,6 +26,9 @@ function fakeSignatarioPadraoRepository(
     restaurar: async () => {
       throw new Error("restaurar não implementado no fake de teste");
     },
+    reordenar: async () => {
+      throw new Error("reordenar não implementado no fake de teste");
+    },
   };
 }
 
@@ -128,12 +131,18 @@ describe("D4SignAdapter", () => {
   it("gera o documento a partir do template, cadastra o sócio no estágio 0 e envia pra assinatura, nessa ordem", async () => {
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
-      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(
+        okJson([{ key_signer: "a2V5LWZ1bGFubw==", email: "fulano@teste.com", status: "created" }]),
+      )
       .mockResolvedValueOnce(okJson({}));
 
     const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
 
-    expect(resultado).toEqual({ provedorId: "doc-uuid-123", status: "aguardando_assinatura" });
+    expect(resultado).toEqual({
+      provedorId: "doc-uuid-123",
+      status: "aguardando_assinatura",
+      signatariosKeySigner: [{ email: "fulano@teste.com", keySigner: "a2V5LWZ1bGFubw==" }],
+    });
     expect(global.fetch).toHaveBeenCalledTimes(3);
 
     const [criarUrl, criarOpts] = (global.fetch as jest.Mock).mock.calls[0];
@@ -200,7 +209,11 @@ describe("D4SignAdapter", () => {
 
     const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input);
 
-    expect(resultado).toEqual({ provedorId: "doc-uuid-123", status: "aguardando_assinatura" });
+    expect(resultado).toEqual({
+      provedorId: "doc-uuid-123",
+      status: "aguardando_assinatura",
+      signatariosKeySigner: [],
+    });
     expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 
@@ -378,6 +391,64 @@ describe("D4SignAdapter", () => {
 
       expect(resultado).toEqual({ registrado: false });
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("cadastrarSignatarios — captura do key_signer (via gerarEEnviar)", () => {
+    it("casa key_signer com email pra cada signatário quando a resposta vem como array", async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+        .mockResolvedValueOnce(
+          okJson([
+            { key_signer: "a2V5LWZ1bGFubw==", email: "fulano@teste.com", status: "created" },
+            {
+              key_signer: "a2V5LWNhZGFzdHJv",
+              email: "cadastro@sakuratur.com.br",
+              status: "created",
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(okJson({}));
+
+      const resultado = await new D4SignAdapter(
+        fakeSignatarioPadraoRepository([JEAN]),
+      ).gerarEEnviar(input);
+
+      expect(resultado.signatariosKeySigner).toEqual([
+        { email: "fulano@teste.com", keySigner: "a2V5LWZ1bGFubw==" },
+        { email: "cadastro@sakuratur.com.br", keySigner: "a2V5LWNhZGFzdHJv" },
+      ]);
+    });
+
+    it("reconhece a resposta envolta em { list: [...] }", async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+        .mockResolvedValueOnce(
+          okJson({ list: [{ key_signer: "a2V5LWZ1bGFubw==", email: "fulano@teste.com" }] }),
+        )
+        .mockResolvedValueOnce(okJson({}));
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(
+        input,
+      );
+
+      expect(resultado.signatariosKeySigner).toEqual([
+        { email: "fulano@teste.com", keySigner: "a2V5LWZ1bGFubw==" },
+      ]);
+    });
+
+    it("nunca lança e devolve lista vazia quando o formato da resposta não é reconhecido — não pode derrubar a geração do contrato", async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+        .mockResolvedValueOnce(okJson({ algumCampoInesperado: true }))
+        .mockResolvedValueOnce(okJson({}));
+
+      const resultado = await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(
+        input,
+      );
+
+      expect(resultado.signatariosKeySigner).toEqual([]);
+      expect(resultado.provedorId).toBe("doc-uuid-123");
     });
   });
 
@@ -663,6 +734,58 @@ describe("D4SignAdapter", () => {
           "motivo",
         ),
       ).rejects.toThrow("D4Sign /documents/doc-uuid-1/cancel respondeu 400");
+    });
+  });
+
+  describe("obterLinkAssinatura", () => {
+    // "id-link-assinatura-123" em base64 — key_signer é salvo em base64 (ver
+    // ContratoAssinatura), mas a URL do endpoint espera o valor DECODIFICADO
+    // (confirmado na doc oficial, docapi.d4sign.com.br/reference/link-assinatura).
+    const KEY_SIGNER_BASE64 = "aWQtbGluay1hc3NpbmF0dXJhLTEyMw==";
+
+    it("decodifica o key_signer de base64 e devolve o link da resposta", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        okJson({ link: "https://secure.d4sign.com.br/w/i/doc-uuid-1/xxxx-xxxx" }),
+      );
+
+      const link = await new D4SignAdapter(fakeSignatarioPadraoRepository()).obterLinkAssinatura(
+        "doc-uuid-1",
+        KEY_SIGNER_BASE64,
+      );
+
+      expect(link).toBe("https://secure.d4sign.com.br/w/i/doc-uuid-1/xxxx-xxxx");
+      const [url] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toBe(
+        "https://api.teste.d4sign/documents/doc-uuid-1/signaturelink/id-link-assinatura-123?tokenAPI=token-teste&cryptKey=crypt-teste",
+      );
+    });
+
+    it("lança se o D4Sign não devolver um link (ex.: documento ainda não enviado pra esse estágio)", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(okJson({}));
+
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).obterLinkAssinatura(
+          "doc-uuid-1",
+          KEY_SIGNER_BASE64,
+        ),
+      ).rejects.toThrow("D4Sign não retornou um link de assinatura");
+    });
+
+    it("lança erro descritivo se a chamada falhar", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: "não encontrado" }),
+      });
+
+      await expect(
+        new D4SignAdapter(fakeSignatarioPadraoRepository()).obterLinkAssinatura(
+          "doc-uuid-1",
+          KEY_SIGNER_BASE64,
+        ),
+      ).rejects.toThrow(
+        "D4Sign /documents/doc-uuid-1/signaturelink/id-link-assinatura-123 respondeu 404",
+      );
     });
   });
 });

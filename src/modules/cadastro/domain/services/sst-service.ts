@@ -20,10 +20,18 @@ export interface SicaConsultaResultado {
   registro: SicaEmpresaRegistro | null;
 }
 
+export interface SstStatusConexao {
+  status: string;
+  databases: Record<string, string>;
+}
+
 export interface SstService {
   // Checagem automática ao finalizar o cadastro — ver AnalisarCadastroUseCase.
   consultarSicaCNPJ(cnpj: string): Promise<SicaConsultaResultado>;
   // Confirmação do código digitado manualmente pelo analista — ver
   // SalvarSicaUseCase (cruza o CNPJ retornado contra o da agência).
   consultarSicaCodigoEmpresa(codigoEmpresa: number): Promise<SicaConsultaResultado>;
+  // "Testar conexão" — GET /health, só pra confirmar que o SST está no ar
+  // (ver TestarConexaoSstUseCase, mesmo padrão de WhatsAppMessagingService).
+  verificarConexao(): Promise<SstStatusConexao>;
 }

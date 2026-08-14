@@ -22,6 +22,7 @@ import type {
 import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositories/dados-receita-repository";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
+import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -69,6 +70,7 @@ function agenciaFake(status: string): Agencia {
     travelLinkCriado: false,
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
+    executivoId: null,
   });
 }
 
@@ -170,7 +172,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
     atualizarStatus: jest.fn(),
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
-    criarContrato: jest.fn(),
+    criarContrato: jest.fn().mockResolvedValue({ id: "contrato-1" }),
     atualizarStatusContrato: jest.fn(),
     listar: jest.fn(),
     obterKpis: jest.fn(),
@@ -184,14 +186,17 @@ function criarContratoAssinaturaFake(
   overrides: Partial<ContratoAssinaturaService> = {},
 ): ContratoAssinaturaService {
   return {
-    gerarEEnviar: jest
-      .fn()
-      .mockResolvedValue({ provedorId: "d4sign-1", status: "aguardando_assinatura" }),
+    gerarEEnviar: jest.fn().mockResolvedValue({
+      provedorId: "d4sign-1",
+      status: "aguardando_assinatura",
+      signatariosKeySigner: [],
+    }),
     visualizarDocumento: jest.fn(),
     obterDocumento: jest.fn(),
     obterDestinatarios: jest.fn(),
     registrarWebhook: jest.fn(),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }
@@ -231,12 +236,26 @@ interface Deps {
   dadosReceitaRepository: DadosReceitaRepository;
   documentoRepository: DocumentoRepository;
   sstService: SstService;
+  contratoAssinaturaRepository: ContratoAssinaturaRepository;
+}
+
+function criarContratoAssinaturaRepositoryFake(
+  overrides: Partial<ContratoAssinaturaRepository> = {},
+): ContratoAssinaturaRepository {
+  return {
+    registrar: jest.fn(),
+    registrarDestinatario: jest.fn(),
+    findByContratoId: jest.fn().mockResolvedValue([]),
+    marcarRemocaoDoDocumento: jest.fn(),
+    ...overrides,
+  };
 }
 
 function criarSstServiceFake(overrides: Partial<SstService> = {}): SstService {
   return {
     consultarSicaCNPJ: jest.fn().mockResolvedValue({ encontrado: false, registro: null }),
     consultarSicaCodigoEmpresa: jest.fn().mockResolvedValue({ encontrado: false, registro: null }),
+    verificarConexao: jest.fn(),
     ...overrides,
   };
 }
@@ -263,6 +282,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     dadosReceitaRepository: criarDadosReceitaFake(),
     documentoRepository: criarDocumentoRepositoryFake(),
     sstService: criarSstServiceFake(),
+    contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake(),
     ...overrides,
   };
 
@@ -274,6 +294,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.dadosReceitaRepository,
     deps.documentoRepository,
     deps.sstService,
+    deps.contratoAssinaturaRepository,
   );
 
   return { useCase, ...deps };
@@ -396,6 +417,7 @@ describe("AnalisarCadastroUseCase", () => {
         aprovado: false,
         motivo: expect.stringContaining("agents-service indisponível"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "FALHA_ANALISE",
     );
@@ -440,8 +462,31 @@ describe("AnalisarCadastroUseCase", () => {
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
       analiseIa,
+      STATUS_EM_ANALISE,
       STATUS_AGUARDANDO_ASSINATURA,
       "APROVADO",
+    );
+  });
+
+  it("persiste o keySigner de cada signatário capturado na resposta do createlist", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, contratoAssinaturaRepository } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+      contratoAssinaturaService: criarContratoAssinaturaFake({
+        gerarEEnviar: jest.fn().mockResolvedValue({
+          provedorId: "d4sign-1",
+          status: "aguardando_assinatura",
+          signatariosKeySigner: [{ email: "fulano@example.com", keySigner: "a2V5LWZ1bGFubw==" }],
+        }),
+      }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1" });
+
+    expect(contratoAssinaturaRepository.registrarDestinatario).toHaveBeenCalledWith(
+      "contrato-1",
+      "fulano@example.com",
+      "a2V5LWZ1bGFubw==",
     );
   });
 
@@ -465,6 +510,7 @@ describe("AnalisarCadastroUseCase", () => {
       expect.objectContaining({
         motivo: expect.stringContaining("reprovou (ou não avaliou) ao menos um documento"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "REPROVADO",
     );
@@ -650,6 +696,7 @@ describe("AnalisarCadastroUseCase", () => {
         aprovado: true,
         motivo: expect.stringContaining("D4Sign fora do ar"),
       }),
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "FALHA_CONTRATO",
     );
@@ -687,6 +734,7 @@ describe("AnalisarCadastroUseCase", () => {
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
       analiseIa,
+      STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "REPROVADO",
     );
@@ -746,6 +794,126 @@ describe("AnalisarCadastroUseCase", () => {
         expect.objectContaining({ capitalSocial: 50000 }),
       );
       expect(dadosReceitaRepository.create).not.toHaveBeenCalled();
+    });
+
+    it("grava CNAE principal + secundários do stage1, mesmo sem capital social/endereço extraídos", async () => {
+      const { useCase, dadosReceitaRepository } = criarUseCase({
+        analiseIaService: criarAnaliseIaFake({
+          avaliar: jest.fn().mockResolvedValue({
+            aprovado: true,
+            motivo: null,
+            stage1: {
+              situacaoCadastral: null,
+              cnaePrincipal: {
+                codigo: "7911-2/00",
+                descricao: "Agências de viagens",
+                compativelTurismo: true,
+              },
+              cnaesSecundarios: [
+                {
+                  codigo: "7912-1/00",
+                  descricao: "Operadores turísticos",
+                  compativelTurismo: true,
+                },
+                { codigo: "8299-7/99", descricao: "Outras atividades", compativelTurismo: false },
+              ],
+              razaoSocial: null,
+              nomeFantasia: null,
+              email: null,
+              socios: null,
+              processos: null,
+            },
+          }),
+        }),
+        dadosReceitaRepository: criarDadosReceitaFake({
+          findByAgenciaId: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await useCase.execute({ agenciaId: "agencia-1" });
+
+      expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agenciaId: "agencia-1",
+          cnaes: [
+            { codigo: "7911-2/00", descricao: "Agências de viagens", principal: true },
+            { codigo: "7912-1/00", descricao: "Operadores turísticos", principal: false },
+            { codigo: "8299-7/99", descricao: "Outras atividades", principal: false },
+          ],
+        }),
+      );
+    });
+
+    it("grava dataAbertura/naturezaJuridica/telefone/email/CNAEs a partir da consulta oficial (rawData.receita)", async () => {
+      const { useCase, dadosReceitaRepository } = criarUseCase({
+        analiseIaService: criarAnaliseIaFake({
+          avaliar: jest.fn().mockResolvedValue({
+            aprovado: true,
+            motivo: null,
+            rawData: {
+              receita: [
+                {
+                  tool: "fetch_official_cnpj",
+                  args: { cnpj: "57204666000189" },
+                  output: {
+                    status: "success",
+                    provider: "serpro_v2",
+                    data: {
+                      qsa: [],
+                      cnpj: "57204666000189",
+                      email: "THIAGOSP5@HOTMAIL.COM",
+                      endereco: {
+                        uf: "ES",
+                        cep: "29199096",
+                        bairro: "COQUEIRAL",
+                        numero: "18",
+                        municipio: "ARACRUZ",
+                        logradouro: "CLOESIANA",
+                        complemento: "CASA",
+                      },
+                      telefone: "(0)0",
+                      razao_social: "57.204.666 THIAGO SPIRANDELLI DA SILVA",
+                      data_abertura: "2024-09-09",
+                      nome_fantasia: null,
+                      capital_social: 100000,
+                      natureza_juridica: "Empresário (Individual)",
+                      situacao_cadastral: "2",
+                      atividade_principal: [{ code: "7911200", text: "Agências de viagens" }],
+                      atividades_secundarias: [],
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+        }),
+        dadosReceitaRepository: criarDadosReceitaFake({
+          findByAgenciaId: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await useCase.execute({ agenciaId: "agencia-1" });
+
+      expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agenciaId: "agencia-1",
+          dataAbertura: new Date("2024-09-09"),
+          naturezaJuridica: "Empresário (Individual)",
+          telefone: "(0)0",
+          email: "THIAGOSP5@HOTMAIL.COM",
+          capitalSocial: 100000,
+          endereco: {
+            cep: "29199096",
+            logradouro: "CLOESIANA",
+            numero: "18",
+            complemento: "CASA",
+            bairro: "COQUEIRAL",
+            cidade: "ARACRUZ",
+            uf: "ES",
+          },
+          cnaes: [{ codigo: "7911200", descricao: "Agências de viagens", principal: true }],
+        }),
+      );
     });
 
     it("não derruba o fluxo se falhar ao persistir Dados da Receita (best-effort)", async () => {

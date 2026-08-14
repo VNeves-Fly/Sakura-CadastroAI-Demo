@@ -11,6 +11,8 @@ import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/servic
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { DecisaoHumanaRepository } from "@/modules/cadastro/domain/repositories/decisao-humana-repository";
+import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import { persistirKeySigners } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 
 export interface AprovarCadastroComplementarInput {
   id: string;
@@ -64,6 +66,7 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
     private readonly agenciaRepository: AgenciaRepository,
     private readonly contratoAssinaturaService: ContratoAssinaturaService,
     private readonly decisaoHumanaRepository: DecisaoHumanaRepository,
+    private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
   ) {}
 
   async execute({
@@ -121,12 +124,17 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
         signatarios,
       });
 
-      await this.agenciaRepository.criarContrato(id, {
+      const contrato = await this.agenciaRepository.criarContrato(id, {
         provedorId: contratoResult.provedorId,
         status: contratoResult.status,
         origemGeracao: "humano",
         signatarios,
       });
+      await persistirKeySigners(
+        this.contratoAssinaturaRepository,
+        contrato.id,
+        contratoResult.signatariosKeySigner,
+      );
     } else {
       await this.agenciaRepository.criarContrato(id, {
         provedorId: CONTRATO_PROVEDOR_ID_PENDENTE,
@@ -136,7 +144,10 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
       });
     }
 
-    const agencia = await this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_ASSINATURA);
+    const agencia = await this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_ASSINATURA, {
+      usuarioEmail: analistaEmail,
+      origem: "usuario",
+    });
 
     // Auditoria de quem aprovou manualmente — best-effort: a agência já
     // avançou pro contrato, então uma falha aqui nunca deve reverter o

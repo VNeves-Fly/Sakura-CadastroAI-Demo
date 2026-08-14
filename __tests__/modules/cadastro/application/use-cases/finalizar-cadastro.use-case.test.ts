@@ -126,6 +126,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
           travelLinkCriado: false,
           travelLinkSalvoPor: null,
           travelLinkSalvoEm: null,
+          executivoId: null,
         }),
       ),
     ),
@@ -184,6 +185,7 @@ describe("FinalizarCadastroUseCase", () => {
           travelLinkCriado: false,
           travelLinkSalvoPor: null,
           travelLinkSalvoEm: null,
+          executivoId: null,
         }),
       ),
     });

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  BarChart2,
   ClipboardList,
   Users,
   MessageCircle,
@@ -12,6 +13,11 @@ import {
   Archive,
   UserCog,
   Webhook,
+  ShieldCheck,
+  UserPlus,
+  MapPin,
+  Building2,
+  FileSignature,
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,20 +27,40 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import type { Cargo } from "@/modules/users/domain/enums";
+import { useAtendimentoNaoLidasStore } from "@/modules/atendimento/stores/atendimento-nao-lidas.store";
 
 interface AdminNavItem {
   label: string;
   href: string | null;
   icon: typeof ClipboardList;
+  // Ausente = visível pra todo cargo. Gestor/Executivo (2026-08-03) só
+  // acompanham cadastros — sem acesso às demais ferramentas internas.
+  ocultoPara?: Cargo[];
 }
 
 interface AdminNavGrupo {
   label: string;
   itens: AdminNavItem[];
 }
+
+const ROTAS_EXATAS = new Set(["/cadastros", "/dashboard"]);
+
+const CARGOS_INTERNOS_APENAS: Cargo[] = ["GESTOR", "EXECUTIVO"];
+// "Gestores" só pra quem pode cadastrar Gestor (decisão do usuário,
+// 2026-08-03) — Admin/Diretor, ninguém mais.
+const CARGOS_NAO_ADMIN: Cargo[] = ["ANALISTA", "GESTOR", "EXECUTIVO"];
+// "Executivos" (/promotores) — Admin/Diretor cadastram qualquer um, Gestor
+// só os seus; Analista/Executivo não cadastram.
+const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
+// "Dashboard (novo)" — restrito a ADMIN (pedido do usuário, 2026-08-13);
+// diferente de CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica
+// de fora (guard real é no page.tsx — isto só evita mostrar o item).
+const CARGOS_SEM_DASHBOARD_NOVO: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GESTOR", "EXECUTIVO"];
 
 // Lista de itens extraída direto do produto real (print de referência,
 // onboarding.flysakura.com/admin/onboarding/cadastros) — só "Cadastros"
@@ -43,29 +69,110 @@ interface AdminNavGrupo {
 const GRUPOS_NAV: AdminNavGrupo[] = [
   {
     label: "Painéis",
-    itens: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+    itens: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      // Reprodução da SPEC do CRM Sakura (SPEC_Dashboard_Sakura.md),
+      // dados mock — ver dashboard-vendas.mock-service.ts.
+      {
+        label: "Dashboard (novo)",
+        href: "/dashboard-new",
+        icon: BarChart2,
+        ocultoPara: CARGOS_SEM_DASHBOARD_NOVO,
+      },
+    ],
   },
   {
     label: "Onboarding",
     itens: [
       { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
-      { label: "Atribuições", href: "/atribuicoes", icon: Users },
-      { label: "Atendimento", href: "/atendimento", icon: MessageCircle },
-      { label: "Eventos", href: "/cadastros/eventos", icon: CalendarDays },
-      { label: "Arquivo", href: "/arquivo", icon: Archive },
+      {
+        label: "Atendimento",
+        href: "/atendimento",
+        icon: MessageCircle,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Eventos",
+        href: "/cadastros/eventos",
+        icon: CalendarDays,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      { label: "Arquivo", href: "/arquivo", icon: Archive, ocultoPara: CARGOS_INTERNOS_APENAS },
+    ],
+  },
+  {
+    // Ordem pedida pelo usuário (2026-08-04): Bases -> Gestores ->
+    // Executivos -> Associações -> Atribuições — espelha a hierarquia
+    // comercial Base -> Gestor -> Executivo.
+    label: "Comercial",
+    itens: [
+      {
+        label: "Bases",
+        href: "/bases",
+        icon: MapPin,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        label: "Gestores",
+        href: "/gestores",
+        icon: ShieldCheck,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        label: "Executivos",
+        href: "/promotores",
+        icon: UserPlus,
+        ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
+      },
+      {
+        label: "Associações",
+        href: "/associacoes",
+        icon: Building2,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        label: "Atribuições",
+        href: "/atribuicoes",
+        icon: Users,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
     ],
   },
   {
     label: "Configurações",
     itens: [
-      { label: "Usuários", href: "/cadastros/usuarios", icon: UserCog },
-      { label: "Messenger", href: "/cadastros/messenger", icon: Webhook },
+      {
+        label: "Usuários",
+        href: "/cadastros/usuarios",
+        icon: UserCog,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Messenger",
+        href: "/cadastros/messenger",
+        icon: Webhook,
+        ocultoPara: CARGOS_INTERNOS_APENAS,
+      },
+      {
+        label: "Signatários do Contrato",
+        href: "/cadastros/signatarios-padrao",
+        icon: FileSignature,
+        // Quem assina o contrato pela Sakura é restrito a Admin/Diretor
+        // (decisão do usuário, 2026-07-31) — mesmo guard checado de novo
+        // nas próprias pages/actions (ver actions.ts do módulo).
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
     ],
   },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({ cargo }: { cargo: Cargo }) {
   const pathname = usePathname();
+  const totalNaoLidas = useAtendimentoNaoLidasStore((state) => state.total);
+  const gruposVisiveis = GRUPOS_NAV.map((grupo) => ({
+    ...grupo,
+    itens: grupo.itens.filter((item) => !item.ocultoPara?.includes(cargo)),
+  })).filter((grupo) => grupo.itens.length > 0);
 
   return (
     <Sidebar collapsible="icon">
@@ -85,7 +192,7 @@ export function AdminSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {GRUPOS_NAV.map((grupo) => (
+        {gruposVisiveis.map((grupo) => (
           <SidebarGroup key={grupo.label}>
             <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -96,11 +203,11 @@ export function AdminSidebar() {
                       <SidebarMenuButton
                         isActive={
                           // "/cadastros" é prefixo de toda subrota (usuários,
-                          // eventos, messenger) — só marca "Cadastros" ativo
-                          // na rota exata, senão os dois ficam destacados
-                          // juntos em qualquer página dentro de /cadastros.
-                          item.href === "/cadastros"
-                            ? pathname === "/cadastros"
+                          // eventos, messenger) e "/dashboard" é prefixo de
+                          // "/dashboard-new" — esses dois precisam de match
+                          // exato, senão o item errado também fica ativo.
+                          ROTAS_EXATAS.has(item.href)
+                            ? pathname === item.href
                             : pathname.startsWith(item.href)
                         }
                         tooltip={item.label}
@@ -109,6 +216,11 @@ export function AdminSidebar() {
                         <item.icon />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
+                      {item.href === "/atendimento" && totalNaoLidas > 0 && (
+                        <SidebarMenuBadge className="bg-success text-success-foreground">
+                          {totalNaoLidas}
+                        </SidebarMenuBadge>
+                      )}
                     </SidebarMenuItem>
                   ) : (
                     <SidebarMenuItem key={item.label}>

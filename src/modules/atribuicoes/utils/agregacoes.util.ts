@@ -1,5 +1,6 @@
 import type { Promotor } from "@/modules/atribuicoes/domain/entities/promotor.entity";
 import type { CidadeComercial } from "@/modules/atribuicoes/domain/entities/cidade-comercial.entity";
+import type { Gestor } from "@/modules/gestores/domain/entities/gestor.entity";
 import type {
   FiltrosAtribuicoes,
   ResumoBase,
@@ -213,12 +214,16 @@ function estatisticasPorNome(cidades: CidadeComercial[], campo: "executivo" | "g
 // Fonte real de identidade (planilha "Links Promotores.xlsx", tabela
 // Promotor) pra aba Executivos — todo promotor tem SICA, sem apelido.
 // Cruza com o mock de cidades só pra estatística de bases/cidades
-// atendidas (ver estatisticasPorNome).
+// atendidas (ver estatisticasPorNome). O nome do gestor vem do model
+// Gestor real (Promotor.gestorId), não mais da string livre
+// Promotor.gestor (2026-08-03).
 export function paraExecutivosView(
   promotores: Promotor[],
   cidades: CidadeComercial[],
+  gestores: Gestor[],
 ): ResumoExecutivo[] {
   const stats = estatisticasPorNome(cidades, "executivo");
+  const gestorPorId = new Map(gestores.map((gestor) => [gestor.id, gestor]));
 
   return promotores
     .map((promotor) => {
@@ -227,7 +232,7 @@ export function paraExecutivosView(
         executivo: promotor.nome,
         base: entrada && entrada.bases.size > 0 ? [...entrada.bases].join(", ") : null,
         totalBases: entrada?.bases.size ?? 0,
-        gestor: promotor.gestor,
+        gestor: promotor.gestorId ? (gestorPorId.get(promotor.gestorId)?.nome ?? null) : null,
         totalCidades: entrada?.totalCidades ?? 0,
         totalAgenciasMock: mockTotalAgencias(promotor.nome),
         idSica: promotor.sica,
@@ -238,37 +243,40 @@ export function paraExecutivosView(
     .sort((a, b) => a.executivo.localeCompare(b.executivo));
 }
 
-// Idem, pra aba Gestores — "gestor" aqui é qualquer nome que apareça na
-// coluna Gestor de pelo menos um promotor; o contato (SICA/e-mail/tel)
-// só existe se esse gestor também tiver sua própria linha de promotor
-// (ex.: gestores que atendem cidades diretamente).
+// Idem, pra aba Gestores — fonte real agora é o model Gestor (2026-08-03,
+// substitui derivar a lista de nomes distintos de Promotor.gestor).
+// Subordinados = promotores com gestorId apontando pra esse Gestor.
 export function paraGestoresView(
+  gestores: Gestor[],
   promotores: Promotor[],
   cidades: CidadeComercial[],
 ): ResumoGestor[] {
   const stats = estatisticasPorNome(cidades, "gestor");
   const promotorPorNome = new Map(promotores.map((promotor) => [promotor.nome, promotor]));
-  const nomesGestores = [...new Set(promotores.map((promotor) => promotor.gestor))].sort((a, b) =>
-    a.localeCompare(b),
-  );
 
-  return nomesGestores.map((nomeGestor) => {
-    const entrada = stats.get(nomeGestor);
-    const contato = promotorPorNome.get(nomeGestor) ?? null;
-    const subordinados = promotores.filter((promotor) => promotor.gestor === nomeGestor);
+  return [...gestores]
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+    .map((gestor) => {
+      const entrada = stats.get(gestor.nome);
+      const subordinados = promotores.filter((promotor) => promotor.gestorId === gestor.id);
+      // Mesma pessoa física pode também ter linha própria como Promotor
+      // (executivo) — cruzamento por nome, best-effort (mesmo espírito de
+      // estatisticasPorNome), só pra completar o ID SICA; e-mail/telefone
+      // já vêm direto do model Gestor, que é a fonte melhor agora.
+      const promotorHomonimo = promotorPorNome.get(gestor.nome) ?? null;
 
-    return {
-      gestor: nomeGestor,
-      totalBases: entrada?.bases.size ?? 0,
-      totalExecutivos: subordinados.length,
-      totalCidades: entrada?.totalCidades ?? 0,
-      totalAgenciasMock: subordinados.reduce(
-        (total, promotor) => total + mockTotalAgencias(promotor.nome),
-        0,
-      ),
-      idSica: contato?.sica ?? null,
-      email: contato?.email ?? null,
-      telefone: contato?.telefone ?? null,
-    };
-  });
+      return {
+        gestor: gestor.nome,
+        totalBases: entrada?.bases.size ?? gestor.bases.length,
+        totalExecutivos: subordinados.length,
+        totalCidades: entrada?.totalCidades ?? 0,
+        totalAgenciasMock: subordinados.reduce(
+          (total, promotor) => total + mockTotalAgencias(promotor.nome),
+          0,
+        ),
+        idSica: promotorHomonimo?.sica ?? null,
+        email: gestor.email ?? promotorHomonimo?.email ?? null,
+        telefone: gestor.telefone ?? promotorHomonimo?.telefone ?? null,
+      };
+    });
 }

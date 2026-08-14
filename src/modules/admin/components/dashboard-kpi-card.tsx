@@ -11,41 +11,33 @@ const PERIODOS: { valor: Periodo; label: string }[] = [
   { valor: "ano", label: "ANO" },
 ];
 
+// Mesmo shape de SeriePeriodoItem (ver agencia-repository.ts), mas
+// definido localmente (duck-typed) — mesma convenção dos componentes
+// irmãos (GraficoContratosPorDia, GraficoOrigemContrato), que também não
+// importam tipo de domínio do módulo cadastro.
+interface SeriePeriodoItem {
+  periodo: string;
+  quantidade: number;
+}
+
 interface DashboardKpiCardProps {
   icon: LucideIcon;
   titulo: string;
   valor: string;
   descricao: string;
   cor: string;
+  series: { dia: SeriePeriodoItem[]; mes: SeriePeriodoItem[]; ano: SeriePeriodoItem[] };
 }
 
-// Hash simples só pra gerar uma série determinística por card+período (sem
-// Math.random() — mesmo card+período sempre desenha a mesma "onda", em vez
-// de mudar a cada re-render).
-function hashString(texto: string): number {
-  let h = 0;
-  for (let i = 0; i < texto.length; i++) {
-    h = (h * 31 + texto.charCodeAt(i)) | 0;
-  }
-  return h;
-}
-
-// Ainda mockado (pedido do usuário, 2026-07-30: sem query real por
-// período), mas em vez de uma onda decorativa solta, a série sobe até
-// terminar no ponto mais alto — representando a evolução do dado ATÉ o
-// valor exibido agora no card (o "agora" fica na ponta direita).
-function gerarPontos(seed: string, quantidade = 7): number[] {
-  const base = hashString(seed);
-  const amplitude = 0.12 + (Math.abs(base) % 12) / 100; // ruído orgânico, 0.12-0.24
-  const pontos: number[] = [];
-  for (let i = 0; i < quantidade; i++) {
-    const t = i / (quantidade - 1);
-    const tendencia = 0.18 + t * 0.6; // sobe de ~18% até ~78% da altura útil
-    const ruido = Math.sin((t * 2.4 + (base % 5)) * Math.PI) * amplitude * (1 - t * 0.6);
-    pontos.push(Math.max(0.05, Math.min(0.95, tendencia + ruido)));
-  }
-  pontos[pontos.length - 1] = 0.85; // ponta direita = "agora", sempre o pico
-  return pontos;
+// Mapeia as quantidades reais (inteiros pequenos, ex.: 0-8 movimentações
+// por dia) pra faixa 0.08-0.90 que o desenho do SVG espera — sem isso, a
+// curva ficaria colada no topo ou no fundo dependendo da escala real.
+// Todos zero (nenhuma movimentação na janela) desenha uma linha baixa e
+// reta, em vez de dividir por zero.
+function normalizarSerie(quantidades: number[]): number[] {
+  const max = Math.max(0, ...quantidades);
+  if (max === 0) return quantidades.map(() => 0.08);
+  return quantidades.map((v) => 0.08 + (v / max) * 0.82);
 }
 
 // Catmull-Rom → Bézier cúbica, pra desenhar uma curva suave passando pelos
@@ -82,19 +74,27 @@ const ALTURA = 64;
 // — pedido do usuário, 2026-07-30: a linha não pode atravessar o número, e
 // sim "começar a partir dele"; por isso mora num container próprio, à
 // direita do valor, sem nunca ocupar o mesmo espaço do texto).
-function GraficoAoLadoDoNumero({ cor, seed }: { cor: string; seed: string }) {
+function GraficoAoLadoDoNumero({
+  cor,
+  seed,
+  quantidades,
+}: {
+  cor: string;
+  seed: string;
+  quantidades: number[];
+}) {
   const id = slug(seed);
 
   const { caminho, ultimoPonto } = useMemo(() => {
-    const pontos = gerarPontos(seed);
+    const pontos = normalizarSerie(quantidades);
     // Só 3% de folga nas pontas (pro marcador de "agora" não cortar na
     // borda) — aqui a área é só do gráfico, então usa quase 100% dela.
     const coords: [number, number][] = pontos.map((v, i) => [
-      LARGURA * 0.03 + (i / (pontos.length - 1)) * LARGURA * 0.94,
+      LARGURA * 0.03 + (i / Math.max(pontos.length - 1, 1)) * LARGURA * 0.94,
       ALTURA * 0.9 - v * ALTURA * 0.75,
     ]);
     return { caminho: caminhoSuave(coords), ultimoPonto: coords[coords.length - 1]! };
-  }, [seed]);
+  }, [quantidades]);
 
   return (
     <svg
@@ -163,18 +163,21 @@ function GraficoAoLadoDoNumero({ cor, seed }: { cor: string; seed: string }) {
   );
 }
 
-// Só a UI (pedido do usuário, 2026-07-30) — troca de período (Dia/Mês/Ano)
-// é puramente visual: os números e o gráfico de fundo são mockados
-// (determinísticos por card+período, não dado real), ainda não existe
-// query real por período.
+// Troca de período (Dia/Mês/Ano) busca a série real correspondente em
+// `series` (contagem de HistoricoEtapaCadastro por período, ver
+// listarSeriesMovimentacoes) — o número grande (`valor`) continua fixo
+// (sempre a janela padrão da métrica, ex.: "últimos 30 dias"), só o
+// mini-gráfico muda de granularidade.
 export function DashboardKpiCard({
   icon: Icon,
   titulo,
   valor,
   descricao,
   cor,
+  series,
 }: DashboardKpiCardProps) {
   const [periodo, setPeriodo] = useState<Periodo>("dia");
+  const quantidades = series[periodo].map((item) => item.quantidade);
 
   return (
     <div className="border-border bg-card flex min-w-0 flex-1 flex-col rounded-2xl border p-4 shadow-sm sm:p-5">
@@ -222,7 +225,11 @@ export function DashboardKpiCard({
           {valor}
         </p>
         <div className="h-12 min-w-0 flex-1 sm:h-14">
-          <GraficoAoLadoDoNumero cor={cor} seed={`${titulo}-${periodo}`} />
+          <GraficoAoLadoDoNumero
+            cor={cor}
+            seed={`${titulo}-${periodo}`}
+            quantidades={quantidades}
+          />
         </div>
       </div>
       <p className="text-muted-foreground mt-1 text-xs break-words">{descricao}</p>

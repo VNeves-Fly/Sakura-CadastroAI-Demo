@@ -90,6 +90,10 @@ export interface ParecerIaView {
   parecer: string | null;
   motivo: string | null;
   pontosDeAlerta: string[];
+  // Razões estruturadas (enum) por trás do parecer — ex.: AMAT_DIVIDA,
+  // DOCUMENTO_VENCIDO, CNPJ_INATIVO (ver agency_analysis_reasons.py do
+  // agents-service). Vazio em cadastros analisados antes de 2026-08-05.
+  razoes: string[];
   gruposParaChecar: ParecerIaChecklistGrupo[];
   avaliadoEm: Date;
 }
@@ -109,6 +113,10 @@ export interface SignatarioFila {
   assinado: boolean;
   assinadoEm: Date | null;
   emailNaoEntregue: boolean;
+  // ID do signatário no D4Sign (base64) — presente só depois de um webhook
+  // ou sync manual registrar esse destinatário (ver ContratoAssinatura).
+  // Habilita o botão "Ver/copiar link" (ObterLinkAssinaturaUseCase).
+  keySigner: string | null;
 }
 
 // AMAT/SOFIA reais (ver ConsultaAmatCard/ConsultaSofiaCard), lidos do

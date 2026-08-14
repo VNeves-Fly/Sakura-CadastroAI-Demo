@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { UserCog } from "lucide-react";
+import type { ReactNode } from "react";
+import { UserCog, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { CadastrosLive } from "./cadastros-live";
@@ -7,6 +8,7 @@ import { cadastroAdminController } from "@/modules/cadastro/presentation/control
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import { STATUS_AGENCIA_LABEL } from "@/modules/cadastro/utils/status-agencia-label.util";
 import {
   labelStatus,
   classesBadgeStatus,
@@ -15,8 +17,13 @@ import {
 import { GraficoOrigemContrato } from "@/modules/admin/components/grafico-origem-contrato";
 import { GraficoContratosPorDia } from "@/modules/admin/components/grafico-contratos-por-dia";
 import { FiltroCadastrosField } from "@/modules/admin/components/filtro-cadastros-field";
+import { SeletorTamanhoPagina } from "@/modules/admin/components/seletor-tamanho-pagina";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { OpcaoFiltroCadastros } from "@/modules/admin/types/filtro-cadastros.types";
+import {
+  paraArray,
+  resolverFiltrosCadastros,
+} from "@/modules/admin/utils/resolver-filtros-cadastros.util";
 import {
   STATUS_EM_ANALISE,
   STATUS_AGUARDANDO_ASSINATURA,
@@ -27,6 +34,7 @@ import {
   STATUS_ATIVO,
   STATUS_RECUSADO,
   TAMANHO_PAGINA_CADASTROS,
+  TAMANHOS_PAGINA_CADASTROS_PERMITIDOS,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 interface CadastrosPageProps {
@@ -38,22 +46,8 @@ interface CadastrosPageProps {
     filtro?: string | string[];
     meusAtendimentos?: string;
     page?: string;
+    pageSize?: string;
   };
-}
-
-function paraArray(valor: string | string[] | undefined): string[] {
-  if (!valor) return [];
-  return Array.isArray(valor) ? valor : [valor];
-}
-
-// Categoria de cada opção do filtro único (ver FiltroCadastrosField) vem
-// prefixada no próprio value (ex.: "base:SP") pra sobreviver ao roundtrip
-// do form GET — aqui desfaz o prefixo pra montar os filtros da query.
-function extrairCategoria(valores: string[], prefixo: string): string[] {
-  const marca = `${prefixo}:`;
-  return valores
-    .filter((valor) => valor.startsWith(marca))
-    .map((valor) => valor.slice(marca.length));
 }
 
 // Filas clicáveis — ciclo completo de estados (decisão do usuário,
@@ -87,56 +81,56 @@ const FILAS = [
   {
     status: STATUS_EM_ANALISE,
     chave: "emAnalise" as const,
-    label: "Em análise (IA)",
+    label: STATUS_AGENCIA_LABEL[STATUS_EM_ANALISE],
     sublabel: "aguardando a IA avaliar",
     cor: COR_ORIGEM_IA,
   },
   {
     status: STATUS_EM_COMPLEMENTAR,
     chave: "emComplementar" as const,
-    label: "Em complementar",
-    sublabel: "IA sinalizou revisão",
+    label: STATUS_AGENCIA_LABEL[STATUS_EM_COMPLEMENTAR],
+    sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ASSINATURA,
     chave: "aguardandoAssinatura" as const,
-    label: "Aguardando assinatura",
-    sublabel: "contrato enviado aos sócios",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_ASSINATURA],
+    sublabel: "Setor Comercial",
     cor: COR_CLIENTE,
   },
   {
     status: STATUS_AGUARDANDO_VALIDACAO,
     chave: "aguardandoValidacao" as const,
-    label: "Validação",
-    sublabel: "sócios assinaram, validar evidências",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_VALIDACAO],
+    sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_CADASTRAMENTO,
     chave: "aguardandoCadastramento" as const,
-    label: "Setor cadastro",
-    sublabel: "validado, criar SICA e TravelLink",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_CADASTRAMENTO],
+    sublabel: "Setor Cadastro",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_AGUARDANDO_ATIVACAO,
     chave: "aguardandoAtivacao" as const,
-    label: "Setor comercial",
-    sublabel: "Usuário master e ativar agência",
+    label: STATUS_AGENCIA_LABEL[STATUS_AGUARDANDO_ATIVACAO],
+    sublabel: "Suporte Comercial",
     cor: COR_ORIGEM_HUMANO,
   },
   {
     status: STATUS_ATIVO,
     chave: "ativas" as const,
-    label: "Ativas",
+    label: STATUS_AGENCIA_LABEL[STATUS_ATIVO],
     sublabel: "agência liberada e operando",
     cor: COR_ATIVO,
   },
   {
     status: STATUS_RECUSADO,
     chave: "recusadas" as const,
-    label: "Recusadas",
+    label: STATUS_AGENCIA_LABEL[STATUS_RECUSADO],
     sublabel: "cadastro recusado",
     cor: COR_RECUSADO,
   },
@@ -173,6 +167,7 @@ function formatarDataHora(data: Date): string {
 function construirHref(
   searchParams: CadastrosPageProps["searchParams"],
   patch: Record<string, string | undefined>,
+  basePath = "/cadastros",
 ): string {
   const params = new URLSearchParams();
   const combinado: Record<string, string | string[] | undefined> = { ...searchParams, ...patch };
@@ -183,7 +178,73 @@ function construirHref(
     }
   }
   const query = params.toString();
-  return query ? `/cadastros?${query}` : "/cadastros";
+  return query ? `${basePath}?${query}` : basePath;
+}
+
+// Janela de páginas numeradas no rodapé da tabela (« ‹ 1 2 3 4 5 › »),
+// centrada na página atual — não usa "..." pros extremos, a lista é curta
+// o bastante pra não precisar.
+function calcularPaginasVisiveis(paginaAtual: number, totalPaginas: number): number[] {
+  const JANELA = 5;
+  if (totalPaginas <= JANELA) {
+    return Array.from({ length: totalPaginas }, (_, indice) => indice + 1);
+  }
+  const fim = Math.min(totalPaginas, Math.max(JANELA, paginaAtual + Math.floor(JANELA / 2)));
+  const inicio = fim - JANELA + 1;
+  return Array.from({ length: JANELA }, (_, indice) => inicio + indice);
+}
+
+function BotaoPaginacao({
+  href,
+  desabilitado,
+  ariaLabel,
+  children,
+}: {
+  href: string;
+  desabilitado: boolean;
+  ariaLabel: string;
+  children: ReactNode;
+}) {
+  if (desabilitado) {
+    return (
+      <span
+        aria-label={ariaLabel}
+        className="border-input text-muted-foreground flex size-7 shrink-0 cursor-not-allowed items-center justify-center rounded-full border opacity-40"
+      >
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      aria-label={ariaLabel}
+      className="border-input text-foreground hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-full border transition"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function BotaoPagina({ pagina, ativa, href }: { pagina: number; ativa: boolean; href: string }) {
+  if (ativa) {
+    return (
+      <span
+        aria-current="page"
+        className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+      >
+        {pagina}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="border-input text-foreground hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition"
+    >
+      {pagina}
+    </Link>
+  );
 }
 
 function ThOrdenavel({
@@ -228,77 +289,77 @@ const ANALISE_HABILITADA = false;
 export default async function CadastrosPage({ searchParams }: CadastrosPageProps) {
   const session = await getServerSession(nextAuthOptions);
   const analistaId = session?.user?.id ?? "";
+  const cargo = session?.user?.cargo;
 
-  const sortBy = searchParams.sort === "razaoSocial" ? searchParams.sort : "createdAt";
-  const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
+  // Gestor/Executivo (2026-08-03) só acompanham (leitura) o que é deles —
+  // resolvido aqui e forçado abaixo no filtro real, ignorando qualquer
+  // executivoId/gestorId que viesse da querystring. Sentinela
+  // "__sem_vinculo__" quando o cargo é restrito mas não achou o
+  // Promotor/Gestor vinculado (não deve acontecer em uso normal) — nunca
+  // cai pra "sem filtro" = mostrar tudo.
   const paginaAtual = Math.max(1, Math.trunc(Number(searchParams.page)) || 1);
+  const tamanhoPaginaSolicitado = Number(searchParams.pageSize);
+  const tamanhoPagina = (TAMANHOS_PAGINA_CADASTROS_PERMITIDOS as readonly number[]).includes(
+    tamanhoPaginaSolicitado,
+  )
+    ? tamanhoPaginaSolicitado
+    : TAMANHO_PAGINA_CADASTROS;
 
-  // Filtro único (ver FiltroCadastrosField) — cada categoria vem
-  // prefixada dentro de searchParams.filtro; Status também pode chegar
-  // pelos cards de "Filas" (searchParams.status) — as duas fontes só se
-  // combinam na query, sem sincronizar visualmente entre si.
+  const { filtros, escopoRestrito, sortBy, sortDir } = await resolverFiltrosCadastros(
+    searchParams,
+    { analistaId, cargo },
+  );
   const valoresFiltro = paraArray(searchParams.filtro);
-  const baseDoFiltro = extrairCategoria(valoresFiltro, "base");
-  const gestorDoFiltro = extrairCategoria(valoresFiltro, "gestor");
-  const executivoDoFiltro = extrairCategoria(valoresFiltro, "executivo");
-  const associacaoDoFiltro = extrairCategoria(valoresFiltro, "associacao");
-  const statusDoFiltro = extrairCategoria(valoresFiltro, "status");
-  const statusCombinado = [...new Set([...paraArray(searchParams.status), ...statusDoFiltro])];
-  // Switch "Meus atendimentos" (decisão do usuário, 2026-07-30): filtra
-  // no banco pelas agências onde o analista logado é o atendente ATIVO —
-  // sem sessão não há o que filtrar, então o switch é ignorado.
-  const meusAtendimentosAtivo = searchParams.meusAtendimentos === "1" && !!analistaId;
 
-  const [{ items, total, kpis }, analise, promotores, associacoesTodas] = await Promise.all([
-    cadastroAdminController.listarCadastros({
-      busca: searchParams.busca,
-      status: statusCombinado.length > 0 ? statusCombinado : undefined,
-      sortBy,
-      sortDir,
-      executivoId: executivoDoFiltro,
-      associacaoId: associacaoDoFiltro,
-      base: baseDoFiltro,
-      gestor: gestorDoFiltro,
-      atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
-      pagina: paginaAtual,
-    }),
-    ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
-    atribuicoesAdminController.listarPromotores(),
-    atribuicoesAdminController.listarAssociacoes(),
-  ]);
-  const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA_CADASTROS));
+  const [{ items, total, kpis }, analise, promotores, associacoesTodas, gestoresReais] =
+    await Promise.all([
+      cadastroAdminController.listarCadastros({ ...filtros, pagina: paginaAtual, tamanhoPagina }),
+      ANALISE_HABILITADA ? cadastroAdminController.obterAnaliseContratos(14) : null,
+      atribuicoesAdminController.listarPromotores(),
+      atribuicoesAdminController.listarAssociacoes(),
+      atribuicoesAdminController.listarGestores(),
+    ]);
+  const totalPaginas = Math.max(1, Math.ceil(total / tamanhoPagina));
 
   const associacoesAtivas = associacoesTodas.filter((associacao) => associacao.ativo);
 
   // Opções do filtro único, agrupadas por categoria na ordem em que devem
-  // aparecer no dropdown — Base/Gestor derivados em memória (não existe
-  // query dedicada, lista é pequena) a partir dos mesmos promotores já
-  // buscados acima.
+  // aparecer no dropdown — Base derivada em memória (não existe query
+  // dedicada, lista é pequena) a partir dos mesmos promotores já buscados
+  // acima; Gestor vem do model real (Gestor.id, não mais nome/string).
+  // Gestor/Executivo (escopoRestrito) só filtram por Status — Base/Gestor/
+  // Executivo/Associação são pra ampliar o recorte, e o deles já está
+  // travado acima, então mostrar essas opções só confundiria.
   const basesUnicas = [...new Set(promotores.flatMap((p) => p.bases))];
-  const gestoresUnicos = [...new Set(promotores.map((p) => p.gestor).filter(Boolean))];
-  const opcoesFiltro: OpcaoFiltroCadastros[] = [
-    ...basesUnicas.map((base) => ({ value: `base:${base}`, label: base, categoria: "Base" })),
-    ...gestoresUnicos.map((gestor) => ({
-      value: `gestor:${gestor}`,
-      label: gestor,
-      categoria: "Gestor",
-    })),
-    ...promotores.map((promotor) => ({
-      value: `executivo:${promotor.id}`,
-      label: promotor.nome,
-      categoria: "Executivo",
-    })),
-    ...associacoesAtivas.map((associacao) => ({
-      value: `associacao:${associacao.id}`,
-      label: associacao.nome,
-      categoria: "Associação",
-    })),
-    ...Object.entries(STATUS_LABELS).map(([status, label]) => ({
-      value: `status:${status}`,
-      label,
-      categoria: "Status",
-    })),
-  ];
+  const opcoesFiltro: OpcaoFiltroCadastros[] = escopoRestrito
+    ? Object.entries(STATUS_LABELS).map(([status, label]) => ({
+        value: `status:${status}`,
+        label,
+        categoria: "Status",
+      }))
+    : [
+        ...basesUnicas.map((base) => ({ value: `base:${base}`, label: base, categoria: "Base" })),
+        ...gestoresReais.map((gestor) => ({
+          value: `gestor:${gestor.id}`,
+          label: gestor.nome,
+          categoria: "Gestor",
+        })),
+        ...promotores.map((promotor) => ({
+          value: `executivo:${promotor.id}`,
+          label: promotor.nome,
+          categoria: "Executivo",
+        })),
+        ...associacoesAtivas.map((associacao) => ({
+          value: `associacao:${associacao.id}`,
+          label: associacao.nome,
+          categoria: "Associação",
+        })),
+        ...Object.entries(STATUS_LABELS).map(([status, label]) => ({
+          value: `status:${status}`,
+          label,
+          categoria: "Status",
+        })),
+      ];
 
   // Quem está atendendo cada agência agora, ou quem foi o último a
   // atender — buscado à parte do Promise.all acima porque depende dos ids
@@ -374,17 +435,19 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             options={opcoesFiltro}
           />
         </div>
-        <label className="flex shrink-0 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="meusAtendimentos"
-            value="1"
-            defaultChecked={searchParams.meusAtendimentos === "1"}
-            className="peer sr-only"
-          />
-          <span className="peer-checked:bg-primary bg-input relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:left-0.5 before:size-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:content-[''] peer-checked:before:translate-x-5" />
-          <span className="text-foreground font-medium whitespace-nowrap">Meus atendimentos</span>
-        </label>
+        {escopoRestrito ? null : (
+          <label className="flex shrink-0 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="meusAtendimentos"
+              value="1"
+              defaultChecked={searchParams.meusAtendimentos === "1"}
+              className="peer sr-only"
+            />
+            <span className="peer-checked:bg-primary bg-input relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:left-0.5 before:size-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:content-[''] peer-checked:before:translate-x-5" />
+            <span className="text-foreground font-medium whitespace-nowrap">Meus atendimentos</span>
+          </label>
+        )}
         <button
           type="submit"
           className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"
@@ -398,35 +461,53 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
           por aquele status; clicar de novo na mesma remove o filtro.
           Largura mínima por card + shrink-0 força scroll horizontal em
           telas estreitas em vez de quebrar em várias linhas; em telas
-          largas o flex-1 distribui o espaço sobrando igualmente. */}
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {FILAS.map((fila) => {
-          const ativa = searchParams.status === fila.status;
-          const cardClassName = `min-w-[168px] flex-1 shrink-0 rounded-xl border px-4 py-3 shadow-sm transition ${
-            ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
-          }`;
-          const cardStyle = fila.cor
-            ? { borderLeftColor: fila.cor, borderLeftWidth: 4 }
-            : undefined;
-          const cardConteudo = (
-            <>
-              <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide">
-                {fila.label}
-              </span>
-              <p
-                className={`mt-1 text-3xl font-bold ${fila.cor ? "" : "text-foreground"}`}
-                style={fila.cor ? { color: fila.cor } : undefined}
-              >
-                {kpis[fila.chave]}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
-            </>
-          );
+          largas o flex-1 distribui o espaço sobrando igualmente.
+          Escondido pra Gestor/Executivo (escopoRestrito): kpis vem de
+          obterKpis(), que é global (não filtrado por executivo/gestor) —
+          mostraria número da empresa inteira, não só do escopo deles. */}
+      {escopoRestrito ? null : (
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {FILAS.map((fila) => {
+            const ativa = searchParams.status === fila.status;
+            const cardClassName = `min-w-[168px] flex-1 shrink-0 rounded-xl border px-4 py-3 shadow-sm transition ${
+              ativa ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/40"
+            }`;
+            const cardStyle = fila.cor
+              ? { borderLeftColor: fila.cor, borderLeftWidth: 4 }
+              : undefined;
+            const cardConteudo = (
+              <>
+                <span className="text-muted-foreground line-clamp-2 min-h-[2rem] text-xs font-medium tracking-wide">
+                  {fila.label}
+                </span>
+                <p
+                  className={`mt-1 text-3xl font-bold ${fila.cor ? "" : "text-foreground"}`}
+                  style={fila.cor ? { color: fila.cor } : undefined}
+                >
+                  {kpis[fila.chave]}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
+              </>
+            );
 
-          // Único card sem cor própria — em vez disso ganha um hover com o
-          // breakdown de origem do contrato (IA x analista), já que o KPI
-          // agregado do card não distingue as duas origens.
-          if (fila.status === STATUS_AGUARDANDO_ASSINATURA) {
+            // Único card sem cor própria — em vez disso ganha um hover com o
+            // breakdown de origem do contrato (IA x analista), já que o KPI
+            // agregado do card não distingue as duas origens.
+            if (fila.status === STATUS_AGUARDANDO_ASSINATURA) {
+              return (
+                <Link
+                  key={fila.status}
+                  href={construirHref(searchParams, {
+                    status: ativa ? undefined : fila.status,
+                    page: undefined,
+                  })}
+                  className={cardClassName}
+                >
+                  {cardConteudo}
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={fila.status}
@@ -435,27 +516,14 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                   page: undefined,
                 })}
                 className={cardClassName}
+                style={cardStyle}
               >
                 {cardConteudo}
               </Link>
             );
-          }
-
-          return (
-            <Link
-              key={fila.status}
-              href={construirHref(searchParams, {
-                status: ativa ? undefined : fila.status,
-                page: undefined,
-              })}
-              className={cardClassName}
-              style={cardStyle}
-            >
-              {cardConteudo}
-            </Link>
-          );
-        })}
-      </div>
+          })}
+        </div>
+      )}
 
       {/* Tabela principal */}
       <div className="border-border bg-card overflow-hidden rounded-2xl border">
@@ -554,7 +622,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                                         : "bg-warning/15 text-warning"
                                     }`}
                                   >
-                                    {consultaSicaMaisRecente.empresaStatus ?? "—"}
+                                    {consultaSicaMaisRecente.codigoEmpresa ?? "—"}
                                   </span>
                                 }
                               />
@@ -642,37 +710,82 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             </table>
           </div>
         )}
-      </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-muted-foreground text-xs">
-          {total} agência(s) encontrada(s) — página {paginaAtual} de {totalPaginas}
-        </p>
-        <div className="flex items-center gap-2">
-          {paginaAtual > 1 ? (
-            <Link
+        {/* Rodapé — mesma bg-card do corpo da tabela (extensão dela, sem
+            contraste como no header) e mesmo padding horizontal do
+            thead/tbody, só com border-t em vez de border-b. */}
+        <div className="border-border bg-card flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <p className="text-muted-foreground text-xs">{total} agência(s) encontrada(s)</p>
+            <div className="flex items-center gap-2">
+              <label htmlFor="pageSize" className="text-muted-foreground text-xs whitespace-nowrap">
+                Itens por página
+              </label>
+              <SeletorTamanhoPagina
+                id="pageSize"
+                valor={tamanhoPagina}
+                opcoes={TAMANHOS_PAGINA_CADASTROS_PERMITIDOS}
+                hrefPorTamanho={Object.fromEntries(
+                  TAMANHOS_PAGINA_CADASTROS_PERMITIDOS.map((tamanho) => [
+                    String(tamanho),
+                    construirHref(searchParams, { pageSize: String(tamanho), page: "1" }),
+                  ]),
+                )}
+              />
+            </div>
+            <a
+              href={construirHref(
+                searchParams,
+                { page: undefined, pageSize: undefined },
+                "/cadastros/exportar",
+              )}
+              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+            >
+              Exportar CSV
+            </a>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground mr-1 text-xs whitespace-nowrap">
+              Página {paginaAtual} de {totalPaginas}
+            </span>
+            <BotaoPaginacao
+              href={construirHref(searchParams, { page: "1" })}
+              desabilitado={paginaAtual === 1}
+              ariaLabel="Primeira página"
+            >
+              <ChevronsLeft className="size-4" />
+            </BotaoPaginacao>
+            <BotaoPaginacao
               href={construirHref(searchParams, { page: String(paginaAtual - 1) })}
-              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+              desabilitado={paginaAtual === 1}
+              ariaLabel="Página anterior"
             >
-              ← Anterior
-            </Link>
-          ) : (
-            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
-              ← Anterior
-            </span>
-          )}
-          {paginaAtual < totalPaginas ? (
-            <Link
+              <ChevronLeft className="size-4" />
+            </BotaoPaginacao>
+            {calcularPaginasVisiveis(paginaAtual, totalPaginas).map((pagina) => (
+              <BotaoPagina
+                key={pagina}
+                pagina={pagina}
+                ativa={pagina === paginaAtual}
+                href={construirHref(searchParams, { page: String(pagina) })}
+              />
+            ))}
+            <BotaoPaginacao
               href={construirHref(searchParams, { page: String(paginaAtual + 1) })}
-              className="border-input text-foreground hover:bg-accent rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+              desabilitado={paginaAtual === totalPaginas}
+              ariaLabel="Próxima página"
             >
-              Próxima →
-            </Link>
-          ) : (
-            <span className="border-input text-muted-foreground cursor-not-allowed rounded-full border px-3 py-1.5 text-xs font-semibold opacity-40">
-              Próxima →
-            </span>
-          )}
+              <ChevronRight className="size-4" />
+            </BotaoPaginacao>
+            <BotaoPaginacao
+              href={construirHref(searchParams, { page: String(totalPaginas) })}
+              desabilitado={paginaAtual === totalPaginas}
+              ariaLabel="Última página"
+            >
+              <ChevronsRight className="size-4" />
+            </BotaoPaginacao>
+          </div>
         </div>
       </div>
     </div>

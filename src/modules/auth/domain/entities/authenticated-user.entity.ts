@@ -1,8 +1,11 @@
+import type { Cargo } from "@/modules/users/domain/enums";
+
 export interface AuthenticatedUserProps {
   id: string;
   name: string;
   email: string;
   mustChangePassword: boolean;
+  cargo: Cargo;
 }
 
 export class AuthenticatedUser {
@@ -26,6 +29,10 @@ export class AuthenticatedUser {
 
   get mustChangePassword(): boolean {
     return this.props.mustChangePassword;
+  }
+
+  get cargo(): Cargo {
+    return this.props.cargo;
   }
 
   toJSON(): AuthenticatedUserProps {

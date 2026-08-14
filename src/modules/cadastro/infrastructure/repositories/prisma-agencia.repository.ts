@@ -37,19 +37,88 @@ import {
   type AnaliseIaAgenciaDetalhe,
   type CadastroComplementarDetalhe,
   type CadastrosKpis,
+  type ContextoMudancaStatus,
   type ContratoPorProvedorId,
   type ContratoSignatarioData,
   type CreateAgenciaData,
   type EnderecoData,
+  type FiltroSerieMovimentacao,
   type FonteConsultaCredito,
+  type Granularidade,
   type ConsultaSstItem,
   type HistoricoConsultaCreditoItem,
+  type HistoricoEtapaCadastroItem,
   type ListarCadastrosFiltros,
   type ListarCadastrosResult,
   type OrigemGeracaoContrato,
   type RepresentanteLegalDetalhe,
   type ResultadoAnaliseIa,
+  type SeriePeriodoItem,
+  type SeriesMovimentacao,
+  type SlaEtapaItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
+
+// Etapas "em trânsito" do funil — as únicas em que "tempo até sair dela"
+// faz sentido como métrica de SLA (ver calcularSlaPorEtapa). `ativo` e
+// `recusado` são estados finais: nunca se sai deles, então não têm SLA.
+const ETAPAS_COM_SLA = [
+  STATUS_EM_ANALISE,
+  STATUS_EM_COMPLEMENTAR,
+  STATUS_AGUARDANDO_ASSINATURA,
+  STATUS_AGUARDANDO_VALIDACAO,
+  STATUS_AGUARDANDO_CADASTRAMENTO,
+  STATUS_AGUARDANDO_ATIVACAO,
+];
+
+// Quantidade de baldes por granularidade do seletor DIA/MÊS/ANO (ver
+// listarSeriesMovimentacoes) — 14 dias, 12 meses, 5 anos.
+const QUANTIDADE_BALDES: Record<Granularidade, number> = { dia: 14, mes: 12, ano: 5 };
+
+// Mesmo formato "dd/MM" já usado em obterAnaliseContratos, estendido pra
+// mês ("MM/yyyy") e ano ("yyyy").
+function chavePeriodo(data: Date, granularidade: Granularidade): string {
+  if (granularidade === "dia") {
+    return `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+  }
+  if (granularidade === "mes") {
+    return `${String(data.getMonth() + 1).padStart(2, "0")}/${data.getFullYear()}`;
+  }
+  return String(data.getFullYear());
+}
+
+// Pré-preenche os últimos `quantidade` períodos com 0 (nenhum falta, mesmo
+// sem nenhuma linha real) e só depois soma as datas reais em cima —
+// mesma lógica de pré-preenchimento de obterAnaliseContratos, generalizada
+// pras 3 granularidades.
+function bucketarPorPeriodo(
+  datas: Date[],
+  granularidade: Granularidade,
+  quantidade: number,
+): SeriePeriodoItem[] {
+  const baldes = new Map<string, number>();
+  const chavesOrdenadas: string[] = [];
+  const agora = new Date();
+
+  for (let i = quantidade - 1; i >= 0; i--) {
+    const data = new Date(agora);
+    if (granularidade === "dia") data.setDate(data.getDate() - i);
+    else if (granularidade === "mes") data.setMonth(data.getMonth() - i);
+    else data.setFullYear(data.getFullYear() - i);
+
+    const chave = chavePeriodo(data, granularidade);
+    baldes.set(chave, 0);
+    chavesOrdenadas.push(chave);
+  }
+
+  for (const data of datas) {
+    const chave = chavePeriodo(data, granularidade);
+    if (baldes.has(chave)) {
+      baldes.set(chave, (baldes.get(chave) ?? 0) + 1);
+    }
+  }
+
+  return chavesOrdenadas.map((periodo) => ({ periodo, quantidade: baldes.get(periodo) ?? 0 }));
+}
 
 interface AgenciaRecord {
   id: string;
@@ -70,6 +139,7 @@ interface AgenciaRecord {
   travelLinkCriado: boolean;
   travelLinkSalvoPor: string | null;
   travelLinkSalvoEm: Date | null;
+  executivoId: string | null;
 }
 
 const ENDERECO_VAZIO: EnderecoData = {
@@ -124,6 +194,7 @@ function analiseIaFinalParaPrisma(
     parecer: avaliacao.parecer ?? null,
     motivo: avaliacao.motivo,
     flagsRisco: avaliacao.flagsRisco ?? [],
+    razoes: avaliacao.razoes ?? [],
     detalhamento: avaliacao.detalhamento
       ? (avaliacao.detalhamento as unknown as Prisma.InputJsonValue)
       : Prisma.JsonNull,
@@ -149,6 +220,7 @@ interface AnaliseIaAgenciaRecord {
   parecer: string | null;
   motivo: string | null;
   flagsRisco: string[];
+  razoes: string[];
   detalhamento: Prisma.JsonValue | null;
   stage1: Prisma.JsonValue | null;
   stage2: Prisma.JsonValue | null;
@@ -165,6 +237,7 @@ function analiseIaAgenciaToDomain(
     parecer: record.parecer,
     motivo: record.motivo,
     flagsRisco: record.flagsRisco,
+    razoes: record.razoes ?? [],
     detalhamento: record.detalhamento as unknown as AnaliseIaDetalhamento | null,
     stage1: record.stage1 as unknown as AnaliseIaStage1 | null,
     stage2: record.stage2 as unknown as AnaliseIaStage2 | null,
@@ -562,6 +635,20 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
           agenciaId: agencia.id,
           resultado: PrismaResultadoAnaliseIa.EM_ANALISE,
           flagsRisco: [],
+          razoes: [],
+        },
+      });
+
+      // Marco inicial do SLA — sem status anterior, é o próprio cliente
+      // enviando o formulário público que faz a Agencia nascer em
+      // "em_analise" (ver FinalizarCadastroUseCase).
+      await tx.historicoEtapaCadastro.create({
+        data: {
+          agenciaId: agencia.id,
+          statusAnterior: null,
+          statusNovo: agencia.status,
+          usuarioEmail: null,
+          origem: "sistema - formulario",
         },
       });
 
@@ -584,6 +671,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   async registrarAnaliseFinal(
     agenciaId: string,
     avaliacao: AnaliseIaResultado,
+    statusAtual: string,
     novoStatus: string,
     resultado: ResultadoAnaliseIa,
   ): Promise<void> {
@@ -597,6 +685,19 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       this.prisma.agencia.update({
         where: { id: agenciaId },
         data: { status: novoStatus as PrismaStatusAgencia },
+      }),
+      // `statusAtual` (não um valor assumido) — a IA pode aprovar direto de
+      // em_analise pra aguardando_assinatura, sem passar por
+      // em_complementar (ver AnalisarCadastroUseCase), então o par
+      // anterior/novo tem que refletir o que de fato aconteceu.
+      this.prisma.historicoEtapaCadastro.create({
+        data: {
+          agenciaId,
+          statusAnterior: statusAtual as PrismaStatusAgencia,
+          statusNovo: novoStatus as PrismaStatusAgencia,
+          usuarioEmail: null,
+          origem: "ia",
+        },
       }),
     ]);
   }
@@ -683,12 +784,119 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     });
   }
 
-  async atualizarStatus(id: string, status: string): Promise<Agencia> {
-    const record = await this.prisma.agencia.update({
-      where: { id },
-      data: { status: status as PrismaStatusAgencia },
+  async atualizarStatus(
+    id: string,
+    status: string,
+    contexto: ContextoMudancaStatus,
+  ): Promise<Agencia> {
+    return this.prisma.$transaction(async (tx) => {
+      const atual = await tx.agencia.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
+      });
+      const record = await tx.agencia.update({
+        where: { id },
+        data: { status: status as PrismaStatusAgencia },
+      });
+      await tx.historicoEtapaCadastro.create({
+        data: {
+          agenciaId: id,
+          statusAnterior: atual.status,
+          statusNovo: status as PrismaStatusAgencia,
+          usuarioEmail: contexto.usuarioEmail,
+          origem: contexto.origem,
+          observacao: contexto.observacao ?? null,
+          desbloqueioManual: contexto.desbloqueioManual ?? null,
+        },
+      });
+      return this.toDomain(record);
     });
-    return this.toDomain(record);
+  }
+
+  async contarNovosCadastros(desde: Date): Promise<number> {
+    return this.prisma.agencia.count({ where: { createdAt: { gte: desde } } });
+  }
+
+  // Percorre o histórico completo (ordenado por agência, depois por data)
+  // uma vez só: pra cada par consecutivo da MESMA agência, o tempo entre as
+  // duas linhas é quanto ela ficou na etapa `statusNovo` da linha anterior
+  // antes de sair dela. A etapa atual de um cadastro que ainda não saiu de
+  // lá (a última linha dele) não tem "próxima linha" ainda, então não entra
+  // na média — só trajetos concluídos contam pra SLA.
+  async calcularSlaPorEtapa(): Promise<SlaEtapaItem[]> {
+    const linhas = await this.prisma.historicoEtapaCadastro.findMany({
+      select: { agenciaId: true, statusNovo: true, createdAt: true },
+      orderBy: [{ agenciaId: "asc" }, { createdAt: "asc" }],
+    });
+
+    const somaMsPorStatus = new Map<string, number>();
+    const amostrasPorStatus = new Map<string, number>();
+
+    for (let i = 0; i < linhas.length - 1; i++) {
+      const atual = linhas[i];
+      const proxima = linhas[i + 1];
+      if (!atual || !proxima) continue;
+      if (atual.agenciaId !== proxima.agenciaId || !atual.statusNovo) continue;
+
+      const duracaoMs = proxima.createdAt.getTime() - atual.createdAt.getTime();
+      somaMsPorStatus.set(
+        atual.statusNovo,
+        (somaMsPorStatus.get(atual.statusNovo) ?? 0) + duracaoMs,
+      );
+      amostrasPorStatus.set(atual.statusNovo, (amostrasPorStatus.get(atual.statusNovo) ?? 0) + 1);
+    }
+
+    const MS_POR_DIA = 1000 * 60 * 60 * 24;
+    return ETAPAS_COM_SLA.map((status) => {
+      const amostras = amostrasPorStatus.get(status) ?? 0;
+      const somaMs = somaMsPorStatus.get(status) ?? 0;
+      return {
+        status,
+        amostras,
+        mediaDias: amostras > 0 ? somaMs / amostras / MS_POR_DIA : null,
+      };
+    });
+  }
+
+  async listarUltimasMovimentacoesEtapa(limite: number): Promise<HistoricoEtapaCadastroItem[]> {
+    const linhas = await this.prisma.historicoEtapaCadastro.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limite,
+      include: { agencia: { select: { razaoSocial: true, nomeFantasia: true } } },
+    });
+
+    return linhas.map((linha) => ({
+      id: linha.id,
+      agenciaId: linha.agenciaId,
+      agenciaNome: linha.agencia.nomeFantasia ?? linha.agencia.razaoSocial,
+      statusAnterior: linha.statusAnterior,
+      statusNovo: linha.statusNovo,
+      usuarioEmail: linha.usuarioEmail,
+      origem: linha.origem,
+      observacao: linha.observacao,
+      desbloqueioManual: linha.desbloqueioManual,
+      detalhes: linha.detalhes,
+      createdAt: linha.createdAt,
+    }));
+  }
+
+  async listarSeriesMovimentacoes(filtro: FiltroSerieMovimentacao): Promise<SeriesMovimentacao> {
+    const where: Prisma.HistoricoEtapaCadastroWhereInput = {};
+    if (filtro.apenasCriacao) where.statusAnterior = null;
+    if (filtro.statusNovo) where.statusNovo = filtro.statusNovo as PrismaStatusAgencia;
+    if (filtro.origem) where.origem = filtro.origem;
+
+    const linhas = await this.prisma.historicoEtapaCadastro.findMany({
+      where,
+      select: { createdAt: true },
+    });
+    const datas = linhas.map((linha) => linha.createdAt);
+
+    return {
+      dia: bucketarPorPeriodo(datas, "dia", QUANTIDADE_BALDES.dia),
+      mes: bucketarPorPeriodo(datas, "mes", QUANTIDADE_BALDES.mes),
+      ano: bucketarPorPeriodo(datas, "ano", QUANTIDADE_BALDES.ano),
+    };
   }
 
   async atualizarDadosCadastrais(
@@ -742,8 +950,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       origemGeracao: OrigemGeracaoContrato;
       signatarios: ContratoSignatarioData[];
     },
-  ): Promise<void> {
-    await this.prisma.contrato.create({
+  ): Promise<{ id: string }> {
+    const contrato = await this.prisma.contrato.create({
       data: {
         agenciaId,
         provedorId: data.provedorId,
@@ -770,6 +978,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         },
       },
     });
+    return { id: contrato.id };
   }
 
   async atualizarStatusContrato(contratoId: string, status: string): Promise<void> {
@@ -805,9 +1014,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     const executivoCondicao = condicaoFiltroIn(filtros.executivoId);
     if (executivoCondicao !== undefined) filtroExecutivo.id = executivoCondicao;
     const baseCondicao = condicaoFiltroIn(filtros.base);
-    if (baseCondicao !== undefined) filtroExecutivo.bases = { some: { baseSigla: baseCondicao } };
-    const gestorCondicao = condicaoFiltroIn(filtros.gestor);
-    if (gestorCondicao !== undefined) filtroExecutivo.gestor = gestorCondicao;
+    if (baseCondicao !== undefined)
+      filtroExecutivo.bases = { some: { base: { sigla: baseCondicao } } };
+    const gestorIdCondicao = condicaoFiltroIn(filtros.gestorId);
+    if (gestorIdCondicao !== undefined) filtroExecutivo.gestorId = gestorIdCondicao;
     if (Object.keys(filtroExecutivo).length > 0) where.executivo = filtroExecutivo;
 
     const associacaoCondicao = condicaoFiltroIn(filtros.associacaoId);
@@ -822,17 +1032,23 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       };
     }
 
+    const tamanhoPagina = filtros.tamanhoPagina ?? TAMANHO_PAGINA_CADASTROS;
+
     const [records, total] = await Promise.all([
       this.prisma.agencia.findMany({
         where,
         orderBy: { [filtros.sortBy ?? "createdAt"]: filtros.sortDir ?? "desc" },
-        skip: ((filtros.pagina ?? 1) - 1) * TAMANHO_PAGINA_CADASTROS,
-        take: TAMANHO_PAGINA_CADASTROS,
+        ...(filtros.todos
+          ? {}
+          : {
+              skip: ((filtros.pagina ?? 1) - 1) * tamanhoPagina,
+              take: tamanhoPagina,
+            }),
         include: {
           contratos: { orderBy: { createdAt: "desc" }, take: 1 },
           associacao: { select: { nome: true } },
           executivo: {
-            select: { nome: true, gestor: true },
+            select: { nome: true, gestor: { select: { nome: true } } },
           },
           evento: { select: { nome: true } },
         },
@@ -868,7 +1084,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         // "a base da agência" está errado (decisão do usuário, 2026-07-28:
         // melhor deixar em branco do que mostrar um dado ambíguo/errado).
         executivoBase: null,
-        executivoGestor: record.executivo?.gestor ?? null,
+        executivoGestor: record.executivo?.gestor?.nome ?? null,
         consultaSicaMaisRecente: consultaSicaPorAgenciaId.get(record.id) ?? null,
       })),
       total,
@@ -1017,6 +1233,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       travelLinkCriado: record.travelLinkCriado,
       travelLinkSalvoPor: record.travelLinkSalvoPor,
       travelLinkSalvoEm: record.travelLinkSalvoEm,
+      executivoId: record.executivoId,
     });
   }
 }

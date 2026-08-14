@@ -56,7 +56,9 @@ describe("FlysakuraSstAdapter", () => {
     });
 
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(String(url)).toBe("https://sst.teste/api/agencias/ativas?cnpj=43600690000122");
+    expect(String(url)).toBe(
+      "https://sst.teste/api/agencias/ativas?cnpj=43600690000122&realtime=true",
+    );
     expect(opts.headers["X-Internal-Secret"]).toBe("secret-teste");
   });
 
@@ -70,7 +72,40 @@ describe("FlysakuraSstAdapter", () => {
     await new FlysakuraSstAdapter().consultarSicaCodigoEmpresa(57295);
 
     const [url] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(String(url)).toBe("https://sst.teste/api/agencias/ativas?codigoEmpresa=57295");
+    expect(String(url)).toBe(
+      "https://sst.teste/api/agencias/ativas?codigoEmpresa=57295&realtime=true",
+    );
+  });
+
+  it("normaliza codigo_empresa/codigo_executivo quando o SST devolve string (realtime=true)", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          {
+            codigo_empresa: "64477",
+            nome: "KATIA ROCHA VIAG",
+            cnpj: "24208071000142",
+            telefone: "62982850483",
+            email: "KATIAROCHAVIAGENS@GMAIL.COM",
+            empresa_status: "inativo",
+            codigo_executivo: "103",
+            nome_executivo: "",
+          },
+        ],
+        total: 1,
+        page: 1,
+        offset: 0,
+      }),
+    });
+
+    const resultado = await new FlysakuraSstAdapter().consultarSicaCodigoEmpresa(64477);
+
+    expect(resultado.registro?.codigoEmpresa).toBe(64477);
+    expect(resultado.registro?.codigoExecutivo).toBe(103);
+    expect(typeof resultado.registro?.codigoEmpresa).toBe("number");
+    expect(typeof resultado.registro?.codigoExecutivo).toBe("number");
   });
 
   it("devolve encontrado=false quando data vem vazio", async () => {
@@ -103,5 +138,61 @@ describe("FlysakuraSstAdapter", () => {
     await expect(new FlysakuraSstAdapter().consultarSicaCNPJ("43600690000122")).rejects.toThrow(
       "SST_API_KEY não configurada",
     );
+  });
+
+  describe("verificarConexao", () => {
+    it("chama GET /health sem X-Internal-Secret e devolve status/databases", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "healthy",
+          timestamp: "2026-08-13T21:45:44.570Z",
+          databases: {
+            sica: "healthy",
+            sigot: "healthy",
+            travellink: "healthy",
+            mirror: "healthy",
+          },
+        }),
+      });
+
+      const resultado = await new FlysakuraSstAdapter().verificarConexao();
+
+      expect(resultado).toEqual({
+        status: "healthy",
+        databases: { sica: "healthy", sigot: "healthy", travellink: "healthy", mirror: "healthy" },
+      });
+
+      const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(String(url)).toBe("https://sst.teste/health");
+      expect(opts.headers["X-Internal-Secret"]).toBeUndefined();
+    });
+
+    it("lança erro claro quando a resposta não é 2xx", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => "serviço indisponível",
+      });
+
+      await expect(new FlysakuraSstAdapter().verificarConexao()).rejects.toThrow(
+        "SST respondeu 503",
+      );
+    });
+
+    it("funciona mesmo sem SST_API_KEY, já que /health não exige credencial", async () => {
+      delete process.env.SST_API_KEY;
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: "healthy", databases: {} }),
+      });
+
+      await expect(new FlysakuraSstAdapter().verificarConexao()).resolves.toEqual({
+        status: "healthy",
+        databases: {},
+      });
+    });
   });
 });

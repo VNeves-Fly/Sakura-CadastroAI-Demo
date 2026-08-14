@@ -15,6 +15,7 @@ import { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { StatusDocumento } from "@/modules/cadastro/domain/enums";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { DecisaoHumanaRepository } from "@/modules/cadastro/domain/repositories/decisao-humana-repository";
+import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -46,6 +47,7 @@ function agenciaFake(status: string): Agencia {
     travelLinkCriado: false,
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
+    executivoId: null,
   });
 }
 
@@ -127,7 +129,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
     atualizarStatus: jest.fn().mockResolvedValue(agenciaFake(STATUS_AGUARDANDO_ASSINATURA)),
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
-    criarContrato: jest.fn(),
+    criarContrato: jest.fn().mockResolvedValue({ id: "contrato-1" }),
     atualizarStatusContrato: jest.fn(),
     listar: jest.fn(),
     obterKpis: jest.fn(),
@@ -141,14 +143,17 @@ function criarContratoAssinaturaFake(
   overrides: Partial<ContratoAssinaturaService> = {},
 ): ContratoAssinaturaService {
   return {
-    gerarEEnviar: jest
-      .fn()
-      .mockResolvedValue({ provedorId: "d4sign-1", status: "aguardando_assinatura" }),
+    gerarEEnviar: jest.fn().mockResolvedValue({
+      provedorId: "d4sign-1",
+      status: "aguardando_assinatura",
+      signatariosKeySigner: [],
+    }),
     visualizarDocumento: jest.fn(),
     obterDocumento: jest.fn(),
     obterDestinatarios: jest.fn(),
     registrarWebhook: jest.fn(),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }
@@ -163,10 +168,23 @@ function criarDecisaoHumanaFake(
   };
 }
 
+function criarContratoAssinaturaRepositoryFake(
+  overrides: Partial<ContratoAssinaturaRepository> = {},
+): ContratoAssinaturaRepository {
+  return {
+    registrar: jest.fn(),
+    registrarDestinatario: jest.fn(),
+    findByContratoId: jest.fn().mockResolvedValue([]),
+    marcarRemocaoDoDocumento: jest.fn(),
+    ...overrides,
+  };
+}
+
 interface Deps {
   agenciaRepository: AgenciaRepository;
   contratoAssinaturaService: ContratoAssinaturaService;
   decisaoHumanaRepository: DecisaoHumanaRepository;
+  contratoAssinaturaRepository: ContratoAssinaturaRepository;
 }
 
 function criarUseCase(overrides: Partial<Deps> = {}) {
@@ -174,6 +192,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     agenciaRepository: criarRepositorioFake(),
     contratoAssinaturaService: criarContratoAssinaturaFake(),
     decisaoHumanaRepository: criarDecisaoHumanaFake(),
+    contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake(),
     ...overrides,
   };
 
@@ -181,6 +200,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.agenciaRepository,
     deps.contratoAssinaturaService,
     deps.decisaoHumanaRepository,
+    deps.contratoAssinaturaRepository,
   );
 
   return { useCase, ...deps };
@@ -225,8 +245,50 @@ describe("AprovarCadastroComplementarUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ASSINATURA,
+      { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
+  });
+
+  it("persiste o keySigner de cada signatário capturado na resposta do createlist", async () => {
+    const { useCase, contratoAssinaturaRepository } = criarUseCase({
+      contratoAssinaturaService: criarContratoAssinaturaFake({
+        gerarEEnviar: jest.fn().mockResolvedValue({
+          provedorId: "d4sign-1",
+          status: "aguardando_assinatura",
+          signatariosKeySigner: [
+            { email: "fulano@example.com", keySigner: "a2V5LWZ1bGFubw==" },
+            { email: "sem-keysigner@example.com", keySigner: null },
+          ],
+        }),
+      }),
+    });
+
+    await useCase.execute(INPUT);
+
+    expect(contratoAssinaturaRepository.registrarDestinatario).toHaveBeenCalledTimes(1);
+    expect(contratoAssinaturaRepository.registrarDestinatario).toHaveBeenCalledWith(
+      "contrato-1",
+      "fulano@example.com",
+      "a2V5LWZ1bGFubw==",
+    );
+  });
+
+  it("não deixa uma falha ao persistir o keySigner derrubar a aprovação", async () => {
+    const { useCase } = criarUseCase({
+      contratoAssinaturaService: criarContratoAssinaturaFake({
+        gerarEEnviar: jest.fn().mockResolvedValue({
+          provedorId: "d4sign-1",
+          status: "aguardando_assinatura",
+          signatariosKeySigner: [{ email: "fulano@example.com", keySigner: "abc" }],
+        }),
+      }),
+      contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake({
+        registrarDestinatario: jest.fn().mockRejectedValue(new Error("banco fora do ar")),
+      }),
+    });
+
+    await expect(useCase.execute(INPUT)).resolves.toBeDefined();
   });
 
   it("registra a DecisaoHumana com quem aprovou, marcando divergência quando a IA tinha reprovado", async () => {
@@ -239,6 +301,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
               parecer: "REPROVADO",
               motivo: "CNAE incompatível",
               flagsRisco: [],
+              razoes: [],
               detalhamento: null,
               stage1: null,
               stage2: null,
@@ -272,6 +335,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
               parecer: "APROVADO",
               motivo: "D4Sign indisponível",
               flagsRisco: [],
+              razoes: [],
               detalhamento: null,
               stage1: null,
               stage2: null,
@@ -371,6 +435,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "agencia-1",
       STATUS_AGUARDANDO_ASSINATURA,
+      { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
   });

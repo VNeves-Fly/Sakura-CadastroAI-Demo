@@ -29,9 +29,22 @@ export interface GerarContratoInput {
   signatarios: ContratoSignatario[];
 }
 
+export interface SignatarioKeySigner {
+  email: string;
+  keySigner: string | null;
+}
+
 export interface GerarContratoResult {
   provedorId: string;
   status: string;
+  // Melhor esforço — capturado direto da resposta do createlist (ver
+  // D4SignAdapter.cadastrarSignatarios), pra já habilitar o botão "Ver/
+  // copiar link" sem precisar de um "Atualizar informações" manual depois.
+  // Formato de resposta do createlist NÃO confirmado ao vivo (só na doc
+  // oficial) — pode vir vazio se o parsing não reconhecer o formato; nesse
+  // caso o sync manual (SincronizarContratoD4SignUseCase) continua sendo o
+  // fallback, exatamente como funcionava antes desta captura existir.
+  signatariosKeySigner: SignatarioKeySigner[];
 }
 
 export interface ArquivoContrato {
@@ -84,4 +97,12 @@ export interface ContratoAssinaturaService {
   // Cancela o documento no D4Sign — usado por CancelarContratoUseCase
   // quando o analista cancela um contrato ainda em Assinatura/Validação.
   cancelarDocumento(provedorId: string, motivo: string): Promise<void>;
+  // Link direto de assinatura de UM destinatário (botão "Ver/copiar link"
+  // na Fila de Assinatura do dossiê) — `keySigner` é o valor bruto salvo em
+  // ContratoAssinatura (base64, confirmado ao vivo — ver D4SignAdapter).
+  // Lança se o D4Sign não devolver um link (ex.: documento ainda não foi
+  // enviado pra esse signatário — estágios posteriores só são notificados
+  // depois que o(s) estágio(s) anterior(es) assinar(em), ver workflow="1"
+  // em cadastrarSignatarios).
+  obterLinkAssinatura(provedorId: string, keySigner: string): Promise<string>;
 }

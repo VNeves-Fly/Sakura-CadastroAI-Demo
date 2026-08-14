@@ -79,6 +79,7 @@ export class CancelarContratoUseCase implements UseCase<CancelarContratoInput, A
     const agencia = await this.agenciaRepository.atualizarStatus(
       input.agenciaId,
       STATUS_EM_COMPLEMENTAR,
+      { usuarioEmail: input.canceladoPor, origem: "usuario", observacao: justificativa },
     );
 
     await this.historicoEdicaoCadastroRepository.create({

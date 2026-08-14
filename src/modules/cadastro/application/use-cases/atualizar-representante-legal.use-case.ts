@@ -7,6 +7,7 @@ import type {
 } from "@/modules/cadastro/domain/repositories/representante-legal-repository";
 import type { HistoricoEdicaoCadastroRepository } from "@/modules/cadastro/domain/repositories/historico-edicao-cadastro-repository";
 import type { AlteracaoCampo } from "@/modules/cadastro/domain/entities/historico-edicao-cadastro.entity";
+import type { EnderecoData } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 export interface AtualizarRepresentanteLegalInput {
   id: string;
@@ -58,6 +59,37 @@ function calcularAlteracoes(
   return alteracoes;
 }
 
+const CAMPOS_ENDERECO = [
+  "cep",
+  "logradouro",
+  "numero",
+  "complemento",
+  "bairro",
+  "cidade",
+  "uf",
+] as const;
+
+// Endereço é objeto aninhado (relação 1:1), então não passa pelo loop
+// genérico de CAMPOS_EDITAVEIS acima — diff campo a campo igual, só que
+// prefixado ("endereco.cep") pra distinguir no histórico.
+function calcularAlteracoesEndereco(
+  atual: EnderecoData,
+  novo: EnderecoData | undefined,
+): Record<string, AlteracaoCampo> {
+  if (!novo) return {};
+  const alteracoes: Record<string, AlteracaoCampo> = {};
+
+  for (const campo of CAMPOS_ENDERECO) {
+    const de = atual[campo] || null;
+    const para = novo[campo] || null;
+    if (de !== para) {
+      alteracoes[`endereco.${campo}`] = { de, para };
+    }
+  }
+
+  return alteracoes;
+}
+
 // Ação do analista no painel: edição em lote dos dados do sócio extraídos
 // pela IA (ou preenchidos no wizard), com justificativa obrigatória —
 // mesma exigência aplicada a aprovar/reprovar documento (decisão do
@@ -85,7 +117,10 @@ export class AtualizarRepresentanteLegalUseCase implements UseCase<
       throw new DomainError("Informe a justificativa da edição.");
     }
 
-    const alteracoes = calcularAlteracoes(atual, input.dados);
+    const alteracoes = {
+      ...calcularAlteracoes(atual, input.dados),
+      ...calcularAlteracoesEndereco(atual.endereco, input.dados.endereco),
+    };
     if (Object.keys(alteracoes).length === 0) {
       return atual;
     }

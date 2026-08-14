@@ -2,6 +2,7 @@ import type {
   SicaConsultaResultado,
   SicaEmpresaRegistro,
   SstService,
+  SstStatusConexao,
 } from "@/modules/cadastro/domain/services/sst-service";
 import {
   sstBaseUrl,
@@ -11,14 +12,18 @@ import {
 // Shape bruto de GET /api/agencias/ativas (snake_case, confirmado pelo
 // usuário via exemplo real, 2026-08-02) — `data` vem vazio (`[]`) quando
 // não encontra nada pro parâmetro buscado.
+// `codigo_empresa`/`codigo_executivo` vêm como number sem `realtime=true`,
+// mas como string quando `realtime=true` (confirmado pelo usuário,
+// 2026-08-03) — por isso aceitam os dois tipos aqui e são normalizados via
+// Number(...) em paraRegistro.
 interface RawAgenciaAtivaSst {
-  codigo_empresa: number;
+  codigo_empresa: number | string;
   nome: string;
   cnpj: string;
   telefone: string;
   email: string;
   empresa_status: string;
-  codigo_executivo: number;
+  codigo_executivo: number | string;
   nome_executivo: string;
 }
 
@@ -29,9 +34,14 @@ interface RawAgenciasAtivasResponse {
   offset: number;
 }
 
+interface RawHealthResponse {
+  status: string;
+  databases: Record<string, string>;
+}
+
 function paraRegistro(raw: RawAgenciaAtivaSst): SicaEmpresaRegistro {
   return {
-    codigoEmpresa: raw.codigo_empresa,
+    codigoEmpresa: Number(raw.codigo_empresa),
     nome: raw.nome,
     cnpj: raw.cnpj,
     telefone: raw.telefone,
@@ -40,7 +50,7 @@ function paraRegistro(raw: RawAgenciaAtivaSst): SicaEmpresaRegistro {
     // usuário) — sem validação extra de shape, mesma confiança dada ao
     // resto dos campos desta resposta.
     empresaStatus: raw.empresa_status as "ativo" | "inativo",
-    codigoExecutivo: raw.codigo_executivo,
+    codigoExecutivo: Number(raw.codigo_executivo),
     nomeExecutivo: raw.nome_executivo,
   };
 }
@@ -59,12 +69,32 @@ export class FlysakuraSstAdapter implements SstService {
     return this.consultar("codigoEmpresa", String(codigoEmpresa));
   }
 
+  // GET /health não exige X-Internal-Secret (confirmado via curl direto,
+  // 2026-08-13) — mas segue o mesmo liga/desliga por SST_API_KEY das outras
+  // operações deste adapter, já que sem a chave elas não funcionam de
+  // verdade mesmo (ver MockSstService).
+  async verificarConexao(): Promise<SstStatusConexao> {
+    const url = new URL("/health", sstBaseUrl());
+
+    const response = await fetch(url, {
+      headers: { accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      throw new Error(`SST respondeu ${response.status}: ${await response.text()}`);
+    }
+
+    const resultado = (await response.json()) as RawHealthResponse;
+    return { status: resultado.status, databases: resultado.databases };
+  }
+
   private async consultar(
     parametro: "cnpj" | "codigoEmpresa",
     valor: string,
   ): Promise<SicaConsultaResultado> {
     const url = new URL("/api/agencias/ativas", sstBaseUrl());
     url.searchParams.set(parametro, valor);
+    url.searchParams.set("realtime", "true");
 
     const response = await fetch(url, {
       headers: {

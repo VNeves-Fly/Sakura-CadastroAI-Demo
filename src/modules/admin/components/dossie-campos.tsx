@@ -1295,6 +1295,36 @@ const IMAGEM_PARECER: Record<string, string> = {
   REPROVADO: "/parecer/reprovado.svg",
 };
 
+// Rótulo em pt-br pra cada razão estruturada do agents-service (ver
+// agency_analysis_reasons.py) — cobre os enums de APROVADO, PENDENTE e
+// REPROVADO num só mapa, já que o campo `razoes` pode conter qualquer um
+// deles dependendo do parecer. Razão sem entrada aqui (enum novo do lado
+// deles, ainda não mapeado) cai no fallback do próprio valor bruto.
+const RAZAO_LABELS: Record<string, string> = {
+  TUDO_CONFERE: "Tudo confere",
+  RISCO_BAIXO: "Risco baixo",
+  DOCUMENTO_VENCIDO: "Documento vencido",
+  DOCUMENTO_INVALIDO: "Documento inválido",
+  DOCUMENTO_FALTANTE: "Documento faltante",
+  CNPJ_INATIVO: "CNPJ inativo",
+  CNAE_INCOMPATIVEL: "CNAE incompatível",
+  DIVERGENCIA_CADASTRAL: "Divergência cadastral",
+  DIVERGENCIA_SOCIOS: "Divergência de sócios",
+  EMAIL_INVALIDO: "E-mail inválido",
+  SOFIA_REGISTRADO: "Registrado no SOFIA",
+  PROCESSOS_JUDICIAIS: "Processos judiciais",
+  RECLAMACOES_SIGNIFICATIVAS: "Reclamações significativas",
+  AMAT_DIVIDA: "Dívida no AMAT",
+  AMAT_RESTRICOES: "Restrições no AMAT",
+  DADOS_INCOMPLETOS: "Dados incompletos",
+  ERRO_PROCESSAMENTO: "Erro de processamento",
+  ADMINISTRATIVO_NAO_VALIDADO: "Administrativo não validado",
+  DIVERGENCIA_CADASTRAL_CRITICA: "Divergência cadastral crítica",
+  DIVERGENCIA_SOCIOS_CRITICA: "Divergência de sócios crítica",
+  RISCO_ALTO_DETECTADO: "Risco alto detectado",
+  ERRO_CRITICO: "Erro crítico",
+};
+
 const RESULTADO_ANALISE_LABELS: Record<string, string> = {
   EM_ANALISE: "Em análise",
   APROVADO: "Aprovado pela IA",
@@ -1369,6 +1399,25 @@ export function ParecerIa({ parecer }: { parecer: ParecerIaView | null }) {
       ) : null}
 
       {parecer.motivo ? <p className="text-foreground">{parecer.motivo}</p> : null}
+
+      {/* Razões estruturadas (enum) do parecer — diferente de pontosDeAlerta
+          (texto livre), sempre mostradas quando existem, mesmo em
+          APROVADO (ex.: TUDO_CONFERE, RISCO_BAIXO não são pendência). */}
+      {parecer.razoes.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <SubsecaoLabel>Razões</SubsecaoLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {parecer.razoes.map((razao) => (
+              <span
+                key={razao}
+                className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-bold uppercase"
+              >
+                {RAZAO_LABELS[razao] ?? razao}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {precisaRevisao && parecer.pontosDeAlerta.length > 0 ? (
         <div className="flex flex-col gap-1.5">

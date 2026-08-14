@@ -58,6 +58,7 @@ function fakeContratoAssinaturaService(
     obterDestinatarios: jest.fn().mockResolvedValue([]),
     registrarWebhook: jest.fn().mockResolvedValue({ registrado: true }),
     cancelarDocumento: jest.fn(),
+    obterLinkAssinatura: jest.fn(),
     ...overrides,
   };
 }
@@ -91,6 +92,9 @@ function fakeSignatarioPadraoRepository(
       throw new Error("não implementado");
     },
     restaurar: async () => {
+      throw new Error("não implementado");
+    },
+    reordenar: async () => {
       throw new Error("não implementado");
     },
   };
@@ -141,7 +145,10 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository(),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(resultado).toEqual({ ok: false, motivo: expect.stringContaining("não encontrada") });
   });
@@ -159,7 +166,10 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository(),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(resultado).toEqual({ ok: false, motivo: expect.stringContaining("Nenhum contrato") });
   });
@@ -179,7 +189,10 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository(),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(resultado).toEqual({
       ok: false,
@@ -205,7 +218,10 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository(),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(resultado).toEqual({
       ok: false,
@@ -226,7 +242,10 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository(),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(resultado).toEqual({
       ok: false,
@@ -251,7 +270,10 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository(),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(resultado).toEqual({
       ok: true,
@@ -280,13 +302,17 @@ describe("SincronizarContratoD4SignUseCase", () => {
       contratoAssinaturaRepository,
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(contratoAssinaturaRepository.registrar).toHaveBeenCalledWith("ct-1", SOCIO_1, null);
     expect(contratoAssinaturaRepository.registrar).toHaveBeenCalledWith("ct-1", SOCIO_2, null);
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "ag-1",
       STATUS_AGUARDANDO_VALIDACAO,
+      { usuarioEmail: "analista@x.com", origem: "usuario" },
     );
     expect(resultado).toEqual({
       ok: true,
@@ -310,7 +336,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       contratoAssinaturaRepository,
     );
 
-    await useCase.execute("ag-1");
+    await useCase.execute({ agenciaId: "ag-1", sincronizadoPor: "analista@x.com" });
 
     expect(contratoAssinaturaRepository.registrarDestinatario).toHaveBeenCalledWith(
       "ct-1",
@@ -342,11 +368,15 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository([{ email: SOCIO_1, assinadoEm: new Date() }]),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
       "ag-1",
       STATUS_AGUARDANDO_CADASTRAMENTO,
+      { usuarioEmail: "analista@x.com", origem: "usuario" },
     );
     expect(resultado.ok).toBe(true);
     if (resultado.ok) expect(resultado.avancouStatus).toBe(true);
@@ -374,7 +404,10 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoAssinaturaRepository([{ email: SOCIO_1, assinadoEm: new Date() }]),
     );
 
-    const resultado = await useCase.execute("ag-1");
+    const resultado = await useCase.execute({
+      agenciaId: "ag-1",
+      sincronizadoPor: "analista@x.com",
+    });
 
     expect(agenciaRepository.atualizarStatus).not.toHaveBeenCalled();
     expect(resultado.ok && resultado.avancouStatus).toBe(false);
@@ -396,7 +429,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       contratoAssinaturaRepository,
     );
 
-    await useCase.execute("ag-1");
+    await useCase.execute({ agenciaId: "ag-1", sincronizadoPor: "analista@x.com" });
 
     expect(contratoAssinaturaRepository.marcarRemocaoDoDocumento).toHaveBeenCalledWith(
       "ct-1",
@@ -419,7 +452,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       contratoAssinaturaRepository,
     );
 
-    await useCase.execute("ag-1");
+    await useCase.execute({ agenciaId: "ag-1", sincronizadoPor: "analista@x.com" });
 
     expect(contratoAssinaturaRepository.marcarRemocaoDoDocumento).toHaveBeenCalledWith(
       "ct-1",

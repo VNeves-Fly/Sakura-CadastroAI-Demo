@@ -12,7 +12,9 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 // Ativa (reaproveita o mesmo use-case genérico de "ativarCliente" — não
 // existe o caminho inverso, Ativa não pode virar Reprovada por aqui).
 export async function reativarClienteAction(agenciaId: string) {
-  await cadastroAdminController.ativarCliente(agenciaId);
+  const session = await getServerSession(nextAuthOptions);
+  const usuarioEmail = session?.user?.email ?? session?.user?.name ?? "analista não identificado";
+  await cadastroAdminController.ativarCliente(agenciaId, usuarioEmail);
   revalidatePath(`/arquivo/${agenciaId}`);
   revalidatePath("/arquivo");
 }

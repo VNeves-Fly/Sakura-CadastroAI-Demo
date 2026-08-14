@@ -83,25 +83,17 @@ export function SignatarioPadraoForm({
             </SelectContent>
           </Select>
         </Campo>
-        <Campo label="Estágio (fila de assinatura — sócios = 0)">
-          <input
-            type="number"
-            name="estagio"
-            min={1}
-            defaultValue={signatario?.estagio ?? 1}
-            required
-            className={INPUT_CLASSES}
-          />
-        </Campo>
-        <Campo label="Ordem de exibição (opcional)">
-          <input
-            type="number"
-            name="ordem"
-            defaultValue={signatario?.ordem ?? ""}
-            className={INPUT_CLASSES}
-          />
-        </Campo>
       </div>
+
+      {/* A posição na fila de assinatura (estágio) não é mais digitada aqui
+          — um signatário novo sempre entra no fim da fila, e a ordem é
+          ajustada arrastando na lista (ver SignatariosPadraoDragList). */}
+      {!signatario ? (
+        <p className="text-muted-foreground text-xs">
+          Este signatário entra no fim da fila de assinatura — depois de salvar, arraste-o pra
+          posição certa na lista.
+        </p>
+      ) : null}
 
       <div>
         <button
