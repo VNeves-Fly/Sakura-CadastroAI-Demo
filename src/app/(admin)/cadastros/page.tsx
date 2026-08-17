@@ -1,6 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { UserCog, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
+import {
+  UserCog,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+  Bell,
+} from "lucide-react";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { CadastrosLive } from "./cadastros-live";
@@ -585,6 +592,7 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                     executivoGestor,
                     eventoNome,
                     consultaSicaMaisRecente,
+                    temAtualizacaoPendente,
                   }) => {
                     const atendimentoAtivo = atendimentoAtivoPorAgencia.get(agencia.id);
                     const ultimoEncerrado = ultimoEncerradoPorAgencia.get(agencia.id);
@@ -603,11 +611,28 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                                 {maskCnpj(agencia.cnpj)}
                               </p>
                             </div>
-                            {eventoNome ? (
-                              <span className="bg-accent text-accent-foreground shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
-                                {eventoNome}
-                              </span>
-                            ) : null}
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {temAtualizacaoPendente ? (
+                                <Tooltip>
+                                  <TooltipTrigger
+                                    render={
+                                      <span className="bg-warning/15 text-warning inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold whitespace-nowrap">
+                                        <Bell className="size-3" />
+                                        Atualização
+                                      </span>
+                                    }
+                                  />
+                                  <TooltipContent>
+                                    Nova mensagem ou documento desde a última visita
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                              {eventoNome ? (
+                                <span className="bg-accent text-accent-foreground rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
+                                  {eventoNome}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">

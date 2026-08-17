@@ -22,6 +22,10 @@ export interface AgenciaProps {
   // (2026-08-03), não só pra exibir o nome (ver executivoNome em
   // ListarCadastrosItem/AgenciaDetalhe).
   executivoId: string | null;
+  // Ver comentário no schema.prisma — null = nunca visto por quem estava
+  // em atendimento.
+  atualizacaoVistaEm: Date | null;
+  atualizacaoVistaPor: string | null;
 }
 
 export class Agencia {
@@ -103,11 +107,23 @@ export class Agencia {
     return this.props.executivoId;
   }
 
-  toJSON(): Omit<AgenciaProps, "createdAt" | "updatedAt" | "sicaSalvoEm" | "travelLinkSalvoEm"> & {
+  get atualizacaoVistaEm(): Date | null {
+    return this.props.atualizacaoVistaEm;
+  }
+
+  get atualizacaoVistaPor(): string | null {
+    return this.props.atualizacaoVistaPor;
+  }
+
+  toJSON(): Omit<
+    AgenciaProps,
+    "createdAt" | "updatedAt" | "sicaSalvoEm" | "travelLinkSalvoEm" | "atualizacaoVistaEm"
+  > & {
     createdAt: string;
     updatedAt: string;
     sicaSalvoEm: string | null;
     travelLinkSalvoEm: string | null;
+    atualizacaoVistaEm: string | null;
   } {
     return {
       id: this.props.id,
@@ -129,6 +145,20 @@ export class Agencia {
       travelLinkSalvoPor: this.props.travelLinkSalvoPor,
       travelLinkSalvoEm: this.props.travelLinkSalvoEm?.toISOString() ?? null,
       executivoId: this.props.executivoId,
+      atualizacaoVistaEm: this.props.atualizacaoVistaEm?.toISOString() ?? null,
+      atualizacaoVistaPor: this.props.atualizacaoVistaPor,
     };
   }
+}
+
+// Único lugar que decide "tem atualização não vista" — dossiê (1 agência,
+// via findByAgenciaId) e listagem (N agências, via listar()) chamam isto
+// em vez de reimplementar a comparação de datas.
+export function temAtualizacaoPendente(
+  atualizacaoVistaEm: Date | null,
+  ultimaNotificacaoEm: Date | null,
+): boolean {
+  if (!ultimaNotificacaoEm) return false;
+  if (!atualizacaoVistaEm) return true;
+  return ultimaNotificacaoEm > atualizacaoVistaEm;
 }

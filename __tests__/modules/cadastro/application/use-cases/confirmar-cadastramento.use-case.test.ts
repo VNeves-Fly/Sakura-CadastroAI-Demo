@@ -30,6 +30,8 @@ function agenciaFake(sicaCodigo: string | null): Agencia {
     travelLinkSalvoPor: "analista@x.com",
     travelLinkSalvoEm: new Date("2026-01-02"),
     executivoId: null,
+    atualizacaoVistaEm: null,
+    atualizacaoVistaPor: null,
   });
 }
 

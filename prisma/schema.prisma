@@ -214,6 +214,15 @@ model Agencia {
   travelLinkSalvoPor String?
   travelLinkSalvoEm  DateTime?
 
+  // Marca a última vez que quem estava EM ATENDIMENTO desta agência viu a
+  // ficha (ver marcarAtualizacaoComoVista) — só abrir o dossiê sem estar
+  // atendendo não atualiza isso (mesmo critério de "não dá pra espiar sem
+  // assumir" já usado em atendimento/marcar-como-lida). "Tem atualização
+  // pendente" = existe Notificacao(agenciaId) com createdAt depois disto
+  // (ou null = nunca visto e já existe alguma notificação).
+  atualizacaoVistaEm  DateTime?
+  atualizacaoVistaPor String?
+
   complementar              CadastroComplementar?
   representantesLegais      RepresentanteLegal[]
   documentos                Documento[]

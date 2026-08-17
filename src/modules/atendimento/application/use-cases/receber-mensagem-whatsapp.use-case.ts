@@ -1,4 +1,5 @@
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
+import type { NotificacaoRepository } from "@/modules/cadastro/domain/repositories/notificacao-repository";
 import type { MensagemEntity } from "@/modules/atendimento/domain/entities/mensagem.entity";
 import type { ConversaRepository } from "@/modules/atendimento/domain/repositories/conversa-repository";
 import type { MensagemRepository } from "@/modules/atendimento/domain/repositories/mensagem-repository";
@@ -19,6 +20,7 @@ export class ReceberMensagemWhatsAppUseCase {
     private readonly contactMatcher: WhatsAppContactMatcher,
     private readonly whatsAppMessagingService: WhatsAppMessagingService,
     private readonly fileStorage: FileStorage,
+    private readonly notificacaoRepository: NotificacaoRepository,
   ) {}
 
   async execute(input: ReceberMensagemInboundInput): Promise<MensagemEntity | null> {
@@ -85,6 +87,20 @@ export class ReceberMensagemWhatsAppUseCase {
     });
 
     await this.conversaRepository.touchLastMessage(conversa.id, new Date());
+
+    // Só conversa vinculada a agência tem "ficha" pra avisar — não
+    // identificada não tem onde mostrar isso (ver temAtualizacaoPendente).
+    // Best-effort: a mensagem já está persistida independente disso.
+    if (conversa.agenciaId) {
+      await this.notificacaoRepository
+        .create({
+          agenciaId: conversa.agenciaId,
+          tipo: "mensagem",
+          titulo: "Nova mensagem",
+          mensagem: `${conversa.membro.nome} enviou uma mensagem no WhatsApp.`,
+        })
+        .catch(() => {});
+    }
 
     return mensagem;
   }

@@ -349,6 +349,10 @@ export interface ListarCadastrosItem {
   // Consulta mais recente ao SST (qualquer método) — badge da coluna SICA
   // em /cadastros. null = nunca consultado (ou toda tentativa falhou).
   consultaSicaMaisRecente: ConsultaSstItem | null;
+  // Ver temAtualizacaoPendente (agencia.entity.ts) — mensagem de cliente
+  // ou documento reenviado desde a última vez que quem atendia viu a
+  // ficha.
+  temAtualizacaoPendente: boolean;
 }
 
 export interface ListarCadastrosResult {
@@ -598,6 +602,10 @@ export interface AgenciaRepository {
     },
   ): Promise<{ id: string }>;
   atualizarStatusContrato(contratoId: string, status: string): Promise<void>;
+  // Só quem estava EM ATENDIMENTO chama isto (ver comentário no
+  // schema.prisma) — simplesmente abrir o dossiê sem estar atendendo não
+  // deve chamar este método.
+  marcarAtualizacaoComoVista(agenciaId: string, analistaId: string): Promise<void>;
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;
   obterAnaliseContratos(dias: number): Promise<AnaliseContratos>;

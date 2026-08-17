@@ -5,6 +5,7 @@ import { PrismaDadosReceitaRepository } from "@/modules/cadastro/infrastructure/
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaExecutivoResolver } from "@/modules/cadastro/infrastructure/repositories/prisma-executivo-resolver";
+import { PrismaNotificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-notificacao.repository";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 import { BrasilApiBancoConsultaAdapter } from "@/modules/cadastro/infrastructure/adapters/brasilapi-banco-consulta.adapter";
@@ -46,6 +47,7 @@ const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const executivoResolver = new PrismaExecutivoResolver(prisma);
+const notificacaoRepository = new PrismaNotificacaoRepository(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 // BrasilAPI é pública e gratuita (sem token) — diferente de
 // ReceitaWS/D4Sign/etc., não há variação de provedor a decidir aqui, só o
@@ -119,6 +121,7 @@ export const cadastroPublicoController = {
       documentoRepository,
       agenciaRepository,
       fileStorage,
+      notificacaoRepository,
     );
     return useCase.execute(input);
   },

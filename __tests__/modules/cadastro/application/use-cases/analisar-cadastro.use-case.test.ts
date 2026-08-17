@@ -71,6 +71,8 @@ function agenciaFake(status: string): Agencia {
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
     executivoId: null,
+    atualizacaoVistaEm: null,
+    atualizacaoVistaPor: null,
   });
 }
 

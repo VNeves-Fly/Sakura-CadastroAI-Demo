@@ -1,5 +1,6 @@
 import { ReceberMensagemWhatsAppUseCase } from "@/modules/atendimento/application/use-cases/receber-mensagem-whatsapp.use-case";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
+import type { NotificacaoRepository } from "@/modules/cadastro/domain/repositories/notificacao-repository";
 import type { MensagemEntity } from "@/modules/atendimento/domain/entities/mensagem.entity";
 import type { CriarMensagemData } from "@/modules/atendimento/domain/repositories/mensagem-repository";
 import type { WhatsAppContactMatcher } from "@/modules/atendimento/domain/services/whatsapp-contact-matcher";
@@ -61,12 +62,18 @@ function criarUseCase() {
       .mockResolvedValue({ path: "atendimento/conv-1/arquivo.jpg", bucket: "meu-bucket" }),
   };
 
+  const notificacaoRepository: NotificacaoRepository = {
+    findByAgenciaId: jest.fn(),
+    create: jest.fn().mockResolvedValue(undefined),
+  };
+
   const useCase = new ReceberMensagemWhatsAppUseCase(
     conversaRepository,
     mensagemRepository,
     contactMatcher,
     whatsAppMessagingService,
     fileStorage,
+    notificacaoRepository,
   );
 
   return {
@@ -76,6 +83,7 @@ function criarUseCase() {
     contactMatcher,
     whatsAppMessagingService,
     fileStorage,
+    notificacaoRepository,
   };
 }
 
