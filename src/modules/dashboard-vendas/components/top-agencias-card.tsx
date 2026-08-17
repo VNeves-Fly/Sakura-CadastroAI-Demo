@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Bus, Plane, Trophy, Users } from "lucide-react";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { RankedList } from "@/modules/dashboard-vendas/components/ui/ranked-list";
@@ -10,8 +10,15 @@ import {
   formatarNumero,
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import {
+  dividirPorTipoRota,
+  OPCOES_TIPO_ROTA,
+  valorNoTipoRota,
+  type TipoRota,
+} from "@/modules/dashboard-vendas/utils/tipo-rota.util";
+import {
   COR_AZUL,
   COR_ROSA,
+  COR_ROXO,
 } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
 import type { Canal, TopAgencia } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
@@ -36,12 +43,37 @@ interface TopAgenciasCardProps {
 }
 
 // 4.10 — Top 10 Agências visível no card; clicar abre o ranking completo
-// (scroll infinito, 20 em 20, mesma ordem) no modal.
+// (scroll infinito, 20 em 20, mesma ordem) no modal. Filtro
+// Nacional/Internacional/Todos (pedido do usuário, 2026-08-17) reordena
+// pelo valor mockado de cada escopo — ver tipo-rota.util.ts.
 export function TopAgenciasCard({ rankingPorMes }: TopAgenciasCardProps) {
   const [periodo, setPeriodo] = useState<"mes" | "ano">("mes");
+  const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
-  const rankingCompleto = rankingPorMes[periodo] ?? [];
-  const top10 = rankingCompleto.slice(0, 10);
+  const rankingCompleto = useMemo(() => rankingPorMes[periodo] ?? [], [rankingPorMes, periodo]);
+
+  const rankingFiltrado = useMemo(() => {
+    const comSplit = rankingCompleto.map((agencia) => ({
+      ...agencia,
+      valorExibido: valorNoTipoRota(
+        agencia.valor,
+        dividirPorTipoRota(agencia.nome, agencia.valor),
+        tipoRota,
+      ),
+      qtdExibida: valorNoTipoRota(
+        agencia.qtd,
+        dividirPorTipoRota(`${agencia.nome}-qtd`, agencia.qtd),
+        tipoRota,
+      ),
+    }));
+
+    if (tipoRota === "todos") return comSplit;
+    return [...comSplit]
+      .sort((a, b) => b.valorExibido - a.valorExibido)
+      .map((agencia, indice) => ({ ...agencia, posicao: indice + 1 }));
+  }, [rankingCompleto, tipoRota]);
+
+  const top10 = rankingFiltrado.slice(0, 10);
 
   return (
     <>
@@ -50,7 +82,17 @@ export function TopAgenciasCard({ rankingPorMes }: TopAgenciasCardProps) {
         titulo="Top 10 Agências (mês)"
         subtitulo="Modalidade: Aéreo + Terrestre"
         aoClicar={() => setModalAberto(true)}
-        acoes={<PeriodToggle opcoes={OPCOES_PERIODO} valor={periodo} onChange={setPeriodo} />}
+        acoes={
+          <div className="flex items-center gap-2">
+            <PeriodToggle
+              opcoes={OPCOES_TIPO_ROTA}
+              valor={tipoRota}
+              onChange={setTipoRota}
+              cor={COR_ROXO}
+            />
+            <PeriodToggle opcoes={OPCOES_PERIODO} valor={periodo} onChange={setPeriodo} />
+          </div>
+        }
         itens={top10.map((agencia) => {
           const Icone = ICONE_CANAL[agencia.canal];
           return {
@@ -59,8 +101,8 @@ export function TopAgenciasCard({ rankingPorMes }: TopAgenciasCardProps) {
               <Icone className="size-3.5 shrink-0" style={{ color: COR_CANAL[agencia.canal] }} />
             ),
             nome: agencia.nome,
-            valorPrincipal: formatarMoedaAbreviada(agencia.valor),
-            valorSecundario: formatarNumero(agencia.qtd),
+            valorPrincipal: formatarMoedaAbreviada(agencia.valorExibido),
+            valorSecundario: formatarNumero(agencia.qtdExibida),
           };
         })}
       />

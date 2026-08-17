@@ -5,7 +5,8 @@ import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util"
 
 // Métricas de carteira SEM fonte real hoje (mesma decisão documentada em
 // promotor-lista.adapter.ts para Executivos) — mock determinístico a partir
-// do id, só calculado quando `carregado` é true (botão "Visualizar dados").
+// do id, sempre calculado (mascarado via SensitiveValue quando o toggle
+// global de visibilidade estiver oculto).
 function gerarMetricasMock(id: string) {
   const base = hashParaNumero(id);
   const semVendaNoPeriodo = base % 10 === 0;
@@ -49,10 +50,9 @@ export const gestorListaAdapter = {
     gestor: GestorView,
     executivosPorGestor: Record<string, number>,
     nivelOverrides: Record<string, GestorNivel>,
-    carregado: boolean,
   ): GestorListaView {
     const nivel = nivelOverrides[gestor.id] ?? nivelSeed(gestor.id);
-    const metricas = carregado ? gerarMetricasMock(gestor.id) : null;
+    const metricas = gerarMetricasMock(gestor.id);
 
     return {
       id: gestor.id,
@@ -61,14 +61,7 @@ export const gestorListaAdapter = {
       bases: gestor.bases,
       nivel,
       executivos: executivosPorGestor[gestor.id] ?? 0,
-      semVenda: metricas?.semVenda ?? null,
-      total: metricas?.total ?? null,
-      vendendo30d: metricas?.vendendo30d ?? null,
-      paradas90d: metricas?.paradas90d ?? null,
-      vendasMes: metricas?.vendasMes ?? null,
-      vendasAno: metricas?.vendasAno ?? null,
-      limite: metricas?.limite ?? null,
-      saudePercentual: metricas?.saudePercentual ?? null,
+      ...metricas,
     };
   },
 
@@ -76,10 +69,9 @@ export const gestorListaAdapter = {
     gestores: GestorView[],
     executivosPorGestor: Record<string, number>,
     nivelOverrides: Record<string, GestorNivel>,
-    carregado: boolean,
   ): GestorListaView[] {
     return gestores.map((gestor) =>
-      gestorListaAdapter.toListaView(gestor, executivosPorGestor, nivelOverrides, carregado),
+      gestorListaAdapter.toListaView(gestor, executivosPorGestor, nivelOverrides),
     );
   },
 };

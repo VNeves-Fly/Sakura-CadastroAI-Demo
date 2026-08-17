@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
@@ -20,15 +19,6 @@ interface GestoresListaTabelaProps {
   gestores: GestorListaView[];
   isLoading: boolean;
   error: string | null;
-}
-
-// "-" enquanto os indicadores não foram carregados (botão "Visualizar
-// dados" ainda não clicado) — SPEC pedida pelo usuário, 2026-08-17.
-function Indicador({ valor }: { valor: ReactNode }) {
-  if (valor === null || valor === undefined) {
-    return <span className="text-muted-foreground">-</span>;
-  }
-  return <>{valor}</>;
 }
 
 export function GestoresListaTabela({ gestores, isLoading, error }: GestoresListaTabelaProps) {
@@ -83,35 +73,19 @@ export function GestoresListaTabela({ gestores, isLoading, error }: GestoresList
       label: "Total",
       align: "right",
       sortable: true,
-      sortValue: (linha) => linha.total ?? -1,
-      render: (linha) => (
-        <Indicador
-          valor={
-            linha.total !== null ? (
-              <SensitiveValue className="font-medium" value={linha.total} />
-            ) : null
-          }
-        />
-      ),
+      sortValue: (linha) => linha.total,
+      render: (linha) => <SensitiveValue className="font-medium" value={linha.total} />,
     },
     {
       key: "vendendo30d",
       label: "Vend. 30d",
       align: "right",
       sortable: true,
-      sortValue: (linha) => linha.vendendo30d ?? -1,
+      sortValue: (linha) => linha.vendendo30d,
       render: (linha) => (
-        <Indicador
-          valor={
-            linha.vendendo30d !== null ? (
-              <SensitiveValue
-                className={
-                  linha.vendendo30d > 0 ? "text-success font-medium" : "text-muted-foreground"
-                }
-                value={linha.vendendo30d}
-              />
-            ) : null
-          }
+        <SensitiveValue
+          className={linha.vendendo30d > 0 ? "text-success font-medium" : "text-muted-foreground"}
+          value={linha.vendendo30d}
         />
       ),
     },
@@ -120,10 +94,9 @@ export function GestoresListaTabela({ gestores, isLoading, error }: GestoresList
       label: "Paradas +90d",
       align: "right",
       sortable: true,
-      sortValue: (linha) => linha.paradas90d ?? -1,
-      render: (linha) => {
-        if (linha.paradas90d === null) return <Indicador valor={null} />;
-        return linha.paradas90d > 0 ? (
+      sortValue: (linha) => linha.paradas90d,
+      render: (linha) =>
+        linha.paradas90d > 0 ? (
           <SensitiveValue
             value={
               <Badge variant="destructive" className="tabular-nums">
@@ -133,41 +106,26 @@ export function GestoresListaTabela({ gestores, isLoading, error }: GestoresList
           />
         ) : (
           <span className="text-muted-foreground">—</span>
-        );
-      },
+        ),
     },
     {
       key: "vendasMes",
       label: "Vendas mês",
       align: "right",
       sortable: true,
-      sortValue: (linha) => linha.vendasMes ?? -1,
-      render: (linha) => (
-        <Indicador
-          valor={
-            linha.vendasMes !== null ? (
-              <SensitiveValue value={formatarMoedaAbreviada(linha.vendasMes)} />
-            ) : null
-          }
-        />
-      ),
+      sortValue: (linha) => linha.vendasMes,
+      render: (linha) => <SensitiveValue value={formatarMoedaAbreviada(linha.vendasMes)} />,
     },
     {
       key: "vendasAno",
       label: "Vendas ano",
       align: "right",
       sortable: true,
-      sortValue: (linha) => linha.vendasAno ?? -1,
+      sortValue: (linha) => linha.vendasAno,
       render: (linha) => (
-        <Indicador
-          valor={
-            linha.vendasAno !== null ? (
-              <SensitiveValue
-                className="text-primary font-semibold"
-                value={formatarMoedaAbreviada(linha.vendasAno)}
-              />
-            ) : null
-          }
+        <SensitiveValue
+          className="text-primary font-semibold"
+          value={formatarMoedaAbreviada(linha.vendasAno)}
         />
       ),
     },
@@ -176,25 +134,16 @@ export function GestoresListaTabela({ gestores, isLoading, error }: GestoresList
       label: "Limite",
       align: "right",
       sortable: true,
-      sortValue: (linha) => linha.limite ?? -1,
-      render: (linha) => (
-        <Indicador
-          valor={
-            linha.limite !== null ? (
-              <SensitiveValue value={formatarMoedaAbreviada(linha.limite)} />
-            ) : null
-          }
-        />
-      ),
+      sortValue: (linha) => linha.limite,
+      render: (linha) => <SensitiveValue value={formatarMoedaAbreviada(linha.limite)} />,
     },
     {
       key: "saudePercentual",
       label: "Saúde",
       align: "right",
       sortable: true,
-      sortValue: (linha) => linha.saudePercentual ?? -1,
+      sortValue: (linha) => linha.saudePercentual,
       render: (linha) => {
-        if (linha.saudePercentual === null) return <Indicador valor={null} />;
         return (
           <SensitiveValue
             value={
