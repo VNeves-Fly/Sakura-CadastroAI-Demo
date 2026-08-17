@@ -27,7 +27,7 @@ export function ExecutivoTabsNav({ executivoId, abaAtiva }: ExecutivoTabsNavProp
         return (
           <Link
             key={aba.chave}
-            href={`/executivos/${executivoId}${aba.sufixo}`}
+            href={`/crm/executivos/${executivoId}${aba.sufixo}`}
             className={cn(
               "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition",
               ativa

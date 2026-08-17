@@ -39,7 +39,7 @@ export function ExecutivoDashboardView({ detalhe }: ExecutivoDashboardViewProps)
         <nav className="text-muted-foreground flex items-center gap-1.5 text-xs">
           <span>Comercial</span>
           <span aria-hidden>›</span>
-          <Link href="/executivos" className="hover:text-foreground">
+          <Link href="/crm/executivos" className="hover:text-foreground">
             Executivos
           </Link>
           <span aria-hidden>›</span>

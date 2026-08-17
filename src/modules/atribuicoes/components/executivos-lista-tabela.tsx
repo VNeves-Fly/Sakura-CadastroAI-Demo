@@ -179,7 +179,7 @@ export function ExecutivosListaTabela({
       rows={executivos}
       rowKey={(linha) => linha.id}
       defaultSort={{ key: "vendasAno", direction: "desc" }}
-      onRowClick={(linha) => router.push(`/executivos/${linha.id}`)}
+      onRowClick={(linha) => router.push(`/crm/executivos/${linha.id}`)}
       rowClassName={(linha) => (linha.semVenda ? "opacity-60" : undefined)}
       emptyMessage="Nenhum executivo encontrado."
     />

@@ -13,7 +13,9 @@ interface AdminHeaderProps {
 // Rótulos das páginas do Admin pro breadcrumb "Sakura · {Página}" — cada
 // página nova entra aqui conforme for sendo construída.
 const ROTULOS_PAGINA: Record<string, string> = {
-  "/dashboard-new": "Dashboard (novo)",
+  "/crm/dashboard-new": "Dashboard (novo)",
+  "/crm/gestores": "Gestores",
+  "/crm/executivos": "Executivos",
   "/dashboard": "Dashboard",
   "/cadastros/usuarios": "Usuários",
   "/cadastros/messenger": "Messenger",
@@ -22,7 +24,6 @@ const ROTULOS_PAGINA: Record<string, string> = {
   "/arquivo": "Arquivo",
   "/atendimento": "Atendimento",
   "/atribuicoes": "Atribuições",
-  "/executivos": "Executivos",
 };
 
 function rotuloDaPagina(pathname: string): string {
