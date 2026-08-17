@@ -8,6 +8,7 @@ import { ConversaoSecao } from "@/modules/dashboard-vendas/components/secoes/con
 import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-mensais-secao";
 import { VendasDiariasSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-diarias-secao";
 import { SecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/secao-skeleton";
+import { dashboardVendasController } from "@/modules/dashboard-vendas/presentation/controllers/dashboard-vendas.controller";
 import type { DashboardVendasData } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 type MockEstatico = Pick<DashboardVendasData, "intraday" | "acuracia">;
@@ -16,19 +17,50 @@ interface DashboardVendasViewProps {
   mockEstatico: MockEstatico;
 }
 
+// Encadeia a busca de uma seção depois que `gate` resolveu OU rejeitou —
+// nunca propaga a rejeição de `gate` pra `tarefa` (só usa `gate` pra
+// esperar o timing, o erro de cada seção continua sendo só o dela
+// mesma). Sem isso, um `.then()` comum faria a falha de uma seção
+// derrubar em cascata todas as seções encadeadas depois dela.
+function depoisDe<T>(gate: Promise<unknown>, tarefa: () => Promise<T>): Promise<T> {
+  return gate.catch(() => undefined).then(() => tarefa());
+}
+
 // Orquestra as seções na ordem da spec (4.1 → 4.11), com uma diferença
 // deliberada: `recencia` e `cruzamentoCanais` (4.6 e 4.11 na spec) agora
 // ficam lado a lado, porque streamam juntas — as duas dependem da mesma
 // busca cara no SST (ver RecenciaECruzamentoSecao). O resto continua na
 // ordem original.
 //
-// Carregamento progressivo: a página abre na hora, com TODA seção que
-// depende do SST em placeholder (`Suspense`) — só `mockEstatico` chega
-// pronto (puro mock em memória, sem I/O). `ResumoDoDiaSecao`/
-// `RankingsSecao` chamam `obterResumoEDia` (memoizado por request via
-// `cache()`, ver controller) de forma independente, sem duplicar a
-// busca cara no SST.
+// Carregamento progressivo, mas em fila (top-to-bottom): a página abre
+// na hora, com TODA seção que depende do SST em placeholder (`Suspense`)
+// — só `mockEstatico` chega pronto (puro mock em memória, sem I/O). As
+// seções pesadas, porém, não disparam mais suas buscas no SST todas de
+// uma vez — cada uma só começa depois que a anterior (na ordem visual)
+// terminou, via `depoisDe`. Evita a concorrência que já esgotou o retry
+// de 5xx do SST numa carga real (ver comFallback em
+// dashboard-vendas.sst-service.ts). `RankingsSecao` reusa `obterResumoEDia`
+// (memoizado por request via `cache()`, ver controller) — só é encadeada
+// aqui pra também abrir por último, na ordem visual.
 export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) {
+  const resumoEDiaPromise = dashboardVendasController.obterResumoEDia();
+  const projecaoPromise = depoisDe(resumoEDiaPromise, () =>
+    dashboardVendasController.obterProjecao(),
+  );
+  const recenciaECruzamentoPromise = depoisDe(projecaoPromise, () =>
+    dashboardVendasController.obterRecenciaECruzamento(),
+  );
+  const conversaoPromise = depoisDe(recenciaECruzamentoPromise, () =>
+    dashboardVendasController.obterConversao(),
+  );
+  const vendasMensaisPromise = depoisDe(conversaoPromise, () =>
+    dashboardVendasController.obterVendasMensais(),
+  );
+  const vendasDiariasPromise = depoisDe(vendasMensaisPromise, () =>
+    dashboardVendasController.obterVendasDiarias(),
+  );
+  const rankingsResumoEDiaPromise = depoisDe(vendasDiariasPromise, () => resumoEDiaPromise);
+
   return (
     // "dashboard-vendas-scope" dá vida às vars --dv-* (ver
     // constants/dashboard-vendas.constants.ts + .dashboard-vendas-scope
@@ -44,29 +76,29 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
           </>
         }
       >
-        <ResumoDoDiaSecao intraday={mockEstatico.intraday} />
+        <ResumoDoDiaSecao intraday={mockEstatico.intraday} resumoEDiaPromise={resumoEDiaPromise} />
       </Suspense>
 
       <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
-        <ProjecaoSecao />
+        <ProjecaoSecao projecaoPromise={projecaoPromise} />
       </Suspense>
 
       <AcuraciaProjecaoPanel acuracia={mockEstatico.acuracia} />
 
       <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
-        <RecenciaECruzamentoSecao />
+        <RecenciaECruzamentoSecao recenciaECruzamentoPromise={recenciaECruzamentoPromise} />
       </Suspense>
 
       <Suspense fallback={<SecaoSkeleton altura="h-48" />}>
-        <ConversaoSecao />
+        <ConversaoSecao conversaoPromise={conversaoPromise} />
       </Suspense>
 
       <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
-        <VendasMensaisSecao />
+        <VendasMensaisSecao vendasMensaisPromise={vendasMensaisPromise} />
       </Suspense>
 
       <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
-        <VendasDiariasSecao />
+        <VendasDiariasSecao vendasDiariasPromise={vendasDiariasPromise} />
       </Suspense>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -79,7 +111,7 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
             </>
           }
         >
-          <RankingsSecao />
+          <RankingsSecao resumoEDiaPromise={rankingsResumoEDiaPromise} />
         </Suspense>
       </div>
     </div>
