@@ -29,9 +29,14 @@ export const dashboardVendasController = {
     return dashboardVendasAdapter.toViewModel(raw);
   },
   async obterMockEstatico() {
-    // intraday/projecao/acuracia são sempre mock hoje, independente de
-    // SST_API_KEY — ver docs/faltante.md.
-    return dashboardVendasMockService.obterMockEstatico();
+    // intraday/acuracia continuam sempre mock — ver docs/faltante.md.
+    // projecao (exceto a curva, que segue sempre mock) segue o mesmo
+    // critério do resto do dashboard.
+    const [{ intraday, acuracia }, projecao] = await Promise.all([
+      dashboardVendasMockService.obterMockEstatico(),
+      dashboardVendasService.obterProjecao(),
+    ]);
+    return { intraday, acuracia, projecao };
   },
   async obterResumoEDia() {
     const dados = await dashboardVendasService.obterResumoEDia();

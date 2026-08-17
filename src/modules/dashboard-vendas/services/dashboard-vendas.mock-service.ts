@@ -754,4 +754,7 @@ export const dashboardVendasMockService = {
     const dados = await obterDashboardMock();
     return { intraday: dados.intraday, projecao: dados.projecao, acuracia: dados.acuracia };
   },
+  async obterProjecao() {
+    return (await obterDashboardMock()).projecao;
+  },
 };

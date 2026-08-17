@@ -3,6 +3,10 @@ import {
   sstBaseUrl,
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
+import {
+  calcularProjecaoDoDia,
+  type AmostraDia,
+} from "@/modules/dashboard-vendas/services/dashboard-vendas.projecao.util";
 import type {
   AgenciaCruzamentoDetalhe,
   AgenciaRecenciaDetalhe,
@@ -17,6 +21,7 @@ import type {
   GrupoRecencia,
   MiniKpis,
   NacionalInternacional,
+  ProjecaoDia,
   RecenciaAgencias,
   ResumoDia,
   TopAgencia,
@@ -174,6 +179,25 @@ function ultimosNDias(quantidade: number): Array<{ label: string; data: string }
     const [, mes, dia] = iso.split("-");
     return { label: `${dia}/${mes}`, data: iso };
   });
+}
+
+// Mesmo dia da semana de hoje, nas últimas `quantidade` ocorrências
+// (7, 14, 21... dias atrás), sem incluir hoje — usado pelo algoritmo de
+// projeção (média das últimas semanas, mesmo dia da semana).
+function mesmasSemanasAnteriores(quantidade: number): string[] {
+  return Array.from({ length: quantidade }, (_, indice) => diasAtrasIso(7 * (indice + 1)));
+}
+
+function calcularPercentualDiaTranscorrido(agora: Date): number {
+  const partes = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(agora);
+  const hora = Number(partes.find((parte) => parte.type === "hour")!.value);
+  const minuto = Number(partes.find((parte) => parte.type === "minute")!.value);
+  return ((hora * 60 + minuto) / (24 * 60)) * 100;
 }
 
 function esperar(ms: number): Promise<void> {
@@ -489,6 +513,59 @@ function paraNacionalInternacional(linhas: RawNacIntRow[]): NacionalInternaciona
       valor: internacional?.tarifa_total ?? 0,
       bilhetes: internacional?.total_bilhetes ?? 0,
     },
+  };
+}
+
+async function buscarAmostraDoDia(dataIso: string): Promise<AmostraDia> {
+  const resposta = await buscarNacInt(dataIso, dataIso);
+  const { nacional, internacional } = paraNacionalInternacional(resposta.data);
+  return {
+    data: dataIso,
+    total: nacional.valor + internacional.valor,
+    nacional: nacional.valor,
+    internacional: internacional.valor,
+  };
+}
+
+// Agregados de `projecao` (tudo, exceto `curva`, que continua sempre
+// mock — depende do `intraday`, ainda não decidido, ver
+// docs/faltante.md). Algoritmo e faixa de confiança confirmados pelo
+// PO, ver dashboard-vendas.projecao.util.ts.
+async function construirProjecaoReal(): Promise<
+  Pick<
+    ProjecaoDia,
+    | "fechamentoEsperado"
+    | "faixaMin"
+    | "faixaMax"
+    | "realizado"
+    | "aEmitir"
+    | "nacional"
+    | "internacional"
+    | "percentualDiaTranscorrido"
+    | "atualizadoEm"
+  >
+> {
+  const [amostrasHistoricas, amostraHoje] = await Promise.all([
+    Promise.all(mesmasSemanasAnteriores(4).map((data) => buscarAmostraDoDia(data))),
+    buscarAmostraDoDia(hojeIso()),
+  ]);
+
+  const calculado = calcularProjecaoDoDia(amostrasHistoricas);
+  const agora = new Date();
+
+  return {
+    fechamentoEsperado: calculado.fechamentoEsperado,
+    faixaMin: calculado.faixaMin,
+    faixaMax: calculado.faixaMax,
+    realizado: amostraHoje.total,
+    aEmitir: Math.max(0, calculado.fechamentoEsperado - amostraHoje.total),
+    nacional: { projecao: calculado.nacionalProjecao, realizado: amostraHoje.nacional },
+    internacional: {
+      projecao: calculado.internacionalProjecao,
+      realizado: amostraHoje.internacional,
+    },
+    percentualDiaTranscorrido: calcularPercentualDiaTranscorrido(agora),
+    atualizadoEm: agora,
   };
 }
 
@@ -1121,6 +1198,23 @@ async function obterResumoEDia(): Promise<
   };
 }
 
+async function obterProjecaoComFallback(): Promise<ProjecaoDia> {
+  const mock = await dashboardVendasMockService.obterProjecao();
+  const agregados = await comFallback("projecao", construirProjecaoReal(), {
+    fechamentoEsperado: mock.fechamentoEsperado,
+    faixaMin: mock.faixaMin,
+    faixaMax: mock.faixaMax,
+    realizado: mock.realizado,
+    aEmitir: mock.aEmitir,
+    nacional: mock.nacional,
+    internacional: mock.internacional,
+    percentualDiaTranscorrido: mock.percentualDiaTranscorrido,
+    atualizadoEm: mock.atualizadoEm,
+  });
+  // `curva` continua sempre mock — depende do `intraday`, fora de escopo aqui.
+  return { ...agregados, curva: mock.curva };
+}
+
 async function obterVendasMensaisComFallback(): Promise<VendaMensal[]> {
   const mock = await dashboardVendasMockService.obterDashboard();
   return comFallback("vendasMensais", construirVendasMensais(), mock.vendasMensais);
@@ -1173,6 +1267,7 @@ export const dashboardVendasSstService = {
   obterVendasDiarias: obterVendasDiariasComFallback,
   obterConversao: obterConversaoComFallback,
   obterRecenciaECruzamento: obterRecenciaECruzamentoComFallback,
+  obterProjecao: obterProjecaoComFallback,
 
   // Mantido pra quem ainda quer tudo de uma vez (testes, scripts) — por
   // baixo dos panos já é só a composição das peças acima, cada uma com
