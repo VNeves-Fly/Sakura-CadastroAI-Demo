@@ -11,21 +11,29 @@ import { DashboardVendasView } from "@/modules/dashboard-vendas/components/dashb
 const CARGOS_COM_ACESSO = new Set(["ADMIN"]);
 
 // Reprodução da página "Dashboard" do CRM Sakura (SPEC_Dashboard_Sakura.md)
-// dentro do shell existente deste projeto — sidebar/header reais, só o
-// conteúdo é novo. Dados 100% mock (ver dashboard-vendas.mock-service.ts):
-// não existe base de vendas aéreas/terrestres aqui ainda.
+// dentro do shell existente deste projeto — sidebar/header reais. Ver
+// docs/faltante.md pra saber quais seções já são dado real (via SST) e
+// quais ainda são mock.
+//
+// Só busca aqui as duas partes rápidas (`resumoEDia`/`mockEstatico`) — as
+// 4 seções pesadas (que fazem paginação no SST) são buscadas dentro de
+// `DashboardVendasView`, cada uma no seu próprio `Suspense`, pra não
+// bloquear a página inteira no pior caso (~30s a frio).
 export default async function DashboardNewPage() {
   const session = await getServerSession(nextAuthOptions);
   if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
     redirect("/cadastros");
   }
 
-  const dados = await dashboardVendasController.obterDashboard();
+  const [resumoEDia, mockEstatico] = await Promise.all([
+    dashboardVendasController.obterResumoEDia(),
+    dashboardVendasController.obterMockEstatico(),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-foreground text-xl font-bold">Dashboard</h1>
-      <DashboardVendasView dados={dados} />
+      <DashboardVendasView resumoEDia={resumoEDia} mockEstatico={mockEstatico} />
     </div>
   );
 }

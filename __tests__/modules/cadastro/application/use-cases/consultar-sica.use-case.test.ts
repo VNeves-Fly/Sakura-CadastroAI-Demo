@@ -40,7 +40,6 @@ function sstServiceFake(overrides: Partial<SstService> = {}): SstService {
   return {
     consultarSicaCNPJ: jest.fn().mockResolvedValue({ encontrado: false, registro: null }),
     consultarSicaCodigoEmpresa: jest.fn().mockResolvedValue({ encontrado: false, registro: null }),
-    verificarConexao: jest.fn(),
     ...overrides,
   };
 }

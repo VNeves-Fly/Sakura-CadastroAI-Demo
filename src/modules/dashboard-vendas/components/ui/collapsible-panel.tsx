@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MockBadge } from "@/modules/dashboard-vendas/components/ui/mock-badge";
 
 interface CollapsiblePanelProps {
   // Já renderizado (ex.: `<Target className="size-4" />`), nunca o
@@ -14,6 +15,8 @@ interface CollapsiblePanelProps {
   subtitulo?: string;
   badgeTexto: string;
   badgeTom: "success" | "warning" | "danger";
+  // Selo "MK" antes do badge de status — ver docs/faltante.md.
+  avisoMock?: boolean;
   defaultAberto?: boolean;
   children: React.ReactNode;
 }
@@ -33,6 +36,7 @@ export function CollapsiblePanel({
   subtitulo,
   badgeTexto,
   badgeTom,
+  avisoMock = false,
   defaultAberto = false,
   children,
 }: CollapsiblePanelProps) {
@@ -53,6 +57,7 @@ export function CollapsiblePanel({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {avisoMock ? <MockBadge /> : null}
           <span className={cn("rounded-full px-2.5 py-1 text-xs font-bold", TOM_CLASSES[badgeTom])}>
             {badgeTexto}
           </span>
