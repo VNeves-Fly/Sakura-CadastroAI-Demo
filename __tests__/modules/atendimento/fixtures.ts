@@ -64,6 +64,7 @@ export function fakeConversaRepository(
     findAllByAgenciaId: jest.fn().mockResolvedValue([]),
     create: jest.fn(),
     touchLastMessage: jest.fn(),
+    vincularAgencia: jest.fn().mockResolvedValue(fakeConversa()),
     ...overrides,
   };
 }

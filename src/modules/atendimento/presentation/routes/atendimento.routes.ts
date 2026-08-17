@@ -22,6 +22,7 @@ import { criarTemplateSchema } from "@/modules/atendimento/application/dto/criar
 import { reenviarTemplateSchema } from "@/modules/atendimento/application/dto/reenviar-template.schema";
 import { atualizarTemplateMetadataSchema } from "@/modules/atendimento/application/dto/atualizar-template-metadata.schema";
 import { iniciarConversaSchema } from "@/modules/atendimento/application/dto/iniciar-conversa.schema";
+import { vincularConversaAgenciaSchema } from "@/modules/atendimento/application/dto/vincular-conversa-agencia.schema";
 
 // Ações de analista autenticado — não expostas ao público, mas ainda
 // protegidas contra clique acidental em loop (ex.: double submit).
@@ -131,6 +132,27 @@ export async function marcarComoLidaRoute(_request: Request, conversaId: string)
 
   try {
     const conversa = await atendimentoController.marcarComoLida(conversaId);
+    return httpOk(conversa);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function vincularConversaAgenciaRoute(request: Request, conversaId: string) {
+  const analistaId = await requireSessionUserId();
+  if (!analistaId) return httpError("Não autenticado.", 401);
+
+  try {
+    const body = await request.json();
+    const parsed = vincularConversaAgenciaSchema.safeParse(body);
+    if (!parsed.success) {
+      return httpError(parsed.error.issues.map((issue) => issue.message).join(" "), 422);
+    }
+
+    const conversa = await atendimentoController.vincularConversaAgencia({
+      conversaId,
+      ...parsed.data,
+    });
     return httpOk(conversa);
   } catch (error) {
     return mapErrorToResponse(error);

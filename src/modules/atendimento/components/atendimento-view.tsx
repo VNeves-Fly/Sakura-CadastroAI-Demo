@@ -44,6 +44,7 @@ export function AtendimentoView({
     hasError,
     selecionarConversa,
     enviarMensagem,
+    vincularConversaAgencia,
     criarTextoPronto,
     atualizarTextoPronto,
     removerTextoPronto,
@@ -164,6 +165,7 @@ export function AtendimentoView({
               onSelecionarConversa={selecionarESeguir}
               onVoltarParaConversa={() => setMobileView("thread")}
               onEnviarMensagem={enviarMensagem}
+              onVincularAgencia={vincularConversaAgencia}
             />
           ) : (
             <div className="border-border w-full border-l" />

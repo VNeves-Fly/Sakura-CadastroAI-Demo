@@ -1,4 +1,12 @@
 import { Suspense } from "react";
+import { ResumoDoDiaCard } from "@/modules/dashboard-vendas/components/resumo-do-dia-card";
+import { MiniKpisGrid } from "@/modules/dashboard-vendas/components/mini-kpis-grid";
+// "Vendas Intraday" e "Vendas Diárias" ocultadas a pedido do usuário
+// (2026-08-17) — ele pretende repensar essas duas seções futuramente.
+// Import comentado junto pra não sobrar warning de unused-import; é só
+// descomentar os dois blocos (import + JSX abaixo) pra trazer de volta.
+// import { VendasIntradayChart } from "@/modules/dashboard-vendas/components/vendas-intraday-chart";
+import { ProjecaoDoDiaCard } from "@/modules/dashboard-vendas/components/projecao-do-dia-card";
 import { AcuraciaProjecaoPanel } from "@/modules/dashboard-vendas/components/acuracia-projecao-panel";
 import { ResumoDoDiaSecao } from "@/modules/dashboard-vendas/components/secoes/resumo-do-dia-secao";
 import { RankingsSecao } from "@/modules/dashboard-vendas/components/secoes/rankings-secao";
@@ -6,7 +14,7 @@ import { ProjecaoSecao } from "@/modules/dashboard-vendas/components/secoes/proj
 import { RecenciaECruzamentoSecao } from "@/modules/dashboard-vendas/components/secoes/recencia-e-cruzamento-secao";
 import { ConversaoSecao } from "@/modules/dashboard-vendas/components/secoes/conversao-secao";
 import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-mensais-secao";
-import { VendasDiariasSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-diarias-secao";
+// import { VendasDiariasSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-diarias-secao";
 import { SecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/secao-skeleton";
 import type { DashboardVendasData } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
@@ -35,6 +43,11 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
     // em globals.css) — sem esta classe em algum ancestral, os
     // `var(--dv-*)` não resolvem e as cores somem.
     <div className="dashboard-vendas-scope flex flex-col gap-4">
+      <ResumoDoDiaCard resumoPorPeriodo={resumoEDia.resumoPorPeriodo} />
+      <MiniKpisGrid {...resumoEDia.miniKpis} />
+      {/* "Vendas Intraday" oculta a pedido do usuário (2026-08-17) — ver
+          comentário no import acima. */}
+      <ProjecaoDoDiaCard projecao={mockEstatico.projecao} />
       <Suspense
         fallback={
           <>
@@ -65,9 +78,12 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
         <VendasMensaisSecao />
       </Suspense>
 
+      {/* "Vendas Diárias" oculta a pedido do usuário (2026-08-17) — ver
+          comentário no import acima.
       <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
         <VendasDiariasSecao />
       </Suspense>
+      */}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Suspense

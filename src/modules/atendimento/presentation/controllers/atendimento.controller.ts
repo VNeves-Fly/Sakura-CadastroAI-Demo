@@ -37,6 +37,7 @@ import { CriarTextoProntoUseCase } from "@/modules/atendimento/application/use-c
 import { AtualizarTextoProntoUseCase } from "@/modules/atendimento/application/use-cases/atualizar-texto-pronto.use-case";
 import { RemoverTextoProntoUseCase } from "@/modules/atendimento/application/use-cases/remover-texto-pronto.use-case";
 import { MarcarComoLidaUseCase } from "@/modules/atendimento/application/use-cases/marcar-como-lida.use-case";
+import { VincularConversaAgenciaUseCase } from "@/modules/atendimento/application/use-cases/vincular-conversa-agencia.use-case";
 import { EnviarMensagemUseCase } from "@/modules/atendimento/application/use-cases/enviar-mensagem.use-case";
 import { SincronizarTemplatesWhatsAppUseCase } from "@/modules/atendimento/application/use-cases/sincronizar-templates-whatsapp.use-case";
 import { ObterArquivoMidiaUseCase } from "@/modules/atendimento/application/use-cases/obter-arquivo-midia.use-case";
@@ -54,6 +55,7 @@ import type { AtualizarTextoProntoInput } from "@/modules/atendimento/applicatio
 import type { CriarTemplateInput } from "@/modules/atendimento/application/dto/criar-template.dto";
 import type { AtualizarTemplateMetadataInput } from "@/modules/atendimento/application/dto/atualizar-template-metadata.dto";
 import type { IniciarConversaInput } from "@/modules/atendimento/application/dto/iniciar-conversa.dto";
+import type { VincularConversaAgenciaInput } from "@/modules/atendimento/application/dto/vincular-conversa-agencia.dto";
 
 // Composition root do módulo atendimento — único lugar que conhece
 // Prisma/FileStorage/Meta concretos. Mesmo padrão de
@@ -174,6 +176,14 @@ export const atendimentoController = {
       resumoFichaClienteRepository,
     );
     return useCase.execute(conversaId);
+  },
+
+  vincularConversaAgencia(input: VincularConversaAgenciaInput) {
+    const useCase = new VincularConversaAgenciaUseCase(
+      conversaRepository,
+      resumoFichaClienteRepository,
+    );
+    return useCase.execute(input);
   },
 
   enviarMensagem(input: EnviarMensagemInput) {

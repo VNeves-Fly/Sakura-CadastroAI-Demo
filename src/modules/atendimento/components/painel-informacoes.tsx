@@ -11,17 +11,20 @@ import {
   ClipboardList,
   ExternalLink,
   ChevronLeft,
+  Link2,
 } from "lucide-react";
 import type {
   Conversa,
   DocumentoParaRevisar,
   EnviarMensagemInput,
+  VincularConversaAgenciaInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import {
   iniciaisNome,
   labelPapelMembro,
   formatarTempoDecorrido,
 } from "@/modules/atendimento/utils/atendimento-formato.util";
+import { VincularConversaModal } from "@/modules/atendimento/components/vincular-conversa-modal";
 
 const LABEL_TIPO_DOCUMENTO: Record<string, string> = {
   CONTRATO_SOCIAL: "Contrato Social",
@@ -198,6 +201,7 @@ interface PainelInformacoesProps {
   // colunas ficam sempre visíveis e esse botão não aparece (lg:hidden).
   onVoltarParaConversa?: () => void;
   onEnviarMensagem: (conversaId: string, input: EnviarMensagemInput) => Promise<void>;
+  onVincularAgencia: (conversaId: string, input: VincularConversaAgenciaInput) => Promise<void>;
 }
 
 export function PainelInformacoes({
@@ -206,7 +210,9 @@ export function PainelInformacoes({
   onSelecionarConversa,
   onVoltarParaConversa,
   onEnviarMensagem,
+  onVincularAgencia,
 }: PainelInformacoesProps) {
+  const [modalVincularAberto, setModalVincularAberto] = useState(false);
   // Contatos "não identificados" (agenciaId null) não têm agência em
   // comum — agrupar por igualdade de null juntaria conversas de pessoas
   // diferentes só porque nenhuma bateu com uma agência. Cada uma vira seu
@@ -240,14 +246,31 @@ export function PainelInformacoes({
           {iniciaisNome(conversaSelecionada.agenciaNome)}
         </div>
         <p className="text-foreground text-sm font-semibold">{conversaSelecionada.agenciaNome}</p>
-        <Link
-          href={linkFichaCliente(conversaSelecionada)}
-          className="bg-primary text-primary-foreground hover:bg-sakura-600 mt-1 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
-        >
-          <ExternalLink className="size-3.5" />
-          Ver ficha completa
-        </Link>
+        {conversaSelecionada.agenciaId ? (
+          <Link
+            href={linkFichaCliente(conversaSelecionada)}
+            className="bg-primary text-primary-foreground hover:bg-sakura-600 mt-1 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+          >
+            <ExternalLink className="size-3.5" />
+            Ver ficha completa
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setModalVincularAberto(true)}
+            className="bg-primary text-primary-foreground hover:bg-sakura-600 mt-1 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+          >
+            <Link2 className="size-3.5" />
+            Vincular a um cadastro
+          </button>
+        )}
       </div>
+
+      <VincularConversaModal
+        aberto={modalVincularAberto}
+        onFechar={() => setModalVincularAberto(false)}
+        onConfirmar={(input) => onVincularAgencia(conversaSelecionada.id, input)}
+      />
 
       <div className="border-border flex flex-col gap-2 border-b p-4">
         <div className="flex items-center justify-between">
