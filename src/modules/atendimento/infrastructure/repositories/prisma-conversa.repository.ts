@@ -4,9 +4,11 @@ import {
   type PrismaClient,
   TipoContatoConversa,
 } from "@prisma/client";
+import { ConflictError } from "@/modules/shared/domain/errors";
 import type {
   ConversaRepository,
   CriarConversaData,
+  VincularConversaAgenciaData,
 } from "@/modules/atendimento/domain/repositories/conversa-repository";
 import type {
   ConversaEntity,
@@ -168,5 +170,30 @@ export class PrismaConversaRepository implements ConversaRepository {
       where: { id },
       data: { lastMessageAt: quando },
     });
+  }
+
+  async vincularAgencia(
+    conversaId: string,
+    data: VincularConversaAgenciaData,
+  ): Promise<ConversaEntity> {
+    const claim = await this.prisma.conversa.updateMany({
+      where: { id: conversaId, agenciaId: null },
+      data: {
+        tipoContato: TipoContatoConversa.AGENCIA,
+        agenciaId: data.agenciaId,
+        representanteLegalId: data.representanteLegalId,
+        membroNome: data.membroNome,
+        membroPapel: PAPEL_MEMBRO_TO_PRISMA[data.membroPapel],
+      },
+    });
+    if (claim.count !== 1) {
+      throw new ConflictError("Esta conversa já está vinculada a um cadastro.");
+    }
+
+    const record = await this.prisma.conversa.findUniqueOrThrow({
+      where: { id: conversaId },
+      include: CONVERSA_INCLUDE,
+    });
+    return toDomain(record);
   }
 }

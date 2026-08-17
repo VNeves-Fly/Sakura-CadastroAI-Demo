@@ -6,6 +6,7 @@ import type {
   EnviarMensagemInput,
   ContatoAgencia,
   NumeroContato,
+  VincularConversaAgenciaInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import { atendimentoApi } from "@/modules/atendimento/services/atendimento-api";
 import { useAtendimentoNaoLidasStore } from "@/modules/atendimento/stores/atendimento-nao-lidas.store";
@@ -129,12 +130,16 @@ export function useAtendimento(
   // decisão explícita do usuário (2026-07-23): abrir uma conversa que
   // ninguém assumiu (ou que é de outro analista) NÃO pode fazer o badge
   // de não lidas sumir sozinho, senão dá pra "espiar" sem realmente
-  // assumir a responsabilidade de atender.
+  // assumir a responsabilidade de atender. Contato "não identificado"
+  // (sem agenciaId) não tem conceito de atendimento nenhum pra assumir —
+  // mesma exceção de `podeResponder` em ThreadConversa — senão essas
+  // mensagens nunca seriam marcadas como lidas, ficando pra sempre no
+  // badge global.
   const selecionarConversa = useCallback(
     (id: string) => {
       setConversaSelecionadaId(id);
       const conversa = conversas.find((item) => item.id === id);
-      if (conversa?.atendimentoAtual?.analistaId !== analistaId) return;
+      if (conversa?.agenciaId && conversa.atendimentoAtual?.analistaId !== analistaId) return;
 
       void atendimentoApi.marcarComoLida(id).then((conversaAtualizada) => {
         setConversas((atual) => atual.map((item) => (item.id === id ? conversaAtualizada : item)));
@@ -185,6 +190,19 @@ export function useAtendimento(
         : [conversa, ...atual];
     });
   }, []);
+
+  // Liga a conversa "não identificada" selecionada a uma agência escolhida
+  // manualmente pelo analista — ver VincularConversaModal em
+  // painel-informacoes.tsx. A conversa devolvida já vem com agenciaId
+  // preenchido, então as regras normais de atendimento passam a valer
+  // imediatamente (podeResponder, badge de não lidas etc).
+  const vincularConversaAgencia = useCallback(
+    async (conversaId: string, input: VincularConversaAgenciaInput) => {
+      const conversaVinculada = await atendimentoApi.vincularConversaAgencia(conversaId, input);
+      upsertConversa(conversaVinculada);
+    },
+    [upsertConversa],
+  );
 
   // Fluxo único pros dois casos: número já com Conversa materializada ou
   // número que nunca trocou mensagem (cria via iniciarConversa — exige
@@ -299,6 +317,7 @@ export function useAtendimento(
     hasError,
     selecionarConversa,
     enviarMensagem,
+    vincularConversaAgencia,
     criarTextoPronto,
     atualizarTextoPronto,
     removerTextoPronto,

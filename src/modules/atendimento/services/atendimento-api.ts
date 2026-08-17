@@ -15,6 +15,7 @@ import type {
   VincularMidiaComoDocumentoInput,
   ContatoAgencia,
   IniciarConversaInput,
+  VincularConversaAgenciaInput,
 } from "@/modules/atendimento/types/atendimento.types";
 import { gerarConfiguracaoWhatsappMock } from "@/modules/atendimento/mock/atendimento-mock.data";
 
@@ -200,6 +201,19 @@ export const atendimentoApi = {
   async marcarComoLida(conversaId: string): Promise<Conversa> {
     return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/marcar-lida`, {
       method: "POST",
+    });
+  },
+
+  // Liga uma conversa "não identificada" a uma agência escolhida
+  // manualmente pelo analista, quando o match automático por telefone não
+  // resolveu (ver VincularConversaAgenciaUseCase).
+  async vincularConversaAgencia(
+    conversaId: string,
+    input: VincularConversaAgenciaInput,
+  ): Promise<Conversa> {
+    return fetchJson<Conversa>(`/api/atendimento/conversas/${conversaId}/vincular-agencia`, {
+      method: "POST",
+      body: JSON.stringify(input),
     });
   },
 

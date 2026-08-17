@@ -229,6 +229,15 @@ export interface IniciarConversaInput {
   membroPapel: PapelMembro;
 }
 
+// Liga uma conversa "não identificada" a uma agência escolhida manualmente
+// pelo analista (ver VincularConversaModal, em painel-informacoes.tsx).
+export interface VincularConversaAgenciaInput {
+  agenciaId: string;
+  representanteLegalId: string | null;
+  membroNome: string;
+  membroPapel: PapelMembro;
+}
+
 export interface ResultadoTesteConexao {
   sucesso: boolean;
   mensagem: string;
