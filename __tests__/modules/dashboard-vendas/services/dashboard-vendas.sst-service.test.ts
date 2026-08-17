@@ -1,3 +1,4 @@
+import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import {
   __limparCacheParaTestes,
   dashboardVendasSstService,
@@ -45,6 +46,58 @@ const nacIntFixture = {
     { tipo_rota: "NAC", total_bilhetes: 29095, tarifa_total: 37855851.43 },
   ],
   total: 2,
+};
+
+// Mesma conta de data que `diasAtrasIso`/`formatarDataIsoBrasilia` fazem
+// no service (fuso America/Sao_Paulo, formato YYYY-MM-DD) — usado pra
+// montar fixtures por data pro teste de projeção (precisa de totais
+// distintos nas 4 semanas pra exercitar o descarte do menor de verdade).
+function dataIsoBrasiliaHaDias(dias: number): string {
+  const data = new Date();
+  data.setDate(data.getDate() - dias);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(data);
+}
+
+// Datas usadas pelo algoritmo de projeção: mesmo dia da semana, últimas
+// 4 ocorrências (7/14/21/28 dias atrás) + hoje. Total de 14 dias atrás é
+// o menor (130_000) — deve ser descartado, sobrando 150_000/165_000/140_000
+// (média 151_666,67; desvio padrão amostral ~12_583,06).
+const nacIntPorDataFixture: Record<string, { data: Array<Record<string, unknown>> }> = {
+  [dataIsoBrasiliaHaDias(7)]: {
+    data: [
+      { tipo_rota: "NAC", total_bilhetes: 100, tarifa_total: 100_000 },
+      { tipo_rota: "INTER", total_bilhetes: 20, tarifa_total: 50_000 },
+    ],
+  },
+  [dataIsoBrasiliaHaDias(14)]: {
+    data: [
+      { tipo_rota: "NAC", total_bilhetes: 90, tarifa_total: 90_000 },
+      { tipo_rota: "INTER", total_bilhetes: 18, tarifa_total: 40_000 },
+    ],
+  },
+  [dataIsoBrasiliaHaDias(21)]: {
+    data: [
+      { tipo_rota: "NAC", total_bilhetes: 110, tarifa_total: 110_000 },
+      { tipo_rota: "INTER", total_bilhetes: 22, tarifa_total: 55_000 },
+    ],
+  },
+  [dataIsoBrasiliaHaDias(28)]: {
+    data: [
+      { tipo_rota: "NAC", total_bilhetes: 95, tarifa_total: 95_000 },
+      { tipo_rota: "INTER", total_bilhetes: 19, tarifa_total: 45_000 },
+    ],
+  },
+  [dataIsoBrasiliaHaDias(0)]: {
+    data: [
+      { tipo_rota: "NAC", total_bilhetes: 50, tarifa_total: 60_000 },
+      { tipo_rota: "INTER", total_bilhetes: 10, tarifa_total: 20_000 },
+    ],
+  },
 };
 
 // /api/consolidado/air e /api/consolidado/non-air — mesmo valor pra
@@ -129,7 +182,11 @@ function respostaPara(url: string) {
   }
   if (url.includes("/api/reports/ranking-cias")) return rankingCiasFixture;
   if (url.includes("/api/reports/saude-bases")) return saudeBasesFixture;
-  if (url.includes("/api/consolidado/nacional-vs-internacional")) return nacIntFixture;
+  if (url.includes("/api/consolidado/nacional-vs-internacional")) {
+    const startDate = new URL(url).searchParams.get("startDate");
+    if (startDate && startDate in nacIntPorDataFixture) return nacIntPorDataFixture[startDate];
+    return nacIntFixture;
+  }
   if (url.includes("/api/consolidado/non-air")) return nonAirFixture;
   if (url.includes("/api/consolidado/air")) return airFixture;
   throw new Error(`URL não mapeada na fixture do teste: ${url}`);
@@ -305,11 +362,89 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.cruzamentoDetalhe.nenhum).toEqual([]);
   });
 
-  it("mantém as seções ainda sem fonte real vindas do mock (ex.: projeção)", async () => {
+  it("mantém intraday/acuracia vindos do mock (fora de escopo — ver docs/faltante.md)", async () => {
     const resultado = await dashboardVendasSstService.obterDashboard();
 
-    expect(resultado.projecao).toBeDefined();
     expect(resultado.intraday.length).toBeGreaterThan(0);
+    expect(resultado.acuracia).toBeDefined();
+  });
+
+  it("calcula projecao real com o histórico do mesmo dia da semana (descarta o menor, média dos 3 restantes)", async () => {
+    const projecao = await dashboardVendasSstService.obterProjecao();
+
+    const media = 151_666.666_666_666_66;
+    const desvio = 12_583.057_392_117_92;
+    expect(projecao.fechamentoEsperado).toBeCloseTo(media);
+    expect(projecao.faixaMin).toBeCloseTo(media - desvio);
+    expect(projecao.faixaMax).toBeCloseTo(media + desvio);
+    expect(projecao.nacional.projecao).toBeCloseTo((100_000 + 110_000 + 95_000) / 3);
+    expect(projecao.internacional.projecao).toBeCloseTo((50_000 + 55_000 + 45_000) / 3);
+  });
+
+  it("usa buscarNacInt(hoje, hoje) pra realizado/aEmitir, nunca negativo", async () => {
+    const projecao = await dashboardVendasSstService.obterProjecao();
+
+    expect(projecao.realizado).toBe(80_000);
+    expect(projecao.nacional.realizado).toBe(60_000);
+    expect(projecao.internacional.realizado).toBe(20_000);
+    expect(projecao.aEmitir).toBeCloseTo(151_666.666_666_666_66 - 80_000);
+  });
+
+  it("aEmitir fica em 0 quando o realizado de hoje já ultrapassa a projeção", async () => {
+    global.fetch = jest.fn(async (url: RequestInfo | URL) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/api/consolidado/nacional-vs-internacional")) {
+        const startDate = new URL(urlStr).searchParams.get("startDate");
+        if (startDate === dataIsoBrasiliaHaDias(0)) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: [
+                { tipo_rota: "NAC", total_bilhetes: 5000, tarifa_total: 9_000_000 },
+                { tipo_rota: "INTER", total_bilhetes: 1000, tarifa_total: 1_000_000 },
+              ],
+            }),
+          };
+        }
+      }
+      return { ok: true, status: 200, json: async () => respostaPara(urlStr) };
+    }) as unknown as typeof fetch;
+
+    const projecao = await dashboardVendasSstService.obterProjecao();
+    expect(projecao.realizado).toBe(10_000_000);
+    expect(projecao.aEmitir).toBe(0);
+  });
+
+  it("curva de projecao continua sempre vinda do mock, mesmo com os agregados reais", async () => {
+    const [projecao, mockEstatico] = await Promise.all([
+      dashboardVendasSstService.obterProjecao(),
+      dashboardVendasMockService.obterProjecao(),
+    ]);
+
+    expect(projecao.curva).toEqual(mockEstatico.curva);
+  });
+
+  it("degrada só projecao pro mock quando o SST falha nessas chamadas, sem afetar vendasMensais", async () => {
+    global.fetch = jest.fn(async (url: RequestInfo | URL) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/api/consolidado/nacional-vs-internacional")) {
+        const startDate = new URL(urlStr).searchParams.get("startDate");
+        if (startDate && startDate in nacIntPorDataFixture) {
+          return { ok: false, status: 500, text: async () => '{"message":"erro simulado"}' };
+        }
+      }
+      return { ok: true, status: 200, json: async () => respostaPara(urlStr) };
+    }) as unknown as typeof fetch;
+
+    const [projecao, mockEstatico, vendasMensais] = await Promise.all([
+      dashboardVendasSstService.obterProjecao(),
+      dashboardVendasMockService.obterProjecao(),
+      dashboardVendasSstService.obterVendasMensais(),
+    ]);
+
+    expect(projecao).toEqual(mockEstatico);
+    expect(vendasMensais.length).toBeGreaterThan(0);
   });
 
   it("degrada só recencia/cruzamentoCanais pro mock quando o SST devolve 500 persistente, sem derrubar o resto da página", async () => {

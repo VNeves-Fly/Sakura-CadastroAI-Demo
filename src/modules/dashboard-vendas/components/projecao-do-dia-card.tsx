@@ -67,7 +67,6 @@ export function ProjecaoDoDiaCard({ projecao }: ProjecaoDoDiaCardProps) {
         <div className="flex items-center gap-2">
           <TrendingUp className="text-muted-foreground size-4 shrink-0" />
           <h2 className="text-foreground text-sm font-semibold">Projeção do dia</h2>
-          <MockBadge />
           <span className="bg-primary/10 text-primary rounded-full px-2.5 py-1 text-xs font-semibold">
             Histórico do dia da semana
           </span>
@@ -159,7 +158,13 @@ export function ProjecaoDoDiaCard({ projecao }: ProjecaoDoDiaCardProps) {
           </div>
         </div>
 
-        <Chart options={options} series={series} type="line" height={280} />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-end gap-1.5">
+            <span className="text-muted-foreground text-xs">Curva ilustrativa</span>
+            <MockBadge />
+          </div>
+          <Chart options={options} series={series} type="line" height={280} />
+        </div>
       </div>
     </div>
   );
