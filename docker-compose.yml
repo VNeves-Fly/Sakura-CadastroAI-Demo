@@ -17,5 +17,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # Cache compartilhado do dashboard de vendas (ver
+  # src/modules/dashboard-vendas/infrastructure/valkey-cache.util.ts) —
+  # opcional: sem VALKEY_URL configurada, a aplicação cai pro cache em
+  # memória de sempre, sem precisar deste serviço rodando.
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: cadastro-ia-sakura-valkey
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   cadastro_ia_sakura_pgdata:
