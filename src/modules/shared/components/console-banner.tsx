@@ -4,7 +4,9 @@ import { useEffect } from "react";
 
 export function ConsoleBanner() {
   useEffect(() => {
+    // eslint-disable-next-line no-console -- banner deliberado pro console do navegador, não debug leftover.
     console.clear();
+    // eslint-disable-next-line no-console -- idem.
     console.log(`
 🌸🌸🌸🌸🌸🌸🌸🌸🌸🌸🌸🌸🌸🌸🌸
 

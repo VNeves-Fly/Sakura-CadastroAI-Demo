@@ -205,13 +205,8 @@ describe("EnviarMensagemUseCase", () => {
 
   it("lança ForaDaJanela24hError quando a janela está fechada e não veio templateId — não persiste nada", async () => {
     const conversa = fakeConversa({ agenciaId: null, mensagens: [] });
-    const {
-      useCase,
-      conversaRepository,
-      mensagemRepository,
-      whatsAppMessagingService,
-      templateWhatsAppRepository,
-    } = criarUseCase();
+    const { useCase, conversaRepository, mensagemRepository, whatsAppMessagingService } =
+      criarUseCase();
     (conversaRepository.findById as jest.Mock).mockResolvedValue(conversa);
 
     await expect(

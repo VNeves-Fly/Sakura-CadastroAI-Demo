@@ -32,6 +32,7 @@ describe("getSmtpTransport", () => {
       host: "smtp.example.com",
       port: 587,
       secure: false,
+      name: "example.com",
       auth: { user: "user@example.com", pass: "senha-de-app" },
     });
   });
