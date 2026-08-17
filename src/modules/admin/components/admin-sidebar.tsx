@@ -54,8 +54,8 @@ const CARGOS_INTERNOS_APENAS: Cargo[] = ["GESTOR", "EXECUTIVO"];
 // "Gestores" só pra quem pode cadastrar Gestor (decisão do usuário,
 // 2026-08-03) — Admin/Diretor, ninguém mais.
 const CARGOS_NAO_ADMIN: Cargo[] = ["ANALISTA", "GESTOR", "EXECUTIVO"];
-// "Executivos" (/promotores) — Admin/Diretor cadastram qualquer um, Gestor
-// só os seus; Analista/Executivo não cadastram.
+// "Executivos" (/executivos, internamente "Promotor") — Admin/Diretor
+// cadastram qualquer um, Gestor só os seus; Analista/Executivo não cadastram.
 const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
 // "Dashboard (novo)" — restrito a ADMIN (pedido do usuário, 2026-08-13);
 // diferente de CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica
@@ -120,7 +120,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
       },
       {
         label: "Executivos",
-        href: "/promotores",
+        href: "/executivos",
         icon: UserPlus,
         ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
       },
