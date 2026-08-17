@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { Info, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { MockBadge } from "@/modules/dashboard-vendas/components/ui/mock-badge";
 import {
   formatarMoedaAbreviada,
   formatarMoedaBrl,
@@ -43,8 +42,8 @@ export function ProjecaoDoDiaCard({ projecao }: ProjecaoDoDiaCardProps) {
       toolbar: { show: false },
       zoom: { enabled: false },
     },
-    colors: [COR_CINZA, COR_ROXO, COR_ROSA],
-    stroke: { curve: "straight", width: 2, dashArray: [4, 0, 0] },
+    colors: [COR_CINZA, COR_ROXO],
+    stroke: { curve: "straight", width: 2, dashArray: [4, 0] },
     dataLabels: { enabled: false },
     legend: { show: false },
     markers: { size: 0 },
@@ -57,8 +56,7 @@ export function ProjecaoDoDiaCard({ projecao }: ProjecaoDoDiaCardProps) {
 
   const series = [
     { name: "Curva esperada", data: projecao.curva.map((ponto) => ponto.esperado) },
-    { name: "Nacional (hoje)", data: projecao.curva.map((ponto) => ponto.nacionalHoje) },
-    { name: "Internacional (hoje)", data: projecao.curva.map((ponto) => ponto.internacionalHoje) },
+    { name: "Realizado hoje", data: projecao.curva.map((ponto) => ponto.realizadoHoje) },
   ];
 
   return (
@@ -158,13 +156,7 @@ export function ProjecaoDoDiaCard({ projecao }: ProjecaoDoDiaCardProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-end gap-1.5">
-            <span className="text-muted-foreground text-xs">Curva ilustrativa</span>
-            <MockBadge />
-          </div>
-          <Chart options={options} series={series} type="line" height={280} />
-        </div>
+        <Chart options={options} series={series} type="line" height={280} />
       </div>
     </div>
   );

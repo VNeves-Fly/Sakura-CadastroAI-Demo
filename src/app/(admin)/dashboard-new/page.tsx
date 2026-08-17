@@ -15,25 +15,23 @@ const CARGOS_COM_ACESSO = new Set(["ADMIN"]);
 // docs/faltante.md pra saber quais seções já são dado real (via SST) e
 // quais ainda são mock.
 //
-// Só busca aqui as duas partes rápidas (`resumoEDia`/`mockEstatico`) — as
-// 4 seções pesadas (que fazem paginação no SST) são buscadas dentro de
-// `DashboardVendasView`, cada uma no seu próprio `Suspense`, pra não
-// bloquear a página inteira no pior caso (~30s a frio).
+// Só busca aqui `mockEstatico` (puro mock em memória, sem I/O — abre
+// junto com a página). Todo o resto que depende do SST — inclusive
+// `resumoEDia`, que antes era buscado aqui e bloqueava a página inteira
+// — é buscado dentro de `DashboardVendasView`, cada seção no seu próprio
+// `Suspense`, pra a página abrir na hora com tudo em placeholder.
 export default async function DashboardNewPage() {
   const session = await getServerSession(nextAuthOptions);
   if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
     redirect("/cadastros");
   }
 
-  const [resumoEDia, mockEstatico] = await Promise.all([
-    dashboardVendasController.obterResumoEDia(),
-    dashboardVendasController.obterMockEstatico(),
-  ]);
+  const mockEstatico = await dashboardVendasController.obterMockEstatico();
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-foreground text-xl font-bold">Dashboard</h1>
-      <DashboardVendasView resumoEDia={resumoEDia} mockEstatico={mockEstatico} />
+      <DashboardVendasView mockEstatico={mockEstatico} />
     </div>
   );
 }
