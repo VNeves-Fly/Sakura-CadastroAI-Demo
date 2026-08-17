@@ -236,7 +236,14 @@ export function CadastroWizardView({
       </div>
 
       <footer className="text-muted-foreground flex w-full max-w-2xl flex-col items-center justify-between gap-2 text-xs sm:flex-row">
-        <span>© {new Date().getFullYear()} Sakura Consolidadora</span>
+        <span>
+          Desenvolvido por{" "}
+          <a href="https://www.larian.com.br" target="_blank" rel="noopener noreferrer">
+            Larian
+          </a>
+          <span className="text-muted-foreground mx-2">|</span>© {new Date().getFullYear()} Sakura
+          Consolidadora
+        </span>
         <div className="flex items-center gap-4">
           <a href="/termos" className="hover:text-foreground hover:underline">
             Termos de uso

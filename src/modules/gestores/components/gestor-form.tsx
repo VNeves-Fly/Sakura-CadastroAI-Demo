@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { CamposAcessoPlataforma } from "@/modules/gestores/components/campos-acesso-plataforma";
 import { BaseMultiSelect } from "@/modules/bases/components/base-multi-select";
+import { useNivelDoGestor } from "@/modules/gestores/stores/gestor-niveis.store";
+import { NIVEIS_GESTOR, nivelSeed } from "@/modules/gestores/types/gestor-nivel.types";
 import type { BaseView } from "@/modules/bases/types/base.types";
 import type { GestorFormValues, GestorView } from "@/modules/gestores/types/gestor.types";
 
@@ -14,6 +16,11 @@ interface GestorFormProps {
   gestorAtual?: GestorView;
   submitLabel?: string;
   basesOptions: BaseView[];
+  // Usados quando o form é embutido num Dialog (ver gestor-cadastro-modal.tsx)
+  // — o modal já traz título/borda/sombra próprios via DialogHeader/DialogContent,
+  // então evita duplicar esse chrome.
+  className?: string;
+  mostrarTitulo?: boolean;
 }
 
 const inputClassName =
@@ -24,6 +31,7 @@ const VALORES_VAZIOS: GestorFormValues = {
   email: "",
   telefone: "",
   baseIds: [],
+  nivel: null,
   criarAcesso: false,
   password: "",
   mustChangePassword: false,
@@ -32,9 +40,12 @@ const VALORES_VAZIOS: GestorFormValues = {
 
 // gestor.bases vem como sigla (view de exibição) — o form trabalha com id
 // (o que a API espera), então precisa resolver de volta via basesOptions.
+// `nivelInicial` vem de fora (useNivelDoGestor + fallback de seed) porque
+// depende de um hook — não dá pra resolver dentro desta função pura.
 function paraValoresIniciais(
   gestor: GestorView | undefined,
   basesOptions: BaseView[],
+  nivelInicial: GestorFormValues["nivel"],
 ): GestorFormValues {
   if (!gestor) return VALORES_VAZIOS;
   const idsPorSigla = new Map(basesOptions.map((base) => [base.sigla, base.id]));
@@ -46,6 +57,7 @@ function paraValoresIniciais(
     baseIds: gestor.bases
       .map((sigla) => idsPorSigla.get(sigla))
       .filter((id): id is string => Boolean(id)),
+    nivel: nivelInicial,
   };
 }
 
@@ -56,9 +68,16 @@ export function GestorForm({
   gestorAtual,
   submitLabel,
   basesOptions,
+  className,
+  mostrarTitulo = true,
 }: GestorFormProps) {
+  const nivelDaStore = useNivelDoGestor(gestorAtual?.id ?? "");
   const [values, setValues] = useState<GestorFormValues>(() =>
-    paraValoresIniciais(gestorAtual, basesOptions),
+    paraValoresIniciais(
+      gestorAtual,
+      basesOptions,
+      gestorAtual ? (nivelDaStore ?? nivelSeed(gestorAtual.id)) : null,
+    ),
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -72,11 +91,16 @@ export function GestorForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-border bg-card flex flex-col gap-4 rounded-[1.5rem] border p-6 shadow-sm"
+      className={
+        className ??
+        "border-border bg-card flex flex-col gap-4 rounded-[1.5rem] border p-6 shadow-sm"
+      }
     >
-      <h2 className="text-foreground text-sm font-semibold">
-        {gestorAtual ? "Editar gestor" : "Novo gestor"}
-      </h2>
+      {mostrarTitulo ? (
+        <h2 className="text-foreground text-sm font-semibold">
+          {gestorAtual ? "Editar gestor" : "Novo gestor"}
+        </h2>
+      ) : null}
 
       <div className="flex flex-col gap-1">
         <label htmlFor="nome" className="text-foreground text-sm font-medium">
@@ -121,6 +145,30 @@ export function GestorForm({
             className={inputClassName}
           />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="nivel" className="text-foreground text-sm font-medium">
+          Nível
+        </label>
+        <select
+          id="nivel"
+          required
+          value={values.nivel ?? ""}
+          onChange={(event) =>
+            setValues({ ...values, nivel: event.target.value as GestorFormValues["nivel"] })
+          }
+          className={inputClassName}
+        >
+          <option value="" disabled>
+            Selecione o nível
+          </option>
+          {NIVEIS_GESTOR.map((opcao) => (
+            <option key={opcao.valor} value={opcao.valor}>
+              {opcao.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <BaseMultiSelect

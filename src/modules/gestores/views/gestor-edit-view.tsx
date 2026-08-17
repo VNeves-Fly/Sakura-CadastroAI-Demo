@@ -20,7 +20,7 @@ export function GestorEditView({ id, basesOptions }: GestorEditViewProps) {
       <div className="flex items-center justify-between">
         <h1 className="text-foreground text-xl font-semibold">Editar gestor</h1>
         <Link
-          href="/gestores"
+          href="/crm/gestores"
           className="text-muted-foreground hover:text-foreground text-xs font-medium"
         >
           ← Voltar pra Gestores
