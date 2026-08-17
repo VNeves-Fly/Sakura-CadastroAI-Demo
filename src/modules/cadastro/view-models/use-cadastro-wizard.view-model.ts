@@ -131,7 +131,6 @@ export function useCadastroWizardViewModel({
 
   const setCnpjRaw = useCadastroWizardStore((state) => state.setCnpj);
   const setCnpjStatus = useCadastroWizardStore((state) => state.setCnpjStatus);
-  const setAvisoAlfanumerico = useCadastroWizardStore((state) => state.setAvisoAlfanumerico);
   const setVerificandoCnpjCadastrado = useCadastroWizardStore(
     (state) => state.setVerificandoCnpjCadastrado,
   );

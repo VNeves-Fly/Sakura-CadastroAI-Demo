@@ -97,7 +97,6 @@ export class FlysakuraAnaliseIaAdapter implements AnaliseIaService {
         // documentos ainda. Reaparece aqui quando houver item real.
       },
     });
-    console.log("/api/v1/agency-analysis/sync", body);
     const response = await fetch(`${flysakuraBaseUrl()}/api/v1/agency-analysis/sync`, {
       method: "POST",
       headers: {

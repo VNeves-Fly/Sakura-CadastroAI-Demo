@@ -19,6 +19,7 @@ export interface ProjecaoCalculada {
   faixaMax: number;
   nacionalProjecao: number;
   internacionalProjecao: number;
+  datasMantidas: string[];
 }
 
 function media(valores: number[]): number {
@@ -55,5 +56,73 @@ export function calcularProjecaoDoDia(amostras: AmostraDia[]): ProjecaoCalculada
     faixaMax: fechamentoEsperado + desvio,
     nacionalProjecao: media(mantidas.map((amostra) => amostra.nacional)),
     internacionalProjecao: media(mantidas.map((amostra) => amostra.internacional)),
+    datasMantidas: mantidas.map((amostra) => amostra.data),
   };
+}
+
+// Curva horária — construída a partir do formato (não do valor) das
+// vendas hora a hora dos mesmos 3 dias mantidos em `calcularProjecaoDoDia`
+// (endpoint de detalhe não classifica Nacional/Internacional por bilhete,
+// por isso a curva é só total, sem split de canal — decisão confirmada
+// pelo PO).
+
+export interface AmostraHoraria {
+  data: string;
+  totaisPorHora: number[]; // length 24, tarifa somada por hora (created_at)
+}
+
+const HORAS_DO_DIA = 24;
+
+// Fração média (0-1) de vendas por hora, através dos dias informados —
+// cada dia contribui sua própria distribuição normalizada (soma 1), a
+// média entre dias também soma 1.
+export function calcularFormaHoraria(amostras: AmostraHoraria[]): number[] {
+  const fracoesPorDia = amostras.map((amostra) => {
+    const totalDia = amostra.totaisPorHora.reduce((acumulado, valor) => acumulado + valor, 0);
+    return amostra.totaisPorHora.map((valor) => (totalDia > 0 ? valor / totalDia : 0));
+  });
+
+  return Array.from({ length: HORAS_DO_DIA }, (_, hora) =>
+    media(fracoesPorDia.map((fracoes) => fracoes[hora]!)),
+  );
+}
+
+export interface PontoCurva {
+  hora: string;
+  esperado: number;
+  realizadoHoje: number | null;
+}
+
+// `formaMedia` deve somar ~1 (ver `calcularFormaHoraria`). `esperado` é
+// cumulativo (fechamento esperado até aquela hora); `realizadoHoje` é
+// cumulativo até `horaAtual`, reescalado pra bater exatamente com
+// `realizado` (total já confirmado) na hora atual — depois disso, null
+// (hora futura, ainda não aconteceu).
+export function calcularCurvaHoraria(
+  formaMedia: number[],
+  fechamentoEsperado: number,
+  realizado: number,
+  horaAtual: number,
+): PontoCurva[] {
+  if (formaMedia.length !== HORAS_DO_DIA) {
+    throw new Error(`calcularCurvaHoraria espera forma com ${HORAS_DO_DIA} horas`);
+  }
+
+  let acumulado = 0;
+  const cumulativo = formaMedia.map((fracao) => {
+    acumulado += fracao;
+    return acumulado;
+  });
+  const cumulativoNaHoraAtual = cumulativo[horaAtual]!;
+
+  return cumulativo.map((fracaoAcumulada, hora) => ({
+    hora: `${hora.toString().padStart(2, "0")}:00`,
+    esperado: fracaoAcumulada * fechamentoEsperado,
+    realizadoHoje:
+      hora <= horaAtual && cumulativoNaHoraAtual > 0
+        ? (fracaoAcumulada / cumulativoNaHoraAtual) * realizado
+        : hora <= horaAtual
+          ? 0
+          : null,
+  }));
 }

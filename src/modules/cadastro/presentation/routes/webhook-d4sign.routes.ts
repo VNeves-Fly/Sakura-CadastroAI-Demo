@@ -48,6 +48,7 @@ export async function processarWebhookD4SignRoute(request: Request) {
     return httpError("Payload de webhook inválido — uuid e type_post são obrigatórios.", 422);
   }
 
+  // eslint-disable-next-line no-console -- log operacional de auditoria do webhook, não debug leftover.
   console.log(
     `Webhook D4Sign: uuid=${uuidNormalizado} type_post=${typePostNormalizado} content-type="${contentType}".`,
   );

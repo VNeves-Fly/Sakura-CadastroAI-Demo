@@ -146,12 +146,8 @@ function construirProjecao(): ProjecaoDia {
     return {
       hora: `${hora.toString().padStart(2, "0")}:00`,
       esperado: acumuladoEsperado,
-      nacionalHoje:
-        hora <= horaAtual ? Math.round(realizadoNacional * ((hora + 1) / (horaAtual + 1))) : null,
-      internacionalHoje:
-        hora <= horaAtual
-          ? Math.round(realizadoInternacional * ((hora + 1) / (horaAtual + 1)))
-          : null,
+      realizadoHoje:
+        hora <= horaAtual ? Math.round(realizado * ((hora + 1) / (horaAtual + 1))) : null,
     };
   });
 

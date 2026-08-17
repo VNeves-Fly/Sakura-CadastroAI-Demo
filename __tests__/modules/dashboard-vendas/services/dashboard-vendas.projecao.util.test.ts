@@ -1,6 +1,9 @@
 import {
+  calcularCurvaHoraria,
+  calcularFormaHoraria,
   calcularProjecaoDoDia,
   type AmostraDia,
+  type AmostraHoraria,
 } from "@/modules/dashboard-vendas/services/dashboard-vendas.projecao.util";
 
 describe("calcularProjecaoDoDia", () => {
@@ -62,5 +65,61 @@ describe("calcularProjecaoDoDia", () => {
     ];
 
     expect(() => calcularProjecaoDoDia(amostras)).toThrow();
+  });
+});
+
+function amostraHoraria(data: string, valoresPorHora: Record<number, number>): AmostraHoraria {
+  const totaisPorHora = new Array(24).fill(0) as number[];
+  for (const [hora, valor] of Object.entries(valoresPorHora)) totaisPorHora[Number(hora)] = valor;
+  return { data, totaisPorHora };
+}
+
+describe("calcularFormaHoraria", () => {
+  it("normaliza cada dia pro próprio total e tira a média entre os dias (soma ~1)", () => {
+    const amostras = [
+      amostraHoraria("d1", { 9: 50, 18: 50 }), // 50%/50%
+      amostraHoraria("d2", { 9: 100 }), // 100% às 9h
+    ];
+
+    const forma = calcularFormaHoraria(amostras);
+
+    expect(forma).toHaveLength(24);
+    expect(forma[9]).toBeCloseTo((0.5 + 1) / 2);
+    expect(forma[18]).toBeCloseTo((0.5 + 0) / 2);
+    expect(forma.reduce((acumulado, fracao) => acumulado + fracao, 0)).toBeCloseTo(1);
+  });
+});
+
+describe("calcularCurvaHoraria", () => {
+  it("distribui o fechamentoEsperado de forma cumulativa conforme a forma média", () => {
+    const forma = new Array(24).fill(0) as number[];
+    forma[9] = 0.5;
+    forma[18] = 0.5;
+
+    const curva = calcularCurvaHoraria(forma, 1_000_000, 0, 23);
+
+    expect(curva).toHaveLength(24);
+    expect(curva[8]!.esperado).toBe(0);
+    expect(curva[9]!.esperado).toBeCloseTo(500_000);
+    expect(curva[17]!.esperado).toBeCloseTo(500_000);
+    expect(curva[18]!.esperado).toBeCloseTo(1_000_000);
+    expect(curva[23]!.esperado).toBeCloseTo(1_000_000);
+  });
+
+  it("reescala o realizado de hoje pra bater exatamente na hora atual, e null depois dela", () => {
+    const forma = new Array(24).fill(0) as number[];
+    forma[9] = 0.5;
+    forma[18] = 0.5;
+
+    const curva = calcularCurvaHoraria(forma, 1_000_000, 200_000, 9);
+
+    expect(curva[9]!.realizadoHoje).toBeCloseTo(200_000);
+    expect(curva[8]!.realizadoHoje).toBe(0);
+    expect(curva[10]!.realizadoHoje).toBeNull();
+    expect(curva[23]!.realizadoHoje).toBeNull();
+  });
+
+  it("lança erro se a forma não tiver 24 horas", () => {
+    expect(() => calcularCurvaHoraria([0.5, 0.5], 1_000_000, 0, 0)).toThrow();
   });
 });
