@@ -46,8 +46,7 @@ export interface ProjecaoDia {
   curva: Array<{
     hora: string;
     esperado: number;
-    nacionalHoje: number | null;
-    internacionalHoje: number | null;
+    realizadoHoje: number | null;
   }>;
 }
 

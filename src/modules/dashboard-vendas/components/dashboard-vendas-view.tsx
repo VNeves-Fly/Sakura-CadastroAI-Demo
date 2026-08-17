@@ -8,9 +8,9 @@ import { MiniKpisGrid } from "@/modules/dashboard-vendas/components/mini-kpis-gr
 // import { VendasIntradayChart } from "@/modules/dashboard-vendas/components/vendas-intraday-chart";
 import { ProjecaoDoDiaCard } from "@/modules/dashboard-vendas/components/projecao-do-dia-card";
 import { AcuraciaProjecaoPanel } from "@/modules/dashboard-vendas/components/acuracia-projecao-panel";
-import { TopAgenciasCard } from "@/modules/dashboard-vendas/components/top-agencias-card";
-import { TopFornecedoresCard } from "@/modules/dashboard-vendas/components/top-fornecedores-card";
-import { NacionalInternacionalCard } from "@/modules/dashboard-vendas/components/nacional-internacional-card";
+import { ResumoDoDiaSecao } from "@/modules/dashboard-vendas/components/secoes/resumo-do-dia-secao";
+import { RankingsSecao } from "@/modules/dashboard-vendas/components/secoes/rankings-secao";
+import { ProjecaoSecao } from "@/modules/dashboard-vendas/components/secoes/projecao-secao";
 import { RecenciaECruzamentoSecao } from "@/modules/dashboard-vendas/components/secoes/recencia-e-cruzamento-secao";
 import { ConversaoSecao } from "@/modules/dashboard-vendas/components/secoes/conversao-secao";
 import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-mensais-secao";
@@ -18,18 +18,9 @@ import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes
 import { SecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/secao-skeleton";
 import type { DashboardVendasData } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
-type ResumoEDia = Pick<
-  DashboardVendasData,
-  | "resumoPorPeriodo"
-  | "miniKpis"
-  | "rankingPorMes"
-  | "fornecedoresPorMes"
-  | "nacionalInternacionalPorMes"
->;
-type MockEstatico = Pick<DashboardVendasData, "intraday" | "projecao" | "acuracia">;
+type MockEstatico = Pick<DashboardVendasData, "intraday" | "acuracia">;
 
 interface DashboardVendasViewProps {
-  resumoEDia: ResumoEDia;
   mockEstatico: MockEstatico;
 }
 
@@ -39,11 +30,13 @@ interface DashboardVendasViewProps {
 // busca cara no SST (ver RecenciaECruzamentoSecao). O resto continua na
 // ordem original.
 //
-// Carregamento progressivo: só `resumoEDia`/`mockEstatico` chegam prontos
-// (rápidos, sem paginação) — as 4 seções pesadas (que fazem paginação de
-// `/api/resumos/terrestre`) streamam via `Suspense`, cada uma assim que
-// terminar, em vez de bloquear a página inteira nos ~30s do pior caso.
-export function DashboardVendasView({ resumoEDia, mockEstatico }: DashboardVendasViewProps) {
+// Carregamento progressivo: a página abre na hora, com TODA seção que
+// depende do SST em placeholder (`Suspense`) — só `mockEstatico` chega
+// pronto (puro mock em memória, sem I/O). `ResumoDoDiaSecao`/
+// `RankingsSecao` chamam `obterResumoEDia` (memoizado por request via
+// `cache()`, ver controller) de forma independente, sem duplicar a
+// busca cara no SST.
+export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) {
   return (
     // "dashboard-vendas-scope" dá vida às vars --dv-* (ver
     // constants/dashboard-vendas.constants.ts + .dashboard-vendas-scope
@@ -55,6 +48,22 @@ export function DashboardVendasView({ resumoEDia, mockEstatico }: DashboardVenda
       {/* "Vendas Intraday" oculta a pedido do usuário (2026-08-17) — ver
           comentário no import acima. */}
       <ProjecaoDoDiaCard projecao={mockEstatico.projecao} />
+      <Suspense
+        fallback={
+          <>
+            <SecaoSkeleton altura="h-24" />
+            <SecaoSkeleton altura="h-24" />
+            <SecaoSkeleton altura="h-64" />
+          </>
+        }
+      >
+        <ResumoDoDiaSecao intraday={mockEstatico.intraday} />
+      </Suspense>
+
+      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
+        <ProjecaoSecao />
+      </Suspense>
+
       <AcuraciaProjecaoPanel acuracia={mockEstatico.acuracia} />
 
       <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
@@ -77,11 +86,17 @@ export function DashboardVendasView({ resumoEDia, mockEstatico }: DashboardVenda
       */}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <TopAgenciasCard rankingPorMes={resumoEDia.rankingPorMes} />
-        <TopFornecedoresCard fornecedoresPorMes={resumoEDia.fornecedoresPorMes} />
-        <NacionalInternacionalCard
-          nacionalInternacionalPorMes={resumoEDia.nacionalInternacionalPorMes}
-        />
+        <Suspense
+          fallback={
+            <>
+              <SecaoSkeleton altura="h-56" />
+              <SecaoSkeleton altura="h-56" />
+              <SecaoSkeleton altura="h-56" />
+            </>
+          }
+        >
+          <RankingsSecao />
+        </Suspense>
       </div>
     </div>
   );

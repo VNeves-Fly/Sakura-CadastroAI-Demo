@@ -1,3 +1,4 @@
+import { cache } from "react";
 import {
   dashboardVendasAdapter,
   normalizarCruzamento,
@@ -30,18 +31,24 @@ export const dashboardVendasController = {
   },
   async obterMockEstatico() {
     // intraday/acuracia continuam sempre mock — ver docs/faltante.md.
-    // projecao (exceto a curva, que segue sempre mock) segue o mesmo
-    // critério do resto do dashboard.
-    const [{ intraday, acuracia }, projecao] = await Promise.all([
-      dashboardVendasMockService.obterMockEstatico(),
-      dashboardVendasService.obterProjecao(),
-    ]);
-    return { intraday, acuracia, projecao };
+    // projecao saiu daqui: agora pagina o SST (curva horária) e pode ser
+    // lenta, por isso tem seu próprio método granular (`obterProjecao`),
+    // igual às outras seções pesadas — ver `obterMockEstatico` precisa
+    // continuar rápida/síncrona pra não bloquear a página inteira.
+    return dashboardVendasMockService.obterMockEstatico();
   },
-  async obterResumoEDia() {
+  async obterProjecao() {
+    return dashboardVendasService.obterProjecao();
+  },
+  // `cache()` (memoização por request do React) — `ResumoDoDiaSecao` e
+  // `RankingsSecao` chamam isto de forma independente (cada uma no seu
+  // próprio Suspense, pra a página abrir com tudo em placeholder), sem
+  // isto duplicariam a busca cara no SST (overview/top-agências/ranking
+  // de cias/nac-int) uma vez por seção.
+  obterResumoEDia: cache(async () => {
     const dados = await dashboardVendasService.obterResumoEDia();
     return { ...dados, resumoPorPeriodo: normalizarResumoPorPeriodo(dados.resumoPorPeriodo) };
-  },
+  }),
   async obterVendasMensais() {
     return dashboardVendasService.obterVendasMensais();
   },

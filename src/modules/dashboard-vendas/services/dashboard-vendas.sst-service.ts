@@ -4,8 +4,11 @@ import {
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import {
+  calcularCurvaHoraria,
+  calcularFormaHoraria,
   calcularProjecaoDoDia,
   type AmostraDia,
+  type AmostraHoraria,
 } from "@/modules/dashboard-vendas/services/dashboard-vendas.projecao.util";
 import type {
   AgenciaCruzamentoDetalhe,
@@ -527,24 +530,67 @@ async function buscarAmostraDoDia(dataIso: string): Promise<AmostraDia> {
   };
 }
 
-// Agregados de `projecao` (tudo, exceto `curva`, que continua sempre
-// mock — depende do `intraday`, ainda não decidido, ver
-// docs/faltante.md). Algoritmo e faixa de confiança confirmados pelo
-// PO, ver dashboard-vendas.projecao.util.ts.
-async function construirProjecaoReal(): Promise<
-  Pick<
-    ProjecaoDia,
-    | "fechamentoEsperado"
-    | "faixaMin"
-    | "faixaMax"
-    | "realizado"
-    | "aEmitir"
-    | "nacional"
-    | "internacional"
-    | "percentualDiaTranscorrido"
-    | "atualizadoEm"
-  >
-> {
+// GET /api/resumos/aereo — granularidade de bilhete, com `created_at`
+// (quando a venda foi lançada, não a data de embarque). Ao contrário de
+// `nacional-vs-internacional`, não classifica NAC/INTER por bilhete (só
+// tem `rota` em códigos de aeroporto) — por isso a curva horária usa só
+// o total (decisão confirmada, ver docs/faltante.md).
+interface RawResumoAereoLinha {
+  tarifa: number;
+  created_at: string;
+}
+
+const LIMITE_PAGINA_AEREO = 500;
+
+function horaBrasilia(data: Date | string): number {
+  return Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(data)),
+  );
+}
+
+// Um dia cheio pode ter alguns milhares de bilhetes (~4.400 num teste
+// real, ~9 páginas de 500) — cache de 10min (mesmo TTL do resto do
+// arquivo) evita repaginar isso a cada carregamento do card.
+async function buscarFormaHorariaDoDia(dataIso: string): Promise<AmostraHoraria> {
+  return comCache(`horaAereo:${dataIso}`, async () => {
+    const parametros = {
+      createdAtStart: `${dataIso}T00:00:00`,
+      createdAtEnd: `${dataIso}T23:59:59`,
+      limit: LIMITE_PAGINA_AEREO,
+    };
+    const primeira = await sstGet<RawPaginado<RawResumoAereoLinha>>("/api/resumos/aereo", {
+      ...parametros,
+      page: 1,
+    });
+    const totalPaginas = Math.ceil(primeira.total / LIMITE_PAGINA_AEREO);
+    const paginasRestantes = await Promise.all(
+      Array.from({ length: Math.max(0, totalPaginas - 1) }, (_, indice) =>
+        sstGet<RawPaginado<RawResumoAereoLinha>>("/api/resumos/aereo", {
+          ...parametros,
+          page: indice + 2,
+        }),
+      ),
+    );
+
+    const totaisPorHora = new Array(24).fill(0) as number[];
+    for (const pagina of [primeira, ...paginasRestantes]) {
+      for (const linha of pagina.data) {
+        const hora = horaBrasilia(linha.created_at);
+        totaisPorHora[hora] = (totaisPorHora[hora] ?? 0) + linha.tarifa;
+      }
+    }
+    return { data: dataIso, totaisPorHora };
+  });
+}
+
+// Agregados + curva horária de `projecao`. Algoritmo, faixa de confiança
+// e forma da curva confirmados pelo PO — ver
+// dashboard-vendas.projecao.util.ts.
+async function construirProjecaoReal(): Promise<ProjecaoDia> {
   const [amostrasHistoricas, amostraHoje] = await Promise.all([
     Promise.all(mesmasSemanasAnteriores(4).map((data) => buscarAmostraDoDia(data))),
     buscarAmostraDoDia(hojeIso()),
@@ -552,6 +598,18 @@ async function construirProjecaoReal(): Promise<
 
   const calculado = calcularProjecaoDoDia(amostrasHistoricas);
   const agora = new Date();
+
+  const amostrasHorarias = await Promise.all(
+    calculado.datasMantidas.map((data) => buscarFormaHorariaDoDia(data)),
+  );
+  const formaMedia = calcularFormaHoraria(amostrasHorarias);
+  const horaAtual = horaBrasilia(agora);
+  const curva = calcularCurvaHoraria(
+    formaMedia,
+    calculado.fechamentoEsperado,
+    amostraHoje.total,
+    horaAtual,
+  );
 
   return {
     fechamentoEsperado: calculado.fechamentoEsperado,
@@ -566,6 +624,7 @@ async function construirProjecaoReal(): Promise<
     },
     percentualDiaTranscorrido: calcularPercentualDiaTranscorrido(agora),
     atualizadoEm: agora,
+    curva,
   };
 }
 
@@ -1200,19 +1259,7 @@ async function obterResumoEDia(): Promise<
 
 async function obterProjecaoComFallback(): Promise<ProjecaoDia> {
   const mock = await dashboardVendasMockService.obterProjecao();
-  const agregados = await comFallback("projecao", construirProjecaoReal(), {
-    fechamentoEsperado: mock.fechamentoEsperado,
-    faixaMin: mock.faixaMin,
-    faixaMax: mock.faixaMax,
-    realizado: mock.realizado,
-    aEmitir: mock.aEmitir,
-    nacional: mock.nacional,
-    internacional: mock.internacional,
-    percentualDiaTranscorrido: mock.percentualDiaTranscorrido,
-    atualizadoEm: mock.atualizadoEm,
-  });
-  // `curva` continua sempre mock — depende do `intraday`, fora de escopo aqui.
-  return { ...agregados, curva: mock.curva };
+  return comFallback("projecao", construirProjecaoReal(), mock);
 }
 
 async function obterVendasMensaisComFallback(): Promise<VendaMensal[]> {

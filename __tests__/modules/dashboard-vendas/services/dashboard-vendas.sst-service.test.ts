@@ -100,6 +100,20 @@ const nacIntPorDataFixture: Record<string, { data: Array<Record<string, unknown>
   },
 };
 
+// GET /api/resumos/aereo — mesmo conjunto de registros (por hora) pra
+// qualquer uma das 3 datas mantidas, já que `respostaPara` não
+// discrimina por data aqui (só interessa a FORMA horária, não o valor
+// absoluto). 3 registros em horas distintas — suficiente pra provar que
+// o bucket por hora e a curva cumulativa funcionam.
+const resumosAereoFixture = {
+  data: [
+    { tarifa: 1_000, created_at: "2026-08-10T12:00:00.000Z" }, // 09h Brasília
+    { tarifa: 2_000, created_at: "2026-08-10T15:00:00.000Z" }, // 12h Brasília
+    { tarifa: 1_000, created_at: "2026-08-10T21:00:00.000Z" }, // 18h Brasília
+  ],
+  total: 3,
+};
+
 // /api/consolidado/air e /api/consolidado/non-air — mesmo valor pra
 // qualquer intervalo de data neste fixture (o teste não varia por data,
 // só verifica que o service usa esses campos corretamente).
@@ -182,6 +196,7 @@ function respostaPara(url: string) {
   }
   if (url.includes("/api/reports/ranking-cias")) return rankingCiasFixture;
   if (url.includes("/api/reports/saude-bases")) return saudeBasesFixture;
+  if (url.includes("/api/resumos/aereo")) return resumosAereoFixture;
   if (url.includes("/api/consolidado/nacional-vs-internacional")) {
     const startDate = new URL(url).searchParams.get("startDate");
     if (startDate && startDate in nacIntPorDataFixture) return nacIntPorDataFixture[startDate];
@@ -416,13 +431,17 @@ describe("dashboardVendasSstService", () => {
     expect(projecao.aEmitir).toBe(0);
   });
 
-  it("curva de projecao continua sempre vinda do mock, mesmo com os agregados reais", async () => {
-    const [projecao, mockEstatico] = await Promise.all([
-      dashboardVendasSstService.obterProjecao(),
-      dashboardVendasMockService.obterProjecao(),
-    ]);
+  it("monta a curva horária real a partir da forma dos 3 dias mantidos (sem split nacional/internacional)", async () => {
+    const projecao = await dashboardVendasSstService.obterProjecao();
 
-    expect(projecao.curva).toEqual(mockEstatico.curva);
+    expect(projecao.curva).toHaveLength(24);
+    expect(projecao.curva[0]!.hora).toBe("00:00");
+    expect(projecao.curva[23]!.hora).toBe("23:00");
+    // Fixture tem vendas só nas horas 9/12/18 — a curva esperada cresce
+    // nessas horas e fecha exatamente no fechamentoEsperado na última.
+    expect(projecao.curva[23]!.esperado).toBeCloseTo(projecao.fechamentoEsperado);
+    expect(projecao.curva[8]!.esperado).toBe(0);
+    expect(projecao.curva[9]!.esperado).toBeGreaterThan(0);
   });
 
   it("degrada só projecao pro mock quando o SST falha nessas chamadas, sem afetar vendasMensais", async () => {
