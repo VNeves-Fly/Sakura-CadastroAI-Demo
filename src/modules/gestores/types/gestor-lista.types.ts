@@ -5,9 +5,9 @@ import type { GestorNivel } from "@/modules/gestores/types/gestor-nivel.types";
 // gestorId apontando pra este gestor (ver page.tsx). "nivel" é mock
 // front-end (ver gestor-nivel.types.ts). As demais métricas de carteira
 // (total/vend30d/paradas90d/vendasMes/vendasAno/limite/saude) não têm fonte
-// real hoje — mesma decisão de promotor-lista.types.ts — e só existem depois
-// que o usuário clica em "Visualizar dados" (pedido do usuário, 2026-08-17):
-// nascem `null`, a tabela renderiza "-" enquanto isso.
+// real hoje — mesma decisão de promotor-lista.types.ts — mock determinístico
+// sempre calculado e apenas mascarado via SensitiveValue quando o toggle
+// global de visibilidade (useDataVisibility) estiver oculto.
 export interface GestorListaView {
   id: string;
   nome: string;
@@ -15,14 +15,14 @@ export interface GestorListaView {
   bases: string[];
   nivel: GestorNivel;
   executivos: number;
-  semVenda: boolean | null;
-  total: number | null;
-  vendendo30d: number | null;
-  paradas90d: number | null;
-  vendasMes: number | null;
-  vendasAno: number | null;
-  limite: number | null;
-  saudePercentual: number | null;
+  semVenda: boolean;
+  total: number;
+  vendendo30d: number;
+  paradas90d: number;
+  vendasMes: number;
+  vendasAno: number;
+  limite: number;
+  saudePercentual: number;
 }
 
 export interface GestorListaFiltros {

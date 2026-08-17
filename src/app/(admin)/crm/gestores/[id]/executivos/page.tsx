@@ -2,12 +2,13 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { carregarGestorComExecutivos } from "@/modules/gestores/services/gestor-detalhe.loader";
-import { montarGestorDetalheView } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
-import { GestorDashboardView } from "@/modules/gestores/views/gestor-dashboard-view";
+import { montarGestorPerfil } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
+import { gestorExecutivosTabAdapter } from "@/modules/gestores/adapters/gestor-executivos-tab.adapter";
+import { GestorExecutivosView } from "@/modules/gestores/views/gestor-executivos-view";
 
 const CARGOS_GESTAO_DE_GESTORES = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 
-export default async function GestorDetalhePage({ params }: { params: { id: string } }) {
+export default async function GestorExecutivosPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(nextAuthOptions);
   if (!session || !CARGOS_GESTAO_DE_GESTORES.has(session.user.cargo)) {
     redirect("/cadastros");
@@ -18,7 +19,8 @@ export default async function GestorDetalhePage({ params }: { params: { id: stri
     notFound();
   }
 
-  const detalhe = montarGestorDetalheView(dados.gestor, dados.executivos);
+  const perfil = montarGestorPerfil(dados.gestor, dados.executivos);
+  const executivos = gestorExecutivosTabAdapter.toViewList(dados.executivos);
 
-  return <GestorDashboardView detalhe={detalhe} />;
+  return <GestorExecutivosView perfil={perfil} executivos={executivos} />;
 }

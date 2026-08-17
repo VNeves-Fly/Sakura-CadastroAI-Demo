@@ -15,17 +15,8 @@ interface GestoresViewProps {
 
 export function GestoresView({ basesOptions, executivosPorGestor }: GestoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
-  const {
-    gestores,
-    total,
-    isLoading,
-    error,
-    busca,
-    atualizarBusca,
-    carregando,
-    minutosDesdeAtualizacao,
-    visualizarDados,
-  } = useGestoresListaViewModel(executivosPorGestor);
+  const { gestores, total, isLoading, error, busca, atualizarBusca } =
+    useGestoresListaViewModel(executivosPorGestor);
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -35,9 +26,6 @@ export function GestoresView({ basesOptions, executivosPorGestor }: GestoresView
         busca={busca}
         onBuscaChange={atualizarBusca}
         total={total}
-        minutosDesdeAtualizacao={minutosDesdeAtualizacao}
-        carregando={carregando}
-        onVisualizarDados={visualizarDados}
         onNovoCadastro={() => setModalAberto(true)}
       />
 
