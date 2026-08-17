@@ -7,14 +7,12 @@ import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.type
 import type { PromotorListaFiltros } from "@/modules/atribuicoes/types/promotor-lista.types";
 
 // Defaults não confirmados na SPEC pra "Esconder INATIVO"/"Ocultar sem
-// vendas" (só o do GCP foi documentado explicitamente como "desligado por
-// padrão") — mantidos desligados até validar com o time de negócio, pra
+// vendas" — mantidos desligados até validar com o time de negócio, pra
 // não esconder dado nenhum sem essa confirmação.
 const FILTROS_INICIAIS: PromotorListaFiltros = {
   busca: "",
   esconderInativo: false,
   ocultarSemVendas: false,
-  gcp: false,
 };
 
 export function useExecutivosListaViewModel(gestoresOptions: GestorOpcao[] | null) {

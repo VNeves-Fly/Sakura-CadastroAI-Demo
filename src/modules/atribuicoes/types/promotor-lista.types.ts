@@ -28,10 +28,6 @@ export interface PromotorListaFiltros {
   busca: string;
   esconderInativo: boolean;
   ocultarSemVendas: boolean;
-  // Sem fonte de dado/regra de negócio confirmada (ver SPEC seção 2.1,
-  // item 4) — mantido só como toggle visual até definição do time de
-  // negócio; não filtra nada por enquanto.
-  gcp: boolean;
 }
 
 export type PromotorListaColunaOrdenavel =

@@ -38,11 +38,6 @@ export function ExecutivosListaToolbar({
         checked={filtros.ocultarSemVendas}
         onCheckedChange={(valor) => onAtualizarFiltro("ocultarSemVendas", valor)}
       />
-      <ToggleFiltro
-        label="GCP"
-        checked={filtros.gcp}
-        onCheckedChange={(valor) => onAtualizarFiltro("gcp", valor)}
-      />
 
       <div className="ml-auto flex items-center gap-3">
         <span className="text-muted-foreground text-sm whitespace-nowrap">

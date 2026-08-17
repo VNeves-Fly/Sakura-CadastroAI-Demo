@@ -17,6 +17,7 @@ import {
   UserPlus,
   MapPin,
   Building2,
+  Store,
   FileSignature,
 } from "lucide-react";
 import {
@@ -68,22 +69,9 @@ const CARGOS_SEM_DASHBOARD_NOVO: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GES
 // referência) mas ficam desabilitados até cada módulo existir de fato.
 const GRUPOS_NAV: AdminNavGrupo[] = [
   {
-    label: "Painéis",
-    itens: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      // Reprodução da SPEC do CRM Sakura (SPEC_Dashboard_Sakura.md),
-      // dados mock — ver dashboard-vendas.mock-service.ts.
-      {
-        label: "Dashboard (novo)",
-        href: "/crm/dashboard-new",
-        icon: BarChart2,
-        ocultoPara: CARGOS_SEM_DASHBOARD_NOVO,
-      },
-    ],
-  },
-  {
     label: "Onboarding",
     itens: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
       {
         label: "Atendimento",
@@ -106,6 +94,14 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
     // comercial Base -> Gestor -> Executivo.
     label: "Comercial",
     itens: [
+      // Reprodução da SPEC do CRM Sakura (SPEC_Dashboard_Sakura.md),
+      // dados mock — ver dashboard-vendas.mock-service.ts.
+      {
+        label: "Dashboard (novo)",
+        href: "/crm/dashboard-new",
+        icon: BarChart2,
+        ocultoPara: CARGOS_SEM_DASHBOARD_NOVO,
+      },
       {
         label: "Bases",
         href: "/bases",
@@ -123,6 +119,12 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         href: "/crm/executivos",
         icon: UserPlus,
         ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
+      },
+      {
+        label: "Agências",
+        href: "/crm/agencias",
+        icon: Store,
+        ocultoPara: CARGOS_NAO_ADMIN,
       },
       {
         label: "Associações",
