@@ -54,8 +54,8 @@ const CARGOS_INTERNOS_APENAS: Cargo[] = ["GESTOR", "EXECUTIVO"];
 // "Gestores" só pra quem pode cadastrar Gestor (decisão do usuário,
 // 2026-08-03) — Admin/Diretor, ninguém mais.
 const CARGOS_NAO_ADMIN: Cargo[] = ["ANALISTA", "GESTOR", "EXECUTIVO"];
-// "Executivos" (/promotores) — Admin/Diretor cadastram qualquer um, Gestor
-// só os seus; Analista/Executivo não cadastram.
+// "Executivos" (/executivos, internamente "Promotor") — Admin/Diretor
+// cadastram qualquer um, Gestor só os seus; Analista/Executivo não cadastram.
 const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
 // "Dashboard (novo)" — restrito a ADMIN (pedido do usuário, 2026-08-13);
 // diferente de CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica
@@ -75,7 +75,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
       // dados mock — ver dashboard-vendas.mock-service.ts.
       {
         label: "Dashboard (novo)",
-        href: "/dashboard-new",
+        href: "/crm/dashboard-new",
         icon: BarChart2,
         ocultoPara: CARGOS_SEM_DASHBOARD_NOVO,
       },
@@ -114,13 +114,13 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
       },
       {
         label: "Gestores",
-        href: "/gestores",
+        href: "/crm/gestores",
         icon: ShieldCheck,
         ocultoPara: CARGOS_NAO_ADMIN,
       },
       {
         label: "Executivos",
-        href: "/promotores",
+        href: "/crm/executivos",
         icon: UserPlus,
         ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
       },
@@ -203,9 +203,11 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                       <SidebarMenuButton
                         isActive={
                           // "/cadastros" é prefixo de toda subrota (usuários,
-                          // eventos, messenger) e "/dashboard" é prefixo de
-                          // "/dashboard-new" — esses dois precisam de match
-                          // exato, senão o item errado também fica ativo.
+                          // eventos, messenger) — precisa de match exato,
+                          // senão o item errado também fica ativo. "Dashboard
+                          // (novo)" mudou pra /crm/dashboard-new (2026-08-17)
+                          // e não colide mais com "/dashboard", mas o match
+                          // exato continua valendo pro item raiz.
                           ROTAS_EXATAS.has(item.href)
                             ? pathname === item.href
                             : pathname.startsWith(item.href)

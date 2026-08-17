@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useGestoresStore } from "@/modules/gestores/stores/gestores.store";
+import { useGestorNiveisStore } from "@/modules/gestores/stores/gestor-niveis.store";
 import { gestoresAdapter } from "@/modules/gestores/adapters/gestores.adapter";
 import { gestoresService } from "@/modules/gestores/services/gestores.service";
 import type { GestorFormValues } from "@/modules/gestores/types/gestor.types";
@@ -23,6 +24,11 @@ export function useCreateGestorViewModel() {
       const raw = await gestoresService.create(serviceInput);
       const result = gestoresAdapter.toCreatedResult(raw);
       addGestor(result.gestor);
+      // Nível não existe no backend (ver gestor-nivel.types.ts) — grava só
+      // no override local, associado ao id que acabou de ser gerado.
+      if (values.nivel) {
+        useGestorNiveisStore.getState().definirNivel(result.gestor.id, values.nivel);
+      }
       setLastCreatedResult(result);
       return true;
     } catch (caughtError) {

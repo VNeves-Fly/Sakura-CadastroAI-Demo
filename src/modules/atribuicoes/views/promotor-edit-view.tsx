@@ -36,10 +36,10 @@ export function PromotorEditView({
       <div className="flex items-center justify-between">
         <h1 className="text-foreground text-xl font-semibold">Editar executivo</h1>
         <Link
-          href="/promotores"
+          href={`/crm/executivos/${id}`}
           className="text-muted-foreground hover:text-foreground text-xs font-medium"
         >
-          ← Voltar pra Executivos
+          ← Voltar pro perfil do executivo
         </Link>
       </div>
 

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { Info, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MockBadge } from "@/modules/dashboard-vendas/components/ui/mock-badge";
 import {
   formatarMoedaAbreviada,
   formatarMoedaBrl,
@@ -157,7 +158,13 @@ export function ProjecaoDoDiaCard({ projecao }: ProjecaoDoDiaCardProps) {
           </div>
         </div>
 
-        <Chart options={options} series={series} type="line" height={280} />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-end gap-1.5">
+            <span className="text-muted-foreground text-xs">Curva ilustrativa</span>
+            <MockBadge />
+          </div>
+          <Chart options={options} series={series} type="line" height={280} />
+        </div>
       </div>
     </div>
   );

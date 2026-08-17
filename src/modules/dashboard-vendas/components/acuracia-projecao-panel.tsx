@@ -26,6 +26,7 @@ export function AcuraciaProjecaoPanel({ acuracia }: AcuraciaProjecaoPanelProps) 
       subtitulo="últimos 30 dias"
       badgeTexto={`erro médio ${formatarPercentual(acuracia.erroMedioPct)}`}
       badgeTom={tomDoErro(acuracia.erroMedioPct)}
+      avisoMock
     >
       <div className="max-h-64 overflow-y-auto">
         <table className="w-full text-left text-xs">

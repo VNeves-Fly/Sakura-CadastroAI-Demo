@@ -1,56 +1,83 @@
+import { Suspense } from "react";
 import { ResumoDoDiaCard } from "@/modules/dashboard-vendas/components/resumo-do-dia-card";
 import { MiniKpisGrid } from "@/modules/dashboard-vendas/components/mini-kpis-grid";
 import { VendasIntradayChart } from "@/modules/dashboard-vendas/components/vendas-intraday-chart";
 import { ProjecaoDoDiaCard } from "@/modules/dashboard-vendas/components/projecao-do-dia-card";
 import { AcuraciaProjecaoPanel } from "@/modules/dashboard-vendas/components/acuracia-projecao-panel";
-import { RecenciaKpisGrid } from "@/modules/dashboard-vendas/components/recencia-kpis-grid";
-import { ConversaoPanel } from "@/modules/dashboard-vendas/components/conversao-panel";
-import { VendasMensaisChart } from "@/modules/dashboard-vendas/components/vendas-mensais-chart";
-import { VendasDiariasChart } from "@/modules/dashboard-vendas/components/vendas-diarias-chart";
 import { TopAgenciasCard } from "@/modules/dashboard-vendas/components/top-agencias-card";
 import { TopFornecedoresCard } from "@/modules/dashboard-vendas/components/top-fornecedores-card";
 import { NacionalInternacionalCard } from "@/modules/dashboard-vendas/components/nacional-internacional-card";
-import { CruzamentoCanaisCard } from "@/modules/dashboard-vendas/components/cruzamento-canais-card";
+import { RecenciaECruzamentoSecao } from "@/modules/dashboard-vendas/components/secoes/recencia-e-cruzamento-secao";
+import { ConversaoSecao } from "@/modules/dashboard-vendas/components/secoes/conversao-secao";
+import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-mensais-secao";
+import { VendasDiariasSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-diarias-secao";
+import { SecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/secao-skeleton";
 import type { DashboardVendasData } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
+type ResumoEDia = Pick<
+  DashboardVendasData,
+  | "resumoPorPeriodo"
+  | "miniKpis"
+  | "rankingPorMes"
+  | "fornecedoresPorMes"
+  | "nacionalInternacionalPorMes"
+>;
+type MockEstatico = Pick<DashboardVendasData, "intraday" | "projecao" | "acuracia">;
+
 interface DashboardVendasViewProps {
-  dados: DashboardVendasData;
+  resumoEDia: ResumoEDia;
+  mockEstatico: MockEstatico;
 }
 
-// Orquestra as seções na ordem exata da spec (4.1 → 4.11). Recebe os
-// dados já adaptados prontos — zero regra de negócio aqui, só layout.
-export function DashboardVendasView({ dados }: DashboardVendasViewProps) {
+// Orquestra as seções na ordem da spec (4.1 → 4.11), com uma diferença
+// deliberada: `recencia` e `cruzamentoCanais` (4.6 e 4.11 na spec) agora
+// ficam lado a lado, porque streamam juntas — as duas dependem da mesma
+// busca cara no SST (ver RecenciaECruzamentoSecao). O resto continua na
+// ordem original.
+//
+// Carregamento progressivo: só `resumoEDia`/`mockEstatico` chegam prontos
+// (rápidos, sem paginação) — as 4 seções pesadas (que fazem paginação de
+// `/api/resumos/terrestre`) streamam via `Suspense`, cada uma assim que
+// terminar, em vez de bloquear a página inteira nos ~30s do pior caso.
+export function DashboardVendasView({ resumoEDia, mockEstatico }: DashboardVendasViewProps) {
   return (
     // "dashboard-vendas-scope" dá vida às vars --dv-* (ver
     // constants/dashboard-vendas.constants.ts + .dashboard-vendas-scope
     // em globals.css) — sem esta classe em algum ancestral, os
     // `var(--dv-*)` não resolvem e as cores somem.
     <div className="dashboard-vendas-scope flex flex-col gap-4">
-      <ResumoDoDiaCard resumoPorPeriodo={dados.resumoPorPeriodo} />
-      <MiniKpisGrid {...dados.miniKpis} />
+      <ResumoDoDiaCard resumoPorPeriodo={resumoEDia.resumoPorPeriodo} />
+      <MiniKpisGrid {...resumoEDia.miniKpis} />
       <VendasIntradayChart
-        intraday={dados.intraday}
-        atualizadoEm={dados.resumoPorPeriodo.hoje.atualizadoEm}
+        intraday={mockEstatico.intraday}
+        atualizadoEm={resumoEDia.resumoPorPeriodo.hoje.atualizadoEm}
       />
-      <ProjecaoDoDiaCard projecao={dados.projecao} />
-      <AcuraciaProjecaoPanel acuracia={dados.acuracia} />
-      <RecenciaKpisGrid recencia={dados.recencia} recenciaDetalhe={dados.recenciaDetalhe} />
-      <ConversaoPanel conversao={dados.conversao} />
-      <VendasMensaisChart vendasMensais={dados.vendasMensais} />
-      <VendasDiariasChart vendasDiarias={dados.vendasDiarias} />
+      <ProjecaoDoDiaCard projecao={mockEstatico.projecao} />
+      <AcuraciaProjecaoPanel acuracia={mockEstatico.acuracia} />
+
+      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
+        <RecenciaECruzamentoSecao />
+      </Suspense>
+
+      <Suspense fallback={<SecaoSkeleton altura="h-48" />}>
+        <ConversaoSecao />
+      </Suspense>
+
+      <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
+        <VendasMensaisSecao />
+      </Suspense>
+
+      <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
+        <VendasDiariasSecao />
+      </Suspense>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <TopAgenciasCard rankingPorMes={dados.rankingPorMes} />
-        <TopFornecedoresCard fornecedoresPorMes={dados.fornecedoresPorMes} />
+        <TopAgenciasCard rankingPorMes={resumoEDia.rankingPorMes} />
+        <TopFornecedoresCard fornecedoresPorMes={resumoEDia.fornecedoresPorMes} />
         <NacionalInternacionalCard
-          nacionalInternacionalPorMes={dados.nacionalInternacionalPorMes}
+          nacionalInternacionalPorMes={resumoEDia.nacionalInternacionalPorMes}
         />
       </div>
-
-      <CruzamentoCanaisCard
-        cruzamento={dados.cruzamentoCanais}
-        cruzamentoDetalhe={dados.cruzamentoDetalhe}
-      />
     </div>
   );
 }

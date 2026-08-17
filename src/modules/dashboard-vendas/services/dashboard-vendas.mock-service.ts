@@ -691,29 +691,70 @@ function construirCruzamentoDetalhe(
   };
 }
 
-export const dashboardVendasMockService = {
-  async obterDashboard(): Promise<DashboardVendasData> {
-    const cruzamentoCanais = construirCruzamentoCanais();
+async function obterDashboardMock(): Promise<DashboardVendasData> {
+  const cruzamentoCanais = construirCruzamentoCanais();
 
+  return {
+    resumoPorPeriodo: construirResumoPorPeriodo(),
+    miniKpis: { clientesDistintos: 29, bilhetesAereo: 158, ticketMedioAereo: 1_786.5 },
+    intraday: construirIntraday(),
+    projecao: construirProjecao(),
+    acuracia: construirAcuracia(),
+    recencia: construirRecencia(),
+    recenciaDetalhe: construirRecenciaDetalhe(),
+    conversao: construirConversao(),
+    vendasMensais: construirVendasMensais(),
+    vendasDiarias: construirVendasDiarias(),
+    rankingPorMes: { mes: construirTopAgencias(1), ano: construirTopAgencias(11.4) },
+    fornecedoresPorMes: { mes: construirTopFornecedores(1), ano: construirTopFornecedores(11.4) },
+    nacionalInternacionalPorMes: {
+      mes: construirNacionalInternacional(1),
+      ano: construirNacionalInternacional(11.4),
+    },
+    cruzamentoCanais,
+    cruzamentoDetalhe: construirCruzamentoDetalhe(cruzamentoCanais),
+  };
+}
+
+// Métodos granulares (além de `obterDashboard`) pra combinar com o
+// carregamento progressivo do lado real (ver dashboard-vendas.sst-
+// service.ts) — o mock é só computação em memória, então recalcular o
+// objeto inteiro a cada método aqui é barato (sem I/O).
+export const dashboardVendasMockService = {
+  obterDashboard: obterDashboardMock,
+  async obterResumoEDia() {
+    const dados = await obterDashboardMock();
     return {
-      resumoPorPeriodo: construirResumoPorPeriodo(),
-      miniKpis: { clientesDistintos: 29, bilhetesAereo: 158, ticketMedioAereo: 1_786.5 },
-      intraday: construirIntraday(),
-      projecao: construirProjecao(),
-      acuracia: construirAcuracia(),
-      recencia: construirRecencia(),
-      recenciaDetalhe: construirRecenciaDetalhe(),
-      conversao: construirConversao(),
-      vendasMensais: construirVendasMensais(),
-      vendasDiarias: construirVendasDiarias(),
-      rankingPorMes: { mes: construirTopAgencias(1), ano: construirTopAgencias(11.4) },
-      fornecedoresPorMes: { mes: construirTopFornecedores(1), ano: construirTopFornecedores(11.4) },
-      nacionalInternacionalPorMes: {
-        mes: construirNacionalInternacional(1),
-        ano: construirNacionalInternacional(11.4),
-      },
-      cruzamentoCanais,
-      cruzamentoDetalhe: construirCruzamentoDetalhe(cruzamentoCanais),
+      resumoPorPeriodo: dados.resumoPorPeriodo,
+      miniKpis: dados.miniKpis,
+      rankingPorMes: dados.rankingPorMes,
+      fornecedoresPorMes: dados.fornecedoresPorMes,
+      nacionalInternacionalPorMes: dados.nacionalInternacionalPorMes,
     };
+  },
+  async obterVendasMensais() {
+    return (await obterDashboardMock()).vendasMensais;
+  },
+  async obterVendasDiarias() {
+    return (await obterDashboardMock()).vendasDiarias;
+  },
+  async obterConversao() {
+    return (await obterDashboardMock()).conversao;
+  },
+  async obterRecenciaECruzamento() {
+    const dados = await obterDashboardMock();
+    return {
+      recencia: dados.recencia,
+      recenciaDetalhe: dados.recenciaDetalhe,
+      cruzamentoCanais: dados.cruzamentoCanais,
+      cruzamentoDetalhe: dados.cruzamentoDetalhe,
+    };
+  },
+  async obterMockEstatico() {
+    const dados = await obterDashboardMock();
+    return { intraday: dados.intraday, projecao: dados.projecao, acuracia: dados.acuracia };
+  },
+  async obterProjecao() {
+    return (await obterDashboardMock()).projecao;
   },
 };
