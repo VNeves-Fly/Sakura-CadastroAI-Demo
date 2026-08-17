@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useGestoresStore } from "@/modules/gestores/stores/gestores.store";
+import { useGestorNiveisStore } from "@/modules/gestores/stores/gestor-niveis.store";
 import { gestoresAdapter } from "@/modules/gestores/adapters/gestores.adapter";
 import { gestoresService } from "@/modules/gestores/services/gestores.service";
 import type {
@@ -47,6 +48,11 @@ export function useUpdateGestorViewModel(id: string) {
       const updated = gestoresAdapter.toCreatedResult(raw);
       setGestor(updated.gestor);
       updateGestorNaStore(updated.gestor);
+      // Nível não existe no backend (ver gestor-nivel.types.ts) — grava só
+      // no override local.
+      if (values.nivel) {
+        useGestorNiveisStore.getState().definirNivel(id, values.nivel);
+      }
       setResult(updated);
       return true;
     } catch (caughtError) {

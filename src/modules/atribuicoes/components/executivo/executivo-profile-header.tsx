@@ -85,7 +85,7 @@ export function ExecutivoProfileHeader({ perfil }: ExecutivoProfileHeaderProps) 
         <div className="flex items-center gap-3">
           <ToggleVisibilidadeButton />
           <Link
-            href={`/executivos/${perfil.id}/editar`}
+            href={`/crm/executivos/${perfil.id}/editar`}
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs font-medium"
           >
             <Pencil className="size-3.5" />

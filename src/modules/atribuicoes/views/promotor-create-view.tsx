@@ -15,7 +15,7 @@ interface PromotorCreateViewProps {
 
 // Extraído de promotores-view.tsx — antes o formulário de criação ficava
 // sempre visível no topo da lista; agora vive na própria rota
-// /executivos/novo, aberta a partir do botão "Novo cadastro" da toolbar.
+// /crm/executivos/novo, aberta a partir do botão "Novo cadastro" da toolbar.
 export function PromotorCreateView({
   gestoresOptions,
   minhasBasesSiglas,
@@ -29,7 +29,7 @@ export function PromotorCreateView({
       <div className="flex items-center justify-between">
         <h1 className="text-foreground text-xl font-semibold">Novo executivo</h1>
         <Link
-          href="/executivos"
+          href="/crm/executivos"
           className="text-muted-foreground hover:text-foreground text-xs font-medium"
         >
           ← Voltar pra Executivos
