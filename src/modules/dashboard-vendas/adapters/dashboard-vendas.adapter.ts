@@ -27,7 +27,7 @@ function normalizarResumo(resumo: ResumoDia): ResumoDia {
 }
 
 // Exportadas à parte (além de `toViewModel`) pra uso no carregamento
-// progressivo (ver dashboard-new/page.tsx) — cada seção streamada via
+// progressivo (ver crm/dashboard/page.tsx) — cada seção streamada via
 // Suspense normaliza só o próprio pedaço, sem esperar o resto.
 export function normalizarResumoPorPeriodo(
   resumoPorPeriodo: DashboardVendasData["resumoPorPeriodo"],

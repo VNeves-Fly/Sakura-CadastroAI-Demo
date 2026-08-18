@@ -21,7 +21,7 @@ const dashboardVendasService = process.env.SST_API_KEY
   : dashboardVendasMockService;
 
 // Métodos granulares (além de `obterDashboard`) pra alimentar o
-// carregamento progressivo de `dashboard-new/page.tsx` — cada seção
+// carregamento progressivo de `crm/dashboard/page.tsx` — cada seção
 // pesada é buscada e normalizada por conta própria, sem esperar as
 // outras (ver Suspense na página).
 export const dashboardVendasController = {

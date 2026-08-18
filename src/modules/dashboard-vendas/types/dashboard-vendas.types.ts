@@ -1,4 +1,4 @@
-// Modelo de dados da página /dashboard-new — módulo isolado e 100% mock
+// Modelo de dados da página /crm/dashboard — módulo isolado e 100% mock
 // (não existe base de vendas aéreas/terrestres neste projeto ainda, ver
 // SPEC_Dashboard_Sakura.md). Estrutura calcada na seção 6 da spec, só
 // tipos que já chegam prontos pra View consumir (a normalização de

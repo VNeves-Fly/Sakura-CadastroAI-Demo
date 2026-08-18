@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Bus, Clock, Plane } from "lucide-react";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { ComparisonSplitCard } from "@/modules/dashboard-vendas/components/ui/comparison-split-card";
+import { PersonalizadoDateRange } from "@/modules/dashboard-vendas/components/ui/personalizado-date-range";
+import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
 import {
   formatarMoedaBrl,
@@ -20,11 +22,21 @@ import type {
   ResumoDia,
 } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
-const OPCOES_PERIODO: { valor: PeriodoResumo; label: string }[] = [
+// "Personalizado" é só de UI por enquanto — não existe (ainda) uma fonte
+// de dados que calcule um intervalo arbitrário de datas (isso exigiria
+// uma consulta nova no back-end, fora do escopo atual, que é só front-end
+// — decisão do usuário, 2026-08-18). Enquanto isso, mostra a prévia de
+// "Este mês" com um aviso deixando claro que o filtro ainda não está
+// conectado a um cálculo real.
+type FiltroResumo = PeriodoResumo | "personalizado";
+const PERIODO_PREVIA_PERSONALIZADO: PeriodoResumo = "mes";
+
+const OPCOES_PERIODO: { valor: FiltroResumo; label: string }[] = [
   { valor: "hoje", label: "Hoje" },
   { valor: "ontem", label: "Ontem" },
   { valor: "mes", label: "Este mês" },
   { valor: "ano", label: "Este ano" },
+  { valor: "personalizado", label: "Personalizado" },
 ];
 
 interface ResumoDoDiaCardProps {
@@ -35,16 +47,21 @@ interface ResumoDoDiaCardProps {
 // com a barra de proporção. Todo o toggle é local/client-side: os 4
 // cenários já vêm calculados na fixture, sem refetch.
 export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
-  const [periodo, setPeriodo] = useState<PeriodoResumo>("hoje");
-  const resumo = resumoPorPeriodo[periodo];
+  const [filtro, setFiltro] = useState<FiltroResumo>("hoje");
+  const [dataInicial, setDataInicial] = useState("");
+  const [dataFinal, setDataFinal] = useState("");
+
+  const personalizado = filtro === "personalizado";
+  const periodoComDados: PeriodoResumo = personalizado ? PERIODO_PREVIA_PERSONALIZADO : filtro;
+  const resumo = resumoPorPeriodo[periodoComDados];
   const totalPeriodo = resumo.aereo.valor + resumo.terrestre.valor;
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p
-            className="bg-clip-text text-4xl font-black text-transparent sm:text-[42px]"
+            className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
             style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
           >
             {formatarMoedaBrl(totalPeriodo)}
@@ -55,12 +72,27 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
           </p>
         </div>
 
-        <PeriodToggle opcoes={OPCOES_PERIODO} valor={periodo} onChange={setPeriodo} />
+        <div className="flex flex-col items-end gap-2">
+          <PeriodToggle opcoes={OPCOES_PERIODO} valor={filtro} onChange={setFiltro} />
+
+          {personalizado ? (
+            <PersonalizadoDateRange
+              dataInicial={dataInicial}
+              dataFinal={dataFinal}
+              onDataInicialChange={setDataInicial}
+              onDataFinalChange={setDataFinal}
+            />
+          ) : null}
+        </div>
       </div>
+
+      {personalizado ? <PersonalizadoAviso periodoPreviaLabel="Este mês" /> : null}
 
       <div className="mt-5">
         <ComparisonSplitCard
           progressoEsquerdaPct={resumo.aereo.participacaoPct}
+          participacaoEsquerda={formatarPercentual(resumo.aereo.participacaoPct)}
+          participacaoDireita={formatarPercentual(resumo.terrestre.participacaoPct)}
           esquerda={{
             icon: Plane,
             cor: COR_ROSA,
@@ -68,8 +100,8 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
             label: "Aéreo",
             valor: formatarMoedaBrl(resumo.aereo.valor),
             legenda: `${resumo.aereo.quantidade} bilhetes`,
-            badgeTopo: formatarPercentual(resumo.aereo.participacaoPct),
             badgeRodape: `MARGEM ${formatarPercentual(resumo.aereo.margemPct)}`,
+            orientacao: "horizontal",
           }}
           direita={{
             icon: Bus,
@@ -78,8 +110,8 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
             label: "Terrestre",
             valor: formatarMoedaBrl(resumo.terrestre.valor),
             legenda: `${resumo.terrestre.quantidade} vendas`,
-            badgeTopo: formatarPercentual(resumo.terrestre.participacaoPct),
             badgeRodape: `MARGEM ${formatarPercentual(resumo.terrestre.margemPct)}`,
+            orientacao: "horizontal",
           }}
         />
       </div>

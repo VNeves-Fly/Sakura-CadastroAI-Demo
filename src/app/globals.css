@@ -154,7 +154,7 @@
     --ring: 319 100% 47%;
   }
 
-  /* Paleta do /dashboard-new (dashboard-vendas.constants.ts) — mesmo
+  /* Paleta do /crm/dashboard (dashboard-vendas.constants.ts) — mesmo
      padrão do .chat-scope acima: escopada a uma classe própria, nunca em
      :root, pra não virar token global nem arriscar o resto do app.
      Consumida só via var(--dv-*) pelas próprias constantes do módulo. */
