@@ -31,7 +31,7 @@ const ABAS: { chave: StatusTab; label: string; icon: typeof LayoutGrid; corAtiva
 // carteira já carregada, ver use-agencias-carteira.view-model.ts).
 export function AgenciasStatusTabs({ statusTab, onChange, contadores }: AgenciasStatusTabsProps) {
   return (
-    <div className="border-border flex gap-1 border-b">
+    <div className="border-border flex gap-1 overflow-x-auto border-b">
       {ABAS.map((aba) => {
         const ativa = aba.chave === statusTab;
         return (
@@ -40,7 +40,7 @@ export function AgenciasStatusTabs({ statusTab, onChange, contadores }: Agencias
             type="button"
             onClick={() => onChange(aba.chave)}
             className={cn(
-              "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition",
+              "flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition",
               ativa
                 ? aba.corAtiva
                 : "text-muted-foreground hover:text-foreground border-transparent",

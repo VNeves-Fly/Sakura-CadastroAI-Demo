@@ -83,7 +83,7 @@ export function TopAgenciasCard({ rankingPorMes }: TopAgenciasCardProps) {
         subtitulo="Modalidade: Aéreo + Terrestre"
         aoClicar={() => setModalAberto(true)}
         acoes={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <PeriodToggle
               opcoes={OPCOES_TIPO_ROTA}
               valor={tipoRota}
