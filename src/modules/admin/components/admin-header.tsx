@@ -16,6 +16,7 @@ const ROTULOS_PAGINA: Record<string, string> = {
   "/crm/dashboard-new": "Dashboard (novo)",
   "/crm/gestores": "Gestores",
   "/crm/executivos": "Executivos",
+  "/crm/agencias": "Agências",
   "/dashboard": "Dashboard",
   "/cadastros/usuarios": "Usuários",
   "/cadastros/messenger": "Messenger",
