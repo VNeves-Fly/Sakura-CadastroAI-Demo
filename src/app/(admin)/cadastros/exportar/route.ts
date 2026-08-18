@@ -52,6 +52,7 @@ export async function GET(request: Request) {
       dir: url.searchParams.get("dir") ?? undefined,
       filtro: url.searchParams.getAll("filtro"),
       meusAtendimentos: url.searchParams.get("meusAtendimentos") ?? undefined,
+      infoPendente: url.searchParams.get("infoPendente") ?? undefined,
     },
     { analistaId, cargo },
   );

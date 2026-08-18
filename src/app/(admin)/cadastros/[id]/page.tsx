@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atendimentoController } from "@/modules/atendimento/presentation/controllers/atendimento.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
+import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { AtendimentoAgenciaAcoes } from "@/modules/atendimento/components/atendimento-agencia-acoes";
 import {
   Building2,
@@ -19,6 +20,8 @@ import {
   Bell,
   Sparkles,
   Eye,
+  Clock,
+  X,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
@@ -107,6 +110,7 @@ import {
   editarEmpresaAction,
   editarDadosBancariosAction,
   solicitarReenvioDocumentosAction,
+  desmarcarInfoPendenteAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
@@ -281,6 +285,16 @@ export default async function DossieAgenciaPage({
   const atendimentoAssumidoPorMim = atendimentoAtual?.analistaId === analistaId;
   const atendidoPorOutro = !!atendimentoAtual && !atendimentoAssumidoPorMim;
 
+  // Só quem está atendendo "resolve" a atualização pendente ao abrir a
+  // ficha (decisão do usuário) — abrir só pra olhar, sem ter assumido, não
+  // conta como "visto". `view` já leu notificacoesPendentes ANTES desta
+  // chamada, então o banner abaixo ainda mostra o que mudou desta vez.
+  if (atendimentoAssumidoPorMim && analistaId) {
+    await cadastroAdminController
+      .marcarAtualizacaoComoVista(view.agencia.id, analistaId)
+      .catch(() => {});
+  }
+
   const {
     agencia,
     executivoNome,
@@ -308,6 +322,7 @@ export default async function DossieAgenciaPage({
     historicoEdicoesPorSocioId,
     historicoEdicoesEmpresa,
     decisaoComplementar,
+    notificacoesPendentes,
   } = view;
 
   // Item mais recente do histórico de edições da própria Agencia cujo
@@ -379,9 +394,34 @@ export default async function DossieAgenciaPage({
   return (
     <div className="flex flex-col gap-4">
       <CadastroDetalheLive agenciaId={params.id} />
+      {notificacoesPendentes.length > 0 ? (
+        <div className="border-warning bg-warning/10 text-warning-text flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold">
+          <Bell className="size-4 shrink-0" />
+          {notificacoesPendentes.length} atualização
+          {notificacoesPendentes.length > 1 ? "ões" : ""} desde a última visita:{" "}
+          {notificacoesPendentes.map((notificacao) => notificacao.titulo).join(", ")}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <VoltarButton />
         <div className="flex flex-wrap items-center gap-2">
+          {agencia.infoPendente ? (
+            <span className="bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-bold">
+              <Clock className="size-3.5" />
+              Info pendente
+              {somenteLeituraPorCargo ? null : (
+                <form action={desmarcarInfoPendenteAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    title="Remover — já resolvido por fora do sistema"
+                    className="hover:bg-accent hover:text-foreground rounded-full p-0.5 transition"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </form>
+              )}
+            </span>
+          ) : null}
           <span className="text-muted-foreground text-xs">
             {atendimentoAtual ? (
               <>

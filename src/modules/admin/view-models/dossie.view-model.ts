@@ -1,4 +1,5 @@
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
+import { temAtualizacaoPendente } from "@/modules/cadastro/domain/entities/agencia.entity";
 import {
   paraDocumentoRevisao,
   historicoDoSlot,
@@ -61,6 +62,7 @@ export async function obterDossieView(id: string) {
     historicoAgencia,
     historicoComplementar,
     decisoesHumanas,
+    notificacoes,
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
@@ -103,6 +105,9 @@ export async function obterDossieView(id: string) {
     // Quem aprovou manualmente um cadastro que a IA reprovou/falhou (ver
     // AprovarCadastroComplementarUseCase) — mais recente primeiro.
     cadastroAdminController.listarDecisoesHumanas(agencia.id),
+    // Log de "cliente enviou algo novo" (mensagem/documento) — filtrado
+    // abaixo pelas que ainda não foram vistas por quem estava atendendo.
+    cadastroAdminController.listarNotificacoes(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   // `keySigner` também vem daqui — precisa pro botão "Ver/copiar link" na
@@ -174,6 +179,13 @@ export async function obterDossieView(id: string) {
   const decisaoComplementar =
     decisoesHumanas.find((decisao) => decisao.etapa === "COMPLEMENTAR") ?? null;
 
+  // O que aconteceu nesta ficha desde a última vez que quem estava em
+  // atendimento a viu (ver marcarAtualizacaoComoVista, chamado pela page
+  // DEPOIS de ler este view — senão a lista já chegaria vazia aqui).
+  const notificacoesPendentes = notificacoes.filter((notificacao) =>
+    temAtualizacaoPendente(agencia.atualizacaoVistaEm, notificacao.createdAt),
+  );
+
   const filaAssinatura = montarFilaAssinatura(
     representantesLegais,
     signatariosPadraoAtivos,
@@ -213,5 +225,6 @@ export async function obterDossieView(id: string) {
     historicoEdicoesPorSocioId,
     historicoEdicoesEmpresa,
     decisaoComplementar,
+    notificacoesPendentes,
   };
 }

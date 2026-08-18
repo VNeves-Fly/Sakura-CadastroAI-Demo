@@ -61,6 +61,12 @@ export class SolicitarReenvioDocumentosUseCase implements UseCase<
       throw new DomainError("Nenhum dos documentos selecionados pertence a esta agência.");
     }
 
+    // "Info pendente" (ver comentário no schema.prisma) — liga aqui
+    // independente do e-mail sair ou não: o que importa é que o analista
+    // pediu, não que o aviso chegou. Desliga sozinha quando a agência
+    // reenviar (gera Notificacao) ou quando o status mudar.
+    await this.agenciaRepository.marcarInfoPendente(input.agenciaId);
+
     const link = `${input.baseUrl}/cadastro/documentos-pendentes/${input.agenciaId}`;
     const listaHtml = itens.map((item) => `<li>${item}</li>`).join("");
 

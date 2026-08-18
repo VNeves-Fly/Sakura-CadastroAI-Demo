@@ -31,6 +31,11 @@ function agenciaFake(): Agencia {
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
     executivoId: null,
+    atualizacaoVistaEm: null,
+    atualizacaoVistaPor: null,
+    infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
   });
 }
 
@@ -80,6 +85,7 @@ function detalheFake(): AgenciaDetalhe {
 function criarAgenciaRepositoryFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRepository {
   return {
     obterDetalhe: jest.fn().mockResolvedValue(detalheFake()),
+    marcarInfoPendente: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as unknown as AgenciaRepository;
 }
@@ -137,6 +143,41 @@ describe("SolicitarReenvioDocumentosUseCase", () => {
         html: expect.stringContaining("/cadastro/documentos-pendentes/agencia-1"),
       }),
     );
+  });
+
+  // "Info pendente" (ver comentário no schema.prisma) — liga assim que o
+  // analista pede o reenvio, independente do e-mail sair ou não (ver
+  // teste abaixo, "não lança quando o envio de e-mail falha").
+  it("marca info pendente na agência", async () => {
+    const agenciaRepository = criarAgenciaRepositoryFake();
+    const useCase = new SolicitarReenvioDocumentosUseCase(
+      agenciaRepository,
+      criarEmailSenderFake(),
+    );
+
+    await useCase.execute({
+      agenciaId: "agencia-1",
+      documentoIds: ["doc-contrato-1"],
+      baseUrl: BASE_URL,
+    });
+
+    expect(agenciaRepository.marcarInfoPendente).toHaveBeenCalledWith("agencia-1");
+  });
+
+  it("marca info pendente mesmo quando o envio de e-mail falha", async () => {
+    const agenciaRepository = criarAgenciaRepositoryFake();
+    const emailSender = criarEmailSenderFake({
+      send: jest.fn().mockRejectedValue(new Error("SMTP indisponível")),
+    });
+    const useCase = new SolicitarReenvioDocumentosUseCase(agenciaRepository, emailSender);
+
+    await useCase.execute({
+      agenciaId: "agencia-1",
+      documentoIds: ["doc-contrato-1"],
+      baseUrl: BASE_URL,
+    });
+
+    expect(agenciaRepository.marcarInfoPendente).toHaveBeenCalledWith("agencia-1");
   });
 
   // Bug real reportado em produção: SMTP fora do ar (ou qualquer outra

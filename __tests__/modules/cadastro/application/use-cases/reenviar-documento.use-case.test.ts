@@ -2,6 +2,7 @@ import { ReenviarDocumentoUseCase } from "@/modules/cadastro/application/use-cas
 import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
 import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
+import type { NotificacaoRepository } from "@/modules/cadastro/domain/repositories/notificacao-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
@@ -44,6 +45,9 @@ function criarMocks(documento: Documento) {
     salvarTravelLink: jest.fn(),
     criarContrato: jest.fn(),
     atualizarStatusContrato: jest.fn(),
+    marcarAtualizacaoComoVista: jest.fn(),
+    marcarInfoPendente: jest.fn(),
+    desmarcarInfoPendente: jest.fn(),
     listar: jest.fn(),
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),
@@ -54,22 +58,28 @@ function criarMocks(documento: Documento) {
     listarSeriesMovimentacoes: jest.fn(),
   };
 
+  const notificacaoRepository: NotificacaoRepository = {
+    findByAgenciaId: jest.fn(),
+    create: jest.fn().mockResolvedValue(undefined),
+  };
+
   const save = jest.fn((_arquivo: unknown, pathHint: string) =>
     Promise.resolve({ path: `${pathHint}.pdf`, bucket: "b" }),
   );
   const fileStorage: FileStorage = { save };
 
-  return { documentoRepository, agenciaRepository, fileStorage };
+  return { documentoRepository, agenciaRepository, fileStorage, notificacaoRepository };
 }
 
 describe("ReenviarDocumentoUseCase", () => {
   it("nunca reutiliza o mesmo path entre reenvios diferentes, mesmo pro mesmo sócio/tipo", async () => {
-    const { documentoRepository, agenciaRepository, fileStorage } =
+    const { documentoRepository, agenciaRepository, fileStorage, notificacaoRepository } =
       criarMocks(documentoReprovado());
     const useCase = new ReenviarDocumentoUseCase(
       documentoRepository,
       agenciaRepository,
       fileStorage,
+      notificacaoRepository,
     );
 
     await useCase.execute({ agenciaId: "agencia-1", documentoId: "doc-1", arquivo: ARQUIVO });
@@ -82,13 +92,13 @@ describe("ReenviarDocumentoUseCase", () => {
   });
 
   it("distingue sócios diferentes reenviando o mesmo tipo de documento", async () => {
-    const { documentoRepository, agenciaRepository, fileStorage } = criarMocks(
-      documentoReprovado({ representanteLegalId: "socio-2" }),
-    );
+    const { documentoRepository, agenciaRepository, fileStorage, notificacaoRepository } =
+      criarMocks(documentoReprovado({ representanteLegalId: "socio-2" }));
     const useCase = new ReenviarDocumentoUseCase(
       documentoRepository,
       agenciaRepository,
       fileStorage,
+      notificacaoRepository,
     );
 
     await useCase.execute({ agenciaId: "agencia-1", documentoId: "doc-1", arquivo: ARQUIVO });
@@ -98,13 +108,13 @@ describe("ReenviarDocumentoUseCase", () => {
   });
 
   it("lança NotFoundError se o documento não existe ou é de outra agência", async () => {
-    const { documentoRepository, agenciaRepository, fileStorage } = criarMocks(
-      documentoReprovado({ agenciaId: "outra-agencia" }),
-    );
+    const { documentoRepository, agenciaRepository, fileStorage, notificacaoRepository } =
+      criarMocks(documentoReprovado({ agenciaId: "outra-agencia" }));
     const useCase = new ReenviarDocumentoUseCase(
       documentoRepository,
       agenciaRepository,
       fileStorage,
+      notificacaoRepository,
     );
 
     await expect(
@@ -113,13 +123,13 @@ describe("ReenviarDocumentoUseCase", () => {
   });
 
   it("lança ConflictError se o documento não está reprovado", async () => {
-    const { documentoRepository, agenciaRepository, fileStorage } = criarMocks(
-      documentoReprovado({ status: "PENDENTE" }),
-    );
+    const { documentoRepository, agenciaRepository, fileStorage, notificacaoRepository } =
+      criarMocks(documentoReprovado({ status: "PENDENTE" }));
     const useCase = new ReenviarDocumentoUseCase(
       documentoRepository,
       agenciaRepository,
       fileStorage,
+      notificacaoRepository,
     );
 
     await expect(

@@ -3,9 +3,16 @@ import type { UseCase } from "@/modules/shared/application/use-case";
 import { ConflictError, NotFoundError } from "@/modules/shared/domain/errors";
 import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
+import type { NotificacaoRepository } from "@/modules/cadastro/domain/repositories/notificacao-repository";
 import type { FileStorage } from "@/modules/cadastro/domain/services/file-storage";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { UploadedFileInput } from "@/modules/cadastro/application/dto/finalizar-cadastro.dto";
+
+const LABEL_TIPO_DOCUMENTO: Record<string, string> = {
+  CONTRATO_SOCIAL: "Contrato Social",
+  RG_CNPJ: "RG/CNH",
+  PROCURACAO: "Procuração",
+};
 
 export interface ReenviarDocumentoInput {
   agenciaId: string;
@@ -37,6 +44,7 @@ export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput,
     private readonly documentoRepository: DocumentoRepository,
     private readonly agenciaRepository: AgenciaRepository,
     private readonly fileStorage: FileStorage,
+    private readonly notificacaoRepository: NotificacaoRepository,
   ) {}
 
   async execute(input: ReenviarDocumentoInput): Promise<Documento> {
@@ -64,7 +72,7 @@ export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput,
       `agencias/${agencia.cnpj}/reenvio-${documentoReprovado.tipo.toLowerCase()}${sufixoSocio}-${randomUUID()}`,
     );
 
-    return this.documentoRepository.create({
+    const documentoCriado = await this.documentoRepository.create({
       agenciaId: documentoReprovado.agenciaId,
       representanteLegalId: documentoReprovado.representanteLegalId,
       tipo: documentoReprovado.tipo,
@@ -73,5 +81,18 @@ export class ReenviarDocumentoUseCase implements UseCase<ReenviarDocumentoInput,
       gcsPath: arquivoSalvo.path,
       gcsBucket: arquivoSalvo.bucket,
     });
+
+    // Best-effort — o reenvio já está persistido independente disso;
+    // "avisar o dossiê" nunca pode derrubar o reenvio em si.
+    await this.notificacaoRepository
+      .create({
+        agenciaId: documentoReprovado.agenciaId,
+        tipo: "documento",
+        titulo: "Documento reenviado",
+        mensagem: `Reenvio de ${LABEL_TIPO_DOCUMENTO[documentoReprovado.tipo] ?? documentoReprovado.tipo} recebido.`,
+      })
+      .catch(() => {});
+
+    return documentoCriado;
   }
 }

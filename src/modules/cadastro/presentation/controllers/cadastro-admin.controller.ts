@@ -14,6 +14,7 @@ import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/in
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaHistoricoEdicaoCadastroRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-historico-edicao-cadastro.repository";
 import { PrismaDecisaoHumanaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-decisao-humana.repository";
+import { PrismaNotificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-notificacao.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
@@ -180,6 +181,7 @@ const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaR
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const historicoEdicaoCadastroRepository = new PrismaHistoricoEdicaoCadastroRepository(prisma);
 const decisaoHumanaRepository = new PrismaDecisaoHumanaRepository(prisma);
+const notificacaoRepository = new PrismaNotificacaoRepository(prisma);
 // Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
 // configurada, senão lê do disco local (uploads/).
 const documentoArquivoService = process.env.GCS_BUCKET_NAME
@@ -225,6 +227,27 @@ export const cadastroAdminController = {
   obterDetalhe(id: string) {
     const useCase = new ObterDetalheAgenciaUseCase(agenciaRepository);
     return useCase.execute(id);
+  },
+
+  // Log de eventos "cliente enviou algo novo" (mensagem/documento — ver
+  // ReceberMensagemWhatsAppUseCase e ReenviarDocumentoUseCase) — dossiê lê
+  // isso pra saber o que mudou desde a última vez que quem atendia viu a
+  // ficha (ver temAtualizacaoPendente).
+  listarNotificacoes(agenciaId: string) {
+    return notificacaoRepository.findByAgenciaId(agenciaId);
+  },
+
+  // Só chamar quando quem está abrindo o dossiê é o mesmo analista em
+  // atendimento da agência (ver comentário no schema.prisma) — abrir sem
+  // estar atendendo não deve "resolver" a atualização pendente.
+  marcarAtualizacaoComoVista(agenciaId: string, analistaId: string) {
+    return agenciaRepository.marcarAtualizacaoComoVista(agenciaId, analistaId);
+  },
+
+  // Remoção manual da tag "info pendente" (ver comentário no
+  // schema.prisma) — grava quem/quando pra deixar rastro.
+  desmarcarInfoPendente(agenciaId: string, analistaId: string) {
+    return agenciaRepository.desmarcarInfoPendente(agenciaId, analistaId);
   },
 
   obterDadosReceita(agenciaId: string) {
