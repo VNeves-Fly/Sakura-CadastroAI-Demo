@@ -63,6 +63,12 @@ function dataIsoBrasiliaHaDias(dias: number): string {
   }).format(data);
 }
 
+// Mesma conta de `inicioMesIso()` do service — primeiro dia do mês
+// corrente, no fuso America/Sao_Paulo.
+function inicioMesIsoTeste(): string {
+  return `${dataIsoBrasiliaHaDias(0).slice(0, 7)}-01`;
+}
+
 // Datas usadas pelo algoritmo de projeção: mesmo dia da semana, últimas
 // 4 ocorrências (7/14/21/28 dias atrás) + hoje. Total de 14 dias atrás é
 // o menor (130_000) — deve ser descartado, sobrando 150_000/165_000/140_000
@@ -381,6 +387,64 @@ describe("dashboardVendasSstService", () => {
     // — lista de detalhe fica vazia, só a contagem é real (ver
     // docs/faltante.md).
     expect(resultado.cruzamentoDetalhe.nenhum).toEqual([]);
+  });
+
+  it("deriva codigosAgenciasAereo/Terrestre de janelas que terminam hoje (30d/mês corrente) a partir do que recenciaECruzamento já buscou, sem paginar terrestre de novo (ver docs/optimize.md)", async () => {
+    // Roda na mesma ordem sequencial da view real (dashboard-vendas-view.tsx):
+    // recenciaECruzamento antes de conversao — só assim a janela fica em
+    // cache pra conversao aproveitar.
+    await dashboardVendasSstService.obterRecenciaECruzamento();
+
+    const fetchMock = global.fetch as jest.Mock;
+    const chamadasAntes = fetchMock.mock.calls.length;
+
+    const conversao = await dashboardVendasSstService.obterConversao();
+
+    const chamadasDepois = fetchMock.mock.calls.slice(chamadasAntes);
+    const chamadasTerrestre = chamadasDepois.filter(([url]) =>
+      String(url).includes("/api/resumos/terrestre"),
+    );
+    const chamadasAereoResumoAgrupado = chamadasDepois.filter(([url]) =>
+      String(url).includes("/api/consolidado/air/resumo-agrupado"),
+    );
+
+    // 3 janelas em conversao (30d, mês corrente, mês anterior) — só a de
+    // "mês anterior" não termina hoje, então só ela precisa buscar de novo.
+    expect(chamadasTerrestre).toHaveLength(1);
+    expect(chamadasAereoResumoAgrupado).toHaveLength(1);
+
+    // Ambos(30d) derivado da janela: aereo {1} (cod.1, 5d atrás) ∪
+    // terrestre {3} (cod.3, 10d atrás) = {1,3} — cod.2 fica de fora (aereo
+    // 100d atrás, terrestre 40d atrás, os dois fora dos últimos 30d).
+    expect(conversao.ambos.saudePct).toBeCloseTo((2 / 300) * 100);
+  });
+
+  it("reaproveita nacint/nonair do mês corrente entre estágios sequenciais — guardrail contra paralelizar o waterfall (ver docs/optimize.md)", async () => {
+    const inicioMes = inicioMesIsoTeste();
+    const hoje = dataIsoBrasiliaHaDias(0);
+
+    // Mesma ordem da view real: resumoEDia → conversao → vendasMensais.
+    await dashboardVendasSstService.obterResumoEDia();
+    await dashboardVendasSstService.obterConversao();
+    await dashboardVendasSstService.obterVendasMensais();
+
+    const fetchMock = global.fetch as jest.Mock;
+    const contarChamadas = (caminho: string) =>
+      fetchMock.mock.calls.filter(([url]) => {
+        const str = String(url);
+        if (!str.includes(caminho)) return false;
+        const parsed = new URL(str);
+        return (
+          parsed.searchParams.get("startDate") === inicioMes &&
+          parsed.searchParams.get("endDate") === hoje
+        );
+      }).length;
+
+    // Se isto passar a dar 2, o waterfall deixou de ser sequencial e o
+    // reaproveitamento via comCache (que hoje é "de graça") parou de
+    // funcionar — ver ponto 2 de docs/optimize.md.
+    expect(contarChamadas("/api/consolidado/nacional-vs-internacional")).toBe(1);
+    expect(contarChamadas("/api/consolidado/non-air")).toBe(1);
   });
 
   it("mantém intraday/acuracia vindos do mock (fora de escopo — ver docs/faltante.md)", async () => {

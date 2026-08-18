@@ -400,6 +400,37 @@ function calcularVariacaoPct(atual: number, anterior: number): number {
   return anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
 }
 
+// `recenciaECruzamento` (estágio anterior no waterfall de
+// dashboard-vendas-view.tsx) já busca `Map<codigo, {ultima, ...}>` pra
+// janelas largas (365d aéreo / 90d terrestre, ver `buscarAereoJanela`/
+// `buscarTerrestreJanela` abaixo). Qualquer janela "N dias atrás → hoje"
+// mais estreita que essas (ex.: 30d, mês corrente, usadas em
+// `construirConversao`) já está coberta por elas — dá pra responder "essa
+// agência vendeu nesse intervalo?" só com `ultima >= corte`, sem nova
+// chamada ao SST. Só funciona pra janelas que terminam hoje: pra uma
+// janela no passado (ex. mês anterior), `ultima` sendo posterior ao fim
+// da janela não prova nem desmente venda dentro dela — aí cai pro fetch
+// de verdade (ver chamadas em codigosAgenciasAereo/codigosAgenciasTerrestre
+// abaixo). Cache miss aqui é barato (é só um Map.get + no máximo 1 GET no
+// Valkey) comparado ao custo de paginar terrestre de novo.
+async function tentarDerivarDeJanela(
+  chaveJanela: string,
+  corte: string,
+): Promise<Set<number> | undefined> {
+  const cacheado = cacheConsolidado.get(chaveJanela);
+  const mapa =
+    cacheado && cacheado.expiraEm > Date.now()
+      ? (cacheado.valor as Map<number, DadosPorAgencia>)
+      : await valkeyGet<Map<number, DadosPorAgencia>>(chaveJanela);
+  if (!mapa) return undefined;
+
+  const codigos = new Set<number>();
+  for (const [codigo, dados] of mapa) {
+    if (dados.ultima >= corte) codigos.add(codigo);
+  }
+  return codigos;
+}
+
 // GET /api/consolidado/air/resumo-agrupado — confirmado contra o SST
 // real: devolve um array já agrupado por empresa (uma linha por
 // agência, sem paginação/wrapper) — dá o conjunto de códigos de agência
@@ -409,6 +440,14 @@ interface RawResumoAgrupadoLinha {
 }
 
 async function codigosAgenciasAereo(inicio: string, fim: string): Promise<Set<number>> {
+  if (fim === hojeIso()) {
+    const viaJanela = await tentarDerivarDeJanela(
+      `aereo-janela:${JANELA_AEREO_RECENCIA_DIAS}:${fim}`,
+      inicio,
+    );
+    if (viaJanela) return viaJanela;
+  }
+
   return comCache(`codigos-aereo:${inicio}:${fim}`, async () => {
     const linhas = await sstGet<RawResumoAgrupadoLinha[]>("/api/consolidado/air/resumo-agrupado", {
       agruparPor: "codigoEmpresa",
@@ -431,6 +470,14 @@ interface RawResumoTerrestreLinha {
 const LIMITE_PAGINA_TERRESTRE = 500;
 
 async function codigosAgenciasTerrestre(inicio: string, fim: string): Promise<Set<number>> {
+  if (fim === hojeIso()) {
+    const viaJanela = await tentarDerivarDeJanela(
+      `terrestre-janela:${JANELA_TERRESTRE_RECENCIA_DIAS}:${fim}`,
+      inicio,
+    );
+    if (viaJanela) return viaJanela;
+  }
+
   return comCache(`codigos-terrestre:${inicio}:${fim}`, async () => {
     const primeira = await sstGet<RawPaginado<RawResumoTerrestreLinha>>("/api/resumos/terrestre", {
       startDate: inicio,
@@ -1235,14 +1282,12 @@ async function obterResumoEDia(): Promise<
       endDate: hoje,
       limit: TAMANHO_RANKING_FORNECEDORES,
     }),
-    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
-      startDate: inicioMes,
-      endDate: hoje,
-    }),
-    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
-      startDate: inicioAno,
-      endDate: hoje,
-    }),
+    // `buscarNacInt` (não `sstGet` direto) de propósito: o mês corrente
+    // aqui é o mesmo intervalo que `construirVendasMensais` pede pro mês
+    // em curso (ver docs/optimize.md, ponto 2) — passando pelo `comCache`
+    // os dois reaproveitam a mesma resposta em vez de duplicar a chamada.
+    buscarNacInt(inicioMes, hoje),
+    buscarNacInt(inicioAno, hoje),
   ]);
 
   return {

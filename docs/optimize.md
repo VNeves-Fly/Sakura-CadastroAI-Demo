@@ -1,5 +1,9 @@
 # `/dashboard-new` — reduzir chamadas redundantes ao SST
 
+**Status: implementado** (pontos 2 e 3 abaixo) — ver
+`dashboard-vendas.sst-service.ts` e os testes novos em
+`dashboard-vendas.sst-service.test.ts`.
+
 O dashboard-new carrega em um waterfall sequencial de 6 estágios
 (`resumoEDia → projecao → recenciaECruzamento → conversao → vendasMensais →
 vendasDiarias`, ver `dashboard-vendas-view.tsx:50-67`, cada um esperando o
@@ -23,34 +27,42 @@ terrestre` **3 vezes** (30d, mês corrente, mês anterior) além do que
 menos tempo nesse estágio = página abre mais rápido, e menos concorrência no
 SST.
 
-## Ponto 2 — `nacint`/`nonair` do mês corrente reaproveitados só por coincidência de timing
+## Ponto 2 — `nacint`/`nonair` do mês corrente reaproveitados entre estágios
 
-**O que acontece:** `obterResumoEDia` (estágio 1, `sst-service.ts:1238`,
-chave `nacint:${inicioMes}:${hoje}`) e o último item do loop de
-`construirVendasMensais` (estágio 5, `sst-service.ts:647`, mesmo intervalo
-quando o mês do loop é o corrente) pedem exatamente o mesmo dado. O mesmo
-vale para `nonair:${inicioMes}:${hoje}` entre `construirConversao` (estágio
-4, linha 701) e `construirVendasMensais` (estágio 5, linha 648).
+**O que acontece:** `obterResumoEDia` (estágio 1) e o último item do loop de
+`construirVendasMensais` (estágio 5, quando o mês do loop é o corrente) pedem
+o mesmo intervalo (`inícioMês → hoje`) pro `nacional-vs-internacional`. O
+mesmo vale pro `non-air` entre `construirConversao` (estágio 4) e
+`construirVendasMensais` (estágio 5).
 
-**Por que não custa nada hoje:** `comCache` (TTL 10 min, L1 Map + L2 Valkey)
-já deduplica por chave exata. Como o waterfall é sequencial, quando o estágio
-5 roda, o estágio 1/4 já preencheu o cache — a 2ª chamada é um cache hit, sem
-ida à rede.
+**Correção durante a implementação — o `nacint` era uma duplicata real, não
+só um risco de timing:** a suspeita original era que `comCache` (TTL 10 min,
+L1 Map + L2 Valkey) já deduplicava as duas chamadas por chave exata, sobrando
+só o risco de quebrar se o waterfall deixasse de ser sequencial. Um teste
+escrito pra só documentar esse comportamento (chamando os estágios na ordem
+real e contando `fetch`) **revelou que a chamada de `nacint` duplicava de
+verdade, hoje** — `obterResumoEDia` chamava `sstGet` **direto**, sem passar
+por `buscarNacInt`/`comCache` (diferente de `construirConversao`, que já usa
+`buscarNonAir`/`comCache` pro lado `non-air`). Resultado: o `nonair` já
+reaproveitava corretamente, mas o `nacint` do mês corrente sempre batia 2x no
+SST, independente de ordem.
 
-**Risco real:** isso funciona _só_ porque a ordem é sequencial. Não há teste
-que garanta esse comportamento — se algum dia alguém paralelizar estágios
-(uma otimização óbvia e tentadora), essas duas chamadas voltam a duplicar
-silenciosamente, sem que nada quebre nos testes atuais (que verificam shape
-de saída, não contagem de fetch).
+**Correção aplicada:** `obterResumoEDia` (`sst-service.ts`) agora usa
+`buscarNacInt(inicioMes, hoje)`/`buscarNacInt(inicioAno, hoje)` em vez de
+`sstGet` direto — mesma função já usada por `construirVendasMensais` e
+`construirProjecaoReal`. Isso faz as duas chamadas do mês corrente convergirem
+pro mesmo `comCache`, eliminando a chamada duplicada de verdade (não só
+protegendo contra uma duplicata hipotética futura).
 
-**Recomendação:** não mexer na lógica (não há ganho de tempo a extrair, já é
-cache hit). Só adicionar uma rede de proteção: um teste em
-`__tests__/modules/dashboard-vendas/services/dashboard-vendas.sst-service.test.ts`
-que chama `obterDashboard()` com o `global.fetch` mockado (como já é feito) e
-conta quantas vezes as URLs `nacional-vs-internacional` e `non-air` foram
-chamadas com `startDate=<inícioMês>`, esperando **1** cada. Esse teste falha
-o dia em que alguém paralelizar os estágios e essas chamadas duplicarem de
-verdade — vira o guardrail que hoje não existe.
+**Guardrail adicionado:** teste
+`"reaproveita nacint/nonair do mês corrente entre estágios sequenciais"` em
+`dashboard-vendas.sst-service.test.ts` — chama `obterResumoEDia` →
+`obterConversao` → `obterVendasMensais` na mesma ordem da view real e conta,
+via `global.fetch` mockado, quantas vezes `nacional-vs-internacional` e
+`non-air` foram chamados com `startDate=inícioMês&endDate=hoje`, esperando
+**1** cada. Esse teste teria pego a duplicata original e passa a proteger
+contra qualquer regressão futura (inclusive se alguém paralelizar os
+estágios).
 
 ## Ponto 3 — `codigosAgenciasAereo`/`codigosAgenciasTerrestre` recalculam o que `recenciaECruzamento` já buscou
 
@@ -90,7 +102,7 @@ concorrente de terrestre é o que historicamente estourou o retry de 5xx do
 SST (`sst-service.ts:221-227`), então isso também reduz risco de falha, não
 só tempo.
 
-### Implementação proposta (tudo em `dashboard-vendas.sst-service.ts`)
+### Implementação (tudo em `dashboard-vendas.sst-service.ts`)
 
 1. Adicionar uma função auxiliar que tenta derivar o `Set<number>` de uma
    janela já cacheada, checando primeiro o `Map` L1 (`cacheConsolidado`) e,
@@ -145,29 +157,31 @@ hoje, sem precisar de nenhum ajuste. No fluxo real da página
 (`dashboard-vendas-view.tsx`), como os estágios são sequenciais, o atalho vai
 disparar de verdade.
 
-### Testes a adicionar
+### Teste adicionado
 
-Em `dashboard-vendas.sst-service.test.ts`:
-
-- Um teste que chama `obterRecenciaECruzamento` (ou
-  `construirAgenciasComputadas` indiretamente) e **depois** `obterConversao`
-  na mesma execução (não via `obterDashboard`, que roda em paralelo) e
-  verifica, via contagem de chamadas do `global.fetch` mock, que
-  `/api/resumos/terrestre` com `startDate` de 30 dias ou do mês corrente
-  **não** é chamado de novo — só a paginação de 90 dias (da janela) e a do
-  mês anterior devem aparecer.
-- Um teste garantindo que o resultado de
-  `conversao.ambos.saudePct`/`agenciasMesVarPct` continua idêntico ao
-  calculado hoje via fetch direto (usar as mesmas fixtures existentes,
-  comparando com o valor já testado em "monta conversao real..." linha
-  313-332).
+Em `dashboard-vendas.sst-service.test.ts`, teste
+`"deriva codigosAgenciasAereo/Terrestre de janelas que terminam hoje..."`:
+chama `obterRecenciaECruzamento()` e **depois** `obterConversao()` na mesma
+execução (não via `obterDashboard()`, que roda em paralelo e por isso nunca
+aciona o atalho — ver explicação acima) e verifica, via contagem de chamadas
+do `global.fetch` mock, que depois de `recenciaECruzamento` só sobra **1**
+chamada nova a `/api/resumos/terrestre` e **1** a
+`/api/consolidado/air/resumo-agrupado` (a de "mês anterior" — 30d e mês
+corrente vieram da derivação). Também confirma que
+`conversao.ambos.saudePct` bate com a união calculada a partir da janela
+(`{1,3}` nas fixtures do teste, não mais o `{1,2,3}` que a fixture antiga
+"enxergava" porque o mock de teste não filtra por data — a derivação real
+filtra por `ultima >= corte`, então é mais precisa que o fetch direto
+simulado no teste).
 
 ## Verificação
 
-1. `npm test -- dashboard-vendas.sst-service` — os testes existentes devem
-   passar sem alteração, e os novos testes confirmam a dedução de janela E
-   funcionam como guardrail para o ponto 2.
-2. Rodar a página `/crm/dashboard-new` localmente (usuário ADMIN) com
-   `VALKEY_URL` configurada (ou não, o L1 já basta para o caso de um único
-   processo) e observar nos logs/network do SST que o estágio `conversao`
-   faz menos requisições a `/api/resumos/terrestre` do que hoje.
+1. `npx tsc --noEmit` — sem erros.
+2. `npx eslint src/modules/dashboard-vendas/services/dashboard-vendas.sst-service.ts __tests__/modules/dashboard-vendas/services/dashboard-vendas.sst-service.test.ts` — sem erros.
+3. `npx jest __tests__/modules/dashboard-vendas` — 26 testes passando (18 do
+   sst-service, incluindo os 2 novos, + 8 do projecao.util).
+4. Próximo passo manual (não feito nesta rodada): rodar `/crm/dashboard-new`
+   localmente (usuário ADMIN) com `VALKEY_URL` configurada e observar nos
+   logs/network do SST que o estágio `conversao` faz menos requisições a
+   `/api/resumos/terrestre` e `/api/consolidado/nacional-vs-internacional`
+   do que antes.
