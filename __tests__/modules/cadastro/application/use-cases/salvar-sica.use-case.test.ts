@@ -28,6 +28,8 @@ function agenciaFake(): Agencia {
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
     infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
   });
 }
 

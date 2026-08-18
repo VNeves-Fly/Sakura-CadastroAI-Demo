@@ -284,6 +284,12 @@ export async function inserirDocumentoManualAction(
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+export async function desmarcarInfoPendenteAction(agenciaId: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.desmarcarInfoPendente(agenciaId, await analistaIdLogado());
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function solicitarReenvioDocumentosAction(agenciaId: string, formData: FormData) {
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   const documentoIds = formData.getAll("documentoIds").map(String);

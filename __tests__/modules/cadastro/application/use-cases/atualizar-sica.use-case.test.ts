@@ -28,6 +28,8 @@ function agenciaFake(overrides: Partial<Parameters<typeof Agencia.create>[0]> = 
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
     infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
     ...overrides,
   });
 }

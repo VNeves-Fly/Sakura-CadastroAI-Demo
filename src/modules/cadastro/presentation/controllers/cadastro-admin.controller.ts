@@ -244,6 +244,12 @@ export const cadastroAdminController = {
     return agenciaRepository.marcarAtualizacaoComoVista(agenciaId, analistaId);
   },
 
+  // Remoção manual da tag "info pendente" (ver comentário no
+  // schema.prisma) — grava quem/quando pra deixar rastro.
+  desmarcarInfoPendente(agenciaId: string, analistaId: string) {
+    return agenciaRepository.desmarcarInfoPendente(agenciaId, analistaId);
+  },
+
   obterDadosReceita(agenciaId: string) {
     const useCase = new ObterDadosReceitaUseCase(dadosReceitaRepository);
     return useCase.execute(agenciaId);

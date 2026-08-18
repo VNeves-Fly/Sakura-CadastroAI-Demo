@@ -33,6 +33,8 @@ function agenciaFake(sicaCodigo: string | null): Agencia {
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
     infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
   });
 }
 

@@ -231,6 +231,13 @@ model Agencia {
   // PrismaNotificacaoRepository.create) ou quando o status muda (ver
   // atualizarStatus) — nunca precisa ser desligada manualmente.
   infoPendente Boolean @default(false)
+  // Preenchidos só quando um analista remove a tag manualmente pelo
+  // dossiê (decisão do usuário: cobre o caso de resolver por fora do
+  // sistema — ligação, e-mail direto — sem gerar Notificacao nem mudar
+  // status). Zerados de novo em marcarInfoPendente, pra não sobrar rastro
+  // velho de um ciclo anterior grudado no próximo.
+  infoPendenteRemovidoPor String?
+  infoPendenteRemovidoEm  DateTime?
 
   complementar              CadastroComplementar?
   representantesLegais      RepresentanteLegal[]

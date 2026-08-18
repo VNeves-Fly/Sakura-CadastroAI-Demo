@@ -610,11 +610,16 @@ export interface AgenciaRepository {
   // deve chamar este método.
   marcarAtualizacaoComoVista(agenciaId: string, analistaId: string): Promise<void>;
   // Liga "info pendente" (ver comentário no schema.prisma) — chamado só
-  // por SolicitarReenvioDocumentosUseCase. Desligar não tem método
-  // próprio: acontece sozinho em atualizarStatus (qualquer transição) e
-  // em PrismaNotificacaoRepository.create (qualquer notificação da
-  // agência).
+  // por SolicitarReenvioDocumentosUseCase. Desligar automático não tem
+  // método próprio: acontece sozinho em atualizarStatus (qualquer
+  // transição) e em PrismaNotificacaoRepository.create (qualquer
+  // notificação da agência). Desligar manual é desmarcarInfoPendente,
+  // abaixo.
   marcarInfoPendente(agenciaId: string): Promise<void>;
+  // Remoção manual pelo analista (dossiê) — grava quem/quando pra deixar
+  // rastro (ver infoPendenteRemovidoPor/Em no schema.prisma), diferente
+  // dos desligamentos automáticos acima, que não tocam esses dois campos.
+  desmarcarInfoPendente(agenciaId: string, analistaId: string): Promise<void>;
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;
   obterAnaliseContratos(dias: number): Promise<AnaliseContratos>;

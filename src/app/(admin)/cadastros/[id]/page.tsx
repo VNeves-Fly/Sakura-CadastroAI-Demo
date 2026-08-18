@@ -20,6 +20,8 @@ import {
   Bell,
   Sparkles,
   Eye,
+  Clock,
+  X,
 } from "lucide-react";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
@@ -108,6 +110,7 @@ import {
   editarEmpresaAction,
   editarDadosBancariosAction,
   solicitarReenvioDocumentosAction,
+  desmarcarInfoPendenteAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
   recusarCadastroAction,
@@ -402,6 +405,23 @@ export default async function DossieAgenciaPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <VoltarButton />
         <div className="flex flex-wrap items-center gap-2">
+          {agencia.infoPendente ? (
+            <span className="bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-bold">
+              <Clock className="size-3.5" />
+              Info pendente
+              {somenteLeituraPorCargo ? null : (
+                <form action={desmarcarInfoPendenteAction.bind(null, agencia.id)}>
+                  <button
+                    type="submit"
+                    title="Remover — já resolvido por fora do sistema"
+                    className="hover:bg-accent hover:text-foreground rounded-full p-0.5 transition"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </form>
+              )}
+            </span>
+          ) : null}
           <span className="text-muted-foreground text-xs">
             {atendimentoAtual ? (
               <>

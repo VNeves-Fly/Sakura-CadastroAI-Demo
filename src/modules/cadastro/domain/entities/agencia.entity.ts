@@ -28,6 +28,11 @@ export interface AgenciaProps {
   atualizacaoVistaPor: string | null;
   // Ver comentário no schema.prisma — "estou esperando algo da agência".
   infoPendente: boolean;
+  // Preenchidos só quando removido manualmente (ver comentário no
+  // schema.prisma) — null enquanto infoPendente nunca foi desligado à
+  // mão, ou depois que ligou de novo (marcarInfoPendente zera os dois).
+  infoPendenteRemovidoPor: string | null;
+  infoPendenteRemovidoEm: Date | null;
 }
 
 export class Agencia {
@@ -121,15 +126,29 @@ export class Agencia {
     return this.props.infoPendente;
   }
 
+  get infoPendenteRemovidoPor(): string | null {
+    return this.props.infoPendenteRemovidoPor;
+  }
+
+  get infoPendenteRemovidoEm(): Date | null {
+    return this.props.infoPendenteRemovidoEm;
+  }
+
   toJSON(): Omit<
     AgenciaProps,
-    "createdAt" | "updatedAt" | "sicaSalvoEm" | "travelLinkSalvoEm" | "atualizacaoVistaEm"
+    | "createdAt"
+    | "updatedAt"
+    | "sicaSalvoEm"
+    | "travelLinkSalvoEm"
+    | "atualizacaoVistaEm"
+    | "infoPendenteRemovidoEm"
   > & {
     createdAt: string;
     updatedAt: string;
     sicaSalvoEm: string | null;
     travelLinkSalvoEm: string | null;
     atualizacaoVistaEm: string | null;
+    infoPendenteRemovidoEm: string | null;
   } {
     return {
       id: this.props.id,
@@ -154,6 +173,8 @@ export class Agencia {
       atualizacaoVistaEm: this.props.atualizacaoVistaEm?.toISOString() ?? null,
       atualizacaoVistaPor: this.props.atualizacaoVistaPor,
       infoPendente: this.props.infoPendente,
+      infoPendenteRemovidoPor: this.props.infoPendenteRemovidoPor,
+      infoPendenteRemovidoEm: this.props.infoPendenteRemovidoEm?.toISOString() ?? null,
     };
   }
 }

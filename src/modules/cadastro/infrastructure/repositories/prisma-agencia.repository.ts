@@ -143,6 +143,8 @@ interface AgenciaRecord {
   atualizacaoVistaEm: Date | null;
   atualizacaoVistaPor: string | null;
   infoPendente: boolean;
+  infoPendenteRemovidoPor: string | null;
+  infoPendenteRemovidoEm: Date | null;
 }
 
 const ENDERECO_VAZIO: EnderecoData = {
@@ -455,7 +457,20 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   async marcarInfoPendente(agenciaId: string): Promise<void> {
     await this.prisma.agencia.update({
       where: { id: agenciaId },
-      data: { infoPendente: true },
+      // Zera o rastro de remoção manual do ciclo anterior — não faz
+      // sentido um "removido por/em" antigo sobreviver a um novo pedido.
+      data: { infoPendente: true, infoPendenteRemovidoPor: null, infoPendenteRemovidoEm: null },
+    });
+  }
+
+  async desmarcarInfoPendente(agenciaId: string, analistaId: string): Promise<void> {
+    await this.prisma.agencia.update({
+      where: { id: agenciaId },
+      data: {
+        infoPendente: false,
+        infoPendenteRemovidoPor: analistaId,
+        infoPendenteRemovidoEm: new Date(),
+      },
     });
   }
 
@@ -1278,6 +1293,8 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       atualizacaoVistaEm: record.atualizacaoVistaEm,
       atualizacaoVistaPor: record.atualizacaoVistaPor,
       infoPendente: record.infoPendente,
+      infoPendenteRemovidoPor: record.infoPendenteRemovidoPor,
+      infoPendenteRemovidoEm: record.infoPendenteRemovidoEm,
     });
   }
 }
