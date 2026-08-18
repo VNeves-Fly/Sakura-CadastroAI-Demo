@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { AgenciaSegmentoModal } from "@/modules/atribuicoes/components/executivo/dashboard/agencia-segmento-modal";
 import { cn } from "@/lib/utils";
@@ -18,17 +19,23 @@ const CORES: Record<SegmentoSaude["chave"], string> = {
 };
 
 // SegmentedHealthCard (SPEC 4.8) — 4 cards clicáveis, cada um abre o
-// modal padrão "ver lista" com as agências daquele segmento (mock, ver
-// adapter).
+// modal padrão "ver lista" com as agências daquele segmento. Todos os
+// valores (segmentação, quantidades, percentuais) são mock-gerados;
+// nomes/CNPJs das agências nos modais são também mock.
 export function SaudeCarteiraCard({ segmentos }: SaudeCarteiraCardProps) {
   const [segmentoAberto, setSegmentoAberto] = useState<SegmentoSaude | null>(null);
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
-      <h3 className="text-foreground text-sm font-semibold">Saúde da carteira</h3>
-      <p className="text-muted-foreground text-xs">
-        Segmenta as agências aprovadas em 4 grupos para priorizar ações.
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-foreground text-sm font-semibold">Saúde da carteira</h3>
+          <p className="text-muted-foreground text-xs">
+            Segmenta as agências aprovadas em 4 grupos para priorizar ações.
+          </p>
+        </div>
+        <MockBadge />
+      </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {segmentos.map((segmento) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { GestorAgenciaSegmentoModal } from "@/modules/gestores/components/dashboard/gestor-agencia-segmento-modal";
 import { cn } from "@/lib/utils";
@@ -24,20 +25,27 @@ const COR_BARRA: Record<SegmentoSaude["chave"], string> = {
   inativas: "bg-muted-foreground/40",
 };
 
-// Card "Saúde da carteira" — mesmo componente do dashboard de Executivo,
-// com uma barra segmentada acima dos 4 cards mostrando a proporção de cada
-// grupo de uma vez só (SPEC pedida pelo usuário, 2026-08-17).
+// Card "Saúde da carteira" — todos os valores são mock-gerados (segmentação,
+// quantidades, percentuais derivados de hash do gestor ID); nomes/CNPJs das
+// agências nos modais são também mock. Mesmo componente do dashboard de
+// Executivo, com uma barra segmentada acima dos 4 cards mostrando a proporção
+// de cada grupo de uma vez só (SPEC pedida pelo usuário, 2026-08-17).
 export function GestorSaudeCarteiraCard({ segmentos }: GestorSaudeCarteiraCardProps) {
   const [segmentoAberto, setSegmentoAberto] = useState<SegmentoSaude | null>(null);
   const totalAprovadas = segmentos.reduce((total, segmento) => total + segmento.quantidade, 0);
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
-      <h3 className="text-foreground text-sm font-semibold">Saúde da carteira</h3>
-      <p className="text-muted-foreground text-xs">
-        <SensitiveValue value={totalAprovadas} /> agências aprovadas segmentadas em 4 grupos para
-        priorizar ação
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-foreground text-sm font-semibold">Saúde da carteira</h3>
+          <p className="text-muted-foreground text-xs">
+            <SensitiveValue value={totalAprovadas} /> agências aprovadas segmentadas em 4 grupos
+            para priorizar ação
+          </p>
+        </div>
+        <MockBadge />
+      </div>
 
       <div className="bg-muted mt-4 flex h-2 w-full overflow-hidden rounded-full">
         {segmentos.map((segmento) => (

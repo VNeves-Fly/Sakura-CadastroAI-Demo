@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   COR_AEREO_INTERNACIONAL,
@@ -51,10 +52,11 @@ function TooltipMes({
   );
 }
 
-// Barra empilhada Nacional/Internacional/Terrestre — mesmo componente do
-// dashboard de Executivo, com o header trocado pra mostrar a proporção
-// Nacional × Internacional em vez de duas variações lado a lado (SPEC
-// pedida pelo usuário, 2026-08-17).
+// Barra empilhada Nacional/Internacional/Terrestre — todos os valores são
+// mock (derivados de hash do gestor ID); apenas as datas (meses do ano
+// corrente) são reais. Mesmo componente do dashboard de Executivo, com o
+// header trocado pra mostrar a proporção Nacional × Internacional em vez de
+// duas variações lado a lado (SPEC pedida pelo usuário, 2026-08-17).
 export function GestorVendasMensaisChart({
   dados,
   totalAno,
@@ -75,9 +77,12 @@ export function GestorVendasMensaisChart({
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-foreground text-sm font-semibold">
-            Vendas mensais — Nacional vs Internacional
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-foreground text-sm font-semibold">
+              Vendas mensais — Nacional vs Internacional
+            </h3>
+            <MockBadge />
+          </div>
           <p className="text-muted-foreground text-xs">Ano {ano} · valores consolidados por mês</p>
         </div>
         <div className="text-right">
