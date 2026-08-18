@@ -28,6 +28,7 @@ import { VisualizarDocumento } from "@/modules/admin/components/visualizar-docum
 import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
 import { formatarEndereco } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCep } from "@/modules/cadastro/utils/cep.util";
+import { maskCpf } from "@/modules/cadastro/utils/cpf.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
 // (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
@@ -305,6 +306,43 @@ function CnaesStage1Detalhe({
   );
 }
 
+// QSA oficial da Receita Federal (stage1.socios.oficiais) — schema livre
+// (Record<string, unknown>[], decidido pelo agente, mesma razão de
+// camposExtraidos): só nome/cpf foram observados até hoje, mas qualquer
+// outro campo que a Receita mandar (ex.: qualificação) aparece via
+// CamposDetalhe em vez de ser descartado.
+function QsaOficialDetalhe({ oficiais }: { oficiais: Array<Record<string, unknown>> }) {
+  if (oficiais.length === 0) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        QSA oficial não retornado pela Receita para este cadastro.
+      </span>
+    );
+  }
+
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {oficiais.map((socio, index) => {
+        const { nome, cpf, ...outrosCampos } = socio;
+        return (
+          <li
+            key={index}
+            className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs"
+          >
+            <span className="text-foreground font-semibold">
+              {typeof nome === "string" && nome ? nome : `Sócio ${index + 1}`}
+            </span>
+            {typeof cpf === "string" && cpf ? (
+              <span className="text-muted-foreground"> — CPF {maskCpf(cpf)}</span>
+            ) : null}
+            <CamposDetalhe titulo="Ver demais campos" campos={outrosCampos} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 // Verificação cadastral (stage1) — comparação fornecido x oficial que o
 // agente já calcula na avaliação (e-mail, sócios) mais CNAEs com
 // compatibilidade de turismo. Razão Social/Nome Fantasia (também stage1)
@@ -377,6 +415,7 @@ export function VerificacaoCadastral({ stage1 }: { stage1: AnaliseIaStage1 | nul
               Nenhuma divergência entre os sócios fornecidos e o QSA oficial.
             </span>
           )}
+          <QsaOficialDetalhe oficiais={stage1.socios.oficiais} />
         </div>
       ) : null}
     </div>
