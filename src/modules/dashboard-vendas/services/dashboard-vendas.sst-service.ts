@@ -2,6 +2,7 @@ import {
   requireSstApiKey,
   sstBaseUrl,
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
+import { valkeyGet, valkeySet } from "@/modules/dashboard-vendas/infrastructure/valkey-cache.util";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import {
   calcularCurvaHoraria,
@@ -55,10 +56,12 @@ const TAMANHO_RANKING_FORNECEDORES = 200;
 
 // `vendasMensais`/`vendasDiarias`/`conversao` não têm endpoint de série
 // pronto — cada carregamento faz várias chamadas extras (uma por mês/dia).
-// Cache em memória de processo (TTL curto) evita repetir isso a cada
-// navegação. NÃO é distribuído: reseta a cada deploy/restart e não é
-// compartilhado entre instâncias — se o app escalar horizontalmente,
-// precisa de um cache compartilhado (Redis) no lugar deste Map.
+// Cache de dois níveis (TTL curto) evita repetir isso a cada navegação:
+// L1 é o `Map` de sempre (por processo, sem I/O — cobre repetições dentro
+// da mesma instância). L2 é o Valkey (`valkey-cache.util.ts`), compartilhado
+// entre instâncias do Cloud Run — só entra em jogo com `VALKEY_URL`
+// configurada; sem ela, `valkeyGet`/`valkeySet` são no-ops e o
+// comportamento fica idêntico ao `Map` isolado de antes.
 const TTL_CACHE_MS = 10 * 60 * 1000;
 const cacheConsolidado = new Map<string, { expiraEm: number; valor: unknown }>();
 
@@ -67,8 +70,16 @@ async function comCache<T>(chave: string, buscar: () => Promise<T>): Promise<T> 
   if (cacheado && cacheado.expiraEm > Date.now()) {
     return cacheado.valor as T;
   }
+
+  const doValkey = await valkeyGet<T>(chave);
+  if (doValkey !== undefined) {
+    cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor: doValkey });
+    return doValkey;
+  }
+
   const valor = await buscar();
   cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor });
+  await valkeySet(chave, valor, TTL_CACHE_MS / 1000);
   return valor;
 }
 

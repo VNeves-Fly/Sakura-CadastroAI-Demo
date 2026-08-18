@@ -214,6 +214,12 @@ describe("dashboardVendasSstService", () => {
       ...originalEnv,
       SST_API_KEY: "secret-teste",
       SST_BASE_URL: "https://sst.teste",
+      // Explicitamente desligado: sem isto, quem tiver VALKEY_URL
+      // configurada no .env local (pro Valkey real do docker-compose)
+      // faria estes testes baterem no Valkey de verdade via `...originalEnv`
+      // acima — cache persistindo entre testes/execuções e quebrando as
+      // asserções de contagem de chamada ao `fetch` abaixo.
+      VALKEY_URL: undefined,
     };
     global.fetch = jest.fn(async (url: RequestInfo | URL) => ({
       ok: true,
