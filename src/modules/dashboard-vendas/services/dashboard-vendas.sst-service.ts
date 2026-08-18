@@ -389,11 +389,17 @@ async function buscarNacInt(inicio: string, fim: string): Promise<RawPaginado<Ra
 
 // `limit=500` cobre o universo hoje (38 filiais num teste real) — sem
 // paginação de verdade, mesma decisão de escopo do resto do arquivo.
+// `comCache` (não `sstGet` direto) de propósito: `construirConversao` e
+// `construirCruzamento` chamam isto cada um por conta própria, no mesmo
+// carregamento — sem cache, batia 2x no SST pro mesmo dado (ver
+// docs/optimize.md, ponto 1).
 async function totalAgenciasAtivas(): Promise<number> {
-  const resposta = await sstGet<RawPaginado<RawSaudeBase>>("/api/reports/saude-bases", {
-    limit: 500,
+  return comCache("saude-bases", async () => {
+    const resposta = await sstGet<RawPaginado<RawSaudeBase>>("/api/reports/saude-bases", {
+      limit: 500,
+    });
+    return resposta.data.reduce((acumulado, base) => acumulado + base.agencias_ativas, 0);
   });
-  return resposta.data.reduce((acumulado, base) => acumulado + base.agencias_ativas, 0);
 }
 
 function calcularVariacaoPct(atual: number, anterior: number): number {
