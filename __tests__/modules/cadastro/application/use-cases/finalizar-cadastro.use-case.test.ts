@@ -129,6 +129,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
           executivoId: null,
           atualizacaoVistaEm: null,
           atualizacaoVistaPor: null,
+          infoPendente: false,
         }),
       ),
     ),
@@ -190,6 +191,7 @@ describe("FinalizarCadastroUseCase", () => {
           executivoId: null,
           atualizacaoVistaEm: null,
           atualizacaoVistaPor: null,
+          infoPendente: false,
         }),
       ),
     });

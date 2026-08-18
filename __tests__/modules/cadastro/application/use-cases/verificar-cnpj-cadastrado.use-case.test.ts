@@ -46,6 +46,7 @@ function agenciaFake(cnpj: string): Agencia {
     executivoId: null,
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
+    infoPendente: false,
   });
 }
 

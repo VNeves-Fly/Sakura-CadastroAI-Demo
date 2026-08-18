@@ -27,6 +27,7 @@ function agenciaFake(): Agencia {
     executivoId: null,
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
+    infoPendente: false,
   });
 }
 

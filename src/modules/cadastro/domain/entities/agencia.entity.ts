@@ -26,6 +26,8 @@ export interface AgenciaProps {
   // em atendimento.
   atualizacaoVistaEm: Date | null;
   atualizacaoVistaPor: string | null;
+  // Ver comentário no schema.prisma — "estou esperando algo da agência".
+  infoPendente: boolean;
 }
 
 export class Agencia {
@@ -115,6 +117,10 @@ export class Agencia {
     return this.props.atualizacaoVistaPor;
   }
 
+  get infoPendente(): boolean {
+    return this.props.infoPendente;
+  }
+
   toJSON(): Omit<
     AgenciaProps,
     "createdAt" | "updatedAt" | "sicaSalvoEm" | "travelLinkSalvoEm" | "atualizacaoVistaEm"
@@ -147,6 +153,7 @@ export class Agencia {
       executivoId: this.props.executivoId,
       atualizacaoVistaEm: this.props.atualizacaoVistaEm?.toISOString() ?? null,
       atualizacaoVistaPor: this.props.atualizacaoVistaPor,
+      infoPendente: this.props.infoPendente,
     };
   }
 }

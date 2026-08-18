@@ -142,6 +142,7 @@ interface AgenciaRecord {
   executivoId: string | null;
   atualizacaoVistaEm: Date | null;
   atualizacaoVistaPor: string | null;
+  infoPendente: boolean;
 }
 
 const ENDERECO_VAZIO: EnderecoData = {
@@ -448,6 +449,13 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     await this.prisma.agencia.update({
       where: { id: agenciaId },
       data: { atualizacaoVistaEm: new Date(), atualizacaoVistaPor: analistaId },
+    });
+  }
+
+  async marcarInfoPendente(agenciaId: string): Promise<void> {
+    await this.prisma.agencia.update({
+      where: { id: agenciaId },
+      data: { infoPendente: true },
     });
   }
 
@@ -805,7 +813,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       });
       const record = await tx.agencia.update({
         where: { id },
-        data: { status: status as PrismaStatusAgencia },
+        // Qualquer transição de status "resolve" o info pendente (ver
+        // comentário no schema.prisma) — o cadastro andou, então o que
+        // quer que estivesse esperando da agência não trava mais nada.
+        data: { status: status as PrismaStatusAgencia, infoPendente: false },
       });
       await tx.historicoEtapaCadastro.create({
         data: {
@@ -1041,6 +1052,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       };
     }
 
+    if (filtros.infoPendente !== undefined) {
+      where.infoPendente = filtros.infoPendente;
+    }
+
     const tamanhoPagina = filtros.tamanhoPagina ?? TAMANHO_PAGINA_CADASTROS;
 
     const [records, total] = await Promise.all([
@@ -1262,6 +1277,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       executivoId: record.executivoId,
       atualizacaoVistaEm: record.atualizacaoVistaEm,
       atualizacaoVistaPor: record.atualizacaoVistaPor,
+      infoPendente: record.infoPendente,
     });
   }
 }

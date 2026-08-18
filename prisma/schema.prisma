@@ -223,6 +223,15 @@ model Agencia {
   atualizacaoVistaEm  DateTime?
   atualizacaoVistaPor String?
 
+  // "Info pendente" — indiferente de status, marca que o analista está
+  // esperando algo DA agência (oposto de atualizacaoVistaEm/Notificacao,
+  // que é "a agência mandou algo, o analista que tem que olhar"). Liga em
+  // SolicitarReenvioDocumentosUseCase (analista pediu reenvio); desliga
+  // sozinha quando chega qualquer Notificacao dessa agência (ver
+  // PrismaNotificacaoRepository.create) ou quando o status muda (ver
+  // atualizarStatus) — nunca precisa ser desligada manualmente.
+  infoPendente Boolean @default(false)
+
   complementar              CadastroComplementar?
   representantesLegais      RepresentanteLegal[]
   documentos                Documento[]

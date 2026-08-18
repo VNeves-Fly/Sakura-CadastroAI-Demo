@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ChevronsRight,
   Bell,
+  Clock,
 } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
@@ -52,6 +53,7 @@ interface CadastrosPageProps {
     dir?: string;
     filtro?: string | string[];
     meusAtendimentos?: string;
+    infoPendente?: string;
     page?: string;
     pageSize?: string;
   };
@@ -455,6 +457,15 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
             <span className="text-foreground font-medium whitespace-nowrap">Meus atendimentos</span>
           </label>
         )}
+        <select
+          name="infoPendente"
+          defaultValue={searchParams.infoPendente ?? ""}
+          className="border-input bg-card text-foreground focus:border-primary focus:ring-ring/30 shrink-0 rounded-full border px-3 py-2 text-sm outline-none focus:ring-2"
+        >
+          <option value="">Info pendente: todos</option>
+          <option value="1">Info pendente: com</option>
+          <option value="0">Info pendente: sem</option>
+        </select>
         <button
           type="submit"
           className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"
@@ -612,6 +623,21 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                               </p>
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
+                              {agencia.infoPendente ? (
+                                <Tooltip>
+                                  <TooltipTrigger
+                                    render={
+                                      <span className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold whitespace-nowrap">
+                                        <Clock className="size-3" />
+                                        Info pendente
+                                      </span>
+                                    }
+                                  />
+                                  <TooltipContent>
+                                    Aguardando algo da agência (reenvio de documento pedido)
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : null}
                               {temAtualizacaoPendente ? (
                                 <Tooltip>
                                   <TooltipTrigger

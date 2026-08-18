@@ -311,6 +311,9 @@ export interface ListarCadastrosFiltros {
   // no momento (AtendimentoAgencia.liberadoEm null), via
   // Agencia.atendimentosAgencia.
   atendenteAtivoId?: string;
+  // "Com" (true) / "sem" (false) / todos (undefined) — ver
+  // Agencia.infoPendente no schema.
+  infoPendente?: boolean;
   // 1-based — já validada/normalizada (inteiro >= 1) por quem chama (a
   // page, que é a fronteira real de confiança pra esse parâmetro vindo da
   // querystring).
@@ -606,6 +609,12 @@ export interface AgenciaRepository {
   // schema.prisma) — simplesmente abrir o dossiê sem estar atendendo não
   // deve chamar este método.
   marcarAtualizacaoComoVista(agenciaId: string, analistaId: string): Promise<void>;
+  // Liga "info pendente" (ver comentário no schema.prisma) — chamado só
+  // por SolicitarReenvioDocumentosUseCase. Desligar não tem método
+  // próprio: acontece sozinho em atualizarStatus (qualquer transição) e
+  // em PrismaNotificacaoRepository.create (qualquer notificação da
+  // agência).
+  marcarInfoPendente(agenciaId: string): Promise<void>;
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;
   obterAnaliseContratos(dias: number): Promise<AnaliseContratos>;

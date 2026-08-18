@@ -73,6 +73,7 @@ function agenciaFake(status: string): Agencia {
     executivoId: null,
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
+    infoPendente: false,
   });
 }
 

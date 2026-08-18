@@ -27,6 +27,7 @@ function agenciaFake(overrides: Partial<Parameters<typeof Agencia.create>[0]> = 
     executivoId: null,
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
+    infoPendente: false,
     ...overrides,
   });
 }

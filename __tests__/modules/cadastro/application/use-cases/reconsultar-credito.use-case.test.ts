@@ -48,6 +48,7 @@ function agenciaFake(): Agencia {
     executivoId: null,
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
+    infoPendente: false,
   });
 }
 
@@ -133,6 +134,7 @@ function repositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRep
     criarContrato: jest.fn(),
     atualizarStatusContrato: jest.fn(),
     marcarAtualizacaoComoVista: jest.fn(),
+    marcarInfoPendente: jest.fn(),
     listar: jest.fn(),
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),

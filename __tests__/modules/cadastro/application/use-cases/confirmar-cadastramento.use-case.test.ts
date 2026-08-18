@@ -32,6 +32,7 @@ function agenciaFake(sicaCodigo: string | null): Agencia {
     executivoId: null,
     atualizacaoVistaEm: null,
     atualizacaoVistaPor: null,
+    infoPendente: false,
   });
 }
 
