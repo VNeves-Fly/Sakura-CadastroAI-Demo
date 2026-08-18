@@ -54,7 +54,7 @@ export function KpiCard({
 
       {badgeRodape ? (
         <span
-          className="absolute right-4 bottom-4 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide"
+          className="absolute right-4 bottom-4 rounded-full px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
           style={{ backgroundColor: corFundoIcone, color: cor }}
         >
           {badgeRodape}
