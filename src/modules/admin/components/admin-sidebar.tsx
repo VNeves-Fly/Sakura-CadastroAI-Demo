@@ -19,6 +19,7 @@ import {
   Building2,
   Store,
   FileSignature,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -125,6 +126,14 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         label: "Agências",
         href: "/crm/agencias",
         icon: Store,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        // SPEC recebida do usuário (2026-08-18) — reprodução 1:1 só de
+        // front-end, sem dado real (ver novas-agencias.mock-service.ts).
+        label: "Novas Agências",
+        href: "/crm/novas-agencias",
+        icon: Sparkles,
         ocultoPara: CARGOS_NAO_ADMIN,
       },
       {
