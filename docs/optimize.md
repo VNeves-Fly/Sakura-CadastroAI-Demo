@@ -1,31 +1,61 @@
-# `/dashboard-new` — reduzir chamadas redundantes ao SST
+# `/crm/dashboard` (ex-`dashboard-new`) — reduzir chamadas redundantes ao SST
 
-**Status: implementado** (pontos 2 e 3 abaixo) — ver
-`dashboard-vendas.sst-service.ts` e os testes novos em
+**Status: implementado** (pontos 1, 2 e 3 abaixo) — ver
+`dashboard-vendas.sst-service.ts` e os testes em
 `dashboard-vendas.sst-service.test.ts`.
 
-O dashboard-new carrega em um waterfall sequencial de 6 estágios
-(`resumoEDia → projecao → recenciaECruzamento → conversao → vendasMensais →
-vendasDiarias`, ver `dashboard-vendas-view.tsx:50-67`, cada um esperando o
-anterior terminar via `depoisDe()` — proposital, ver comentário em
-`sst-service.ts:221-227` sobre 5xx do SST sob concorrência). Numa análise dos
-valores buscados por cada estágio, identifiquei 3 categorias de dado
-reaproveitado entre estágios:
+Nota: depois da escrita original deste documento, a rota foi renomeada de
+`crm/dashboard-new` pra `crm/dashboard` e as seções "Vendas Mensais"/"Vendas
+Diárias" saíram da view (`dashboard-vendas-view.tsx`) — as chamadas
+`obterVendasMensais`/`obterVendasDiarias` não rodam mais no carregamento da
+página. O waterfall atual ficou em 4 estágios:
+`resumoEDia → projecao → recenciaECruzamento → conversao` (cada um esperando
+o anterior via `depoisDe()` — proposital, ver comentário em
+`sst-service.ts:221-227` sobre 5xx do SST sob concorrência). Medido com o
+cache (L1 + Valkey) zerado: **109 chamadas reais ao SST, ~31s**; com tudo
+aquecido: **8 chamadas, ~6-8s** (esse piso de 8 chamadas nunca cacheadas é
+intencional — `obterResumoEDia` busca overview/rankings sempre frescos).
+
+Numa análise dos valores buscados por cada estágio, identifiquei 3
+categorias de dado reaproveitado entre estágios:
 
 1. `totalAgenciasAtivas()` chamada 2x sem cache (`construirConversao` e
-   `construirCruzamento`) — duplicata real e trivial de resolver, endereçada
-   à parte.
+   `construirCruzamento`) — duplicata real, batendo até no cenário 100%
+   aquecido (fazia parte do "piso" de chamadas que nunca sumia).
 2. `nacint`/`nonair` do mês corrente, reaproveitados só por coincidência de
    timing.
 3. `codigosAgenciasAereo`/`codigosAgenciasTerrestre` recalculando o que
    `recenciaECruzamento` (estágio anterior) já buscou.
 
-Este documento aprofunda os pontos 2 e 3 — o objetivo é encurtar o estágio
-mais pesado do waterfall (`conversao`), que hoje pagina `/api/resumos/
+Este documento aprofunda os pontos 1, 2 e 3 — o objetivo é encurtar o
+estágio mais pesado do waterfall (`conversao`), que hoje pagina `/api/resumos/
 terrestre` **3 vezes** (30d, mês corrente, mês anterior) além do que
 `recenciaECruzamento` já paginou para 90 dias. Menos requisições paginadas =
 menos tempo nesse estágio = página abre mais rápido, e menos concorrência no
 SST.
+
+## Ponto 1 — `totalAgenciasAtivas()` (`/api/reports/saude-bases`) chamada 2x sem cache
+
+**O problema:** `totalAgenciasAtivas()` era a única função do arquivo que
+chamava `sstGet` **direto**, sem passar por `comCache` — diferente de todo o
+resto (`buscarAir`, `buscarNonAir`, `buscarNacInt`, `buscarAereoJanela` etc.).
+Ela é usada por `construirConversao` (variável `ativas`) e por
+`construirCruzamento` (variável `totalCarteira`) — mesmo dado, mesmo
+request, sempre 2 chamadas idênticas ao SST. Confirmado batendo em produção
+local: mesmo com o cache 100% aquecido (medição real via instrumentação
+temporária em `sstGet`), `/api/reports/saude-bases?limit=500` aparecia **2x**
+no log a cada carregamento — era parte do "piso" de 8 chamadas que nunca
+sumia.
+
+**Correção aplicada:** `totalAgenciasAtivas()` agora usa `comCache("saude-bases", ...)`,
+mesmo padrão do resto do arquivo. Como não é escopada por data (é só o total
+de agências ativas, dado que muda raramente), a chave é fixa — TTL de 10 min
+já é suficiente pra deduplicar as duas chamadas da mesma requisição.
+
+**Guardrail adicionado:** teste
+`"reaproveita /api/reports/saude-bases entre recenciaECruzamento e conversao"`
+em `dashboard-vendas.sst-service.test.ts` — chama os dois estágios na ordem
+real e confirma **1** chamada só ao endpoint.
 
 ## Ponto 2 — `nacint`/`nonair` do mês corrente reaproveitados entre estágios
 

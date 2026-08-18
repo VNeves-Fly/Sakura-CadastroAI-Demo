@@ -447,6 +447,22 @@ describe("dashboardVendasSstService", () => {
     expect(contarChamadas("/api/consolidado/non-air")).toBe(1);
   });
 
+  it("reaproveita /api/reports/saude-bases entre recenciaECruzamento e conversao — não bate 2x no SST pro mesmo total (ver docs/optimize.md, ponto 1)", async () => {
+    // Mesma ordem da view real: recenciaECruzamento → conversao.
+    await dashboardVendasSstService.obterRecenciaECruzamento();
+    await dashboardVendasSstService.obterConversao();
+
+    const fetchMock = global.fetch as jest.Mock;
+    const chamadasSaudeBases = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/reports/saude-bases"),
+    );
+
+    // `totalAgenciasAtivas()` é usada por construirConversao (`ativas`) e
+    // por construirCruzamento (`totalCarteira`) — mesmo dado, mesmo
+    // request. Sem `comCache` nela, batia 2x no SST à toa.
+    expect(chamadasSaudeBases).toHaveLength(1);
+  });
+
   it("mantém intraday/acuracia vindos do mock (fora de escopo — ver docs/faltante.md)", async () => {
     const resultado = await dashboardVendasSstService.obterDashboard();
 
