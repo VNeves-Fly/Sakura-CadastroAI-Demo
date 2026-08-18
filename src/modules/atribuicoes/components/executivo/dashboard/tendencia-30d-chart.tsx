@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, ResponsiveContainer, Tooltip } from "recharts";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 
@@ -10,13 +11,17 @@ interface Tendencia30dChartProps {
 }
 
 // SparklineBarChart (SPEC 4.6) — 30 barras (1/dia), sem eixo visível.
+// Todos os valores são mock (derivados de hash do promotor ID).
 export function Tendencia30dChart({ valores, total }: Tendencia30dChartProps) {
   const dados = valores.map((valor, indice) => ({ dia: indice + 1, valor }));
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-foreground text-sm font-semibold">Tendência últimos 30 dias</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-foreground text-sm font-semibold">Tendência últimos 30 dias</h3>
+          <MockBadge />
+        </div>
         <p className="text-muted-foreground text-xs">
           Total: <SensitiveValue value={formatarMoedaAbreviada(total)} />
         </p>

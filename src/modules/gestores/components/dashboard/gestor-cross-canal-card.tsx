@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plane, Bus, Layers } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { GestorAgenciaSegmentoModal } from "@/modules/gestores/components/dashboard/gestor-agencia-segmento-modal";
 import { formatarMoedaAbreviada } from "@/modules/gestores/utils/formatar-moeda.util";
@@ -14,8 +15,11 @@ interface GestorCrossCanalCardProps {
   crossCanal: CrossCanal;
 }
 
-// Card "Cross-canal — 12 meses" — os 3 blocos são clicáveis e abrem o
-// modal padrão de "ver lista" com as agências daquele segmento (mock).
+// Card "Cross-canal — 12 meses" — todos os valores são mock (ativasUltimos12m,
+// volAereo, volTerrestre, quantidades de canais derivados de hash do gestor ID);
+// apenas "aprovadas" (total de agências) é real. Nomes/CNPJs das agências nos
+// modais são também mock-gerados. Os 3 blocos são clicáveis e abrem o modal
+// padrão de "ver lista" com as agências daquele segmento.
 export function GestorCrossCanalCard({ crossCanal }: GestorCrossCanalCardProps) {
   const [segmentoAberto, setSegmentoAberto] = useState<{
     titulo: string;
@@ -26,7 +30,10 @@ export function GestorCrossCanalCard({ crossCanal }: GestorCrossCanalCardProps) 
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-foreground text-sm font-semibold">Cross-canal — 12 meses</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-foreground text-sm font-semibold">Cross-canal — 12 meses</h3>
+            <MockBadge />
+          </div>
           <p className="text-muted-foreground text-xs">
             <SensitiveValue value={crossCanal.ativasUltimos12m} /> agências ativas de{" "}
             <SensitiveValue value={crossCanal.aprovadas} /> aprovadas

@@ -1,4 +1,5 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   formatarMoedaAbreviada,
@@ -13,12 +14,18 @@ interface GestorVendasMesHeroCardProps {
 // Banner "Vendas do mês atual — gestão completa" (SPEC pedida pelo
 // usuário, 2026-08-17) — mesmo gradiente sutil do hero de Executivo, com
 // um bloco extra de meta do mês (barra de progresso rosa→roxo, mesmo
-// gradiente do BotaoNovoCadastro) que o card de Executivo não tem.
+// gradiente do BotaoNovoCadastro) que o card de Executivo não tem. Todos
+// os valores são mock (valor, bilhetes, agenciasVendendo, executivosAtivos,
+// variacaoPct, meta derivados de hash do gestor ID).
 export function GestorVendasMesHeroCard({ hero }: GestorVendasMesHeroCardProps) {
   const negativo = hero.variacaoPct < 0;
 
   return (
     <div className="border-border from-card to-accent/40 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6">
+      <div className="absolute top-5 right-5">
+        <MockBadge />
+      </div>
+
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="min-w-[260px] flex-1">
           <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">

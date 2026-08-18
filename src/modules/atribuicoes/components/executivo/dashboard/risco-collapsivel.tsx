@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { cn } from "@/lib/utils";
 
 interface RiscoCollapsivelProps {
@@ -13,9 +14,10 @@ interface RiscoCollapsivelProps {
 }
 
 // CollapsibleRiskTable (SPEC 4.10) — header clicável (ícone + título +
-// contador + chevron) que expande a tabela filha. Reaproveitado pelas
-// duas seções de risco do dashboard (a tabela em si é um
-// SortableDataTable configurado por quem usa este wrapper).
+// contador + chevron) que expande a tabela filha. Todos os valores da
+// tabela são mock (volume365d, diasSemComprar, mediaMensal12m, vendasAtual,
+// quedaPct derivados de hash do agência ID); nomes/CNPJs das agências são
+// reais.
 export function RiscoCollapsivel({
   icon,
   titulo,
@@ -34,6 +36,7 @@ export function RiscoCollapsivel({
       >
         {icon}
         <span className="text-foreground flex-1 text-sm font-semibold">{titulo}</span>
+        <MockBadge />
         <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-semibold">
           {contador}
         </span>

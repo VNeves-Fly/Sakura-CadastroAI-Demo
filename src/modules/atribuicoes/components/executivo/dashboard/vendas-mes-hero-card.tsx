@@ -1,4 +1,5 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaCompleta } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type { VendasMesHero } from "@/modules/atribuicoes/types/executivo-detalhe.types";
@@ -8,13 +9,15 @@ interface VendasMesHeroCardProps {
 }
 
 // Card hero (SPEC 4.1) — maior número da página, fundo com gradiente
-// sutil branco→rosa claríssimo.
+// sutil branco→rosa claríssimo. Todos os dados são mock (valor, bilhetes,
+// agenciasVendendo, variacaoPct derivados de hash do promotor ID).
 export function VendasMesHeroCard({ hero }: VendasMesHeroCardProps) {
   const negativo = hero.variacaoPct < 0;
 
   return (
     <div className="border-border from-card to-accent/40 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6">
-      <div className="absolute top-5 right-5 flex flex-col items-end gap-1">
+      <div className="absolute top-5 right-5 flex flex-col items-end gap-2">
+        <MockBadge />
         <span
           className={
             negativo

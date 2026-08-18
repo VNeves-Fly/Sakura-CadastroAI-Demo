@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   COR_AEREO_INTERNACIONAL,
@@ -53,8 +54,8 @@ const LABELS_SERIE = {
 };
 
 // StackedSalesBarChart (SPEC 4.5) — barra empilhada Nacional (base) /
-// Internacional (topo) / Terrestre, com header customizado (total + duas
-// variações lado a lado) e legenda com total por série abaixo do gráfico.
+// Internacional (topo) / Terrestre. Todos os valores são mock (derivados
+// de hash do promotor ID); apenas as datas (meses do ano corrente) são reais.
 export function VendasMensaisChart({
   dados,
   totalAno,
@@ -75,9 +76,12 @@ export function VendasMensaisChart({
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-foreground text-sm font-semibold">
-            Vendas mensais — Nacional vs Internacional
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-foreground text-sm font-semibold">
+              Vendas mensais — Nacional vs Internacional
+            </h3>
+            <MockBadge />
+          </div>
           <p className="text-muted-foreground text-xs">
             Ano {ano} · passe o mouse nas barras para ver detalhes
           </p>

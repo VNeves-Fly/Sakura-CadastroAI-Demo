@@ -1,4 +1,5 @@
 import { Heart } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import type { LoyaltyChip } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
@@ -8,13 +9,17 @@ interface AgenciasFieisChipsProps {
 }
 
 // LoyaltyChipList (SPEC 4.4) — lista horizontal (wrap) de chips, coração
-// azul só na companhia líder (#1), rosa nas demais.
+// azul só na companhia líder (#1), rosa nas demais. Companhias são hardcoded
+// e quantidades são mock (derivadas de hash do promotor ID).
 export function AgenciasFieisChips({ chips, ano }: AgenciasFieisChipsProps) {
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
-      <h3 className="text-foreground text-sm font-semibold">
-        Agências fiéis por companhia — {ano}
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-foreground text-sm font-semibold">
+          Agências fiéis por companhia — {ano}
+        </h3>
+        <MockBadge />
+      </div>
       {chips.length === 0 ? (
         <p className="text-muted-foreground mt-3 text-sm">Sem dados de fidelidade ainda.</p>
       ) : (
