@@ -20,7 +20,7 @@ export function PeriodToggle<T extends string>({
   cor = COR_ROSA,
 }: PeriodToggleProps<T>) {
   return (
-    <div className="bg-muted flex shrink-0 items-center gap-1 rounded-full p-1">
+    <div className="bg-muted flex shrink-0 items-center gap-0.5 rounded-full p-1 sm:gap-1">
       {opcoes.map((opcao) => {
         const ativo = valor === opcao.valor;
         return (
@@ -29,7 +29,7 @@ export function PeriodToggle<T extends string>({
             type="button"
             onClick={() => onChange(opcao.valor)}
             className={cn(
-              "rounded-full px-3 py-1.5 text-xs font-bold tracking-wide whitespace-nowrap transition",
+              "rounded-full px-2 py-1 text-[11px] font-bold tracking-wide whitespace-nowrap transition sm:px-3 sm:py-1.5 sm:text-xs",
               ativo ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
             style={ativo ? { backgroundColor: cor } : undefined}

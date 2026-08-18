@@ -58,10 +58,11 @@ const CARGOS_NAO_ADMIN: Cargo[] = ["ANALISTA", "GESTOR", "EXECUTIVO"];
 // "Executivos" (/executivos, internamente "Promotor") — Admin/Diretor
 // cadastram qualquer um, Gestor só os seus; Analista/Executivo não cadastram.
 const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
-// "Dashboard (novo)" — restrito a ADMIN (pedido do usuário, 2026-08-13);
-// diferente de CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica
-// de fora (guard real é no page.tsx — isto só evita mostrar o item).
-const CARGOS_SEM_DASHBOARD_NOVO: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GESTOR", "EXECUTIVO"];
+// "Dashboard CRM" (ex-"Dashboard (novo)", renomeado 2026-08-18) —
+// restrito a ADMIN (pedido do usuário, 2026-08-13); diferente de
+// CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica de fora
+// (guard real é no page.tsx — isto só evita mostrar o item).
+const CARGOS_SEM_DASHBOARD_CRM: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GESTOR", "EXECUTIVO"];
 
 // Lista de itens extraída direto do produto real (print de referência,
 // onboarding.flysakura.com/admin/onboarding/cadastros) — só "Cadastros"
@@ -97,10 +98,10 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
       // Reprodução da SPEC do CRM Sakura (SPEC_Dashboard_Sakura.md),
       // dados mock — ver dashboard-vendas.mock-service.ts.
       {
-        label: "Dashboard (novo)",
-        href: "/crm/dashboard-new",
+        label: "Dashboard CRM",
+        href: "/crm/dashboard",
         icon: BarChart2,
-        ocultoPara: CARGOS_SEM_DASHBOARD_NOVO,
+        ocultoPara: CARGOS_SEM_DASHBOARD_CRM,
       },
       {
         label: "Bases",
@@ -207,9 +208,10 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                           // "/cadastros" é prefixo de toda subrota (usuários,
                           // eventos, messenger) — precisa de match exato,
                           // senão o item errado também fica ativo. "Dashboard
-                          // (novo)" mudou pra /crm/dashboard-new (2026-08-17)
-                          // e não colide mais com "/dashboard", mas o match
-                          // exato continua valendo pro item raiz.
+                          // CRM" (ex-"Dashboard (novo)") é /crm/dashboard
+                          // (renomeado de /crm/dashboard-new em 2026-08-18)
+                          // e não colide com "/dashboard", mas o match exato
+                          // continua valendo pro item raiz.
                           ROTAS_EXATAS.has(item.href)
                             ? pathname === item.href
                             : pathname.startsWith(item.href)

@@ -1178,7 +1178,7 @@ export function __limparCacheParaTestes(): void {
 }
 
 // Seções "rápidas" — poucas chamadas, sem paginação. Separado do resto
-// pra poder ser exibido (via Suspense, ver dashboard-new/page.tsx)
+// pra poder ser exibido (via Suspense, ver crm/dashboard/page.tsx)
 // enquanto as seções pesadas abaixo ainda carregam.
 async function obterResumoEDia(): Promise<
   Pick<

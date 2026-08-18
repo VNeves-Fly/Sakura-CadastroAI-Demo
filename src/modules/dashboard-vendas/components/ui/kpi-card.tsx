@@ -9,6 +9,12 @@ interface KpiCardProps {
   legenda?: string;
   badgeTopo?: string;
   badgeRodape?: string;
+  // "vertical" (padrão) — ícone numa linha própria, acima do texto; usado
+  // nos cards grandes Aéreo/Terrestre (4.1), que têm os badges de canto.
+  // "horizontal" — ícone ao lado do bloco de texto, na mesma linha; usado
+  // nos mini-KPIs (4.2) pra reduzir a altura/quantidade de linhas do card
+  // e ajudar a responsividade (pedido do usuário, 2026-08-18).
+  orientacao?: "vertical" | "horizontal";
 }
 
 // Ícone circular colorido + rótulo + valor + legenda, com até 2 badges
@@ -25,7 +31,73 @@ export function KpiCard({
   legenda,
   badgeTopo,
   badgeRodape,
+  orientacao = "vertical",
 }: KpiCardProps) {
+  const horizontal = orientacao === "horizontal";
+
+  const icone = (
+    <span
+      className="flex size-8 shrink-0 items-center justify-center rounded-full sm:size-10"
+      style={{ backgroundColor: corFundoIcone }}
+    >
+      <Icon className="size-4 sm:size-5" style={{ color: cor }} />
+    </span>
+  );
+
+  const texto = (
+    <div className="min-w-0">
+      <p
+        className="text-[10px] font-bold tracking-wide uppercase sm:text-[11px]"
+        style={{ color: cor }}
+      >
+        {label}
+      </p>
+      {/* `break-words`: valores grandes (ex.: "R$ 1.320.800.000,00") são um
+          token só, sem espaço no meio — sem isto o texto ultrapassa a
+          borda do card em vez de quebrar linha em telas estreitas
+          (min-w-0 só permite o container encolher, não quebra o texto
+          — são duas regras de CSS diferentes; bug reportado pelo
+          usuário, 2026-08-18). */}
+      <p className="text-foreground mt-1 text-2xl font-black break-words sm:text-[28px]">{valor}</p>
+      {legenda ? <p className="text-muted-foreground mt-0.5 text-xs">{legenda}</p> : null}
+    </div>
+  );
+
+  // No modo horizontal, o card fica baixo o bastante pra um badge de
+  // canto (`absolute`) acabar caindo em cima do valor/legenda em telas
+  // estreitas (mobile é o público principal daqui) — por isso os badges
+  // entram no fluxo normal do flex (`flex-wrap` + `ml-auto`), empurrados
+  // pra direita quando há espaço e quebrando pra linha de baixo quando
+  // não há, nunca sobrepondo o texto (pedido do usuário, 2026-08-18).
+  if (horizontal) {
+    return (
+      <div className="border-border bg-card flex flex-wrap items-center gap-2 rounded-2xl border p-4 sm:gap-3 sm:p-5">
+        {icone}
+        {texto}
+        {badgeTopo || badgeRodape ? (
+          <div className="ml-auto flex flex-col items-end gap-1 sm:gap-1.5">
+            {badgeTopo ? (
+              <span
+                className="rounded-full px-2 py-0.5 text-[11px] font-bold"
+                style={{ backgroundColor: corFundoIcone, color: cor }}
+              >
+                {badgeTopo}
+              </span>
+            ) : null}
+            {badgeRodape ? (
+              <span
+                className="rounded-full px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
+                style={{ backgroundColor: corFundoIcone, color: cor }}
+              >
+                {badgeRodape}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="border-border bg-card relative flex flex-col gap-3 rounded-2xl border p-4 sm:p-5">
       {badgeTopo ? (
@@ -37,20 +109,8 @@ export function KpiCard({
         </span>
       ) : null}
 
-      <span
-        className="flex size-10 shrink-0 items-center justify-center rounded-full"
-        style={{ backgroundColor: corFundoIcone }}
-      >
-        <Icon className="size-5" style={{ color: cor }} />
-      </span>
-
-      <div>
-        <p className="text-[11px] font-bold tracking-wide uppercase" style={{ color: cor }}>
-          {label}
-        </p>
-        <p className="text-foreground mt-1 text-2xl font-black sm:text-[28px]">{valor}</p>
-        {legenda ? <p className="text-muted-foreground mt-0.5 text-xs">{legenda}</p> : null}
-      </div>
+      {icone}
+      {texto}
 
       {badgeRodape ? (
         <span

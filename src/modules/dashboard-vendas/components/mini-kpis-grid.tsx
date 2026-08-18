@@ -21,6 +21,7 @@ export function MiniKpisGrid({ clientesDistintos, bilhetesAereo, ticketMedioAere
         label="Clientes"
         valor={formatarNumero(clientesDistintos)}
         legenda="agências distintas"
+        orientacao="horizontal"
       />
       <KpiCard
         icon={Ticket}
@@ -29,6 +30,7 @@ export function MiniKpisGrid({ clientesDistintos, bilhetesAereo, ticketMedioAere
         label="Bilhetes (Aéreo)"
         valor={formatarNumero(bilhetesAereo)}
         legenda="bilhetes emitidos"
+        orientacao="horizontal"
       />
       <KpiCard
         icon={DollarSign}
@@ -37,6 +39,7 @@ export function MiniKpisGrid({ clientesDistintos, bilhetesAereo, ticketMedioAere
         label="Ticket Médio Aéreo"
         valor={formatarMoedaBrl(ticketMedioAereo)}
         legenda="tarifa + bilhetes"
+        orientacao="horizontal"
       />
     </div>
   );

@@ -58,9 +58,9 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p
-            className="bg-clip-text text-4xl font-black text-transparent sm:text-[42px]"
+            className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
             style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
           >
             {formatarMoedaBrl(totalPeriodo)}
@@ -113,6 +113,7 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
             valor: formatarMoedaBrl(resumo.aereo.valor),
             legenda: `${resumo.aereo.quantidade} bilhetes`,
             badgeRodape: `MARGEM ${formatarPercentual(resumo.aereo.margemPct)}`,
+            orientacao: "horizontal",
           }}
           direita={{
             icon: Bus,
@@ -122,6 +123,7 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
             valor: formatarMoedaBrl(resumo.terrestre.valor),
             legenda: `${resumo.terrestre.quantidade} vendas`,
             badgeRodape: `MARGEM ${formatarPercentual(resumo.terrestre.margemPct)}`,
+            orientacao: "horizontal",
           }}
         />
       </div>
@@ -142,8 +144,10 @@ function PillDataInput({
   onChange: (valor: string) => void;
 }) {
   return (
-    <label className="bg-muted flex items-center gap-1.5 rounded-full py-1.5 pr-1 pl-3">
-      <span className="text-muted-foreground text-xs font-bold tracking-wide">{label}</span>
+    <label className="bg-muted flex items-center gap-1 rounded-full py-1 pr-1 pl-2.5 sm:gap-1.5 sm:py-1.5 sm:pl-3">
+      <span className="text-muted-foreground text-[10px] font-bold tracking-wide whitespace-nowrap sm:text-xs">
+        {label}
+      </span>
       <input
         type="text"
         inputMode="numeric"
@@ -151,7 +155,7 @@ function PillDataInput({
         maxLength={10}
         value={valor}
         onChange={(evento) => onChange(evento.target.value)}
-        className="bg-card text-foreground placeholder:text-muted-foreground w-[92px] rounded-full px-2 py-1 text-xs font-semibold outline-none"
+        className="bg-card text-foreground placeholder:text-muted-foreground w-20 rounded-full px-1.5 py-1 text-[11px] font-semibold outline-none sm:w-[92px] sm:px-2 sm:text-xs"
       />
     </label>
   );

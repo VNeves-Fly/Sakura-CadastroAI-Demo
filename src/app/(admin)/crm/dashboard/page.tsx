@@ -20,7 +20,7 @@ const CARGOS_COM_ACESSO = new Set(["ADMIN"]);
 // `resumoEDia`, que antes era buscado aqui e bloqueava a página inteira
 // — é buscado dentro de `DashboardVendasView`, cada seção no seu próprio
 // `Suspense`, pra a página abrir na hora com tudo em placeholder.
-export default async function DashboardNewPage() {
+export default async function DashboardCrmPage() {
   const session = await getServerSession(nextAuthOptions);
   if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
     redirect("/cadastros");
@@ -30,7 +30,7 @@ export default async function DashboardNewPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-foreground text-xl font-bold">Dashboard</h1>
+      <h1 className="text-foreground text-xl font-bold">Dashboard CRM</h1>
       <DashboardVendasView mockEstatico={mockEstatico} />
     </div>
   );
