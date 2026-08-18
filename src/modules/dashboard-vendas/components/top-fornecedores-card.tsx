@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { Plane } from "lucide-react";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { RankedList } from "@/modules/dashboard-vendas/components/ui/ranked-list";
+import { PersonalizadoDateRange } from "@/modules/dashboard-vendas/components/ui/personalizado-date-range";
+import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
 import { TopFornecedoresDetalheModal } from "@/modules/dashboard-vendas/components/top-fornecedores-detalhe-modal";
 import {
   formatarMoedaAbreviada,
@@ -23,9 +25,17 @@ import {
 } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
 import type { TopFornecedor } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
-const OPCOES_PERIODO: { valor: "mes" | "ano"; label: string }[] = [
+// "Personalizado" é só de UI por enquanto — mesmo caso do Resumo do dia
+// (ver comentário em resumo-do-dia-card.tsx): sem fonte de dados pra um
+// intervalo arbitrário, mostra a prévia do ranking "Mês" com aviso
+// (pedido do usuário, 2026-08-18).
+type FiltroPeriodo = "mes" | "ano" | "personalizado";
+const PERIODO_PREVIA_PERSONALIZADO: "mes" | "ano" = "mes";
+
+const OPCOES_PERIODO: { valor: FiltroPeriodo; label: string }[] = [
   { valor: "mes", label: "Mês" },
   { valor: "ano", label: "Ano" },
+  { valor: "personalizado", label: "Personalizado" },
 ];
 
 export function LogoFornecedor({ nome }: { nome: string }) {
@@ -48,12 +58,17 @@ interface TopFornecedoresCardProps {
 // Nacional/Internacional/Todos (pedido do usuário, 2026-08-17) reordena
 // pelo valor mockado de cada escopo — ver tipo-rota.util.ts.
 export function TopFornecedoresCard({ fornecedoresPorMes }: TopFornecedoresCardProps) {
-  const [periodo, setPeriodo] = useState<"mes" | "ano">("mes");
+  const [periodo, setPeriodo] = useState<FiltroPeriodo>("mes");
   const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
+  const [dataInicial, setDataInicial] = useState("");
+  const [dataFinal, setDataFinal] = useState("");
+
+  const personalizado = periodo === "personalizado";
+  const periodoComDados = personalizado ? PERIODO_PREVIA_PERSONALIZADO : periodo;
   const rankingCompleto = useMemo(
-    () => fornecedoresPorMes[periodo] ?? [],
-    [fornecedoresPorMes, periodo],
+    () => fornecedoresPorMes[periodoComDados] ?? [],
+    [fornecedoresPorMes, periodoComDados],
   );
 
   const rankingFiltrado = useMemo(() => {
@@ -84,15 +99,26 @@ export function TopFornecedoresCard({ fornecedoresPorMes }: TopFornecedoresCardP
         titulo="Top 10 Fornecedores (mês)"
         subtitulo="% = participação no volume do mês"
         aoClicar={() => setModalAberto(true)}
-        acoes={
-          <div className="flex flex-wrap items-center justify-end gap-2">
+        acoes={<PeriodToggle opcoes={OPCOES_PERIODO} valor={periodo} onChange={setPeriodo} />}
+        extra={
+          <div className="flex flex-col items-end gap-2">
             <PeriodToggle
               opcoes={OPCOES_TIPO_ROTA}
               valor={tipoRota}
               onChange={setTipoRota}
               cor={COR_ROXO}
             />
-            <PeriodToggle opcoes={OPCOES_PERIODO} valor={periodo} onChange={setPeriodo} />
+            {personalizado ? (
+              <>
+                <PersonalizadoDateRange
+                  dataInicial={dataInicial}
+                  dataFinal={dataFinal}
+                  onDataInicialChange={setDataInicial}
+                  onDataFinalChange={setDataFinal}
+                />
+                <PersonalizadoAviso periodoPreviaLabel="Mês" />
+              </>
+            ) : null}
           </div>
         }
         itens={top10.map((fornecedor) => ({
@@ -107,7 +133,7 @@ export function TopFornecedoresCard({ fornecedoresPorMes }: TopFornecedoresCardP
       <TopFornecedoresDetalheModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
-        titulo={`Top Fornecedores (${periodo === "mes" ? "mês" : "ano"})`}
+        titulo={`Top Fornecedores (${periodoComDados === "mes" ? "mês" : "ano"})`}
         itens={rankingCompleto}
       />
     </>

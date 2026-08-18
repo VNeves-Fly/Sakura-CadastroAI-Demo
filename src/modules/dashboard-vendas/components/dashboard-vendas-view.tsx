@@ -1,26 +1,22 @@
 import { Suspense } from "react";
-// "Vendas Intraday" e "Vendas Diárias" ocultadas a pedido do usuário
-// (2026-08-17) — ele pretende repensar essas duas seções futuramente.
-// Import comentado junto pra não sobrar warning de unused-import; é só
-// descomentar os dois blocos (import + JSX abaixo) pra trazer de volta.
-// import { VendasIntradayChart } from "@/modules/dashboard-vendas/components/vendas-intraday-chart";
-import { AcuraciaProjecaoPanel } from "@/modules/dashboard-vendas/components/acuracia-projecao-panel";
+// "Vendas Intraday", "Acurácia da projeção", "Vendas Mensais" e "Vendas
+// Diárias" ocultadas a pedido do usuário (2026-08-18) — a disposição do
+// dashboard passou a seguir só as seções do print de referência
+// (SPEC_Dashboard_Sakura.md); estas ficam pra uma fase futura. Imports
+// comentados junto pra não sobrar warning de unused-import; é só
+// descomentar os blocos (import + JSX/promise abaixo, e o comentário
+// irmão em resumo-do-dia-secao.tsx pro caso do Intraday) pra trazer de
+// volta.
+// import { AcuraciaProjecaoPanel } from "@/modules/dashboard-vendas/components/acuracia-projecao-panel";
 import { ResumoDoDiaSecao } from "@/modules/dashboard-vendas/components/secoes/resumo-do-dia-secao";
 import { RankingsSecao } from "@/modules/dashboard-vendas/components/secoes/rankings-secao";
 import { ProjecaoSecao } from "@/modules/dashboard-vendas/components/secoes/projecao-secao";
 import { RecenciaECruzamentoSecao } from "@/modules/dashboard-vendas/components/secoes/recencia-e-cruzamento-secao";
 import { ConversaoSecao } from "@/modules/dashboard-vendas/components/secoes/conversao-secao";
-import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-mensais-secao";
+// import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-mensais-secao";
 // import { VendasDiariasSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-diarias-secao";
 import { SecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/secao-skeleton";
 import { dashboardVendasController } from "@/modules/dashboard-vendas/presentation/controllers/dashboard-vendas.controller";
-import type { DashboardVendasData } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
-
-type MockEstatico = Pick<DashboardVendasData, "intraday" | "acuracia">;
-
-interface DashboardVendasViewProps {
-  mockEstatico: MockEstatico;
-}
 
 // Encadeia a busca de uma seção depois que `gate` resolveu OU rejeitou —
 // nunca propaga a rejeição de `gate` pra `tarefa` (só usa `gate` pra
@@ -31,23 +27,21 @@ function depoisDe<T>(gate: Promise<unknown>, tarefa: () => Promise<T>): Promise<
   return gate.catch(() => undefined).then(() => tarefa());
 }
 
-// Orquestra as seções na ordem da spec (4.1 → 4.11), com uma diferença
-// deliberada: `recencia` e `cruzamentoCanais` (4.6 e 4.11 na spec) agora
-// ficam lado a lado, porque streamam juntas — as duas dependem da mesma
-// busca cara no SST (ver RecenciaECruzamentoSecao). O resto continua na
-// ordem original.
+// Orquestra as seções na ordem do print de referência (SPEC_Dashboard_
+// Sakura.md): Resumo do dia -> Rankings -> Projeção -> Recência/
+// Cruzamento -> Conversão. `RankingsSecao` reusa `obterResumoEDia`
+// (memoizado por request via `cache()`, ver controller) — mesma busca
+// de `ResumoDoDiaSecao`, sem chamada nova, por isso abre junto/logo
+// depois dela, sem precisar de `depoisDe`.
 //
 // Carregamento progressivo, mas em fila (top-to-bottom): a página abre
-// na hora, com TODA seção que depende do SST em placeholder (`Suspense`)
-// — só `mockEstatico` chega pronto (puro mock em memória, sem I/O). As
-// seções pesadas, porém, não disparam mais suas buscas no SST todas de
-// uma vez — cada uma só começa depois que a anterior (na ordem visual)
-// terminou, via `depoisDe`. Evita a concorrência que já esgotou o retry
-// de 5xx do SST numa carga real (ver comFallback em
-// dashboard-vendas.sst-service.ts). `RankingsSecao` reusa `obterResumoEDia`
-// (memoizado por request via `cache()`, ver controller) — só é encadeada
-// aqui pra também abrir por último, na ordem visual.
-export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) {
+// na hora, com toda seção que depende do SST em placeholder
+// (`Suspense`). As seções pesadas não disparam mais suas buscas no SST
+// todas de uma vez — cada uma só começa depois que a anterior (na ordem
+// visual) terminou, via `depoisDe`. Evita a concorrência que já esgotou
+// o retry de 5xx do SST numa carga real (ver comFallback em
+// dashboard-vendas.sst-service.ts).
+export function DashboardVendasView() {
   const resumoEDiaPromise = dashboardVendasController.obterResumoEDia();
   const projecaoPromise = depoisDe(resumoEDiaPromise, () =>
     dashboardVendasController.obterProjecao(),
@@ -58,13 +52,6 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
   const conversaoPromise = depoisDe(recenciaECruzamentoPromise, () =>
     dashboardVendasController.obterConversao(),
   );
-  const vendasMensaisPromise = depoisDe(conversaoPromise, () =>
-    dashboardVendasController.obterVendasMensais(),
-  );
-  const vendasDiariasPromise = depoisDe(vendasMensaisPromise, () =>
-    dashboardVendasController.obterVendasDiarias(),
-  );
-  const rankingsResumoEDiaPromise = depoisDe(vendasDiariasPromise, () => resumoEDiaPromise);
 
   return (
     // "dashboard-vendas-scope" dá vida às vars --dv-* (ver
@@ -72,8 +59,8 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
     // em globals.css) — sem esta classe em algum ancestral, os
     // `var(--dv-*)` não resolvem e as cores somem.
     <div className="dashboard-vendas-scope flex flex-col gap-4">
-      {/* "Vendas Intraday" oculta a pedido do usuário (2026-08-17) — ver
-          comentário no import acima. */}
+      {/* "Vendas Intraday" oculta a pedido do usuário (2026-08-18) — ver
+          comentário no import acima e em resumo-do-dia-secao.tsx. */}
       <Suspense
         fallback={
           <>
@@ -83,33 +70,8 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
           </>
         }
       >
-        <ResumoDoDiaSecao intraday={mockEstatico.intraday} resumoEDiaPromise={resumoEDiaPromise} />
+        <ResumoDoDiaSecao resumoEDiaPromise={resumoEDiaPromise} />
       </Suspense>
-
-      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
-        <ProjecaoSecao projecaoPromise={projecaoPromise} />
-      </Suspense>
-
-      <AcuraciaProjecaoPanel acuracia={mockEstatico.acuracia} />
-
-      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
-        <RecenciaECruzamentoSecao recenciaECruzamentoPromise={recenciaECruzamentoPromise} />
-      </Suspense>
-
-      <Suspense fallback={<SecaoSkeleton altura="h-48" />}>
-        <ConversaoSecao conversaoPromise={conversaoPromise} />
-      </Suspense>
-
-      <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
-        <VendasMensaisSecao vendasMensaisPromise={vendasMensaisPromise} />
-      </Suspense>
-
-      {/* "Vendas Diárias" oculta a pedido do usuário (2026-08-17) — ver
-          comentário no import acima.
-      <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
-        <VendasDiariasSecao vendasDiariasPromise={vendasDiariasPromise} />
-      </Suspense>
-      */}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Suspense
@@ -121,9 +83,36 @@ export function DashboardVendasView({ mockEstatico }: DashboardVendasViewProps) 
             </>
           }
         >
-          <RankingsSecao resumoEDiaPromise={rankingsResumoEDiaPromise} />
+          <RankingsSecao resumoEDiaPromise={resumoEDiaPromise} />
         </Suspense>
       </div>
+
+      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
+        <ProjecaoSecao projecaoPromise={projecaoPromise} />
+      </Suspense>
+
+      {/* "Acurácia da projeção" oculta a pedido do usuário (2026-08-18) —
+          ver comentário no import acima.
+      <AcuraciaProjecaoPanel acuracia={mockEstatico.acuracia} />
+      */}
+
+      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
+        <RecenciaECruzamentoSecao recenciaECruzamentoPromise={recenciaECruzamentoPromise} />
+      </Suspense>
+
+      <Suspense fallback={<SecaoSkeleton altura="h-48" />}>
+        <ConversaoSecao conversaoPromise={conversaoPromise} />
+      </Suspense>
+
+      {/* "Vendas Mensais" e "Vendas Diárias" ocultas a pedido do usuário
+          (2026-08-18) — ver comentário no import acima.
+      <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
+        <VendasMensaisSecao vendasMensaisPromise={vendasMensaisPromise} />
+      </Suspense>
+      <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
+        <VendasDiariasSecao vendasDiariasPromise={vendasDiariasPromise} />
+      </Suspense>
+      */}
     </div>
   );
 }

@@ -1,5 +1,13 @@
 import { RecenciaKpisGrid } from "@/modules/dashboard-vendas/components/recencia-kpis-grid";
-import { CruzamentoCanaisCard } from "@/modules/dashboard-vendas/components/cruzamento-canais-card";
+// "Cruzamento Aéreo x Terrestre" oculto a pedido do usuário (2026-08-18)
+// — não aparece no print de referência (SPEC_Dashboard_Sakura.md).
+// Import comentado junto pra não sobrar warning de unused-import; é só
+// descomentar (aqui + o bloco JSX abaixo) pra trazer de volta. A busca
+// no SST continua trazendo `cruzamentoCanais`/`cruzamentoDetalhe` junto
+// com `recencia` (mesma chamada cara, ver comentário abaixo) — não dá
+// pra cortar só essa metade sem tocar no back-end, então só a
+// renderização foi removida.
+// import { CruzamentoCanaisCard } from "@/modules/dashboard-vendas/components/cruzamento-canais-card";
 import type { dashboardVendasController } from "@/modules/dashboard-vendas/presentation/controllers/dashboard-vendas.controller";
 
 interface RecenciaECruzamentoSecaoProps {
@@ -19,10 +27,7 @@ export async function RecenciaECruzamentoSecao({
   return (
     <>
       <RecenciaKpisGrid recencia={dados.recencia} recenciaDetalhe={dados.recenciaDetalhe} />
-      <CruzamentoCanaisCard
-        cruzamento={dados.cruzamentoCanais}
-        cruzamentoDetalhe={dados.cruzamentoDetalhe}
-      />
+      {/* <CruzamentoCanaisCard cruzamento={dados.cruzamentoCanais} cruzamentoDetalhe={dados.cruzamentoDetalhe} /> */}
     </>
   );
 }

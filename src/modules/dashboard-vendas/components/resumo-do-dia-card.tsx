@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Bus, Clock, Info, Plane } from "lucide-react";
+import { Bus, Clock, Plane } from "lucide-react";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { ComparisonSplitCard } from "@/modules/dashboard-vendas/components/ui/comparison-split-card";
+import { PersonalizadoDateRange } from "@/modules/dashboard-vendas/components/ui/personalizado-date-range";
+import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
 import {
   formatarMoedaBrl,
   formatarPercentual,
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
-import { mascararData } from "@/modules/dashboard-vendas/utils/mascara-data.util";
 import {
   COR_AZUL,
   COR_AZUL_BG,
@@ -75,30 +76,17 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
           <PeriodToggle opcoes={OPCOES_PERIODO} valor={filtro} onChange={setFiltro} />
 
           {personalizado ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <PillDataInput
-                label="Data inicial"
-                valor={dataInicial}
-                onChange={(valor) => setDataInicial(mascararData(valor))}
-              />
-              <span className="text-muted-foreground text-xs font-bold">–</span>
-              <PillDataInput
-                label="Data final"
-                valor={dataFinal}
-                onChange={(valor) => setDataFinal(mascararData(valor))}
-              />
-            </div>
+            <PersonalizadoDateRange
+              dataInicial={dataInicial}
+              dataFinal={dataFinal}
+              onDataInicialChange={setDataInicial}
+              onDataFinalChange={setDataFinal}
+            />
           ) : null}
         </div>
       </div>
 
-      {personalizado ? (
-        <p className="text-muted-foreground mt-3 flex items-center gap-1.5 text-xs">
-          <Info className="size-3.5 shrink-0" />
-          Prévia com os dados de &ldquo;Este mês&rdquo; — filtro por intervalo de datas ainda não
-          conectado a um cálculo real.
-        </p>
-      ) : null}
+      {personalizado ? <PersonalizadoAviso periodoPreviaLabel="Este mês" /> : null}
 
       <div className="mt-5">
         <ComparisonSplitCard
@@ -128,35 +116,5 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
         />
       </div>
     </div>
-  );
-}
-
-// Campo de data no mesmo desenho visual dos pills do `PeriodToggle`
-// (bg-muted + rounded-full) — texto livre com máscara dd/mm/aaaa, sem
-// calendário: o analista digita a data direto.
-function PillDataInput({
-  label,
-  valor,
-  onChange,
-}: {
-  label: string;
-  valor: string;
-  onChange: (valor: string) => void;
-}) {
-  return (
-    <label className="bg-muted flex items-center gap-1 rounded-full py-1 pr-1 pl-2.5 sm:gap-1.5 sm:py-1.5 sm:pl-3">
-      <span className="text-muted-foreground text-[10px] font-bold tracking-wide whitespace-nowrap sm:text-xs">
-        {label}
-      </span>
-      <input
-        type="text"
-        inputMode="numeric"
-        placeholder="dd/mm/aaaa"
-        maxLength={10}
-        value={valor}
-        onChange={(evento) => onChange(evento.target.value)}
-        className="bg-card text-foreground placeholder:text-muted-foreground w-20 rounded-full px-1.5 py-1 text-[11px] font-semibold outline-none sm:w-[92px] sm:px-2 sm:text-xs"
-      />
-    </label>
   );
 }
