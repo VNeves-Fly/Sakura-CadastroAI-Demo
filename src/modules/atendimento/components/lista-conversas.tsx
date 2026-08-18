@@ -49,10 +49,15 @@ export function ListaConversas({
   onSelecionar,
 }: ListaConversasProps) {
   const [busca, setBusca] = useState("");
+  // "Pendente" aqui é só "tem mensagem do cliente não lida" — não importa
+  // se é de outro analista ou não identificado (decisão do usuário: por
+  // agora não é problema misturar os dois, o objetivo é só achar rápido
+  // quem precisa de resposta).
+  const [somentePendentes, setSomentePendentes] = useState(false);
 
   const conversasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    const filtradas = termo
+    let filtradas = termo
       ? conversas.filter(
           (conversa) =>
             conversa.membro.nome.toLowerCase().includes(termo) ||
@@ -61,16 +66,20 @@ export function ListaConversas({
         )
       : conversas;
 
+    if (somentePendentes) {
+      filtradas = filtradas.filter((conversa) => contarNaoLidas(conversa) > 0);
+    }
+
     return [...filtradas].sort((a, b) => {
       const dataA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
       const dataB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
       return dataB - dataA;
     });
-  }, [conversas, busca]);
+  }, [conversas, busca, somentePendentes]);
 
   return (
     <div className="border-border bg-card flex h-full w-full min-w-0 flex-col border-r">
-      <div className="border-border border-b p-3">
+      <div className="border-border flex flex-col gap-2 border-b p-3">
         <div className="border-input bg-background flex items-center gap-2 rounded-full border px-3 py-2">
           <Search className="text-muted-foreground size-4 shrink-0" />
           <input
@@ -81,6 +90,16 @@ export function ListaConversas({
             className="placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
           />
         </div>
+        <label className="flex items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={somentePendentes}
+            onChange={(event) => setSomentePendentes(event.target.checked)}
+            className="peer sr-only"
+          />
+          <span className="peer-checked:bg-primary bg-input relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition before:absolute before:left-0.5 before:size-4 before:rounded-full before:bg-white before:shadow before:transition-transform before:content-[''] peer-checked:before:translate-x-4" />
+          <span className="text-muted-foreground font-medium">Só com mensagem pendente</span>
+        </label>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
