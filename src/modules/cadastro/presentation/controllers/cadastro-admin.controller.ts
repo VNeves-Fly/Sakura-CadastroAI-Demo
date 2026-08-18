@@ -244,6 +244,16 @@ export const cadastroAdminController = {
     return agenciaRepository.marcarAtualizacaoComoVista(agenciaId, analistaId);
   },
 
+  // Marcação manual da tag "info pendente" (ver comentário no
+  // schema.prisma) — pro caso do analista estar esperando algo da agência
+  // por um canal que não passa por SolicitarReenvioDocumentosUseCase
+  // (ligação, e-mail avulso etc.). Mesmo método usado pelo caminho
+  // automático — não precisa de rastro de quem ligou, só de quem tirou
+  // (ver desmarcarInfoPendente).
+  marcarInfoPendente(agenciaId: string) {
+    return agenciaRepository.marcarInfoPendente(agenciaId);
+  },
+
   // Remoção manual da tag "info pendente" (ver comentário no
   // schema.prisma) — grava quem/quando pra deixar rastro.
   desmarcarInfoPendente(agenciaId: string, analistaId: string) {

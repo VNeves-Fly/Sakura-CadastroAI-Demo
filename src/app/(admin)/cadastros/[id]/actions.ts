@@ -284,6 +284,15 @@ export async function inserirDocumentoManualAction(
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+// Marcação manual — o botão só aparece quando a tag ainda está desligada
+// (ver page.tsx); cobre o caso do analista estar esperando algo da
+// agência por fora do fluxo estruturado de reenvio de documento.
+export async function marcarInfoPendenteAction(agenciaId: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.marcarInfoPendente(agenciaId);
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function desmarcarInfoPendenteAction(agenciaId: string) {
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
   await cadastroAdminController.desmarcarInfoPendente(agenciaId, await analistaIdLogado());

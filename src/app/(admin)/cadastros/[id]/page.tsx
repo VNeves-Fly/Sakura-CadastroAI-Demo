@@ -110,6 +110,7 @@ import {
   editarEmpresaAction,
   editarDadosBancariosAction,
   solicitarReenvioDocumentosAction,
+  marcarInfoPendenteAction,
   desmarcarInfoPendenteAction,
   ativarClienteAction,
   marcarContratoAssinadoAction,
@@ -289,7 +290,17 @@ export default async function DossieAgenciaPage({
   // ficha (decisão do usuário) — abrir só pra olhar, sem ter assumido, não
   // conta como "visto". `view` já leu notificacoesPendentes ANTES desta
   // chamada, então o banner abaixo ainda mostra o que mudou desta vez.
-  if (atendimentoAssumidoPorMim && analistaId) {
+  //
+  // CRÍTICO: só grava quando há algo pendente de verdade. Gravar sempre
+  // (mesmo sem nada pendente) causava um loop de refresh em produção —
+  // o UPDATE em Agencia dispara o evento realtime, que o
+  // CadastroDetalheLive (montado nesta mesma página) escuta e responde
+  // com router.refresh(), que renderiza a página de novo, que gravava de
+  // novo, infinitamente (e cada UPDATE também aparecia como "Um cadastro
+  // foi atualizado." pra todo mundo em /cadastros via CadastrosLive).
+  // Com o guard, depois da primeira marcação notificacoesPendentes fica
+  // vazio e o refresh seguinte não escreve mais nada — o ciclo se fecha.
+  if (atendimentoAssumidoPorMim && analistaId && view.notificacoesPendentes.length > 0) {
     await cadastroAdminController
       .marcarAtualizacaoComoVista(view.agencia.id, analistaId)
       .catch(() => {});
@@ -421,7 +432,18 @@ export default async function DossieAgenciaPage({
                 </form>
               )}
             </span>
-          ) : null}
+          ) : somenteLeituraPorCargo ? null : (
+            <form action={marcarInfoPendenteAction.bind(null, agencia.id)}>
+              <button
+                type="submit"
+                title="Marcar que está esperando algo da agência (fora do fluxo de reenvio de documento)"
+                className="border-input text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition"
+              >
+                <Clock className="size-3.5" />
+                Marcar info pendente
+              </button>
+            </form>
+          )}
           <span className="text-muted-foreground text-xs">
             {atendimentoAtual ? (
               <>

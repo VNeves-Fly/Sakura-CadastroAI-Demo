@@ -221,7 +221,7 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                         <span>{item.label}</span>
                       </SidebarMenuButton>
                       {item.href === "/atendimento" && totalNaoLidas > 0 && (
-                        <SidebarMenuBadge className="bg-success text-success-foreground">
+                        <SidebarMenuBadge className="bg-success text-success-foreground peer-hover/menu-button:text-success-foreground peer-data-active/menu-button:text-success-foreground">
                           {totalNaoLidas}
                         </SidebarMenuBadge>
                       )}
