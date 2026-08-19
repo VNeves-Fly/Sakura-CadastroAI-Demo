@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { agenciaDetalheService } from "@/modules/agencias-crm/services/agencia-detalhe.service";
 import type { AgenciaDetalheView } from "@/modules/agencias-crm/types/agencia-detalhe.types";
 
-export type AbaDetalhe = "dados" | "comercial" | "vendas";
+// "comercial" foi removida como aba própria (pedido do usuário,
+// 2026-08-19) — o conteúdo de Perfil Comercial passou a renderizar dentro
+// de "dados", ver agencia-detalhe-modal.tsx.
+export type AbaDetalhe = "dados" | "vendas";
 export type SubAbaVendas = "visao_geral" | "reservas" | "faturas";
 
 export function useAgenciaDetalheViewModel(agenciaId: string | null) {
