@@ -11,7 +11,11 @@ import type {
   GestorView,
 } from "@/modules/gestores/types/gestor.types";
 
-export function useUpdateGestorViewModel(id: string) {
+// id nullable pra dar pra usar num modal aberto por linha da lista (id só
+// existe depois que o usuário clica em "Editar") — mesmo padrão de
+// use-agencia-detalhe.view-model.ts. Página de edição full (gestor-edit-view)
+// sempre passa um id real, comportamento dela não muda.
+export function useUpdateGestorViewModel(id: string | null) {
   const updateGestorNaStore = useGestoresStore((state) => state.updateGestor);
   const [gestor, setGestor] = useState<GestorView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +25,13 @@ export function useUpdateGestorViewModel(id: string) {
   const [result, setResult] = useState<CreatedGestorResult | null>(null);
 
   const load = useCallback(async () => {
+    if (!id) {
+      setGestor(null);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setLoadError(null);
     try {
@@ -38,6 +49,8 @@ export function useUpdateGestorViewModel(id: string) {
   }, [load]);
 
   async function submit(values: GestorFormValues) {
+    if (!id) return false;
+
     setIsSubmitting(true);
     setSubmitError(null);
     setResult(null);

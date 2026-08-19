@@ -15,6 +15,10 @@ export interface PromotorListaView {
   semVinculo: boolean;
   // Mock: deriva de vendasAno === 0 (ver adapter).
   semVenda: boolean;
+  // Mock front-end (ver promotor-status.store.ts) — default true. Distinto
+  // de semVinculo: aqui é um status definido manualmente pelo botão
+  // Inativar/Ativar da lista, não derivado de base/gestor.
+  ativo: boolean;
   aprovadas: number;
   vendendo30d: number;
   paradas90d: number;
