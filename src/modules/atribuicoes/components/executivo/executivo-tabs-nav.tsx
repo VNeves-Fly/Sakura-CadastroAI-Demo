@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { LayoutGrid, CalendarDays, Building2 } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ABAS = [
-  { chave: "dashboard", label: "Dashboard", icon: LayoutGrid, sufixo: "" },
-  { chave: "agenda", label: "Agenda", icon: CalendarDays, sufixo: "/agenda" },
-  { chave: "agencias", label: "Agências", icon: Building2, sufixo: "/agencias" },
-] as const;
+// Abas Agenda e Agências foram removidas daqui a pedido do usuário
+// (2026-08-19) — as rotas /agenda e /agencias continuam existindo (não
+// foram apagadas), só não têm mais link nesta nav.
+const ABAS = [{ chave: "dashboard", label: "Dashboard", icon: LayoutGrid, sufixo: "" }] as const;
 
 interface ExecutivoTabsNavProps {
   executivoId: string;
