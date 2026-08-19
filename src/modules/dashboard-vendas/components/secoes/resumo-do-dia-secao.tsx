@@ -1,5 +1,4 @@
-import { ResumoDoDiaCard } from "@/modules/dashboard-vendas/components/resumo-do-dia-card";
-import { MiniKpisGrid } from "@/modules/dashboard-vendas/components/mini-kpis-grid";
+import { ResumoDoDiaComMiniKpis } from "@/modules/dashboard-vendas/components/resumo-do-dia-com-mini-kpis";
 // "Vendas Intraday" oculta a pedido do usuário (2026-08-18) — a
 // disposição do dashboard passou a seguir só as seções do print de
 // referência (SPEC_Dashboard_Sakura.md), que não inclui este gráfico.
@@ -20,8 +19,10 @@ export async function ResumoDoDiaSecao({ resumoEDiaPromise }: ResumoDoDiaSecaoPr
   const resumoEDia = await resumoEDiaPromise;
   return (
     <>
-      <ResumoDoDiaCard resumoPorPeriodo={resumoEDia.resumoPorPeriodo} />
-      <MiniKpisGrid {...resumoEDia.miniKpis} />
+      <ResumoDoDiaComMiniKpis
+        resumoPorPeriodo={resumoEDia.resumoPorPeriodo}
+        miniKpisPorPeriodo={resumoEDia.miniKpis}
+      />
       {/* <VendasIntradayChart intraday={intraday} atualizadoEm={resumoEDia.resumoPorPeriodo.hoje.atualizadoEm} /> */}
     </>
   );

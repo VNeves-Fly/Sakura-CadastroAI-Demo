@@ -249,9 +249,10 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.resumoPorPeriodo.mes.aereo.valor).toBe(1e6);
     expect(resultado.resumoPorPeriodo.ano.terrestre.valor).toBe(5e5);
     expect(resultado.miniKpis).toEqual({
-      clientesDistintos: 62,
-      bilhetesAereo: 270,
-      ticketMedioAereo: 1941.64,
+      hoje: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      ontem: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      mes: { clientesDistintos: 100, bilhetesAereo: 500, ticketMedioAereo: 2000 },
+      ano: { clientesDistintos: 1000, bilhetesAereo: 5000, ticketMedioAereo: 2000 },
     });
   });
 
@@ -573,9 +574,10 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.cruzamentoCanais.totalAgenciasCarteira).not.toBe(300);
     // ...mas o resto do dashboard (que não depende disso) continua real.
     expect(resultado.miniKpis).toEqual({
-      clientesDistintos: 62,
-      bilhetesAereo: 270,
-      ticketMedioAereo: 1941.64,
+      hoje: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      ontem: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      mes: { clientesDistintos: 100, bilhetesAereo: 500, ticketMedioAereo: 2000 },
+      ano: { clientesDistintos: 1000, bilhetesAereo: 5000, ticketMedioAereo: 2000 },
     });
   });
 });

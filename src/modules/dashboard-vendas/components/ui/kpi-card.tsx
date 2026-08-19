@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface KpiCardProps {
   icon: LucideIcon;
@@ -6,7 +7,10 @@ interface KpiCardProps {
   corFundoIcone: string;
   label: string;
   valor: string;
-  legenda?: string;
+  // ReactNode (não só string) pra dar pra empilhar mais de uma linha —
+  // ex.: "X bilhetes" + "Ticket médio: R$ Y" nos cards Aéreo/Terrestre
+  // do Resumo do dia (pedido do usuário, 2026-08-19).
+  legenda?: ReactNode;
   badgeTopo?: string;
   badgeRodape?: string;
   // "vertical" (padrão) — ícone numa linha própria, acima do texto; usado
@@ -45,7 +49,15 @@ export function KpiCard({
   );
 
   const texto = (
-    <div className="min-w-0">
+    // `flex-1`: sem isso, o card horizontal (Aéreo/Terrestre) desalinhava
+    // o badge de margem entre os dois lados — a legenda mais longa de um
+    // card (mais caracteres em "X bilhetes"/"Ticket médio: R$ Y") fazia
+    // só aquele lado quebrar linha (flex-wrap do container pai), com o
+    // badge caindo pra baixo num card e ficando alinhado no outro. Com
+    // `flex-1`, o bloco de texto sempre ocupa o espaço disponível e quebra
+    // a própria linha (`break-words` já usado abaixo) em vez de empurrar
+    // o layout do card inteiro (bug reportado pelo usuário, 2026-08-19).
+    <div className={horizontal ? "min-w-0 flex-1" : "min-w-0"}>
       <p
         className="text-[10px] font-bold tracking-wide uppercase sm:text-[11px]"
         style={{ color: cor }}

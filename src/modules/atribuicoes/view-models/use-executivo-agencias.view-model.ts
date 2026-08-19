@@ -20,6 +20,7 @@ const FILTROS_INICIAIS: AgenciasCarteiraFiltros = {
   ordenarPor: "vendasAno",
   inativadasSakura: "ocultar",
   periodo: "mes",
+  apenasComprando: false,
 };
 
 function valorDeOrdenacao(agencia: AgenciaCarteiraView, filtros: AgenciasCarteiraFiltros): number {
@@ -56,6 +57,9 @@ export function useExecutivoAgenciasViewModel(agenciasReais: ExecutivoAgenciaRes
         return false;
       }
       if (filtros.ultimaCompra === "mais90" && agencia.diasSemComprar <= 90) return false;
+      if (filtros.apenasComprando && valorNoPeriodo(agencia, filtros.periodo).vendas <= 0) {
+        return false;
+      }
       if (buscaNormalizada && !agencia.nome.toLowerCase().includes(buscaNormalizada)) return false;
       return true;
     });

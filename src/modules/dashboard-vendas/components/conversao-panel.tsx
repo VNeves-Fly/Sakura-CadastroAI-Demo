@@ -3,6 +3,7 @@
 import { Activity, Building2, Info, Search, Ticket, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  formatarNumero,
   formatarPercentual,
   formatarVariacaoPct,
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
@@ -19,12 +20,16 @@ function CardIndicador({
   valor,
   destaque,
   subtitulo,
+  totalClientes,
 }: {
   icon: typeof Activity;
   label: string;
   valor: string;
   destaque?: boolean;
-  subtitulo: string;
+  subtitulo?: string;
+  // Mostrado na outra extremidade do card (canto oposto ao ícone/label),
+  // só no card "Saúde" (pedido do usuário, 2026-08-19).
+  totalClientes?: number;
 }) {
   return (
     <div className="border-border bg-card relative flex flex-col gap-1 rounded-2xl border p-4">
@@ -43,7 +48,12 @@ function CardIndicador({
       >
         {valor}
       </p>
-      <p className="text-muted-foreground text-xs">{subtitulo}</p>
+      {subtitulo ? <p className="text-muted-foreground text-xs">{subtitulo}</p> : null}
+      {totalClientes !== undefined ? (
+        <p className="text-muted-foreground mt-auto self-end text-xs">
+          {formatarNumero(totalClientes)} clientes
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -77,7 +87,7 @@ export function ConversaoPanel({ conversao }: ConversaoPanelProps) {
           label="Saúde"
           valor={formatarPercentual(dados.saudePct)}
           destaque
-          subtitulo={subtitulo}
+          totalClientes={dados.totalClientes}
         />
         <CardIndicador
           icon={TrendingUp}
