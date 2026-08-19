@@ -309,18 +309,23 @@ interface RawTopAgencia {
   tarifa_total: number;
 }
 
-// GET /api/reports/ranking-cias — `nome_companhia` às vezes vem só o
-// código numérico da companhia em vez do nome. Confirmado contra o
-// código-fonte do SST (docs/resposta.md, item 2): não é falta de lógica —
-// o SST já faz um LEFT JOIN com a tabela de companhias e só cai pro
-// código quando essa tabela não tem a companhia cadastrada (gap de dado
-// na origem/SICA, não algo que uma tradução nossa resolva sozinha).
-// Recomendação recebida: portar o mapa local IATA→nome que o CRM antigo
-// já usava (`SIGLA_TO_NOME`, docs/CRM.md:261) como fallback de exibição —
-// ainda não portado aqui por falta do conteúdo real desse mapa (repassado
-// como veio até lá).
+// GET /api/reports/ranking-cias — o SST já trocou o nome desses dois
+// campos pelo menos uma vez em produção sem aviso (`codigo_fornecedor`/
+// `nome_companhia` → `numero_cia_iata`/`nome_cia`, observado em
+// 2026-08-19) — por isso os dois formatos ficam como opcionais aqui e
+// `paraTopFornecedores` abaixo aceita qualquer um dos dois. Também já
+// veio `nome_companhia` só com o código numérico da companhia em vez do
+// nome (confirmado contra o código-fonte do SST, docs/resposta.md, item
+// 2: LEFT JOIN que cai pro código quando a tabela de companhias não tem
+// a companhia cadastrada — gap de dado na origem/SICA). Recomendação
+// recebida: portar o mapa local IATA→nome que o CRM antigo já usava
+// (`SIGLA_TO_NOME`, docs/CRM.md:261) como fallback de exibição — ainda
+// não portado aqui por falta do conteúdo real desse mapa.
 interface RawRankingCia {
-  nome_companhia: string;
+  codigo_fornecedor?: number | string;
+  nome_companhia?: string;
+  numero_cia_iata?: number | string;
+  nome_cia?: string;
   total_bilhetes: number;
   tarifa_total: number;
 }
@@ -564,7 +569,10 @@ function paraTopAgencias(linhas: RawTopAgencia[]): TopAgencia[] {
 function paraTopFornecedores(linhas: RawRankingCia[]): TopFornecedor[] {
   const valorTotal = linhas.reduce((acumulado, linha) => acumulado + linha.tarifa_total, 0);
   return linhas.map((linha) => ({
-    nome: linha.nome_companhia,
+    nome:
+      linha.nome_cia ||
+      linha.nome_companhia ||
+      String(linha.numero_cia_iata ?? linha.codigo_fornecedor ?? "Desconhecido"),
     qtdBilhetes: linha.total_bilhetes,
     valor: linha.tarifa_total,
     participacaoPct: valorTotal > 0 ? (linha.tarifa_total / valorTotal) * 100 : 0,
