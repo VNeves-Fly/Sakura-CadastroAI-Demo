@@ -540,11 +540,16 @@ function paraCanalResumo(periodo: RawPeriodoOverview): CanalResumo {
   };
 }
 
-function paraResumoDia(overview: RawOverviewResponse, periodo: "dia" | "mes" | "ano"): ResumoDia {
+function paraResumoDia(
+  overview: RawOverviewResponse,
+  periodo: "dia" | "mes" | "ano",
+  nacIntDetalhe: NacionalInternacional,
+): ResumoDia {
   return {
     atualizadoEm: new Date(),
     aereo: paraCanalResumo(overview.filial.aereo[periodo]),
     terrestre: paraCanalResumo(overview.filial.terrestre[periodo]),
+    nacIntDetalhe,
   };
 }
 
@@ -1286,6 +1291,8 @@ async function obterResumoEDia(): Promise<
     rankingCiasAno,
     nacIntMes,
     nacIntAno,
+    nacIntHoje,
+    nacIntOntem,
   ] = await Promise.all([
     sstGet<RawOverviewResponse>("/api/consolidado/overview", {
       data: hoje,
@@ -1323,14 +1330,19 @@ async function obterResumoEDia(): Promise<
     // os dois reaproveitam a mesma resposta em vez de duplicar a chamada.
     buscarNacInt(inicioMes, hoje),
     buscarNacInt(inicioAno, hoje),
+    // Share Nacional/Internacional de hoje/ontem, pra barra que aparece
+    // embaixo dos cards Aéreo/Terrestre do Resumo do dia (pedido do
+    // usuário, 2026-08-19) — mesma função já usada acima pra mês/ano.
+    buscarNacInt(hoje, hoje),
+    buscarNacInt(ontem, ontem),
   ]);
 
   return {
     resumoPorPeriodo: {
-      hoje: paraResumoDia(overviewHoje, "dia"),
-      ontem: paraResumoDia(overviewOntem, "dia"),
-      mes: paraResumoDia(overviewHoje, "mes"),
-      ano: paraResumoDia(overviewHoje, "ano"),
+      hoje: paraResumoDia(overviewHoje, "dia", paraNacionalInternacional(nacIntHoje.data)),
+      ontem: paraResumoDia(overviewOntem, "dia", paraNacionalInternacional(nacIntOntem.data)),
+      mes: paraResumoDia(overviewHoje, "mes", paraNacionalInternacional(nacIntMes.data)),
+      ano: paraResumoDia(overviewHoje, "ano", paraNacionalInternacional(nacIntAno.data)),
     },
     miniKpis: paraMiniKpisPorPeriodo(overviewHoje, overviewOntem),
     rankingPorMes: {

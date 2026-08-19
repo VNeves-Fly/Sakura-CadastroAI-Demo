@@ -18,6 +18,11 @@ export interface ResumoDia {
   atualizadoEm: Date;
   aereo: CanalResumo;
   terrestre: CanalResumo;
+  // Share Nacional/Internacional (valor + bilhetes de cada lado, não só
+  // %) — mostrado na barra embaixo dos cards Aéreo e Terrestre do Resumo
+  // do dia, com tooltip ao passar o mouse; mesmo valor pros dois canais
+  // (pedido do usuário, 2026-08-19).
+  nacIntDetalhe: NacionalInternacional;
 }
 
 export interface MiniKpis {
