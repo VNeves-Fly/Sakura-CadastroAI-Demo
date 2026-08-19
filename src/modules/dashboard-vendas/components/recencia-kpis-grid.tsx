@@ -64,6 +64,7 @@ export function RecenciaKpisGrid({ recencia, recenciaDetalhe }: RecenciaKpisGrid
           titulo="+30 dias sem vendas"
           valor={formatarNumero(semVendas30dMais.total)}
           aoClicar={() => setModalAberto("semVendas30dMais")}
+          destaque
           submetricas={[
             { label: "31–89D sem vender", valor: formatarNumero(semVendas30dMais.faixa31a89) },
             { label: "90–179D sem vender", valor: formatarNumero(semVendas30dMais.faixa90a179) },
@@ -74,6 +75,7 @@ export function RecenciaKpisGrid({ recencia, recenciaDetalhe }: RecenciaKpisGrid
           titulo={`Sem vendas em ${anoAtual()}`}
           valor={formatarNumero(semVendasAno.total)}
           aoClicar={() => setModalAberto("semVendasAno")}
+          destaque
           submetricas={[
             { label: "só aéreo", valor: formatarNumero(semVendasAno.soAereo) },
             { label: "só terrestre", valor: formatarNumero(semVendasAno.soTerrestre) },
