@@ -392,6 +392,9 @@ function construirConversao(): DashboardVendasData["conversao"] {
   const periodoComparativo = "1–12 jul vs 1–12 ago";
   const aereoMes = { valor: 91_200_456, bilhetes: 51_040 };
   const terrestreMes = { valor: 1_200_576, vendas: 442 };
+  // Mesma base de agências usada em CruzamentoCanais — total de clientes
+  // considerado no cálculo de Saúde, não varia por canal.
+  const totalClientes = construirCruzamentoCanais().totalAgenciasCarteira;
   const porCanal: Record<
     Canal,
     { saude: number; volume: number; bilhetesVendas: number; agencias: number }
@@ -412,6 +415,7 @@ function construirConversao(): DashboardVendasData["conversao"] {
       periodoComparativo,
       aereoMes,
       terrestreMes,
+      totalClientes,
     };
   }
   return resultado;

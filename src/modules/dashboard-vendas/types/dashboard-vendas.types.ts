@@ -111,6 +111,10 @@ export interface ConversaoCanal {
   periodoComparativo: string;
   aereoMes: { valor: number; bilhetes: number };
   terrestreMes: { valor: number; vendas: number };
+  // Total de agências da carteira consideradas no cálculo de Saúde —
+  // mostrado na outra extremidade do card "Saúde" (pedido do usuário,
+  // 2026-08-19).
+  totalClientes: number;
 }
 
 export type Conversao = Record<Canal, ConversaoCanal>;

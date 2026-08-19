@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SelectField } from "@/components/ui/select-field";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type {
   AgenciasCarteiraFiltros,
@@ -135,6 +136,13 @@ export function AgenciasFiltrosToolbar({
           <span className="text-muted-foreground text-sm whitespace-nowrap">
             <span className="text-foreground font-semibold">{total}</span> agência(s)
           </span>
+          <label className="text-muted-foreground flex items-center gap-2 text-sm whitespace-nowrap">
+            <Switch
+              checked={filtros.apenasComprando}
+              onCheckedChange={(valor) => onAtualizarFiltro("apenasComprando", valor)}
+            />
+            Apenas agências que estão comprando
+          </label>
         </div>
 
         <div className="flex items-center gap-2">

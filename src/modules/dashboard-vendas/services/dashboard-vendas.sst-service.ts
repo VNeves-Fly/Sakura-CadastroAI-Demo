@@ -781,6 +781,7 @@ async function construirConversao(): Promise<Conversao> {
     periodoComparativo,
     aereoMes,
     terrestreMes,
+    totalClientes: ativas,
   };
 
   const terrestre: ConversaoCanal = {
@@ -791,6 +792,7 @@ async function construirConversao(): Promise<Conversao> {
     periodoComparativo,
     aereoMes,
     terrestreMes,
+    totalClientes: ativas,
   };
 
   const ambos: ConversaoCanal = {
@@ -807,6 +809,7 @@ async function construirConversao(): Promise<Conversao> {
     periodoComparativo,
     aereoMes,
     terrestreMes,
+    totalClientes: ativas,
   };
 
   return { ambos, aereo, terrestre };
