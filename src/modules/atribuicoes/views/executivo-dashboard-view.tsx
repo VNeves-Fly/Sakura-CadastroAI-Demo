@@ -8,7 +8,6 @@ import { ExecutivoTabsNav } from "@/modules/atribuicoes/components/executivo/exe
 import { VendasMesHeroCard } from "@/modules/atribuicoes/components/executivo/dashboard/vendas-mes-hero-card";
 import { KpisSecundariosGrid } from "@/modules/atribuicoes/components/executivo/dashboard/kpis-secundarios";
 import { MiniStatsGrid } from "@/modules/atribuicoes/components/executivo/dashboard/mini-stats";
-import { VendasMensaisChart } from "@/modules/atribuicoes/components/executivo/dashboard/vendas-mensais-chart";
 import { Tendencia30dChart } from "@/modules/atribuicoes/components/executivo/dashboard/tendencia-30d-chart";
 import { CrossCanalCard } from "@/modules/atribuicoes/components/executivo/dashboard/cross-canal-card";
 import { SaudeCarteiraCard } from "@/modules/atribuicoes/components/executivo/dashboard/saude-carteira-card";
@@ -29,7 +28,6 @@ interface ExecutivoDashboardViewProps {
 
 export function ExecutivoDashboardView({ detalhe }: ExecutivoDashboardViewProps) {
   const { perfil, dashboard } = detalhe;
-  const ano = new Date().getFullYear();
   const nomeBase = perfil.bases[0] ? `${perfil.nome} (${perfil.bases[0]})` : perfil.nome;
 
   return (
@@ -54,13 +52,6 @@ export function ExecutivoDashboardView({ detalhe }: ExecutivoDashboardViewProps)
       <KpisSecundariosGrid kpis={dashboard.kpis} />
       <MiniStatsGrid miniStats={dashboard.miniStats} />
 
-      <VendasMensaisChart
-        dados={dashboard.vendasMensais}
-        totalAno={dashboard.vendasMensaisTotalAno}
-        variacaoAltaPct={dashboard.vendasMensaisVariacaoAltaPct}
-        variacaoBaixaPct={dashboard.vendasMensaisVariacaoBaixaPct}
-        ano={ano}
-      />
       <Tendencia30dChart valores={dashboard.tendencia30d} total={dashboard.tendencia30dTotal} />
 
       <CrossCanalCard crossCanal={dashboard.crossCanal} />
