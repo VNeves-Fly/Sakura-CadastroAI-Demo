@@ -253,6 +253,20 @@ export async function reprovarDocumentoAction(
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 
+// Reanalisar o MESMO arquivo já reprovado (analista mudou de ideia depois de
+// olhar de novo) — cria uma linha nova PENDENTE reaproveitando o arquivo já
+// salvo, sem exigir reenvio pelo sócio. Mesmo gate das demais ações do
+// dossiê (garantirAtendimentoAssumido já restringe a ADMIN/DIRETOR_ANALISTA/
+// ANALISTA, via CARGOS_SEM_ATENDIMENTO acima).
+export async function reanalisarDocumentoAction(agenciaId: string, documentoId: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  await cadastroAdminController.reanalisarDocumento({
+    documentoId,
+    reanalisadoPor: await analistaLogado(),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
 export async function inserirDocumentoManualAction(
   agenciaId: string,
   tipo: TipoDocumento,

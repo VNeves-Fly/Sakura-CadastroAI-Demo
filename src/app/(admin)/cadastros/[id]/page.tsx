@@ -104,6 +104,7 @@ import {
   aprovarDocumentoAction,
   reprovarDocumentoAction,
   inserirDocumentoManualAction,
+  reanalisarDocumentoAction,
   editarSocioAction,
   adicionarSocioAction,
   removerSocioAction,
@@ -709,6 +710,7 @@ export default async function DossieAgenciaPage({
                           aprovarDocumentoAction={aprovarDocumentoAction}
                           reprovarDocumentoAction={reprovarDocumentoAction}
                           inserirDocumentoManualAction={inserirDocumentoManualAction}
+                          reanalisarDocumentoAction={reanalisarDocumentoAction}
                           somenteLeitura={!podeAgir}
                           reenviado={
                             contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
@@ -853,6 +855,7 @@ export default async function DossieAgenciaPage({
                             aprovarDocumentoAction={aprovarDocumentoAction}
                             reprovarDocumentoAction={reprovarDocumentoAction}
                             inserirDocumentoManualAction={inserirDocumentoManualAction}
+                            reanalisarDocumentoAction={reanalisarDocumentoAction}
                             somenteLeitura={!podeAgir}
                             reenviado={socio.rg ? idsDocumentosReenviados.has(socio.rg.id) : false}
                           />
@@ -873,6 +876,7 @@ export default async function DossieAgenciaPage({
                               aprovarDocumentoAction={aprovarDocumentoAction}
                               reprovarDocumentoAction={reprovarDocumentoAction}
                               inserirDocumentoManualAction={inserirDocumentoManualAction}
+                              reanalisarDocumentoAction={reanalisarDocumentoAction}
                               somenteLeitura={!podeAgir}
                               reenviado={
                                 socio.procuracao
