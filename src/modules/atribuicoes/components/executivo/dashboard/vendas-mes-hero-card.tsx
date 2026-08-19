@@ -58,7 +58,17 @@ export function VendasMesHeroCard({ hero }: VendasMesHeroCardProps) {
   return (
     <div className="border-border from-card to-accent/40 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6">
       <div className="absolute top-5 right-5 flex flex-col items-end gap-2">
-        <PeriodToggle opcoes={OPCOES_PERIODO} valor={filtro} onChange={setFiltro} />
+        {/* cor explícita: o default do PeriodToggle é COR_ROSA do
+            dashboard-vendas, uma custom property que só existe dentro de
+            .dashboard-vendas-scope — fora de lá (aqui, no executivo) o
+            pill ativo ficava sem cor. hsl(var(--primary)) é o pink padrão
+            do resto do app. */}
+        <PeriodToggle
+          opcoes={OPCOES_PERIODO}
+          valor={filtro}
+          onChange={setFiltro}
+          cor="hsl(var(--primary))"
+        />
 
         {personalizado ? (
           <PersonalizadoDateRange

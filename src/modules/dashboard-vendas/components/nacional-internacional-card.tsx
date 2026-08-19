@@ -1,22 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
-import type { ApexOptions } from "apexcharts";
-import { Globe2 } from "lucide-react";
+import { Globe2, MapPin } from "lucide-react";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
-import { LegendaItem } from "@/modules/dashboard-vendas/components/ui/legenda-item";
+import { ComparisonSplitCard } from "@/modules/dashboard-vendas/components/ui/comparison-split-card";
 import {
   formatarMoedaAbreviada,
   formatarNumero,
+  formatarPercentual,
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import {
   COR_AZUL,
+  COR_AZUL_BG,
   COR_ROSA,
+  COR_ROSA_BG,
 } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
 import type { NacionalInternacional } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
-
-const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 const OPCOES_PERIODO: { valor: "mes" | "ano"; label: string }[] = [
   { valor: "mes", label: "Mês" },
@@ -27,21 +26,17 @@ interface NacionalInternacionalCardProps {
   nacionalInternacionalPorMes: Record<string, NacionalInternacional>;
 }
 
-// 4.10 — rosca Nacional x Internacional, só vendas aéreas.
+// 4.10 — Nacional x Internacional, só vendas aéreas. Barra de proporção
+// única (mesmo padrão do par Aéreo/Terrestre em ResumoDoDiaCard, pedido
+// do usuário 2026-08-19 — antes era rosca/donut, depois linha): rosa =
+// Nacional, azul = Internacional.
 export function NacionalInternacionalCard({
   nacionalInternacionalPorMes,
 }: NacionalInternacionalCardProps) {
   const [periodo, setPeriodo] = useState<"mes" | "ano">("mes");
   const dados = nacionalInternacionalPorMes[periodo];
-
-  const options: ApexOptions = {
-    chart: { type: "donut", fontFamily: "inherit" },
-    labels: ["Nacional", "Internacional"],
-    colors: [COR_ROSA, COR_AZUL],
-    legend: { show: false },
-    dataLabels: { enabled: true, formatter: (valor: number) => `${valor.toFixed(0)}%` },
-    stroke: { width: 0 },
-  };
+  const total = dados ? dados.nacional.valor + dados.internacional.valor : 0;
+  const nacionalPct = total > 0 && dados ? (dados.nacional.valor / total) * 100 : 0;
 
   return (
     <div className="border-border bg-card flex flex-col rounded-2xl border p-5">
@@ -57,26 +52,29 @@ export function NacionalInternacionalCard({
       </div>
 
       {dados ? (
-        <>
-          <Chart
-            options={options}
-            series={[dados.nacional.valor, dados.internacional.valor]}
-            type="donut"
-            height={220}
+        <div className="mt-4">
+          <ComparisonSplitCard
+            progressoEsquerdaPct={nacionalPct}
+            participacaoEsquerda={formatarPercentual(nacionalPct)}
+            participacaoDireita={formatarPercentual(100 - nacionalPct)}
+            esquerda={{
+              icon: MapPin,
+              cor: COR_ROSA,
+              corFundoIcone: COR_ROSA_BG,
+              label: "Nacional",
+              valor: formatarMoedaAbreviada(dados.nacional.valor),
+              legenda: `${formatarNumero(dados.nacional.bilhetes)} bilhetes`,
+            }}
+            direita={{
+              icon: Globe2,
+              cor: COR_AZUL,
+              corFundoIcone: COR_AZUL_BG,
+              label: "Internacional",
+              valor: formatarMoedaAbreviada(dados.internacional.valor),
+              legenda: `${formatarNumero(dados.internacional.bilhetes)} bilhetes`,
+            }}
           />
-          <div className="mt-2 flex flex-col gap-1.5">
-            <LegendaItem
-              cor={COR_ROSA}
-              nome="Nacional"
-              valor={`${formatarMoedaAbreviada(dados.nacional.valor)} · ${formatarNumero(dados.nacional.bilhetes)} bilhetes`}
-            />
-            <LegendaItem
-              cor={COR_AZUL}
-              nome="Internacional"
-              valor={`${formatarMoedaAbreviada(dados.internacional.valor)} · ${formatarNumero(dados.internacional.bilhetes)} bilhetes`}
-            />
-          </div>
-        </>
+        </div>
       ) : null}
     </div>
   );

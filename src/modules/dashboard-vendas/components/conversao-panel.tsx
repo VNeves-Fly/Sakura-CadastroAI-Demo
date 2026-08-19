@@ -1,23 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { Activity, Building2, Info, Search, Ticket, TrendingUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import {
-  formatarMoedaBrl,
-  formatarNumero,
   formatarPercentual,
   formatarVariacaoPct,
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import { COR_ROSA } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
-import type { Canal, Conversao } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
-
-const OPCOES_CANAL: { valor: Canal; label: string }[] = [
-  { valor: "ambos", label: "Aéreo + Terrestre" },
-  { valor: "aereo", label: "Aéreo" },
-  { valor: "terrestre", label: "Terrestre" },
-];
+import type { Conversao } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 interface ConversaoPanelProps {
   conversao: Conversao;
@@ -58,29 +48,27 @@ function CardIndicador({
   );
 }
 
-// 4.7 — indicadores de conversão com seletor de canal, mesmo padrão de
-// texto comparativo em todos os 4 cards.
+// 4.7 — indicadores de conversão. Seletor de canal (Aéreo + Terrestre/
+// Aéreo/Terrestre) e os cards "Aéreo no mês"/"Terrestre no mês" foram
+// removidos a pedido do usuário (2026-08-19) — painel sempre mostra o
+// consolidado "ambos".
 export function ConversaoPanel({ conversao }: ConversaoPanelProps) {
-  const [canal, setCanal] = useState<Canal>("ambos");
-  const dados = conversao[canal];
+  const dados = conversao.ambos;
   const subtitulo = `Comparando ${dados.periodoComparativo}`;
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Activity className="text-muted-foreground size-4 shrink-0" />
-          <h2 className="text-foreground text-sm font-semibold">Conversão</h2>
-          <Tooltip>
-            <TooltipTrigger render={<button type="button" aria-label="O que é este painel" />}>
-              <Info className="text-muted-foreground size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>
-              Saúde de conversão da carteira e variação mês a mês por canal de venda.
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <PeriodToggle opcoes={OPCOES_CANAL} valor={canal} onChange={setCanal} />
+      <div className="flex items-center gap-2">
+        <Activity className="text-muted-foreground size-4 shrink-0" />
+        <h2 className="text-foreground text-sm font-semibold">Conversão</h2>
+        <Tooltip>
+          <TooltipTrigger render={<button type="button" aria-label="O que é este painel" />}>
+            <Info className="text-muted-foreground size-3.5" />
+          </TooltipTrigger>
+          <TooltipContent>
+            Saúde de conversão da carteira e variação mês a mês por canal de venda.
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -109,31 +97,6 @@ export function ConversaoPanel({ conversao }: ConversaoPanelProps) {
           valor={formatarVariacaoPct(dados.agenciasMesVarPct)}
           subtitulo={subtitulo}
         />
-      </div>
-
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="border-border rounded-2xl border p-4">
-          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-            Aéreo no mês
-          </p>
-          <p className="text-foreground mt-1 text-xl font-bold">
-            {formatarMoedaBrl(dados.aereoMes.valor)}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {formatarNumero(dados.aereoMes.bilhetes)} bilhetes
-          </p>
-        </div>
-        <div className="border-border rounded-2xl border p-4">
-          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-            Terrestre no mês
-          </p>
-          <p className="text-foreground mt-1 text-xl font-bold">
-            {formatarMoedaBrl(dados.terrestreMes.valor)}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {formatarNumero(dados.terrestreMes.vendas)} vendas (hotéis/transfers)
-          </p>
-        </div>
       </div>
     </div>
   );
