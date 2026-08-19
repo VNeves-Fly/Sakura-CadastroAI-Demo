@@ -34,7 +34,7 @@ function CardIndicador({
   label: string;
   valor: string;
   destaque?: boolean;
-  subtitulo: string;
+  subtitulo?: string;
 }) {
   return (
     <div className="border-border bg-card relative flex flex-col gap-1 rounded-2xl border p-4">
@@ -53,7 +53,7 @@ function CardIndicador({
       >
         {valor}
       </p>
-      <p className="text-muted-foreground text-xs">{subtitulo}</p>
+      {subtitulo && <p className="text-muted-foreground text-xs">{subtitulo}</p>}
     </div>
   );
 }
@@ -89,7 +89,6 @@ export function ConversaoPanel({ conversao }: ConversaoPanelProps) {
           label="Saúde"
           valor={formatarPercentual(dados.saudePct)}
           destaque
-          subtitulo={subtitulo}
         />
         <CardIndicador
           icon={TrendingUp}
