@@ -80,43 +80,62 @@ function construirIntraday(): BucketIntraday[] {
   }));
 }
 
+// Deriva um NacionalInternacional a partir do valor/quantidade do próprio
+// canal (× fração nacional) — mock simples, sem inventar números soltos
+// extras por período/canal.
+function derivarNacInt(valor: number, quantidade: number, nacionalPct: number) {
+  const fracaoNacional = nacionalPct / 100;
+  return {
+    nacional: {
+      valor: Math.round(valor * fracaoNacional),
+      bilhetes: Math.round(quantidade * fracaoNacional),
+    },
+    internacional: {
+      valor: Math.round(valor * (1 - fracaoNacional)),
+      bilhetes: Math.round(quantidade * (1 - fracaoNacional)),
+    },
+  };
+}
+
 function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
   const base: Record<
     PeriodoResumo,
     {
       atualizadoEm: Date;
-      aereo: [number, number, number];
-      terrestre: [number, number, number];
-      // % Nacional do share Nacional/Internacional (Internacional = 100 -
-      // isso) — mesmo split mostrado embaixo dos cards Aéreo e Terrestre
-      // (pedido do usuário, 2026-08-19).
-      nacionalPct: number;
+      // valor, quantidade, margemPct, % nacional do share NAC/INT deste
+      // canal — cada canal (aéreo/terrestre) tem o seu próprio share, não
+      // é o mesmo dado duplicado entre os dois (pedido do usuário,
+      // 2026-08-19).
+      aereo: [number, number, number, number];
+      terrestre: [number, number, number, number];
+      // Margem combinada Aéreo+Terrestre (overview.filial.total no
+      // serviço real) — distinta da margem de cada canal.
+      margemTotalPct: number;
     }
   > = {
-    // valor, quantidade, margemPct — participação é derivada no adapter.
     hoje: {
       atualizadoEm: ATUALIZADO_EM,
-      aereo: [282_267.49, 158, 4.1],
-      terrestre: [0, 0, 0],
-      nacionalPct: 34.8,
+      aereo: [282_267.49, 158, 4.1, 34.8],
+      terrestre: [0, 0, 0, 0],
+      margemTotalPct: 4.1,
     },
     ontem: {
       atualizadoEm: new Date(2026, 7, 12, 23, 59),
-      aereo: [195_430.2, 121, 3.8],
-      terrestre: [3_200, 4, 14.2],
-      nacionalPct: 31.5,
+      aereo: [195_430.2, 121, 3.8, 31.5],
+      terrestre: [3_200, 4, 14.2, 88.6],
+      margemTotalPct: 4.0,
     },
     mes: {
       atualizadoEm: ATUALIZADO_EM,
-      aereo: [2_847_500.32, 1_840, 4.3],
-      terrestre: [42_300, 28, 15.6],
-      nacionalPct: 32.1,
+      aereo: [2_847_500.32, 1_840, 4.3, 32.1],
+      terrestre: [42_300, 28, 15.6, 91.2],
+      margemTotalPct: 4.5,
     },
     ano: {
       atualizadoEm: ATUALIZADO_EM,
-      aereo: [1_320_800_000, 742_300, 4.2],
-      terrestre: [26_700_000, 9_840, 15.1],
-      nacionalPct: 29.4,
+      aereo: [1_320_800_000, 742_300, 4.2, 29.4],
+      terrestre: [26_700_000, 9_840, 15.1, 89.9],
+      margemTotalPct: 4.6,
     },
   };
 
@@ -124,34 +143,26 @@ function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
   const resultado = {} as Record<PeriodoResumo, ResumoDia>;
   for (const periodo of periodos) {
     const item = base[periodo];
-    const [aereoValor, aereoQuantidade] = item.aereo;
-    const fracaoNacional = item.nacionalPct / 100;
+    const [aereoValor, aereoQuantidade, aereoMargem, aereoNacionalPct] = item.aereo;
+    const [terrestreValor, terrestreQuantidade, terrestreMargem, terrestreNacionalPct] =
+      item.terrestre;
     resultado[periodo] = {
       atualizadoEm: item.atualizadoEm,
       aereo: {
-        valor: item.aereo[0],
-        quantidade: item.aereo[1],
+        valor: aereoValor,
+        quantidade: aereoQuantidade,
         participacaoPct: 0,
-        margemPct: item.aereo[2],
+        margemPct: aereoMargem,
+        nacIntDetalhe: derivarNacInt(aereoValor, aereoQuantidade, aereoNacionalPct),
       },
       terrestre: {
-        valor: item.terrestre[0],
-        quantidade: item.terrestre[1],
+        valor: terrestreValor,
+        quantidade: terrestreQuantidade,
         participacaoPct: 0,
-        margemPct: item.terrestre[2],
+        margemPct: terrestreMargem,
+        nacIntDetalhe: derivarNacInt(terrestreValor, terrestreQuantidade, terrestreNacionalPct),
       },
-      // Deriva do próprio total aéreo do período (× nacionalPct) — mock
-      // simples, sem inventar mais números soltos por período.
-      nacIntDetalhe: {
-        nacional: {
-          valor: Math.round(aereoValor * fracaoNacional),
-          bilhetes: Math.round(aereoQuantidade * fracaoNacional),
-        },
-        internacional: {
-          valor: Math.round(aereoValor * (1 - fracaoNacional)),
-          bilhetes: Math.round(aereoQuantidade * (1 - fracaoNacional)),
-        },
-      },
+      margemTotalPct: item.margemTotalPct,
     };
   }
   return resultado;

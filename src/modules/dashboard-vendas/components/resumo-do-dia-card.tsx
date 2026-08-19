@@ -81,12 +81,20 @@ export function ResumoDoDiaCard({
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <p
-            className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
-            style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
-          >
-            {formatarMoedaBrl(totalPeriodo)}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p
+              className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
+              style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
+            >
+              {formatarMoedaBrl(totalPeriodo)}
+            </p>
+            {/* Margem combinada Aéreo+Terrestre (overview.filial.total),
+                separada da margem de cada canal mostrada nos cards abaixo
+                (pedido do usuário, 2026-08-19). */}
+            <span className="bg-primary/10 text-primary rounded-md px-2 py-1 text-xs font-bold">
+              MARGEM TOTAL {formatarPercentual(resumo.margemTotalPct)}
+            </span>
+          </div>
           <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
             <Clock className="size-3.5" />
             Atualizado em {formatarAtualizadoEm(resumo.atualizadoEm)}
@@ -109,10 +117,12 @@ export function ResumoDoDiaCard({
 
       {personalizado ? <PersonalizadoAviso periodoPreviaLabel="Este mês" /> : null}
 
-      {/* Grid Aéreo/Terrestre — cada lado com seu próprio card + a barra
-          de share Nacional/Internacional embaixo dele (substitui a barra
-          única de proporção Aéreo x Terrestre que existia antes aqui,
-          pedido do usuário, 2026-08-19, print de referência). */}
+      {/* Grid Aéreo/Terrestre — substitui a barra única de proporção
+          Aéreo x Terrestre que existia antes aqui (pedido do usuário,
+          2026-08-19, print de referência). Cada canal tem seu próprio
+          share Nacional/Internacional (nacIntDetalhe vem do mesmo bucket
+          de origem que valor/margem daquele canal — não é o mesmo dado
+          duplicado entre os dois). */}
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <KpiCard
@@ -131,7 +141,7 @@ export function ResumoDoDiaCard({
             badgeRodape={`MARGEM ${formatarPercentual(resumo.aereo.margemPct)}`}
             orientacao="horizontal"
           />
-          <NacIntMiniBar nacIntDetalhe={resumo.nacIntDetalhe} />
+          <NacIntMiniBar nacIntDetalhe={resumo.aereo.nacIntDetalhe} />
         </div>
 
         <div>
@@ -151,7 +161,7 @@ export function ResumoDoDiaCard({
             badgeRodape={`MARGEM ${formatarPercentual(resumo.terrestre.margemPct)}`}
             orientacao="horizontal"
           />
-          <NacIntMiniBar nacIntDetalhe={resumo.nacIntDetalhe} />
+          <NacIntMiniBar nacIntDetalhe={resumo.terrestre.nacIntDetalhe} />
         </div>
       </div>
     </div>

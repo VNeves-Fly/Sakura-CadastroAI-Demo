@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Power } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,6 @@ import {
   SortableDataTable,
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
-import { StickyHorizontalScrollbar } from "@/modules/shared/components/sticky-horizontal-scrollbar";
 import {
   formatarMoedaAbreviada,
   formatarPercentual,
@@ -34,7 +32,6 @@ export function ExecutivosListaTabela({
   onAlternarAtivo,
 }: ExecutivosListaTabelaProps) {
   const router = useRouter();
-  const containerRef = useRef<HTMLDivElement>(null);
 
   if (isLoading) {
     return <p className="text-muted-foreground text-sm">Carregando executivos...</p>;
@@ -227,25 +224,21 @@ export function ExecutivosListaTabela({
   ];
 
   return (
-    <>
-      <SortableDataTable
-        containerRef={containerRef}
-        columns={colunas}
-        rows={executivos}
-        rowKey={(linha) => linha.id}
-        defaultSort={{ key: "vendasAno", direction: "desc" }}
-        onRowClick={(linha) => router.push(`/crm/executivos/${linha.id}`)}
-        // Opacity só por status inativo, não por "sem venda" (semVenda já
-        // tem seu próprio indicador — badge na coluna Vendas mês + nome
-        // acinzentado — misturar os dois deixava parecer que quem só não
-        // vendeu no período estava inativo). Opacity só nas células de
-        // dado (":not(:last-child)") — a última é a coluna Ações, que
-        // precisa ficar 100% visível pro botão Ativar (verde) não sair
-        // apagado junto.
-        rowClassName={(linha) => (!linha.ativo ? "[&>td:not(:last-child)]:opacity-60" : undefined)}
-        emptyMessage="Nenhum executivo encontrado."
-      />
-      <StickyHorizontalScrollbar containerRef={containerRef} />
-    </>
+    <SortableDataTable
+      columns={colunas}
+      rows={executivos}
+      rowKey={(linha) => linha.id}
+      defaultSort={{ key: "vendasAno", direction: "desc" }}
+      onRowClick={(linha) => router.push(`/crm/executivos/${linha.id}`)}
+      // Opacity só por status inativo, não por "sem venda" (semVenda já
+      // tem seu próprio indicador — badge na coluna Vendas mês + nome
+      // acinzentado — misturar os dois deixava parecer que quem só não
+      // vendeu no período estava inativo). Opacity só nas células de
+      // dado (":not(:last-child)") — a última é a coluna Ações, que
+      // precisa ficar 100% visível pro botão Ativar (verde) não sair
+      // apagado junto.
+      rowClassName={(linha) => (!linha.ativo ? "[&>td:not(:last-child)]:opacity-60" : undefined)}
+      emptyMessage="Nenhum executivo encontrado."
+    />
   );
 }
