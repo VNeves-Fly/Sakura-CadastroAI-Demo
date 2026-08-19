@@ -279,6 +279,11 @@ export default async function DossieAgenciaPage({
     }
   }
   const somenteLeituraPorCargo = cargo === "GESTOR" || cargo === "EXECUTIVO";
+  // Reanalisar documento reprovado (mesmo arquivo, sem reenvio) é restrito a
+  // Admin/Diretor de Analistas — decisão do usuário, 2026-08-18. Analista
+  // continua podendo aprovar/reprovar/inserir manualmente, só não reabre um
+  // documento já reprovado sozinho.
+  const podeReanalisarDocumento = cargo === "ADMIN" || cargo === "DIRETOR_ANALISTA";
 
   const [atendimentoAtual, historicoAtendimento] = await Promise.all([
     atendimentoController.obterAtendimentoAgenciaAtual(view.agencia.id),
@@ -710,7 +715,9 @@ export default async function DossieAgenciaPage({
                           aprovarDocumentoAction={aprovarDocumentoAction}
                           reprovarDocumentoAction={reprovarDocumentoAction}
                           inserirDocumentoManualAction={inserirDocumentoManualAction}
-                          reanalisarDocumentoAction={reanalisarDocumentoAction}
+                          reanalisarDocumentoAction={
+                            podeReanalisarDocumento ? reanalisarDocumentoAction : undefined
+                          }
                           somenteLeitura={!podeAgir}
                           reenviado={
                             contratoSocial ? idsDocumentosReenviados.has(contratoSocial.id) : false
@@ -855,7 +862,9 @@ export default async function DossieAgenciaPage({
                             aprovarDocumentoAction={aprovarDocumentoAction}
                             reprovarDocumentoAction={reprovarDocumentoAction}
                             inserirDocumentoManualAction={inserirDocumentoManualAction}
-                            reanalisarDocumentoAction={reanalisarDocumentoAction}
+                            reanalisarDocumentoAction={
+                              podeReanalisarDocumento ? reanalisarDocumentoAction : undefined
+                            }
                             somenteLeitura={!podeAgir}
                             reenviado={socio.rg ? idsDocumentosReenviados.has(socio.rg.id) : false}
                           />
@@ -876,7 +885,9 @@ export default async function DossieAgenciaPage({
                               aprovarDocumentoAction={aprovarDocumentoAction}
                               reprovarDocumentoAction={reprovarDocumentoAction}
                               inserirDocumentoManualAction={inserirDocumentoManualAction}
-                              reanalisarDocumentoAction={reanalisarDocumentoAction}
+                              reanalisarDocumentoAction={
+                                podeReanalisarDocumento ? reanalisarDocumentoAction : undefined
+                              }
                               somenteLeitura={!podeAgir}
                               reenviado={
                                 socio.procuracao

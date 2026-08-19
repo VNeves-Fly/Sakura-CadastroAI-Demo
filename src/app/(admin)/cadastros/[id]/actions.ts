@@ -21,6 +21,13 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 // postura do guard em atendimento-agencia.routes.ts.
 const CARGOS_SEM_ATENDIMENTO = new Set(["GESTOR", "EXECUTIVO"]);
 
+// Reanalisar documento reprovado (mesmo arquivo, sem reenvio) é restrito a
+// Admin/Diretor de Analistas — decisão do usuário, 2026-08-18. Mesmo padrão
+// de CARGOS_GESTAO_DE_GESTORES (gestores.routes.ts) etc. Analista continua
+// podendo aprovar/reprovar/inserir manualmente, só não reabre sozinho um
+// documento já reprovado.
+const CARGOS_REANALISE_DOCUMENTO = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
+
 async function analistaIdLogado(): Promise<string> {
   const session = await getServerSession(nextAuthOptions);
   if (!session?.user?.id) throw new DomainError("Não autenticado.");
@@ -255,11 +262,15 @@ export async function reprovarDocumentoAction(
 
 // Reanalisar o MESMO arquivo já reprovado (analista mudou de ideia depois de
 // olhar de novo) — cria uma linha nova PENDENTE reaproveitando o arquivo já
-// salvo, sem exigir reenvio pelo sócio. Mesmo gate das demais ações do
-// dossiê (garantirAtendimentoAssumido já restringe a ADMIN/DIRETOR_ANALISTA/
-// ANALISTA, via CARGOS_SEM_ATENDIMENTO acima).
+// salvo, sem exigir reenvio pelo sócio. Restrito a Admin/Diretor de
+// Analistas (CARGOS_REANALISE_DOCUMENTO, decisão do usuário 2026-08-18),
+// além do gate de sempre (garantirAtendimentoAssumido).
 export async function reanalisarDocumentoAction(agenciaId: string, documentoId: string) {
   if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  const session = await getServerSession(nextAuthOptions);
+  if (!session?.user?.cargo || !CARGOS_REANALISE_DOCUMENTO.has(session.user.cargo)) {
+    throw new DomainError("Acesso não permitido.");
+  }
   await cadastroAdminController.reanalisarDocumento({
     documentoId,
     reanalisadoPor: await analistaLogado(),
