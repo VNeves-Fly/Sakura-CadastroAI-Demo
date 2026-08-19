@@ -8,7 +8,6 @@ import { ExecutivoTabsNav } from "@/modules/atribuicoes/components/executivo/exe
 import { VendasMesHeroCard } from "@/modules/atribuicoes/components/executivo/dashboard/vendas-mes-hero-card";
 import { KpisSecundariosGrid } from "@/modules/atribuicoes/components/executivo/dashboard/kpis-secundarios";
 import { MiniStatsGrid } from "@/modules/atribuicoes/components/executivo/dashboard/mini-stats";
-import { AgenciasFieisChips } from "@/modules/atribuicoes/components/executivo/dashboard/agencias-fieis-chips";
 import { VendasMensaisChart } from "@/modules/atribuicoes/components/executivo/dashboard/vendas-mensais-chart";
 import { Tendencia30dChart } from "@/modules/atribuicoes/components/executivo/dashboard/tendencia-30d-chart";
 import { CrossCanalCard } from "@/modules/atribuicoes/components/executivo/dashboard/cross-canal-card";
@@ -54,7 +53,6 @@ export function ExecutivoDashboardView({ detalhe }: ExecutivoDashboardViewProps)
       <VendasMesHeroCard hero={dashboard.hero} />
       <KpisSecundariosGrid kpis={dashboard.kpis} />
       <MiniStatsGrid miniStats={dashboard.miniStats} />
-      <AgenciasFieisChips chips={dashboard.fidelidadePorCompanhia} ano={ano} />
 
       <VendasMensaisChart
         dados={dashboard.vendasMensais}
