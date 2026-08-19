@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePromotoresListViewModel } from "@/modules/atribuicoes/view-models/use-promotores-list.view-model";
+import { usePromotorStatusStore } from "@/modules/atribuicoes/stores/promotor-status.store";
 import { promotorListaAdapter } from "@/modules/atribuicoes/adapters/promotor-lista.adapter";
 import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
 import type { PromotorListaFiltros } from "@/modules/atribuicoes/types/promotor-lista.types";
@@ -17,11 +18,12 @@ const FILTROS_INICIAIS: PromotorListaFiltros = {
 
 export function useExecutivosListaViewModel(gestoresOptions: GestorOpcao[] | null) {
   const { promotores, isLoading, error } = usePromotoresListViewModel();
+  const ativoOverrides = usePromotorStatusStore((state) => state.overrides);
   const [filtros, setFiltros] = useState<PromotorListaFiltros>(FILTROS_INICIAIS);
 
   const executivos = useMemo(
-    () => promotorListaAdapter.toListaViewList(promotores, gestoresOptions),
-    [promotores, gestoresOptions],
+    () => promotorListaAdapter.toListaViewList(promotores, gestoresOptions, ativoOverrides),
+    [promotores, gestoresOptions, ativoOverrides],
   );
 
   const executivosFiltrados = useMemo(() => {
@@ -51,5 +53,9 @@ export function useExecutivosListaViewModel(gestoresOptions: GestorOpcao[] | nul
     error,
     filtros,
     atualizarFiltro,
+    // Botão Inativar/Ativar da lista — grava só no override local (ver
+    // promotor-status.store.ts), sem chamada à API.
+    alternarAtivo: (promotorId: string, ativo: boolean) =>
+      usePromotorStatusStore.getState().definirAtivo(promotorId, ativo),
   };
 }

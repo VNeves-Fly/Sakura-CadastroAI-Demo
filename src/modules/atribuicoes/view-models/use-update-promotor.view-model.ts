@@ -10,7 +10,11 @@ import type {
   PromotorFormValues,
 } from "@/modules/atribuicoes/types/promotor-crud.types";
 
-export function useUpdatePromotorViewModel(id: string) {
+// id nullable pra dar pra usar num modal aberto por linha da lista (id só
+// existe depois que o usuário clica em "Editar") — mesmo padrão de
+// use-update-gestor.view-model.ts. Página de edição full (promotor-edit-view)
+// sempre passa um id real, comportamento dela não muda.
+export function useUpdatePromotorViewModel(id: string | null) {
   const updatePromotorNaStore = usePromotoresCrudStore((state) => state.updatePromotor);
   const [promotor, setPromotor] = useState<PromotorCrudView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,6 +24,13 @@ export function useUpdatePromotorViewModel(id: string) {
   const [result, setResult] = useState<CreatedPromotorResult | null>(null);
 
   const load = useCallback(async () => {
+    if (!id) {
+      setPromotor(null);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setLoadError(null);
     try {
@@ -37,6 +48,8 @@ export function useUpdatePromotorViewModel(id: string) {
   }, [load]);
 
   async function submit(values: PromotorFormValues) {
+    if (!id) return false;
+
     setIsSubmitting(true);
     setSubmitError(null);
     setResult(null);

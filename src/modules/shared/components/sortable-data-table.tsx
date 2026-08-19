@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode, type Ref } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import {
   Table,
@@ -42,6 +42,10 @@ interface SortableDataTableProps<T> {
   // Agenda · Lista) — mesmas colunas da tabela, sem participar da
   // ordenação.
   footerCells?: (columns: SortableColumn<T>[]) => ReactNode;
+  // Repassado pro <Table> — div com overflow-x-auto real, usado por quem
+  // envolve esta tabela com <StickyHorizontalScrollbar> (ver
+  // gestores-lista-tabela.tsx / executivos-lista-tabela.tsx).
+  containerRef?: Ref<HTMLDivElement>;
 }
 
 // Tabela genérica com header ordenável por clique (asc/desc), coluna ativa
@@ -56,6 +60,7 @@ export function SortableDataTable<T>({
   rowClassName,
   emptyMessage = "Nenhum registro encontrado.",
   footerCells,
+  containerRef,
 }: SortableDataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; direction: SortDirection } | null>(
     defaultSort ?? null,
@@ -86,7 +91,7 @@ export function SortableDataTable<T>({
   }
 
   return (
-    <Table>
+    <Table containerRef={containerRef}>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           {columns.map((coluna) => {

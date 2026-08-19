@@ -4,9 +4,18 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerRef,
+  ...props
+}: React.ComponentProps<"table"> & {
+  // Ref pro div com overflow-x-auto (não pro <table> em si) — usado pelo
+  // StickyHorizontalScrollbar pra espelhar o scroll horizontal numa barra
+  // fixa no rodapé da viewport (ver sticky-horizontal-scrollbar.tsx).
+  containerRef?: React.Ref<HTMLDivElement>;
+}) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div data-slot="table-container" ref={containerRef} className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
