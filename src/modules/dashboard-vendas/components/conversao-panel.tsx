@@ -89,6 +89,7 @@ export function ConversaoPanel({ conversao }: ConversaoPanelProps) {
           label="Saúde"
           valor={formatarPercentual(dados.saudePct)}
           destaque
+          subtitulo="Compraram últimos 30d / Todas agências ativas"
         />
         <CardIndicador
           icon={TrendingUp}
