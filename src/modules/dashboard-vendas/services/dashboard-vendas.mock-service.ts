@@ -8,6 +8,7 @@ import type {
   ChaveRecencia,
   CruzamentoCanais,
   DashboardVendasData,
+  MiniKpis,
   NacionalInternacional,
   PeriodoResumo,
   ProjecaoDia,
@@ -121,6 +122,34 @@ function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
         participacaoPct: 0,
         margemPct: item.terrestre[2],
       },
+    };
+  }
+  return resultado;
+}
+
+// Um MiniKpis por período, derivado do mesmo resumoPorPeriodo (bilhetes/
+// ticket médio ficam sempre consistentes com o card Aéreo de cima) — só
+// "clientesDistintos" é hardcoded aqui, sem fonte própria na fixture
+// (corrigido 2026-08-19: antes miniKpis era um valor fixo só de "hoje",
+// os cards de baixo não acompanhavam o seletor de período).
+function construirMiniKpisPorPeriodo(
+  resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>,
+): Record<PeriodoResumo, MiniKpis> {
+  const clientesPorPeriodo: Record<PeriodoResumo, number> = {
+    hoje: 29,
+    ontem: 24,
+    mes: 187,
+    ano: 1_450,
+  };
+
+  const periodos = Object.keys(resumoPorPeriodo) as PeriodoResumo[];
+  const resultado = {} as Record<PeriodoResumo, MiniKpis>;
+  for (const periodo of periodos) {
+    const aereo = resumoPorPeriodo[periodo].aereo;
+    resultado[periodo] = {
+      clientesDistintos: clientesPorPeriodo[periodo],
+      bilhetesAereo: aereo.quantidade,
+      ticketMedioAereo: aereo.quantidade > 0 ? Math.round(aereo.valor / aereo.quantidade) : 0,
     };
   }
   return resultado;
@@ -693,10 +722,11 @@ function construirCruzamentoDetalhe(
 
 async function obterDashboardMock(): Promise<DashboardVendasData> {
   const cruzamentoCanais = construirCruzamentoCanais();
+  const resumoPorPeriodo = construirResumoPorPeriodo();
 
   return {
-    resumoPorPeriodo: construirResumoPorPeriodo(),
-    miniKpis: { clientesDistintos: 29, bilhetesAereo: 158, ticketMedioAereo: 1_786.5 },
+    resumoPorPeriodo,
+    miniKpis: construirMiniKpisPorPeriodo(resumoPorPeriodo),
     intraday: construirIntraday(),
     projecao: construirProjecao(),
     acuracia: construirAcuracia(),

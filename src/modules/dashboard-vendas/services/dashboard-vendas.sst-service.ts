@@ -25,6 +25,7 @@ import type {
   GrupoRecencia,
   MiniKpis,
   NacionalInternacional,
+  PeriodoResumo,
   ProjecaoDia,
   RecenciaAgencias,
   ResumoDia,
@@ -547,12 +548,29 @@ function paraResumoDia(overview: RawOverviewResponse, periodo: "dia" | "mes" | "
   };
 }
 
-function paraMiniKpis(overviewHoje: RawOverviewResponse): MiniKpis {
-  const aereoHoje = overviewHoje.filial.aereo.dia;
+function paraMiniKpis(aereo: RawPeriodoOverview): MiniKpis {
   return {
-    clientesDistintos: aereoHoje.clientes,
-    bilhetesAereo: aereoHoje.tickets,
-    ticketMedioAereo: aereoHoje.ticket_medio,
+    clientesDistintos: aereo.clientes,
+    bilhetesAereo: aereo.tickets,
+    ticketMedioAereo: aereo.ticket_medio,
+  };
+}
+
+// Um MiniKpis por período (mesma chave de resumoPorPeriodo) — todo o
+// dado já vem nas respostas de overview já buscadas pra resumoPorPeriodo
+// (overviewHoje tem dia/mes/ano, overviewOntem tem o "dia" de ontem), sem
+// chamada nova ao SST (corrigido 2026-08-19 — antes ficava sempre fixo em
+// "hoje", os cards Clientes/Bilhetes/Ticket Médio não acompanhavam o
+// seletor de período do card de cima).
+function paraMiniKpisPorPeriodo(
+  overviewHoje: RawOverviewResponse,
+  overviewOntem: RawOverviewResponse,
+): Record<PeriodoResumo, MiniKpis> {
+  return {
+    hoje: paraMiniKpis(overviewHoje.filial.aereo.dia),
+    ontem: paraMiniKpis(overviewOntem.filial.aereo.dia),
+    mes: paraMiniKpis(overviewHoje.filial.aereo.mes),
+    ano: paraMiniKpis(overviewHoje.filial.aereo.ano),
   };
 }
 
@@ -1314,7 +1332,7 @@ async function obterResumoEDia(): Promise<
       mes: paraResumoDia(overviewHoje, "mes"),
       ano: paraResumoDia(overviewHoje, "ano"),
     },
-    miniKpis: paraMiniKpis(overviewHoje),
+    miniKpis: paraMiniKpisPorPeriodo(overviewHoje, overviewOntem),
     rankingPorMes: {
       mes: paraTopAgencias(topAgenciasMes.data),
       ano: paraTopAgencias(topAgenciasAno.data),

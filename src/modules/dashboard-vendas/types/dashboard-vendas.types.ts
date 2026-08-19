@@ -180,7 +180,12 @@ export interface AgenciaCruzamentoDetalhe {
 
 export interface DashboardVendasData {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
-  miniKpis: MiniKpis;
+  // Um conjunto de mini-KPIs por período (mesma chave de
+  // resumoPorPeriodo) — antes era um valor fixo (sempre "hoje"), por
+  // isso os cards Clientes/Bilhetes/Ticket Médio não acompanhavam o
+  // seletor Hoje/Ontem/Este mês/Este ano do card de cima (corrigido
+  // 2026-08-19).
+  miniKpis: Record<PeriodoResumo, MiniKpis>;
   intraday: BucketIntraday[];
   projecao: ProjecaoDia;
   acuracia: AcuraciaProjecao;
