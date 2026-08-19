@@ -73,11 +73,15 @@ export function DashboardVendasView() {
         <ResumoDoDiaSecao resumoEDiaPromise={resumoEDiaPromise} />
       </Suspense>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      {/* 2 colunas (Top 10 Agências / Top 10 Fornecedores) — "Nacional vs
+          Internacional" saiu daqui (ver rankings-secao.tsx). Mesmo gap-4
+          das outras linhas da página, pra alinhar as bordas dos cards
+          entre as linhas (gap em % descasava com as linhas vizinhas,
+          pedido do usuário, 2026-08-19). */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Suspense
           fallback={
             <>
-              <SecaoSkeleton altura="h-56" />
               <SecaoSkeleton altura="h-56" />
               <SecaoSkeleton altura="h-56" />
             </>

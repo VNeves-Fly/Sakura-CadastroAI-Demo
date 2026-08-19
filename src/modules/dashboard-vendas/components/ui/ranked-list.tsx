@@ -64,8 +64,11 @@ export function RankedList({
         {acoes ? <div onClick={(evento) => evento.stopPropagation()}>{acoes}</div> : null}
       </div>
 
+      {/* justify-end: o filtro de tipo de rota fica alinhado à direita,
+          junto do toggle de período de cima (pedido do usuário,
+          2026-08-19) — antes ficava colado à esquerda. */}
       {extra ? (
-        <div className="mt-3" onClick={(evento) => evento.stopPropagation()}>
+        <div className="mt-3 flex justify-end" onClick={(evento) => evento.stopPropagation()}>
           {extra}
         </div>
       ) : null}

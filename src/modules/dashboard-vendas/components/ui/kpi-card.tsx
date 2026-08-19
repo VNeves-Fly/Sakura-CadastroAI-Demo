@@ -90,7 +90,7 @@ export function KpiCard({
           <div className="ml-auto flex flex-col items-end gap-1 sm:gap-1.5">
             {badgeTopo ? (
               <span
-                className="rounded-full px-2 py-0.5 text-[11px] font-bold"
+                className="rounded-md px-2 py-0.5 text-[11px] font-bold"
                 style={{ backgroundColor: corFundoIcone, color: cor }}
               >
                 {badgeTopo}
@@ -98,7 +98,7 @@ export function KpiCard({
             ) : null}
             {badgeRodape ? (
               <span
-                className="rounded-full px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
+                className="rounded-md px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
                 style={{ backgroundColor: corFundoIcone, color: cor }}
               >
                 {badgeRodape}
@@ -114,7 +114,7 @@ export function KpiCard({
     <div className="border-border bg-card relative flex flex-col gap-3 rounded-2xl border p-4 sm:p-5">
       {badgeTopo ? (
         <span
-          className="absolute top-4 right-4 rounded-full px-2 py-0.5 text-[11px] font-bold"
+          className="absolute top-4 right-4 rounded-md px-2 py-0.5 text-[11px] font-bold"
           style={{ backgroundColor: corFundoIcone, color: cor }}
         >
           {badgeTopo}
@@ -126,7 +126,7 @@ export function KpiCard({
 
       {badgeRodape ? (
         <span
-          className="absolute right-4 bottom-4 rounded-full px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
+          className="absolute right-4 bottom-4 rounded-md px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
           style={{ backgroundColor: corFundoIcone, color: cor }}
         >
           {badgeRodape}

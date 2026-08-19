@@ -2,7 +2,8 @@
 
 import { Bus, Clock, Plane } from "lucide-react";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
-import { ComparisonSplitCard } from "@/modules/dashboard-vendas/components/ui/comparison-split-card";
+import { KpiCard } from "@/modules/dashboard-vendas/components/ui/kpi-card";
+import { NacIntMiniBar } from "@/modules/dashboard-vendas/components/ui/nac-int-mini-bar";
 import { PersonalizadoDateRange } from "@/modules/dashboard-vendas/components/ui/personalizado-date-range";
 import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
@@ -52,9 +53,10 @@ interface ResumoDoDiaCardProps {
   onDataFinalChange: (valor: string) => void;
 }
 
-// 4.1 — KPI principal do topo, seletor de período e o par Aéreo/Terrestre
-// com a barra de proporção. Todo o toggle é local/client-side: os 4
-// cenários já vêm calculados na fixture, sem refetch.
+// 4.1 — KPI principal do topo, seletor de período e o par Aéreo/Terrestre,
+// cada um com sua barra de share Nacional/Internacional embaixo. Todo o
+// toggle é local/client-side: os 4 cenários já vêm calculados na fixture,
+// sem refetch.
 export function ResumoDoDiaCard({
   resumoPorPeriodo,
   filtro,
@@ -107,44 +109,50 @@ export function ResumoDoDiaCard({
 
       {personalizado ? <PersonalizadoAviso periodoPreviaLabel="Este mês" /> : null}
 
-      <div className="mt-5">
-        <ComparisonSplitCard
-          progressoEsquerdaPct={resumo.aereo.participacaoPct}
-          participacaoEsquerda={formatarPercentual(resumo.aereo.participacaoPct)}
-          participacaoDireita={formatarPercentual(resumo.terrestre.participacaoPct)}
-          esquerda={{
-            icon: Plane,
-            cor: COR_ROSA,
-            corFundoIcone: COR_ROSA_BG,
-            label: "Aéreo",
-            valor: formatarMoedaBrl(resumo.aereo.valor),
-            legenda: (
+      {/* Grid Aéreo/Terrestre — cada lado com seu próprio card + a barra
+          de share Nacional/Internacional embaixo dele (substitui a barra
+          única de proporção Aéreo x Terrestre que existia antes aqui,
+          pedido do usuário, 2026-08-19, print de referência). */}
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <KpiCard
+            icon={Plane}
+            cor={COR_ROSA}
+            corFundoIcone={COR_ROSA_BG}
+            label="Aéreo"
+            valor={formatarMoedaBrl(resumo.aereo.valor)}
+            legenda={
               <>
                 {resumo.aereo.quantidade} bilhetes
                 <br />
                 Ticket médio: {formatarMoedaBrl(ticketMedioAereo)}
               </>
-            ),
-            badgeRodape: `MARGEM ${formatarPercentual(resumo.aereo.margemPct)}`,
-            orientacao: "horizontal",
-          }}
-          direita={{
-            icon: Bus,
-            cor: COR_AZUL,
-            corFundoIcone: COR_AZUL_BG,
-            label: "Terrestre",
-            valor: formatarMoedaBrl(resumo.terrestre.valor),
-            legenda: (
+            }
+            badgeRodape={`MARGEM ${formatarPercentual(resumo.aereo.margemPct)}`}
+            orientacao="horizontal"
+          />
+          <NacIntMiniBar nacIntDetalhe={resumo.nacIntDetalhe} />
+        </div>
+
+        <div>
+          <KpiCard
+            icon={Bus}
+            cor={COR_AZUL}
+            corFundoIcone={COR_AZUL_BG}
+            label="Terrestre"
+            valor={formatarMoedaBrl(resumo.terrestre.valor)}
+            legenda={
               <>
                 {resumo.terrestre.quantidade} vendas
                 <br />
                 Ticket médio: {formatarMoedaBrl(ticketMedioTerrestre)}
               </>
-            ),
-            badgeRodape: `MARGEM ${formatarPercentual(resumo.terrestre.margemPct)}`,
-            orientacao: "horizontal",
-          }}
-        />
+            }
+            badgeRodape={`MARGEM ${formatarPercentual(resumo.terrestre.margemPct)}`}
+            orientacao="horizontal"
+          />
+          <NacIntMiniBar nacIntDetalhe={resumo.nacIntDetalhe} />
+        </div>
       </div>
     </div>
   );
