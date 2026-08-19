@@ -49,14 +49,11 @@ export function KpiCard({
   );
 
   const texto = (
-    // `flex-1`: sem isso, o card horizontal (Aéreo/Terrestre) desalinhava
-    // o badge de margem entre os dois lados — a legenda mais longa de um
-    // card (mais caracteres em "X bilhetes"/"Ticket médio: R$ Y") fazia
-    // só aquele lado quebrar linha (flex-wrap do container pai), com o
-    // badge caindo pra baixo num card e ficando alinhado no outro. Com
-    // `flex-1`, o bloco de texto sempre ocupa o espaço disponível e quebra
-    // a própria linha (`break-words` já usado abaixo) em vez de empurrar
-    // o layout do card inteiro (bug reportado pelo usuário, 2026-08-19).
+    // `flex-1 min-w-0`: o bloco de texto sempre ocupa o espaço disponível
+    // na linha ícone+texto — no horizontal, essa linha não compete mais
+    // com o badge (que foi pra linha de baixo, ver comentário mais
+    // abaixo), então isso não força mais o valor a quebrar no meio de um
+    // número (bug reportado pelo usuário, 2026-08-19).
     <div className={horizontal ? "min-w-0 flex-1" : "min-w-0"}>
       <p
         className="text-[10px] font-bold tracking-wide uppercase sm:text-[11px]"
@@ -75,19 +72,24 @@ export function KpiCard({
     </div>
   );
 
-  // No modo horizontal, o card fica baixo o bastante pra um badge de
-  // canto (`absolute`) acabar caindo em cima do valor/legenda em telas
-  // estreitas (mobile é o público principal daqui) — por isso os badges
-  // entram no fluxo normal do flex (`flex-wrap` + `ml-auto`), empurrados
-  // pra direita quando há espaço e quebrando pra linha de baixo quando
-  // não há, nunca sobrepondo o texto (pedido do usuário, 2026-08-18).
+  // No modo horizontal, o badge fica numa linha própria abaixo de
+  // ícone+texto (não mais ao lado, com `ml-auto`) — colocar os dois na
+  // mesma linha fazia o bloco de texto encolher pra abrir espaço pro
+  // badge, e em telas médias isso podia forçar o valor a quebrar no meio
+  // de um número (ex.: "R$ 282.267,4" / "9"). Com o badge numa linha
+  // separada, o valor sempre tem a largura inteira do card disponível, e
+  // as duas linhas ficam no mesmo lugar em qualquer card horizontal,
+  // independente do tamanho da legenda ou do badge (bug reportado pelo
+  // usuário, 2026-08-19).
   if (horizontal) {
     return (
-      <div className="border-border bg-card flex flex-wrap items-center gap-2 rounded-2xl border p-4 sm:gap-3 sm:p-5">
-        {icone}
-        {texto}
+      <div className="border-border bg-card flex flex-col gap-2 rounded-2xl border p-4 sm:p-5">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {icone}
+          {texto}
+        </div>
         {badgeTopo || badgeRodape ? (
-          <div className="ml-auto flex flex-col items-end gap-1 sm:gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {badgeTopo ? (
               <span
                 className="rounded-md px-2 py-0.5 text-[11px] font-bold"

@@ -5,7 +5,10 @@ import { usePromotoresListViewModel } from "@/modules/atribuicoes/view-models/us
 import { usePromotorStatusStore } from "@/modules/atribuicoes/stores/promotor-status.store";
 import { promotorListaAdapter } from "@/modules/atribuicoes/adapters/promotor-lista.adapter";
 import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
-import type { PromotorListaFiltros } from "@/modules/atribuicoes/types/promotor-lista.types";
+import {
+  TAMANHO_PAGINA_EXECUTIVOS,
+  type PromotorListaFiltros,
+} from "@/modules/atribuicoes/types/promotor-lista.types";
 
 // Defaults não confirmados na SPEC pra "Esconder INATIVO"/"Ocultar sem
 // vendas" — mantidos desligados até validar com o time de negócio, pra
@@ -20,6 +23,7 @@ export function useExecutivosListaViewModel(gestoresOptions: GestorOpcao[] | nul
   const { promotores, isLoading, error } = usePromotoresListViewModel();
   const ativoOverrides = usePromotorStatusStore((state) => state.overrides);
   const [filtros, setFiltros] = useState<PromotorListaFiltros>(FILTROS_INICIAIS);
+  const [pagina, setPagina] = useState(1);
 
   const executivos = useMemo(
     () => promotorListaAdapter.toListaViewList(promotores, gestoresOptions, ativoOverrides),
@@ -44,15 +48,33 @@ export function useExecutivosListaViewModel(gestoresOptions: GestorOpcao[] | nul
     valor: PromotorListaFiltros[K],
   ) {
     setFiltros((atual) => ({ ...atual, [chave]: valor }));
+    setPagina(1);
   }
 
+  // Paginação client-side, 25 por página (pedido do usuário, 2026-08-19)
+  // — mesmo padrão de use-agencias-carteira.view-model.ts. `paginaAtual`
+  // reencaixa pra última página válida se um filtro reduzir o total
+  // enquanto o usuário está numa página que deixou de existir.
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(executivosFiltrados.length / TAMANHO_PAGINA_EXECUTIVOS),
+  );
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const executivosDaPagina = executivosFiltrados.slice(
+    (paginaAtual - 1) * TAMANHO_PAGINA_EXECUTIVOS,
+    paginaAtual * TAMANHO_PAGINA_EXECUTIVOS,
+  );
+
   return {
-    executivos: executivosFiltrados,
+    executivos: executivosDaPagina,
     total: executivosFiltrados.length,
     isLoading,
     error,
     filtros,
     atualizarFiltro,
+    pagina: paginaAtual,
+    totalPaginas,
+    setPagina,
     // Botão Inativar/Ativar da lista — grava só no override local (ver
     // promotor-status.store.ts), sem chamada à API.
     alternarAtivo: (promotorId: string, ativo: boolean) =>

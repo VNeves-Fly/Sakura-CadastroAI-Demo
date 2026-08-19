@@ -272,14 +272,22 @@ async function comFallback<T>(rotulo: string, tarefa: Promise<T>, valorMock: T):
 }
 
 // Shape bruto de GET /api/consolidado/overview (confirmado contra o SST
-// real, 2026-08-14) — `margem`/`tarifa`/`tickets`/`clientes`/`ticket_medio`
-// por período (dia/mes/ano), por canal (total/aereo/terrestre).
+// real, 2026-08-19) — `margem`/`tarifa`/`tickets`/`clientes`/`ticket_medio`
+// por período (dia/mes/ano), por canal (total/aereo/terrestre). `nacInter`
+// já vem embutido aqui — sem precisar de chamada separada a
+// /api/relatorios/nacional-vs-internacional pra hoje/ontem (só mês/ano
+// continuam usando `buscarNacInt`, que também alimenta vendasMensais via
+// cache compartilhado, ver obterResumoEDia).
 interface RawPeriodoOverview {
   tarifa: number;
   margem: number;
   clientes: number;
   tickets: number;
   ticket_medio: number;
+  nacInter: {
+    nacional: { tickets: number; tarifa: number; percentual: number };
+    internacional: { tickets: number; tarifa: number; percentual: number };
+  };
 }
 interface RawCanalOverview {
   dia: RawPeriodoOverview;
@@ -537,19 +545,22 @@ function paraCanalResumo(periodo: RawPeriodoOverview): CanalResumo {
     // nunca vem pronto da origem (mesmo contrato do mock).
     participacaoPct: 0,
     margemPct: periodo.margem,
+    // nacInter já vem embutido no mesmo bucket — cada canal (aéreo,
+    // terrestre) tem o seu próprio, não é o mesmo valor duplicado (ver
+    // comentário em CanalResumo).
+    nacIntDetalhe: paraNacIntDoOverview(periodo),
   };
 }
 
-function paraResumoDia(
-  overview: RawOverviewResponse,
-  periodo: "dia" | "mes" | "ano",
-  nacIntDetalhe: NacionalInternacional,
-): ResumoDia {
+function paraResumoDia(overview: RawOverviewResponse, periodo: "dia" | "mes" | "ano"): ResumoDia {
   return {
     atualizadoEm: new Date(),
     aereo: paraCanalResumo(overview.filial.aereo[periodo]),
     terrestre: paraCanalResumo(overview.filial.terrestre[periodo]),
-    nacIntDetalhe,
+    // Margem combinada (Aéreo + Terrestre) — vem do bucket "total" do
+    // overview, separado da margem de cada canal (pedido do usuário,
+    // 2026-08-19).
+    margemTotalPct: overview.filial.total[periodo].margem,
   };
 }
 
@@ -610,6 +621,23 @@ function paraNacionalInternacional(linhas: RawNacIntRow[]): NacionalInternaciona
     internacional: {
       valor: internacional?.tarifa_total ?? 0,
       bilhetes: internacional?.total_bilhetes ?? 0,
+    },
+  };
+}
+
+// Mesmo shape de saída de paraNacionalInternacional, mas a partir do
+// `nacInter` que já vem embutido em /api/consolidado/overview — usado
+// pra hoje/ontem, que só têm essa resposta disponível (mês/ano seguem
+// vindo de buscarNacInt, compartilhado com vendasMensais via cache).
+function paraNacIntDoOverview(periodoOverview: RawPeriodoOverview): NacionalInternacional {
+  return {
+    nacional: {
+      valor: periodoOverview.nacInter.nacional.tarifa,
+      bilhetes: periodoOverview.nacInter.nacional.tickets,
+    },
+    internacional: {
+      valor: periodoOverview.nacInter.internacional.tarifa,
+      bilhetes: periodoOverview.nacInter.internacional.tickets,
     },
   };
 }
@@ -1291,8 +1319,6 @@ async function obterResumoEDia(): Promise<
     rankingCiasAno,
     nacIntMes,
     nacIntAno,
-    nacIntHoje,
-    nacIntOntem,
   ] = await Promise.all([
     sstGet<RawOverviewResponse>("/api/consolidado/overview", {
       data: hoje,
@@ -1328,21 +1354,19 @@ async function obterResumoEDia(): Promise<
     // aqui é o mesmo intervalo que `construirVendasMensais` pede pro mês
     // em curso (ver docs/optimize.md, ponto 2) — passando pelo `comCache`
     // os dois reaproveitam a mesma resposta em vez de duplicar a chamada.
+    // Hoje/ontem não precisam de chamada equivalente: o `nacInter` já vem
+    // embutido em /api/consolidado/overview (confirmado 2026-08-19), ver
+    // paraNacIntDoOverview.
     buscarNacInt(inicioMes, hoje),
     buscarNacInt(inicioAno, hoje),
-    // Share Nacional/Internacional de hoje/ontem, pra barra que aparece
-    // embaixo dos cards Aéreo/Terrestre do Resumo do dia (pedido do
-    // usuário, 2026-08-19) — mesma função já usada acima pra mês/ano.
-    buscarNacInt(hoje, hoje),
-    buscarNacInt(ontem, ontem),
   ]);
 
   return {
     resumoPorPeriodo: {
-      hoje: paraResumoDia(overviewHoje, "dia", paraNacionalInternacional(nacIntHoje.data)),
-      ontem: paraResumoDia(overviewOntem, "dia", paraNacionalInternacional(nacIntOntem.data)),
-      mes: paraResumoDia(overviewHoje, "mes", paraNacionalInternacional(nacIntMes.data)),
-      ano: paraResumoDia(overviewHoje, "ano", paraNacionalInternacional(nacIntAno.data)),
+      hoje: paraResumoDia(overviewHoje, "dia"),
+      ontem: paraResumoDia(overviewOntem, "dia"),
+      mes: paraResumoDia(overviewHoje, "mes"),
+      ano: paraResumoDia(overviewHoje, "ano"),
     },
     miniKpis: paraMiniKpisPorPeriodo(overviewHoje, overviewOntem),
     rankingPorMes: {

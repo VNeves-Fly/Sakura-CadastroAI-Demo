@@ -10,16 +10,76 @@ const originalEnv = process.env;
 // 2026-08-14 — ver conversa que motivou esta integração.
 const overviewFixture = {
   filial: {
-    total: { dia: {}, mes: {}, ano: {} },
+    total: { dia: { margem: 5 }, mes: { margem: 5.5 }, ano: { margem: 5.8 } },
     aereo: {
-      dia: { tarifa: 524242.53, margem: 4.02, clientes: 62, tickets: 270, ticket_medio: 1941.64 },
-      mes: { tarifa: 1e6, margem: 4.1, clientes: 100, tickets: 500, ticket_medio: 2000 },
-      ano: { tarifa: 1e7, margem: 4.2, clientes: 1000, tickets: 5000, ticket_medio: 2000 },
+      dia: {
+        tarifa: 524242.53,
+        margem: 4.02,
+        clientes: 62,
+        tickets: 270,
+        ticket_medio: 1941.64,
+        nacInter: {
+          nacional: { tickets: 190, tarifa: 367_000, percentual: 70 },
+          internacional: { tickets: 80, tarifa: 157_242.53, percentual: 30 },
+        },
+      },
+      mes: {
+        tarifa: 1e6,
+        margem: 4.1,
+        clientes: 100,
+        tickets: 500,
+        ticket_medio: 2000,
+        nacInter: {
+          nacional: { tickets: 350, tarifa: 700_000, percentual: 70 },
+          internacional: { tickets: 150, tarifa: 300_000, percentual: 30 },
+        },
+      },
+      ano: {
+        tarifa: 1e7,
+        margem: 4.2,
+        clientes: 1000,
+        tickets: 5000,
+        ticket_medio: 2000,
+        nacInter: {
+          nacional: { tickets: 3500, tarifa: 7e6, percentual: 70 },
+          internacional: { tickets: 1500, tarifa: 3e6, percentual: 30 },
+        },
+      },
     },
     terrestre: {
-      dia: { tarifa: 17034.52, margem: 10.02, clientes: 15, tickets: 26, ticket_medio: 655.17 },
-      mes: { tarifa: 5e4, margem: 15, clientes: 10, tickets: 30, ticket_medio: 1666 },
-      ano: { tarifa: 5e5, margem: 15, clientes: 100, tickets: 300, ticket_medio: 1666 },
+      dia: {
+        tarifa: 17034.52,
+        margem: 10.02,
+        clientes: 15,
+        tickets: 26,
+        ticket_medio: 655.17,
+        nacInter: {
+          nacional: { tickets: 23, tarifa: 15_000, percentual: 88 },
+          internacional: { tickets: 3, tarifa: 2_034.52, percentual: 12 },
+        },
+      },
+      mes: {
+        tarifa: 5e4,
+        margem: 15,
+        clientes: 10,
+        tickets: 30,
+        ticket_medio: 1666,
+        nacInter: {
+          nacional: { tickets: 27, tarifa: 44_000, percentual: 88 },
+          internacional: { tickets: 3, tarifa: 6_000, percentual: 12 },
+        },
+      },
+      ano: {
+        tarifa: 5e5,
+        margem: 15,
+        clientes: 100,
+        tickets: 300,
+        ticket_medio: 1666,
+        nacInter: {
+          nacional: { tickets: 264, tarifa: 440_000, percentual: 88 },
+          internacional: { tickets: 36, tarifa: 60_000, percentual: 12 },
+        },
+      },
     },
   },
 };

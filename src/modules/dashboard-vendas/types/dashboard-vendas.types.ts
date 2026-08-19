@@ -12,17 +12,22 @@ export interface CanalResumo {
   quantidade: number;
   participacaoPct: number;
   margemPct: number;
+  // Share Nacional/Internacional (valor + bilhetes de cada lado, não só
+  // %) deste canal especificamente — Aéreo e Terrestre têm splits
+  // diferentes (não é o mesmo dado duplicado, cada canal tem seu próprio
+  // nacInter na origem) — mostrado na barra embaixo do card, com tooltip
+  // ao passar o mouse (pedido do usuário, 2026-08-19).
+  nacIntDetalhe: NacionalInternacional;
 }
 
 export interface ResumoDia {
   atualizadoEm: Date;
   aereo: CanalResumo;
   terrestre: CanalResumo;
-  // Share Nacional/Internacional (valor + bilhetes de cada lado, não só
-  // %) — mostrado na barra embaixo dos cards Aéreo e Terrestre do Resumo
-  // do dia, com tooltip ao passar o mouse; mesmo valor pros dois canais
-  // (pedido do usuário, 2026-08-19).
-  nacIntDetalhe: NacionalInternacional;
+  // Margem combinada (Aéreo + Terrestre) do período — vem de
+  // overview.filial.total[periodo].margem no serviço real (pedido do
+  // usuário, 2026-08-19).
+  margemTotalPct: number;
 }
 
 export interface MiniKpis {

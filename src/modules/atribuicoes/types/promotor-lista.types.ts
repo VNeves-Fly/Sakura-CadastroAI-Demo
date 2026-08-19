@@ -34,6 +34,10 @@ export interface PromotorListaFiltros {
   ocultarSemVendas: boolean;
 }
 
+// Paginação client-side da lista (pedido do usuário, 2026-08-19) — mesmo
+// padrão de TAMANHO_PAGINA_AGENCIAS em agencia-carteira.types.ts.
+export const TAMANHO_PAGINA_EXECUTIVOS = 25;
+
 export type PromotorListaColunaOrdenavel =
   | "nome"
   | "gestorNome"
