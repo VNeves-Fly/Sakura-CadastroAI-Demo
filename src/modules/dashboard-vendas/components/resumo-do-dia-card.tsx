@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Bus, Clock, Plane } from "lucide-react";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { ComparisonSplitCard } from "@/modules/dashboard-vendas/components/ui/comparison-split-card";
@@ -28,8 +27,8 @@ import type {
 // — decisão do usuário, 2026-08-18). Enquanto isso, mostra a prévia de
 // "Este mês" com um aviso deixando claro que o filtro ainda não está
 // conectado a um cálculo real.
-type FiltroResumo = PeriodoResumo | "personalizado";
-const PERIODO_PREVIA_PERSONALIZADO: PeriodoResumo = "mes";
+export type FiltroResumo = PeriodoResumo | "personalizado";
+export const PERIODO_PREVIA_PERSONALIZADO: PeriodoResumo = "mes";
 
 const OPCOES_PERIODO: { valor: FiltroResumo; label: string }[] = [
   { valor: "hoje", label: "Hoje" },
@@ -41,20 +40,40 @@ const OPCOES_PERIODO: { valor: FiltroResumo; label: string }[] = [
 
 interface ResumoDoDiaCardProps {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
+  // Estado do filtro controlado pelo pai (ResumoDoDiaComMiniKpis) — os
+  // mini-KPIs de baixo (Clientes/Bilhetes/Ticket Médio) precisam do mesmo
+  // período selecionado aqui, então não pode mais ser state interno
+  // (corrigido 2026-08-19, ver comentário em mini-kpis-grid.tsx).
+  filtro: FiltroResumo;
+  onFiltroChange: (filtro: FiltroResumo) => void;
+  dataInicial: string;
+  onDataInicialChange: (valor: string) => void;
+  dataFinal: string;
+  onDataFinalChange: (valor: string) => void;
 }
 
 // 4.1 — KPI principal do topo, seletor de período e o par Aéreo/Terrestre
 // com a barra de proporção. Todo o toggle é local/client-side: os 4
 // cenários já vêm calculados na fixture, sem refetch.
-export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
-  const [filtro, setFiltro] = useState<FiltroResumo>("hoje");
-  const [dataInicial, setDataInicial] = useState("");
-  const [dataFinal, setDataFinal] = useState("");
-
+export function ResumoDoDiaCard({
+  resumoPorPeriodo,
+  filtro,
+  onFiltroChange,
+  dataInicial,
+  onDataInicialChange,
+  dataFinal,
+  onDataFinalChange,
+}: ResumoDoDiaCardProps) {
   const personalizado = filtro === "personalizado";
   const periodoComDados: PeriodoResumo = personalizado ? PERIODO_PREVIA_PERSONALIZADO : filtro;
   const resumo = resumoPorPeriodo[periodoComDados];
   const totalPeriodo = resumo.aereo.valor + resumo.terrestre.valor;
+  // Ticket médio por canal — computado aqui mesmo (valor / quantidade),
+  // sem precisar de dado novo (pedido do usuário, 2026-08-19).
+  const ticketMedioAereo =
+    resumo.aereo.quantidade > 0 ? resumo.aereo.valor / resumo.aereo.quantidade : 0;
+  const ticketMedioTerrestre =
+    resumo.terrestre.quantidade > 0 ? resumo.terrestre.valor / resumo.terrestre.quantidade : 0;
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
@@ -73,14 +92,14 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <PeriodToggle opcoes={OPCOES_PERIODO} valor={filtro} onChange={setFiltro} />
+          <PeriodToggle opcoes={OPCOES_PERIODO} valor={filtro} onChange={onFiltroChange} />
 
           {personalizado ? (
             <PersonalizadoDateRange
               dataInicial={dataInicial}
               dataFinal={dataFinal}
-              onDataInicialChange={setDataInicial}
-              onDataFinalChange={setDataFinal}
+              onDataInicialChange={onDataInicialChange}
+              onDataFinalChange={onDataFinalChange}
             />
           ) : null}
         </div>
@@ -99,7 +118,13 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
             corFundoIcone: COR_ROSA_BG,
             label: "Aéreo",
             valor: formatarMoedaBrl(resumo.aereo.valor),
-            legenda: `${resumo.aereo.quantidade} bilhetes`,
+            legenda: (
+              <>
+                {resumo.aereo.quantidade} bilhetes
+                <br />
+                Ticket médio: {formatarMoedaBrl(ticketMedioAereo)}
+              </>
+            ),
             badgeRodape: `MARGEM ${formatarPercentual(resumo.aereo.margemPct)}`,
             orientacao: "horizontal",
           }}
@@ -109,7 +134,13 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
             corFundoIcone: COR_AZUL_BG,
             label: "Terrestre",
             valor: formatarMoedaBrl(resumo.terrestre.valor),
-            legenda: `${resumo.terrestre.quantidade} vendas`,
+            legenda: (
+              <>
+                {resumo.terrestre.quantidade} vendas
+                <br />
+                Ticket médio: {formatarMoedaBrl(ticketMedioTerrestre)}
+              </>
+            ),
             badgeRodape: `MARGEM ${formatarPercentual(resumo.terrestre.margemPct)}`,
             orientacao: "horizontal",
           }}

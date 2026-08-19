@@ -1,12 +1,16 @@
 "use client";
 
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Pencil, Power } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   SortableDataTable,
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
+import { StickyHorizontalScrollbar } from "@/modules/shared/components/sticky-horizontal-scrollbar";
 import {
   formatarMoedaAbreviada,
   formatarPercentual,
@@ -18,14 +22,19 @@ interface ExecutivosListaTabelaProps {
   executivos: PromotorListaView[];
   isLoading: boolean;
   error: string | null;
+  onEditar: (promotorId: string) => void;
+  onAlternarAtivo: (promotorId: string, ativo: boolean) => void;
 }
 
 export function ExecutivosListaTabela({
   executivos,
   isLoading,
   error,
+  onEditar,
+  onAlternarAtivo,
 }: ExecutivosListaTabelaProps) {
   const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   if (isLoading) {
     return <p className="text-muted-foreground text-sm">Carregando executivos...</p>;
@@ -42,13 +51,23 @@ export function ExecutivosListaTabela({
       sortable: true,
       sortValue: (linha) => linha.nome,
       render: (linha) => (
-        <span
-          className={cn(
-            "font-medium uppercase",
-            linha.semVenda ? "text-muted-foreground" : "text-foreground",
-          )}
-        >
-          {linha.nome}
+        <span className="flex items-center gap-2">
+          {/* Cor do nome reflete só o status Inativo — "sem venda" já tem
+              seu próprio badge (Vendas mês) e não devia deixar o nome com a
+              mesma aparência "apagada" de quem tá inativo. */}
+          <span
+            className={cn(
+              "font-medium uppercase",
+              !linha.ativo ? "text-muted-foreground" : "text-foreground",
+            )}
+          >
+            {linha.nome}
+          </span>
+          {!linha.ativo ? (
+            <Badge variant="outline" className="text-muted-foreground text-[10px] normal-case">
+              Inativo
+            </Badge>
+          ) : null}
         </span>
       ),
     },
@@ -171,17 +190,62 @@ export function ExecutivosListaTabela({
         />
       ),
     },
+    {
+      key: "acoes",
+      label: "",
+      align: "right",
+      render: (linha) => (
+        <div
+          className="flex items-center justify-end gap-2"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-primary border-primary/30 hover:bg-primary/5 hover:text-primary"
+            onClick={() => onEditar(linha.id)}
+          >
+            <Pencil className="size-3.5" />
+            Editar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={
+              linha.ativo
+                ? undefined
+                : "border-[#16a34a]/50 text-[#16a34a] hover:bg-[#16a34a]/10 hover:text-[#16a34a]"
+            }
+            onClick={() => onAlternarAtivo(linha.id, !linha.ativo)}
+          >
+            <Power className="size-3.5" />
+            {linha.ativo ? "Inativar" : "Ativar"}
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
-    <SortableDataTable
-      columns={colunas}
-      rows={executivos}
-      rowKey={(linha) => linha.id}
-      defaultSort={{ key: "vendasAno", direction: "desc" }}
-      onRowClick={(linha) => router.push(`/crm/executivos/${linha.id}`)}
-      rowClassName={(linha) => (linha.semVenda ? "opacity-60" : undefined)}
-      emptyMessage="Nenhum executivo encontrado."
-    />
+    <>
+      <SortableDataTable
+        containerRef={containerRef}
+        columns={colunas}
+        rows={executivos}
+        rowKey={(linha) => linha.id}
+        defaultSort={{ key: "vendasAno", direction: "desc" }}
+        onRowClick={(linha) => router.push(`/crm/executivos/${linha.id}`)}
+        // Opacity só por status inativo, não por "sem venda" (semVenda já
+        // tem seu próprio indicador — badge na coluna Vendas mês + nome
+        // acinzentado — misturar os dois deixava parecer que quem só não
+        // vendeu no período estava inativo). Opacity só nas células de
+        // dado (":not(:last-child)") — a última é a coluna Ações, que
+        // precisa ficar 100% visível pro botão Ativar (verde) não sair
+        // apagado junto.
+        rowClassName={(linha) => (!linha.ativo ? "[&>td:not(:last-child)]:opacity-60" : undefined)}
+        emptyMessage="Nenhum executivo encontrado."
+      />
+      <StickyHorizontalScrollbar containerRef={containerRef} />
+    </>
   );
 }

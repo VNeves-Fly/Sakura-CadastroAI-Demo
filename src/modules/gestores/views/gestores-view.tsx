@@ -5,6 +5,7 @@ import { useGestoresListaViewModel } from "@/modules/gestores/view-models/use-ge
 import { GestoresListaToolbar } from "@/modules/gestores/components/gestores-lista-toolbar";
 import { GestoresListaTabela } from "@/modules/gestores/components/gestores-lista-tabela";
 import { GestorCadastroModal } from "@/modules/gestores/components/gestor-cadastro-modal";
+import { GestorEdicaoModal } from "@/modules/gestores/components/gestor-edicao-modal";
 import type { BaseView } from "@/modules/bases/types/base.types";
 
 interface GestoresViewProps {
@@ -15,8 +16,11 @@ interface GestoresViewProps {
 
 export function GestoresView({ basesOptions, executivosPorGestor }: GestoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
-  const { gestores, total, isLoading, error, busca, atualizarBusca } =
+  const [gestorEmEdicaoId, setGestorEmEdicaoId] = useState<string | null>(null);
+  const { gestores, total, isLoading, error, busca, atualizarBusca, alternarAtivo } =
     useGestoresListaViewModel(executivosPorGestor);
+
+  const gestorEmEdicao = gestores.find((gestor) => gestor.id === gestorEmEdicaoId);
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -29,11 +33,24 @@ export function GestoresView({ basesOptions, executivosPorGestor }: GestoresView
         onNovoCadastro={() => setModalAberto(true)}
       />
 
-      <GestoresListaTabela gestores={gestores} isLoading={isLoading} error={error} />
+      <GestoresListaTabela
+        gestores={gestores}
+        isLoading={isLoading}
+        error={error}
+        onEditar={setGestorEmEdicaoId}
+        onAlternarAtivo={alternarAtivo}
+      />
 
       <GestorCadastroModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
+        basesOptions={basesOptions}
+      />
+
+      <GestorEdicaoModal
+        gestorId={gestorEmEdicaoId}
+        executivosCount={gestorEmEdicao?.executivos ?? 0}
+        onOpenChange={(aberto) => setGestorEmEdicaoId(aberto ? gestorEmEdicaoId : null)}
         basesOptions={basesOptions}
       />
     </div>

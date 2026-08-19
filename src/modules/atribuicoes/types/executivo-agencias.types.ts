@@ -36,4 +36,8 @@ export interface AgenciasCarteiraFiltros {
   ordenarPor: "vendasAno" | "vendasPeriodo" | "ticketMedio" | "ultimaCompra";
   inativadasSakura: "ocultar" | "mostrar";
   periodo: PeriodoVendas;
+  // "Apenas agências que estão comprando" — filtra pra só quem teve
+  // venda (valorNoPeriodo(...).vendas > 0) no período selecionado acima
+  // (pedido do usuário, 2026-08-19).
+  apenasComprando: boolean;
 }

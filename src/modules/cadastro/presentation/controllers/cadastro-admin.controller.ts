@@ -125,6 +125,10 @@ import {
   ReprovarDocumentoUseCase,
   type ReprovarDocumentoInput,
 } from "@/modules/cadastro/application/use-cases/reprovar-documento.use-case";
+import {
+  ReanalisarDocumentoUseCase,
+  type ReanalisarDocumentoInput,
+} from "@/modules/cadastro/application/use-cases/reanalisar-documento.use-case";
 import { ObterArquivoDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-documento.use-case";
 import { LocalDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/local-documento-arquivo.adapter";
 import { GcsDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/gcs-documento-arquivo.adapter";
@@ -481,6 +485,11 @@ export const cadastroAdminController = {
 
   reprovarDocumento(input: ReprovarDocumentoInput) {
     const useCase = new ReprovarDocumentoUseCase(documentoRepository);
+    return useCase.execute(input);
+  },
+
+  reanalisarDocumento(input: ReanalisarDocumentoInput) {
+    const useCase = new ReanalisarDocumentoUseCase(documentoRepository);
     return useCase.execute(input);
   },
 

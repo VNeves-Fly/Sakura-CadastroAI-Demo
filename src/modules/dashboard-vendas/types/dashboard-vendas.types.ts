@@ -111,6 +111,10 @@ export interface ConversaoCanal {
   periodoComparativo: string;
   aereoMes: { valor: number; bilhetes: number };
   terrestreMes: { valor: number; vendas: number };
+  // Total de agências da carteira consideradas no cálculo de Saúde —
+  // mostrado na outra extremidade do card "Saúde" (pedido do usuário,
+  // 2026-08-19).
+  totalClientes: number;
 }
 
 export type Conversao = Record<Canal, ConversaoCanal>;
@@ -176,7 +180,12 @@ export interface AgenciaCruzamentoDetalhe {
 
 export interface DashboardVendasData {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
-  miniKpis: MiniKpis;
+  // Um conjunto de mini-KPIs por período (mesma chave de
+  // resumoPorPeriodo) — antes era um valor fixo (sempre "hoje"), por
+  // isso os cards Clientes/Bilhetes/Ticket Médio não acompanhavam o
+  // seletor Hoje/Ontem/Este mês/Este ano do card de cima (corrigido
+  // 2026-08-19).
+  miniKpis: Record<PeriodoResumo, MiniKpis>;
   intraday: BucketIntraday[];
   projecao: ProjecaoDia;
   acuracia: AcuraciaProjecao;

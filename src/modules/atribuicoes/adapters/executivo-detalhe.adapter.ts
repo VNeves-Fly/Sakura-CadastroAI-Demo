@@ -7,8 +7,10 @@ import type {
   ExecutivoAgenciaResumo,
   ExecutivoDetalheView,
   LoyaltyChip,
+  PeriodoVendasMesHero,
   SegmentoSaude,
   VendaMensal,
+  VendasMesHero,
 } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 const MESES_PT = [
@@ -88,6 +90,53 @@ function gerarConquistas(total: number, base: number) {
     ],
   );
   return { agencias10m, agencias1m, agencias100k, agencias10k, agenciasSemVenda };
+}
+
+// Card hero (SPEC 4.1) com filtro Dia/Ontem/Mês/Ano — cada período tem seu
+// próprio mock determinístico a partir do valor mensal já calculado:
+// dia/ontem fatiam esse total por ~30 dias, ano espelha o mesmo
+// multiplicador do acumulado anual dos KPIs secundários (ver chamada em
+// montarExecutivoDetalheView).
+function gerarHeroPorPeriodo(
+  base: number,
+  valorMesAtual: number,
+  bilhetesMes: number,
+  variacaoPct: number,
+  vendendoUltimos30d: number,
+  totalAgencias: number,
+): Record<PeriodoVendasMesHero, VendasMesHero> {
+  const diasNoMes = 28 + (base % 3);
+  const diaValor = Math.round(valorMesAtual / diasNoMes);
+  const diaBilhetes = Math.max(1, Math.round(bilhetesMes / diasNoMes));
+  const fatorOntem = 0.7 + ((base >> 2) % 60) / 100;
+  const anoMultiplicador = 6 + (base % 6);
+
+  return {
+    dia: {
+      valor: diaValor,
+      bilhetes: diaBilhetes,
+      agenciasVendendo: Math.max(1, Math.round(vendendoUltimos30d * 0.2)),
+      variacaoPct,
+    },
+    ontem: {
+      valor: Math.round(diaValor * fatorOntem),
+      bilhetes: Math.max(1, Math.round(diaBilhetes * fatorOntem)),
+      agenciasVendendo: Math.max(1, Math.round(vendendoUltimos30d * 0.18)),
+      variacaoPct,
+    },
+    mes: {
+      valor: valorMesAtual,
+      bilhetes: bilhetesMes,
+      agenciasVendendo: vendendoUltimos30d,
+      variacaoPct,
+    },
+    ano: {
+      valor: Math.round(valorMesAtual * anoMultiplicador),
+      bilhetes: bilhetesMes * anoMultiplicador,
+      agenciasVendendo: totalAgencias,
+      variacaoPct,
+    },
+  };
 }
 
 function gerarFidelidadePorCompanhia(base: number): LoyaltyChip[] {
@@ -251,12 +300,14 @@ export function montarExecutivoDetalheView(
       conquistas: gerarConquistas(totalAgencias, base),
     },
     dashboard: {
-      hero: {
-        valor: valorMesAtual,
-        bilhetes: bilhetesMes,
-        agenciasVendendo: vendendoUltimos30d,
+      hero: gerarHeroPorPeriodo(
+        base,
+        valorMesAtual,
+        bilhetesMes,
         variacaoPct,
-      },
+        vendendoUltimos30d,
+        totalAgencias,
+      ),
       kpis: {
         mesAnteriorValor,
         mesAnteriorFaltaValor: Math.max(0, mesAnteriorValor - valorMesAtual),

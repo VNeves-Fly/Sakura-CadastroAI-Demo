@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { LayoutGrid, CalendarDays, Building2 } from "lucide-react";
+import { LayoutGrid, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Aba Agenda foi removida daqui a pedido do usuário (2026-08-19) — a
+// rota /agenda continua existindo, só não tem mais link nesta nav.
+// Agências voltou (pedido de correção do usuário, mesmo dia — não era
+// pra ter saído).
 const ABAS = [
   { chave: "dashboard", label: "Dashboard", icon: LayoutGrid, sufixo: "" },
-  { chave: "agenda", label: "Agenda", icon: CalendarDays, sufixo: "/agenda" },
   { chave: "agencias", label: "Agências", icon: Building2, sufixo: "/agencias" },
 ] as const;
 

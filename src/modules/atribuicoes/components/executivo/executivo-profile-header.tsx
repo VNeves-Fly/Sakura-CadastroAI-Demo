@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, MapPin, Pencil, Trophy, Heart, Circle } from "lucide-react";
+import { Mail, MapPin, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
@@ -20,8 +20,6 @@ interface ExecutivoProfileHeaderProps {
 // bases, totalAgencias e gestorNome são reais; vendendoUltimos30d e
 // conquistas são mock-gerados.
 export function ExecutivoProfileHeader({ perfil }: ExecutivoProfileHeaderProps) {
-  const conquistas = perfil.conquistas;
-
   return (
     <div className="border-border bg-card rounded-2xl border p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -64,24 +62,6 @@ export function ExecutivoProfileHeader({ perfil }: ExecutivoProfileHeaderProps) 
                 ))}
               </div>
             ) : null}
-
-            <div className="flex flex-wrap gap-1.5">
-              <Badge variant="outline" className="gap-1">
-                <Heart className="size-3" /> {conquistas.agencias10k} Agências 10K
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Heart className="size-3" /> {conquistas.agencias100k} Agências 100K
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Heart className="size-3" /> {conquistas.agencias1m} Agências 1M
-              </Badge>
-              <Badge className="gap-1">
-                <Trophy className="size-3" /> {conquistas.agencias10m} Agências 10M
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <Circle className="size-3" /> {conquistas.agenciasSemVenda} Agências s/venda
-              </Badge>
-            </div>
           </div>
         </div>
 

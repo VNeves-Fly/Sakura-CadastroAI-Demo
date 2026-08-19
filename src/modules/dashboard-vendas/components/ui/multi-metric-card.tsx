@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 interface MultiMetricCardProps {
   titulo: string;
   valor: string;
@@ -5,6 +7,10 @@ interface MultiMetricCardProps {
   linhasExtras?: { label: string; valor: string }[];
   // Opcional — card inteiro fica clicável (abre modal de detalhamento).
   aoClicar?: () => void;
+  // Fundo rosa bem clarinho pra sinalizar campo de atenção/negativo (ex.:
+  // "+30 dias sem vendas", "Sem vendas em 2026") — pedido do usuário,
+  // 2026-08-19, cor #FFB6C1 em baixa opacidade.
+  destaque?: boolean;
 }
 
 // Valor principal + lista de submétricas — "Compraram (30D)", "Compraram
@@ -15,6 +21,7 @@ export function MultiMetricCard({
   submetricas,
   linhasExtras,
   aoClicar,
+  destaque,
 }: MultiMetricCardProps) {
   const conteudo = (
     <>
@@ -50,7 +57,10 @@ export function MultiMetricCard({
       <button
         type="button"
         onClick={aoClicar}
-        className="border-border bg-card hover:border-primary/40 flex flex-col gap-3 rounded-2xl border p-4 text-left transition sm:p-5"
+        className={cn(
+          "border-border bg-card hover:border-primary/40 flex flex-col gap-3 rounded-2xl border p-4 text-left transition sm:p-5",
+          destaque && "bg-[#FFB6C1]/15",
+        )}
       >
         {conteudo}
       </button>
@@ -58,7 +68,12 @@ export function MultiMetricCard({
   }
 
   return (
-    <div className="border-border bg-card flex flex-col gap-3 rounded-2xl border p-4 sm:p-5">
+    <div
+      className={cn(
+        "border-border bg-card flex flex-col gap-3 rounded-2xl border p-4 sm:p-5",
+        destaque && "bg-[#FFB6C1]/15",
+      )}
+    >
       {conteudo}
     </div>
   );
