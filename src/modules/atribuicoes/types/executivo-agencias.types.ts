@@ -1,40 +1,42 @@
-// Aba "Agências" do detalhe do executivo (SPEC seção 6). Real: id, nome
-// (razaoSocial), cnpj, status (StatusAgencia real do Prisma). O resto
-// (categoria de premiação, vendas, bilhetes, ticket médio, dias sem
-// comprar, limite) não tem fonte hoje — mock determinístico, mesmo
-// padrão das fases anteriores. Sem coluna BASE: AgenciaResumoPromotor não
-// expõe base por agência (ver executivo-detalhe.types.ts).
+// Aba "Agências" do detalhe do executivo (SPEC seção 6). Fonte: roster do
+// SST (`/api/agencias/ativas?codigoExecutivo`, ver
+// executivo-dashboard.sst-service.ts), não mais a tabela `Agencia` deste
+// app (funil de cadastro/onboarding — conceito diferente, decisão do
+// usuário 2026-08-20). Real: nome, cnpj, status, canal, faixaRecencia,
+// vendas/bilhetes por período. `categoria` é uma faixa calculada a partir
+// de `vendasAno` real (não mais hash aleatório). `limite` continua mock —
+// "limite de crédito comercial" não existe no schema espelhado do SICA
+// (ver docs/mock-exec-resp.md).
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 export type PeriodoVendas = "mes" | "30d" | "90d" | "ano";
 
 export interface AgenciaCarteiraView {
-  id: string;
+  id: string; // = String(codigo) do SST
   nome: string;
   cnpj: string;
-  status: string;
-  // Real: deriva do status (em_analise/em_complementar = dados pendentes
-  // no funil de cadastro).
-  dadosFaltantes: boolean;
-  // Real: deriva do status (recusado = inativada).
-  inativada: boolean;
+  status: string; // empresa_status do SST ("ativo"/"inativo")
+  canal: "aereo" | "terrestre" | "ambos" | "nenhum";
+  // Faixa aproximada, não dias exatos — o SST não expõe data exata da
+  // última venda por agência num formato barato de buscar (ver
+  // AgenciaCarteiraResumo em executivo-detalhe.types.ts).
+  faixaRecencia: "ate30d" | "30a90d" | "90a365d" | "semVenda365d";
   categoria: CategoriaPremiacao;
   vendasAno: number;
   bilhetesAno: number;
-  diasSemComprar: number;
+  vendas90d: number;
+  bilhetes90d: number;
+  vendas30d: number;
+  bilhetes30d: number;
+  // Mock — "limite de crédito comercial" bloqueado (ver comentário acima).
   limite: number;
 }
 
 export interface AgenciasCarteiraFiltros {
   busca: string;
-  dadosFaltantes: "todos" | "pendentes";
-  // Sem fonte de dado real (nenhum canal de venda ligado a Agencia hoje)
-  // — mantido como filtro visual configurável, mesmo tratamento de
-  // outros filtros sem dado real confirmado.
   canalVendas: "todos" | "aereo" | "terrestre" | "ambos";
   premiacao: "todas" | CategoriaPremiacao;
   ultimaCompra: "qualquer" | "ate30" | "30a90" | "mais90";
   ordenarPor: "vendasAno" | "vendasPeriodo" | "ticketMedio" | "ultimaCompra";
-  inativadasSakura: "ocultar" | "mostrar";
   periodo: PeriodoVendas;
   // "Apenas agências que estão comprando" — filtra pra só quem teve
   // venda (valorNoPeriodo(...).vendas > 0) no período selecionado acima

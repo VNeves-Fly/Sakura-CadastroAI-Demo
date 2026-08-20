@@ -1,6 +1,7 @@
 import { executivoDashboardMockService } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 import { executivoDashboardSstService } from "@/modules/atribuicoes/services/executivo-dashboard.sst-service";
 import type {
+  AgenciaCarteiraResumo,
   ExecutivoAgenciaResumo,
   ExecutivoDashboard,
   KpisSecundarios,
@@ -58,6 +59,7 @@ export const executivoDashboardController = {
     crossCanal: ExecutivoDashboard["crossCanal"];
     miniStats: MiniStats;
     saudeCarteira: SegmentoSaude[];
+    agenciasCarteira: AgenciaCarteiraResumo[];
   }> {
     if (usaSstReal(sica)) {
       return executivoDashboardSstService.obterCrossCanalEMiniStats(
@@ -76,6 +78,9 @@ export const executivoDashboardController = {
       crossCanal: mock.crossCanal,
       miniStats: mock.miniStats,
       saudeCarteira: mock.saudeCarteira,
+      // sem SICA não há como filtrar o SST por executivo — sem lista real
+      // de agências, mostra vazio em vez de inventar linhas.
+      agenciasCarteira: [],
     };
   },
 };

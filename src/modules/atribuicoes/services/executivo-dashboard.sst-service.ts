@@ -5,9 +5,12 @@ import {
 import { valkeyGet, valkeySet } from "@/modules/dashboard-vendas/infrastructure/valkey-cache.util";
 import { executivoDashboardMockService } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 import type {
+  AgenciaCarteiraResumo,
   AgenciaSegmentoResumo,
+  CanalAgenciaCarteira,
   ExecutivoAgenciaResumo,
   ExecutivoDashboard,
+  FaixaRecenciaAgencia,
   KpisSecundarios,
   MiniStats,
   SegmentoSaude,
@@ -478,6 +481,61 @@ function construirSaudeCarteira(
   ];
 }
 
+// Linha por agência da aba "Agências" (ver AgenciaCarteiraResumo) — usa os
+// mesmos mapas de `construirCrossCanalEVendendo30d` (roster, aereo/
+// terrestre 30d e 365d) mais uma janela de 90d nova (só pra essa faixa;
+// não usada em mais nada). `faixaRecencia` classifica por ausência do
+// código no `Set`/`Map` mais estreito primeiro — quem vendeu nos últimos
+// 30d já não é reavaliado contra 90d/365d.
+function construirAgenciasCarteira(
+  codigosEmpresa: number[],
+  rosterPorCodigo: Map<number, RawAgenciaAtiva>,
+  aereo365: Map<number, { tarifa: number; qtd: number }>,
+  terrestre365: Map<number, { tarifa: number; qtd: number }>,
+  aereo90: Map<number, { tarifa: number; qtd: number }>,
+  terrestre90: Map<number, { tarifa: number; qtd: number }>,
+  aereo30: Map<number, { tarifa: number; qtd: number }>,
+  terrestre30: Map<number, { tarifa: number; qtd: number }>,
+  vendendo30dSet: Set<number>,
+): AgenciaCarteiraResumo[] {
+  return codigosEmpresa.map((codigo): AgenciaCarteiraResumo => {
+    const agencia = rosterPorCodigo.get(codigo);
+    const temAereo = aereo365.has(codigo);
+    const temTerrestre = terrestre365.has(codigo);
+    const canal: CanalAgenciaCarteira =
+      temAereo && temTerrestre
+        ? "ambos"
+        : temAereo
+          ? "aereo"
+          : temTerrestre
+            ? "terrestre"
+            : "nenhum";
+
+    const faixaRecencia: FaixaRecenciaAgencia = vendendo30dSet.has(codigo)
+      ? "ate30d"
+      : aereo90.has(codigo) || terrestre90.has(codigo)
+        ? "30a90d"
+        : temAereo || temTerrestre
+          ? "90a365d"
+          : "semVenda365d";
+
+    return {
+      codigo,
+      nome: agencia?.nome ?? `Agência ${codigo}`,
+      cnpj: agencia?.cnpj ?? "",
+      status: agencia?.empresa_status ?? "desconhecido",
+      canal,
+      faixaRecencia,
+      vendasAno: (aereo365.get(codigo)?.tarifa ?? 0) + (terrestre365.get(codigo)?.tarifa ?? 0),
+      bilhetesAno: (aereo365.get(codigo)?.qtd ?? 0) + (terrestre365.get(codigo)?.qtd ?? 0),
+      vendas90d: (aereo90.get(codigo)?.tarifa ?? 0) + (terrestre90.get(codigo)?.tarifa ?? 0),
+      bilhetes90d: (aereo90.get(codigo)?.qtd ?? 0) + (terrestre90.get(codigo)?.qtd ?? 0),
+      vendas30d: (aereo30.get(codigo)?.tarifa ?? 0) + (terrestre30.get(codigo)?.tarifa ?? 0),
+      bilhetes30d: (aereo30.get(codigo)?.qtd ?? 0) + (terrestre30.get(codigo)?.qtd ?? 0),
+    };
+  });
+}
+
 // `agencias`/`aprovadas`/`vendendo30dPct` usam `roster.length` (SST) como
 // denominador, não `Agencia.executivoId` do banco local — decisão do
 // usuário (2026-08-20) depois de constatar que `Agencia.executivoId` é
@@ -495,6 +553,7 @@ async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise
   vendendo30dPct: number;
   agencias: number;
   saudeCarteira: SegmentoSaude[];
+  agenciasCarteira: AgenciaCarteiraResumo[];
 }> {
   const hoje = hojeIso();
   const roster = await buscarRoster(codigoExecutivo);
@@ -511,10 +570,15 @@ async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise
   const aereo365 = await buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(365), hoje);
   const codigosEmpresa = [...new Set([...roster.map((a) => a.codigo_empresa), ...aereo365.keys()])];
 
-  const [terrestre365, aereo30, terrestre30] = await Promise.all([
+  // Janela de 90d é usada só pra `faixaRecencia` da aba "Agências" (ver
+  // construirAgenciasCarteira) — mais um par de chamadas (1 agregada pro
+  // aéreo, N pro terrestre) além do 30d/365d que crossCanal já precisava.
+  const [terrestre365, aereo30, terrestre30, aereo90, terrestre90] = await Promise.all([
     buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(365), hoje),
     buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(30), hoje),
     buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(30), hoje),
+    buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(90), hoje),
+    buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(90), hoje),
   ]);
 
   const vendendo30dSet = new Set([...aereo30.keys(), ...terrestre30.keys()]);
@@ -541,6 +605,17 @@ async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise
       rosterPorCodigo,
       aereo365,
       terrestre365,
+      vendendo30dSet,
+    ),
+    agenciasCarteira: construirAgenciasCarteira(
+      codigosEmpresa,
+      rosterPorCodigo,
+      aereo365,
+      terrestre365,
+      aereo90,
+      terrestre90,
+      aereo30,
+      terrestre30,
       vendendo30dSet,
     ),
     crossCanal: {
@@ -612,6 +687,7 @@ async function obterCrossCanalEMiniStats(
   crossCanal: ExecutivoDashboard["crossCanal"];
   miniStats: MiniStats;
   saudeCarteira: SegmentoSaude[];
+  agenciasCarteira: AgenciaCarteiraResumo[];
 }> {
   const mock = await executivoDashboardMockService.obterDashboard(
     promotorId,
@@ -619,7 +695,7 @@ async function obterCrossCanalEMiniStats(
     agencias,
   );
   const resultado = await comFallback(
-    "crossCanal+vendendo30d+saudeCarteira",
+    "crossCanal+vendendo30d+saudeCarteira+agenciasCarteira",
     construirCrossCanalEVendendo30d(codigoExecutivo),
     {
       crossCanal: mock.crossCanal,
@@ -629,11 +705,16 @@ async function obterCrossCanalEMiniStats(
       // do banco local como último recurso, mesma convenção antiga.
       agencias: totalAgencias,
       saudeCarteira: mock.saudeCarteira,
+      // sem equivalente mock pra lista de agências reais — cai vazia em
+      // vez de inventar linhas (a aba "Agências" mostra uma mensagem de
+      // erro/lista vazia nesse caso, não fabrica dado).
+      agenciasCarteira: [],
     },
   );
   return {
     crossCanal: resultado.crossCanal,
     saudeCarteira: resultado.saudeCarteira,
+    agenciasCarteira: resultado.agenciasCarteira,
     miniStats: {
       ...mock.miniStats,
       agencias: resultado.agencias,
