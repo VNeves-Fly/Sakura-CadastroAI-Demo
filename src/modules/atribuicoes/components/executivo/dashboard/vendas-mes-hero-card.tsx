@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { PersonalizadoDateRange } from "@/modules/dashboard-vendas/components/ui/personalizado-date-range";
@@ -42,9 +41,8 @@ const TITULO_POR_PERIODO: Record<PeriodoVendasMesHero, string> = {
 // Card hero (SPEC 4.1) — maior número da página, fundo com gradiente
 // sutil branco→rosa claríssimo, com filtro Dia/Ontem/Mês/Ano/Personalizado
 // (reaproveita o PeriodToggle + PersonalizadoDateRange/Aviso já usados no
-// dashboard-vendas, ver resumo-do-dia-card.tsx). Todos os dados são mock
-// (valor, bilhetes, agenciasVendendo, variacaoPct derivados de hash do
-// promotor ID — um conjunto por período).
+// dashboard-vendas, ver resumo-do-dia-card.tsx). Dados reais, via SST
+// (ver executivoDashboardSstService.obterHeroKpis).
 export function VendasMesHeroCard({ hero }: VendasMesHeroCardProps) {
   const [filtro, setFiltro] = useState<FiltroHero>("mes");
   const [dataInicial, setDataInicial] = useState("");
@@ -79,7 +77,6 @@ export function VendasMesHeroCard({ hero }: VendasMesHeroCardProps) {
           />
         ) : null}
 
-        <MockBadge />
         <span
           className={
             negativo
