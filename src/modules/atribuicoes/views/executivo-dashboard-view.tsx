@@ -7,6 +7,7 @@ import { SecaoSkeleton } from "@/modules/atribuicoes/components/executivo/dashbo
 import { ExecutivoHeroKpisSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-hero-kpis-secao";
 import { ExecutivoCrossCanalSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-cross-canal-secao";
 import { ExecutivoSaudeCarteiraSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-saude-carteira-secao";
+import { criarExecutivoHeaderStatsSlots } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-header-stats";
 import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 import type {
   ExecutivoAgenciaResumo,
@@ -51,6 +52,8 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
       agencias,
     ),
   );
+  const { statsAgenciasSlot, statsVendendo30dSlot } =
+    criarExecutivoHeaderStatsSlots(crossCanalPromise);
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -67,7 +70,11 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
         <h1 className="text-foreground text-xl font-semibold">Detalhes do Executivo</h1>
       </div>
 
-      <ExecutivoProfileHeader perfil={perfil} />
+      <ExecutivoProfileHeader
+        perfil={perfil}
+        statsAgenciasSlot={statsAgenciasSlot}
+        statsVendendo30dSlot={statsVendendo30dSlot}
+      />
       <ExecutivoTabsNav executivoId={perfil.id} abaAtiva="dashboard" />
 
       {perfil.sica == null ? (

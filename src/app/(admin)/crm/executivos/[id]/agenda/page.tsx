@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
+import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
+import { criarExecutivoHeaderStatsSlots } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-header-stats";
 import {
   mapAgencia,
   montarExecutivoPerfil,
@@ -35,5 +37,23 @@ export default async function ExecutivoAgendaPage({ params }: { params: { id: st
   const perfil = montarExecutivoPerfil(promotor.toJSON(), gestoresPorId, agencias);
   const agenciasReais = agencias.map(mapAgencia);
 
-  return <ExecutivoAgendaView perfil={perfil} agenciasReais={agenciasReais} />;
+  // Mesmo motivo de agencias/page.tsx: header tem que mostrar o mesmo
+  // número real de todas as abas.
+  const crossCanalPromise = executivoDashboardController.obterCrossCanalEMiniStats(
+    perfil.sica,
+    perfil.id,
+    perfil.totalAgencias,
+    agenciasReais,
+  );
+  const { statsAgenciasSlot, statsVendendo30dSlot } =
+    criarExecutivoHeaderStatsSlots(crossCanalPromise);
+
+  return (
+    <ExecutivoAgendaView
+      perfil={perfil}
+      agenciasReais={agenciasReais}
+      statsAgenciasSlot={statsAgenciasSlot}
+      statsVendendo30dSlot={statsVendendo30dSlot}
+    />
+  );
 }

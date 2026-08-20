@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
+import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
+import { criarExecutivoHeaderStatsSlots } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-header-stats";
 import {
   mapAgencia,
   montarExecutivoPerfil,
@@ -35,5 +37,26 @@ export default async function ExecutivoAgenciasPage({ params }: { params: { id: 
   const perfil = montarExecutivoPerfil(promotor.toJSON(), gestoresPorId, agencias);
   const agenciasReais = agencias.map(mapAgencia);
 
-  return <ExecutivoAgenciasView perfil={perfil} agenciasReais={agenciasReais} />;
+  // "Agências"/"Venderam últimos 30d" do header têm que bater com o
+  // mesmo número do dashboard (ver executivo-dashboard-view.tsx) — não dá
+  // pra reaproveitar `perfil.totalAgencias` (banco local) aqui. Disparado
+  // sem `await` (Suspense cuida do streaming, ver criarExecutivoHeaderStatsSlots),
+  // então não atrasa o resto da página.
+  const crossCanalPromise = executivoDashboardController.obterCrossCanalEMiniStats(
+    perfil.sica,
+    perfil.id,
+    perfil.totalAgencias,
+    agenciasReais,
+  );
+  const { statsAgenciasSlot, statsVendendo30dSlot } =
+    criarExecutivoHeaderStatsSlots(crossCanalPromise);
+
+  return (
+    <ExecutivoAgenciasView
+      perfil={perfil}
+      agenciasReais={agenciasReais}
+      statsAgenciasSlot={statsAgenciasSlot}
+      statsVendendo30dSlot={statsVendendo30dSlot}
+    />
+  );
 }

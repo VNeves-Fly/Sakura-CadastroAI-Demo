@@ -58,8 +58,8 @@ export function mapAgencia(agencia: AgenciaResumoPromotor): ExecutivoAgenciaResu
 // Cabeçalho de perfil do executivo (SPEC seções 3) — 100% real, vem de
 // Promotor/Agencia do próprio banco (não depende do SST). Separado do
 // dashboard (ver executivo-dashboard.controller.ts) porque as páginas
-// `agencias/` e `agenda/` só precisam disto, sem pagar o custo de montar
-// (mock ou real) o dashboard inteiro.
+// `agencias/`/`agenda/` só precisam disto pro resto da página (filtros,
+// tabela, agenda), sem esperar o dashboard inteiro montar.
 export function montarExecutivoPerfil(
   promotor: PromotorProps,
   gestoresPorId: Map<string, GestorOpcao>,
@@ -68,13 +68,16 @@ export function montarExecutivoPerfil(
   const base = hashParaNumero(promotor.id);
   const totalAgencias = agenciasRaw.length;
 
-  // TODO(mock): mantido síncrono/mock de propósito — calcular o valor real
-  // exigiria a mesma chamada ao SST usada em dashboard.miniStats.vendendo30d
-  // (ver executivo-dashboard.sst-service.ts), o que pagaria o custo do SST
-  // também nas páginas agencias/agenda (que só usam perfil, ver
-  // executivo-dashboard.controller.ts). Por isso este número pode divergir
-  // do miniStats.vendendo30d real na página do dashboard — o `MockBadge` no
-  // header já sinaliza isso ao usuário (ver executivo-profile-header.tsx).
+  // `totalAgencias`/`vendendoUltimos30d` aqui continuam mock/local-DB —
+  // usados só como fallback de `ExecutivoProfileHeader` (quando os slots
+  // `statsAgenciasSlot`/`statsVendendo30dSlot` não são passados) e como
+  // seed do resto do mock service (kpis.projecaoFimMes, conquistas,
+  // saudeCarteira quando o SST falha, etc.). O número REAL e exibido nas
+  // 3 páginas (dashboard/agencias/agenda) hoje vem de
+  // `criarExecutivoHeaderStatsSlots`/`executivoDashboardController.obterCrossCanalEMiniStats`
+  // (ver as respectivas page.tsx) — decisão do usuário (2026-08-20) de
+  // manter o header consistente entre abas, pagando o custo do SST
+  // (roster + loop de terrestre) também em agencias/agenda.
   const vendendoUltimos30d = Math.round(totalAgencias * (0.3 + (base % 50) / 100));
   const vendendoUltimos30dPct =
     totalAgencias > 0 ? Math.round((vendendoUltimos30d / totalAgencias) * 100) : 0;

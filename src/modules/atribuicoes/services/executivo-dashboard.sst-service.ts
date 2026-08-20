@@ -478,13 +478,22 @@ function construirSaudeCarteira(
   ];
 }
 
-async function construirCrossCanalEVendendo30d(
-  codigoExecutivo: number,
-  totalAgenciasReais: number,
-): Promise<{
+// `agencias`/`aprovadas`/`vendendo30dPct` usam `roster.length` (SST) como
+// denominador, não `Agencia.executivoId` do banco local — decisão do
+// usuário (2026-08-20) depois de constatar que `Agencia.executivoId` é
+// preenchido manualmente por analista e pode estar vazio pra praticamente
+// toda a base num ambiente real (confirmado: 0 de 2 agências no banco de
+// teste tinham `executivoId`, mostrando "0 agências" pra todo executivo
+// mesmo com carteira real no SST). Diverge de propósito de
+// `ExecutivoPerfil.totalAgencias` (ainda local-DB, usado por
+// `agencias/`/`agenda/`, ver executivo-detalhe.adapter.ts) — só o
+// dashboard, que já paga o custo do roster pra `crossCanal`, usa o número
+// do SST.
+async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise<{
   crossCanal: ExecutivoDashboard["crossCanal"];
   vendendo30d: number;
   vendendo30dPct: number;
+  agencias: number;
   saudeCarteira: SegmentoSaude[];
 }> {
   const hoje = hojeIso();
@@ -525,8 +534,8 @@ async function construirCrossCanalEVendendo30d(
 
   return {
     vendendo30d,
-    vendendo30dPct:
-      totalAgenciasReais > 0 ? Math.round((vendendo30d / totalAgenciasReais) * 100) : 0,
+    vendendo30dPct: roster.length > 0 ? Math.round((vendendo30d / roster.length) * 100) : 0,
+    agencias: roster.length,
     saudeCarteira: construirSaudeCarteira(
       codigosEmpresa,
       rosterPorCodigo,
@@ -536,9 +545,7 @@ async function construirCrossCanalEVendendo30d(
     ),
     crossCanal: {
       ativasUltimos12m,
-      // = totalAgencias (nosso banco, Agencia.executivoId), não o roster
-      // do SST — mesma convenção do resto do app (ver ExecutivoPerfil).
-      aprovadas: totalAgenciasReais,
+      aprovadas: roster.length,
       volAereo: air12m.tarifa,
       volTerrestre: nonAir12m.tarifa,
       soAereo: {
@@ -613,11 +620,14 @@ async function obterCrossCanalEMiniStats(
   );
   const resultado = await comFallback(
     "crossCanal+vendendo30d+saudeCarteira",
-    construirCrossCanalEVendendo30d(codigoExecutivo, totalAgencias),
+    construirCrossCanalEVendendo30d(codigoExecutivo),
     {
       crossCanal: mock.crossCanal,
       vendendo30d: mock.miniStats.vendendo30d,
       vendendo30dPct: mock.miniStats.vendendo30dPct,
+      // fallback só se a chamada ao roster falhar de vez — usa o número
+      // do banco local como último recurso, mesma convenção antiga.
+      agencias: totalAgencias,
       saudeCarteira: mock.saudeCarteira,
     },
   );
@@ -626,7 +636,7 @@ async function obterCrossCanalEMiniStats(
     saudeCarteira: resultado.saudeCarteira,
     miniStats: {
       ...mock.miniStats,
-      agencias: totalAgencias,
+      agencias: resultado.agencias,
       vendendo30d: resultado.vendendo30d,
       vendendo30dPct: resultado.vendendo30dPct,
     },
