@@ -20,6 +20,7 @@ import {
   Store,
   FileSignature,
   Sparkles,
+  Tv,
 } from "lucide-react";
 import {
   Sidebar,
@@ -102,6 +103,15 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         label: "Dashboard CRM",
         href: "/crm/dashboard",
         icon: BarChart2,
+        ocultoPara: CARGOS_SEM_DASHBOARD_CRM,
+      },
+      {
+        // "Fast View" (/crm/tv) — reprodução da página /tv do CRM Sakura
+        // original (spectvsakura.md), mesmo guard do Dashboard CRM
+        // (pedido do usuário, 2026-08-20).
+        label: "Fast View",
+        href: "/crm/tv",
+        icon: Tv,
         ocultoPara: CARGOS_SEM_DASHBOARD_CRM,
       },
       {
