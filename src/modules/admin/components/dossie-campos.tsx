@@ -2,13 +2,15 @@
 
 import {
   useState,
+  useRef,
+  useEffect,
   Children,
   cloneElement,
   isValidElement,
   type ReactElement,
   type ReactNode,
 } from "react";
-import { Eye } from "lucide-react";
+import { Eye, MessageSquare } from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import type { ObservacaoCadastro } from "@/modules/cadastro/domain/entities/observacao-cadastro.entity";
 import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
@@ -26,6 +28,7 @@ import type {
 } from "@/modules/cadastro/domain/services/analise-ia-service";
 import { alertasVisiveis } from "@/modules/cadastro/utils/alerta-analise.util";
 import { VisualizarDocumento } from "@/modules/admin/components/visualizar-documento";
+import { PainelLateral } from "@/modules/admin/components/painel-lateral";
 import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
 import { formatarEndereco } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCep } from "@/modules/cadastro/utils/cep.util";
@@ -1646,13 +1649,16 @@ export function HistoricoAtendimentoAgencia({
 
 type RegistrarObservacaoActionFn = (agenciaId: string, formData: FormData) => Promise<void>;
 
-// Lista de observações livres do analista sobre o cadastro (ver
-// ObservacaoCadastro) — não muda nenhum dado da agência, é só contexto que
-// não cabe em campo estruturado (ex.: "cliente pediu pra ligar depois das
-// 18h"). Append-only: sem editar/remover, mesma convenção de
+// Painel lateral (direita) com as observações livres do analista sobre o
+// cadastro (ver ObservacaoCadastro) — não muda nenhum dado da agência, é só
+// contexto que não cabe em campo estruturado (ex.: "cliente pediu pra ligar
+// depois das 18h"). Append-only: sem editar/remover, mesma convenção de
 // HistoricoEdicaoCadastro/HistoricoAtendimentoAgencia. `somenteLeitura`
-// esconde só o formulário de registrar — a lista continua visível pra
-// qualquer cargo com acesso ao dossiê.
+// esconde só o input de registrar no rodapé — a lista continua visível pra
+// qualquer cargo com acesso ao dossiê. Layout "chat": lista mais antiga →
+// mais nova de cima pra baixo, ordem invertida em relação ao array (que
+// chega mais recente primeiro, mesma convenção de todo `findByAgenciaId`
+// desse módulo), com scroll automático pro fim a cada observação nova.
 export function ObservacoesCadastro({
   agenciaId,
   observacoes,
@@ -1664,57 +1670,95 @@ export function ObservacoesCadastro({
   registrarObservacaoAction: RegistrarObservacaoActionFn;
   somenteLeitura?: boolean;
 }) {
+  const [aberto, setAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const listaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!aberto || !listaRef.current) return;
+    listaRef.current.scrollTop = listaRef.current.scrollHeight;
+  }, [aberto, observacoes.length]);
+
+  const observacoesEmOrdem = [...observacoes].reverse();
 
   return (
-    <div className="flex flex-col gap-3">
-      {!somenteLeitura ? (
-        <form
-          action={async (formData) => {
-            setEnviando(true);
-            try {
-              await registrarObservacaoAction(agenciaId, formData);
-            } finally {
-              setEnviando(false);
-            }
-          }}
-          className="flex flex-col gap-2"
-        >
-          <textarea
-            name="texto"
-            required
-            rows={2}
-            placeholder="Registrar uma observação sobre este cadastro..."
-            className={TEXTAREA_MOTIVO_DECISAO}
-          />
-          <button
-            type="submit"
-            disabled={enviando}
-            className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {enviando ? "Enviando..." : "Registrar observação"}
-          </button>
-        </form>
-      ) : null}
+    <>
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="border-input text-foreground hover:bg-accent inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition"
+      >
+        <MessageSquare className="size-3.5" />
+        Observações
+        {observacoes.length > 0 ? (
+          <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+            {observacoes.length}
+          </span>
+        ) : null}
+      </button>
 
-      {observacoes.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Nenhuma observação registrada ainda.</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {observacoes.map((observacao) => (
-            <div
-              key={observacao.id}
-              className="border-border bg-muted/20 flex flex-col gap-1 rounded-xl border px-3 py-2 text-sm"
-            >
-              <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="text-foreground font-semibold">{observacao.registradoPor}</span>
-                <span>{formatarData(observacao.createdAt)}</span>
+      <PainelLateral
+        aberto={aberto}
+        onFechar={() => setAberto(false)}
+        titulo="Observações"
+        icon={<MessageSquare className="size-4" />}
+      >
+        <div
+          ref={listaRef}
+          className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-4"
+        >
+          {observacoesEmOrdem.length === 0 ? (
+            <p className="text-muted-foreground text-sm">Nenhuma observação registrada ainda.</p>
+          ) : (
+            observacoesEmOrdem.map((observacao) => (
+              <div
+                key={observacao.id}
+                className="border-border bg-muted/20 flex flex-col gap-1 rounded-xl border px-3 py-2 text-sm"
+              >
+                <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="text-foreground font-semibold">{observacao.registradoPor}</span>
+                  {/* Data E hora (não só data) — formatarData já usa
+                      dateStyle+timeStyle "short" (ex.: "20/08/26, 14:30"). */}
+                  <span>{formatarData(observacao.createdAt)}</span>
+                </div>
+                <p className="text-foreground whitespace-pre-wrap">{observacao.texto}</p>
               </div>
-              <p className="text-foreground whitespace-pre-wrap">{observacao.texto}</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
-      )}
-    </div>
+
+        {!somenteLeitura ? (
+          <form
+            ref={formRef}
+            action={async (formData) => {
+              setEnviando(true);
+              try {
+                await registrarObservacaoAction(agenciaId, formData);
+                formRef.current?.reset();
+              } finally {
+                setEnviando(false);
+              }
+            }}
+            className="border-border flex items-end gap-2 border-t px-4 py-3"
+          >
+            <textarea
+              name="texto"
+              required
+              rows={1}
+              placeholder="Escreva uma observação..."
+              className={`${TEXTAREA_MOTIVO_DECISAO} flex-1 resize-none`}
+            />
+            <button
+              type="submit"
+              disabled={enviando}
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {enviando ? "Enviando..." : "Enviar"}
+            </button>
+          </form>
+        ) : null}
+      </PainelLateral>
+    </>
   );
 }
