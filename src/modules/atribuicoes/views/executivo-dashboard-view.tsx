@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { ExecutivoProfileHeader } from "@/modules/atribuicoes/components/executivo/executivo-profile-header";
 import { ExecutivoTabsNav } from "@/modules/atribuicoes/components/executivo/executivo-tabs-nav";
 import { VendasMesHeroCard } from "@/modules/atribuicoes/components/executivo/dashboard/vendas-mes-hero-card";
@@ -35,6 +36,16 @@ export function ExecutivoDashboardView({ detalhe }: ExecutivoDashboardViewProps)
 
       <ExecutivoProfileHeader perfil={perfil} />
       <ExecutivoTabsNav executivoId={perfil.id} abaAtiva="dashboard" />
+
+      {perfil.sica == null ? (
+        <div className="border-warning/40 bg-warning/10 text-foreground flex items-center gap-2 rounded-xl border px-4 py-3 text-sm">
+          <AlertTriangle className="text-warning size-4 shrink-0" />
+          <span>
+            Executivo sem código SICA vinculado — métricas de venda abaixo não puderam ser
+            calculadas a partir de dados reais.
+          </span>
+        </div>
+      ) : null}
 
       <VendasMesHeroCard hero={dashboard.hero} />
       <KpisSecundariosGrid kpis={dashboard.kpis} />

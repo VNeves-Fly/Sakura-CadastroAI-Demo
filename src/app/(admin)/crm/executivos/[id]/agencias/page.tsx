@@ -4,7 +4,7 @@ import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.op
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import {
   mapAgencia,
-  montarExecutivoDetalheView,
+  montarExecutivoPerfil,
 } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
 import { ExecutivoAgenciasView } from "@/modules/atribuicoes/views/executivo-agencias-view";
 
@@ -32,7 +32,7 @@ export default async function ExecutivoAgenciasPage({ params }: { params: { id: 
     ]),
   );
 
-  const { perfil } = montarExecutivoDetalheView(promotor.toJSON(), gestoresPorId, agencias);
+  const perfil = montarExecutivoPerfil(promotor.toJSON(), gestoresPorId, agencias);
   const agenciasReais = agencias.map(mapAgencia);
 
   return <ExecutivoAgenciasView perfil={perfil} agenciasReais={agenciasReais} />;

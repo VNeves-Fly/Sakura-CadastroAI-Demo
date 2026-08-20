@@ -1,0 +1,684 @@
+import {
+  requireSstApiKey,
+  sstBaseUrl,
+} from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
+import { valkeyGet, valkeySet } from "@/modules/dashboard-vendas/infrastructure/valkey-cache.util";
+import { executivoDashboardMockService } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
+import type {
+  AgenciaSegmentoResumo,
+  ExecutivoAgenciaResumo,
+  ExecutivoDashboard,
+  KpisSecundarios,
+  RankingAgencia,
+  VendaMensal,
+  VendasMesHero,
+} from "@/modules/atribuicoes/types/executivo-detalhe.types";
+
+// Integração real com o SST (sst.flysakura.com) filtrada por
+// `codigoExecutivo` (= Promotor.sica) pra montar o dashboard de UM
+// executivo — irmã de dashboard-vendas.sst-service.ts (mesmo backend,
+// mesmo padrão de cache/fallback), mas não reaproveita o código de lá:
+// nenhuma das funções internas daquele arquivo é exportada, e a
+// necessidade de filtrar por executivo muda a estratégia de algumas
+// seções (ver comentários abaixo, especialmente crossCanal). Validado por
+// curl direto contra o SST antes de escrever isto — ver
+// docs/mock-exec-resp.md e o plano de implementação.
+//
+// Achado importante (curl, 2026-08-20): `/api/resumos/terrestre` ACEITA
+// `codigoExecutivo` na spec, mas IGNORA o parâmetro na prática (testado
+// com um código inexistente e o total bate igual ao dataset inteiro) —
+// por isso a atividade terrestre por agência aqui usa
+// `/api/consolidado/non-air?codigoEmpresa=X` (agregado, esse sim filtra
+// certo) em vez da listagem bruta. `/api/reports/ranking-cias` também não
+// filtra por executivo — `fidelidadePorCompanhia` continua mock.
+
+const TTL_CACHE_MS = 10 * 60 * 1000;
+const cache = new Map<string, { expiraEm: number; valor: unknown }>();
+
+async function comCache<T>(chave: string, buscar: () => Promise<T>): Promise<T> {
+  const cacheado = cache.get(chave);
+  if (cacheado && cacheado.expiraEm > Date.now()) {
+    return cacheado.valor as T;
+  }
+
+  const doValkey = await valkeyGet<T>(chave);
+  if (doValkey !== undefined) {
+    cache.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor: doValkey });
+    return doValkey;
+  }
+
+  const valor = await buscar();
+  cache.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor });
+  await valkeySet(chave, valor, TTL_CACHE_MS / 1000);
+  return valor;
+}
+
+// Mesmo critério de retry de dashboard-vendas.sst-service.ts: só em 5xx
+// (erro do servidor, vale tentar de novo), nunca em 4xx (erro nosso de
+// parâmetro).
+const TENTATIVAS_5XX = 3;
+
+function esperar(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function sstGet<T>(
+  caminho: string,
+  parametros: Record<string, string | number | undefined>,
+): Promise<T> {
+  const url = new URL(caminho, sstBaseUrl());
+  for (const [chave, valor] of Object.entries(parametros)) {
+    if (valor !== undefined) url.searchParams.set(chave, String(valor));
+  }
+
+  for (let tentativa = 0; ; tentativa++) {
+    const response = await fetch(url, {
+      headers: { accept: "application/json", "X-Internal-Secret": requireSstApiKey() },
+    });
+
+    if (response.ok) {
+      return (await response.json()) as T;
+    }
+
+    const corpo = await response.text();
+    if (response.status < 500 || tentativa >= TENTATIVAS_5XX) {
+      throw new Error(`SST respondeu ${response.status}: ${corpo}`);
+    }
+    await esperar(300 * (tentativa + 1));
+  }
+}
+
+// Degrada uma seção pro mock em vez de derrubar a página inteira — mesmo
+// padrão de dashboard-vendas.sst-service.ts.
+async function comFallback<T>(rotulo: string, tarefa: Promise<T>, valorMock: T): Promise<T> {
+  try {
+    return await tarefa;
+  } catch (erro) {
+    console.error(
+      `[executivo-dashboard] "${rotulo}" falhou contra o SST — usando mock só nesta seção.`,
+      erro,
+    );
+    return valorMock;
+  }
+}
+
+function formatarDataIsoBrasilia(data: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(data);
+}
+
+function hojeIso(): string {
+  return formatarDataIsoBrasilia(new Date());
+}
+
+function ontemIso(): string {
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate() - 1);
+  return formatarDataIsoBrasilia(ontem);
+}
+
+function diasAtrasIso(dias: number): string {
+  const data = new Date();
+  data.setDate(data.getDate() - dias);
+  return formatarDataIsoBrasilia(data);
+}
+
+function partesHoje(): { ano: number; mes: number; dia: number } {
+  const [ano, mes, dia] = hojeIso().split("-").map(Number) as [number, number, number];
+  return { ano, mes, dia };
+}
+
+function ultimoDiaDoMes(ano: number, mes: number): number {
+  return new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+}
+
+function paraIso(ano: number, mes: number, dia: number): string {
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+// Mesmo intervalo do mês anterior (dia 1 até o mesmo dia de hoje, com
+// ajuste se o mês anterior for mais curto) — mesma convenção de
+// dashboard-vendas.sst-service.ts (mês-a-data, não mês fechado).
+function janelaMesAnterior(): { inicio: string; fim: string } {
+  const { ano, mes, dia } = partesHoje();
+  const anteriorMes = mes === 1 ? 12 : mes - 1;
+  const anteriorAno = mes === 1 ? ano - 1 : ano;
+  const diaFim = Math.min(dia, ultimoDiaDoMes(anteriorAno, anteriorMes));
+  return {
+    inicio: paraIso(anteriorAno, anteriorMes, 1),
+    fim: paraIso(anteriorAno, anteriorMes, diaFim),
+  };
+}
+
+const NOMES_MESES = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
+
+function mesesDoAnoAteHoje(): Array<{ label: string; inicio: string; fim: string }> {
+  const { ano, mes } = partesHoje();
+  const sufixoAno = String(ano).slice(-2);
+  const meses: Array<{ label: string; inicio: string; fim: string }> = [];
+  for (let m = 1; m <= mes; m++) {
+    const inicio = paraIso(ano, m, 1);
+    const fim = m === mes ? hojeIso() : paraIso(ano, m, ultimoDiaDoMes(ano, m));
+    meses.push({ label: `${NOMES_MESES[m - 1]}/${sufixoAno}`, inicio, fim });
+  }
+  return meses;
+}
+
+function ultimosNDias(quantidade: number): string[] {
+  return Array.from({ length: quantidade }, (_, indice) => diasAtrasIso(quantidade - 1 - indice));
+}
+
+function calcularVariacaoPct(atual: number, anterior: number): number {
+  return anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
+}
+
+interface RawPeriodoOverview {
+  tarifa: number;
+  clientes: number;
+  tickets: number;
+}
+interface RawCanalOverview {
+  dia: RawPeriodoOverview;
+  mes: RawPeriodoOverview;
+  ano: RawPeriodoOverview;
+}
+interface RawOverviewResponse {
+  filial: { total: RawCanalOverview };
+}
+
+interface RawConsolidadoPeriodo {
+  tarifa: number;
+  clientes: number;
+  tickets: number;
+}
+
+interface RawPaginado<T> {
+  data: T[];
+  total: number;
+}
+
+interface RawResumoAgrupadoLinha {
+  codigo: number;
+  nome: string;
+  tarifa: number;
+  quantidade_bilhetes: number;
+}
+
+interface RawNacIntRow {
+  tipo_rota: "NAC" | "INTER";
+  total_bilhetes: number;
+  tarifa_total: number;
+}
+
+interface RawAgenciaAtiva {
+  codigo_empresa: number;
+  nome: string;
+  cnpj: string;
+}
+
+interface RawTopCliente {
+  codigo: number;
+  nome: string;
+  tarifa: number;
+  tickets: number;
+}
+interface RawTopClientesResponse {
+  geral: RawTopCliente[];
+}
+
+async function buscarOverview(data: string, codigoExecutivo: number): Promise<RawOverviewResponse> {
+  return comCache(`exec:${codigoExecutivo}:overview:${data}`, () =>
+    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+      data,
+      codigoExecutivo,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    }),
+  );
+}
+
+async function buscarAir(
+  inicio: string,
+  fim: string,
+  codigoExecutivo: number,
+  codigoEmpresa?: number,
+): Promise<RawConsolidadoPeriodo> {
+  const chave = `exec:${codigoExecutivo}:air:${codigoEmpresa ?? "-"}:${inicio}:${fim}`;
+  return comCache(chave, () =>
+    sstGet<RawConsolidadoPeriodo>("/api/consolidado/air", {
+      startDate: inicio,
+      endDate: fim,
+      codigoExecutivo,
+      codigoEmpresa,
+      painel: "FILIAL",
+      status: "ATIVOS",
+    }),
+  );
+}
+
+async function buscarNonAir(
+  inicio: string,
+  fim: string,
+  codigoExecutivo: number,
+  codigoEmpresa?: number,
+): Promise<RawConsolidadoPeriodo> {
+  const chave = `exec:${codigoExecutivo}:nonair:${codigoEmpresa ?? "-"}:${inicio}:${fim}`;
+  return comCache(chave, () =>
+    sstGet<RawConsolidadoPeriodo>("/api/consolidado/non-air", {
+      startDate: inicio,
+      endDate: fim,
+      codigoExecutivo,
+      codigoEmpresa,
+      painel: "FILIAL",
+      status: "ATIVOS",
+    }),
+  );
+}
+
+async function buscarNacInt(
+  inicio: string,
+  fim: string,
+  codigoExecutivo: number,
+): Promise<RawPaginado<RawNacIntRow>> {
+  return comCache(`exec:${codigoExecutivo}:nacint:${inicio}:${fim}`, () =>
+    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
+      startDate: inicio,
+      endDate: fim,
+      codigoExecutivo,
+    }),
+  );
+}
+
+function paraNacionalInternacional(linhas: RawNacIntRow[]): {
+  nacional: number;
+  internacional: number;
+} {
+  const nacional = linhas.find((linha) => linha.tipo_rota === "NAC");
+  const internacional = linhas.find((linha) => linha.tipo_rota === "INTER");
+  return {
+    nacional: nacional?.tarifa_total ?? 0,
+    internacional: internacional?.tarifa_total ?? 0,
+  };
+}
+
+// `/api/agencias/ativas?codigoExecutivo=X` — roster completo da carteira
+// (confirmado por curl: filtra certo e já traz CNPJ, diferente do que
+// `docs/mock-exec-resp.md` supunha ser um bloqueio de dado ausente).
+// `limit` alto cobre carteiras normais numa chamada só; carteiras muito
+// grandes (>500 agências) precisariam de paginação — não visto em nenhum
+// executivo real testado.
+const LIMITE_ROSTER = 500;
+
+async function buscarRoster(codigoExecutivo: number): Promise<RawAgenciaAtiva[]> {
+  return comCache(`exec:${codigoExecutivo}:roster`, async () => {
+    const resposta = await sstGet<RawPaginado<RawAgenciaAtiva>>("/api/agencias/ativas", {
+      codigoExecutivo,
+      limit: LIMITE_ROSTER,
+    });
+    return resposta.data;
+  });
+}
+
+async function buscarAereoAgrupado(
+  codigoExecutivo: number,
+  inicio: string,
+  fim: string,
+): Promise<Map<number, { tarifa: number; qtd: number }>> {
+  return comCache(`exec:${codigoExecutivo}:aereo-agrupado:${inicio}:${fim}`, async () => {
+    const linhas = await sstGet<RawResumoAgrupadoLinha[]>("/api/consolidado/air/resumo-agrupado", {
+      agruparPor: "codigoEmpresa",
+      codigoExecutivo,
+      startDate: inicio,
+      endDate: fim,
+      status: "ATIVOS",
+    });
+    return new Map(
+      linhas.map((linha) => [
+        linha.codigo,
+        { tarifa: linha.tarifa, qtd: linha.quantidade_bilhetes },
+      ]),
+    );
+  });
+}
+
+// Não existe endpoint agrupado por executivo pro terrestre que funcione
+// (ver comentário no topo do arquivo) — enumera a carteira via roster e
+// consulta o agregado (não a listagem bruta) por agência. Custo
+// proporcional ao tamanho da carteira (dezenas de chamadas típicas), não
+// ao dataset inteiro do SICA/SIGOT.
+async function buscarTerrestrePorAgencia(
+  codigoExecutivo: number,
+  codigosEmpresa: number[],
+  inicio: string,
+  fim: string,
+): Promise<Map<number, { tarifa: number; qtd: number }>> {
+  const resultado = new Map<number, { tarifa: number; qtd: number }>();
+  const respostas = await Promise.all(
+    codigosEmpresa.map((codigoEmpresa) =>
+      buscarNonAir(inicio, fim, codigoExecutivo, codigoEmpresa),
+    ),
+  );
+  codigosEmpresa.forEach((codigoEmpresa, indice) => {
+    const resposta = respostas[indice]!;
+    if (resposta.tickets > 0 || resposta.tarifa > 0) {
+      resultado.set(codigoEmpresa, { tarifa: resposta.tarifa, qtd: resposta.tickets });
+    }
+  });
+  return resultado;
+}
+
+async function construirHeroEKpis(
+  codigoExecutivo: number,
+): Promise<{ hero: ExecutivoDashboard["hero"]; kpis: KpisSecundarios }> {
+  const hoje = hojeIso();
+  const ontem = ontemIso();
+  const janela = janelaMesAnterior();
+  const trintaDiasAtras = diasAtrasIso(30);
+
+  const [overviewHoje, overviewOntem, airMesAnterior, nonAirMesAnterior, air30d, nonAir30d] =
+    await Promise.all([
+      buscarOverview(hoje, codigoExecutivo),
+      buscarOverview(ontem, codigoExecutivo),
+      buscarAir(janela.inicio, janela.fim, codigoExecutivo),
+      buscarNonAir(janela.inicio, janela.fim, codigoExecutivo),
+      buscarAir(trintaDiasAtras, hoje, codigoExecutivo),
+      buscarNonAir(trintaDiasAtras, hoje, codigoExecutivo),
+    ]);
+
+  const { dia, mes, ano } = overviewHoje.filial.total;
+  const diaOntem = overviewOntem.filial.total.dia;
+  const mesAnteriorValor = airMesAnterior.tarifa + nonAirMesAnterior.tarifa;
+
+  // `variacaoPct` do dia vem de dia-vs-ontem; mês vem de mês-a-data vs.
+  // mesma janela do mês anterior (mesmo dado de `mesAnteriorValor`). Ano
+  // reaproveita a variação do mês (não existe "ano anterior" buscado aqui)
+  // — mesma simplificação que o mock fazia (um valor só pra todo o card),
+  // documentada em vez de escondida.
+  const variacaoDia = calcularVariacaoPct(dia.tarifa, diaOntem.tarifa);
+  const variacaoMes = calcularVariacaoPct(mes.tarifa, mesAnteriorValor);
+
+  const periodo = (p: RawPeriodoOverview, variacaoPct: number): VendasMesHero => ({
+    valor: p.tarifa,
+    bilhetes: p.tickets,
+    agenciasVendendo: p.clientes,
+    variacaoPct,
+  });
+
+  const valor30d = air30d.tarifa + nonAir30d.tarifa;
+  const tickets30d = air30d.tickets + nonAir30d.tickets;
+
+  return {
+    hero: {
+      dia: periodo(dia, variacaoDia),
+      ontem: periodo(diaOntem, variacaoDia),
+      mes: periodo(mes, variacaoMes),
+      ano: periodo(ano, variacaoMes),
+    },
+    kpis: {
+      mesAnteriorValor,
+      mesAnteriorFaltaValor: Math.max(0, mesAnteriorValor - mes.tarifa),
+      mesAnteriorPercentualAtingido:
+        mesAnteriorValor > 0 ? Math.round((mes.tarifa / mesAnteriorValor) * 100) : 0,
+      // TODO(mock): projeção de fim de mês depende do mesmo algoritmo
+      // ainda não definido pro dashboard geral (docs/faltante.md) — fora
+      // de escopo aqui, preenchido pelo caller com o valor mock.
+      projecaoFimMes: 0,
+      acumuladoAnoValor: ano.tarifa,
+      acumuladoAnoBilhetes: ano.tickets,
+      ticketMedio30d: tickets30d > 0 ? Math.round(valor30d / tickets30d) : 0,
+    },
+  };
+}
+
+async function construirVendasMensaisETendencia(codigoExecutivo: number): Promise<{
+  vendasMensais: VendaMensal[];
+  vendasMensaisTotalAno: number;
+  vendasMensaisVariacaoAltaPct: number;
+  vendasMensaisVariacaoBaixaPct: number;
+  tendencia30d: number[];
+  tendencia30dTotal: number;
+}> {
+  const meses = mesesDoAnoAteHoje();
+  const vendasMensais = await Promise.all(
+    meses.map(async (mes): Promise<VendaMensal> => {
+      const [nacInt, terrestre] = await Promise.all([
+        buscarNacInt(mes.inicio, mes.fim, codigoExecutivo),
+        buscarNonAir(mes.inicio, mes.fim, codigoExecutivo),
+      ]);
+      const { nacional, internacional } = paraNacionalInternacional(nacInt.data);
+      return { mes: mes.label, nacional, internacional, terrestre: terrestre.tarifa };
+    }),
+  );
+
+  const totaisMensais = vendasMensais.map(
+    (mes) => mes.nacional + mes.internacional + mes.terrestre,
+  );
+  const vendasMensaisTotalAno = totaisMensais.reduce((acc, valor) => acc + valor, 0);
+  const variacoesMensais = totaisMensais
+    .slice(1)
+    .map((valor, indice) => calcularVariacaoPct(valor, totaisMensais[indice]!));
+
+  const dias = ultimosNDias(30);
+  const valoresDiarios = await Promise.all(
+    dias.map(async (dia) => {
+      const [air, nonAir] = await Promise.all([
+        buscarAir(dia, dia, codigoExecutivo),
+        buscarNonAir(dia, dia, codigoExecutivo),
+      ]);
+      return air.tarifa + nonAir.tarifa;
+    }),
+  );
+
+  return {
+    vendasMensais,
+    vendasMensaisTotalAno,
+    vendasMensaisVariacaoAltaPct: variacoesMensais.length > 0 ? Math.max(...variacoesMensais) : 0,
+    vendasMensaisVariacaoBaixaPct: variacoesMensais.length > 0 ? Math.min(...variacoesMensais) : 0,
+    tendencia30d: valoresDiarios,
+    tendencia30dTotal: valoresDiarios.reduce((acc, valor) => acc + valor, 0),
+  };
+}
+
+function paraAgenciaSegmento(
+  codigo: number,
+  roster: Map<number, RawAgenciaAtiva>,
+  valor: number,
+): AgenciaSegmentoResumo {
+  const agencia = roster.get(codigo);
+  return { nome: agencia?.nome ?? `Agência ${codigo}`, cnpj: agencia?.cnpj ?? "", valor };
+}
+
+async function construirCrossCanalEVendendo30d(
+  codigoExecutivo: number,
+  totalAgenciasReais: number,
+): Promise<{
+  crossCanal: ExecutivoDashboard["crossCanal"];
+  vendendo30d: number;
+  vendendo30dPct: number;
+}> {
+  const hoje = hojeIso();
+  const roster = await buscarRoster(codigoExecutivo);
+  const rosterPorCodigo = new Map(roster.map((agencia) => [agencia.codigo_empresa, agencia]));
+
+  // `aereo365` primeiro: `/api/agencias/ativas` (roster) confirmou por
+  // teste real não ser superset confiável de "agências com venda" — uma
+  // agência com venda aérea real ficou de fora do roster (status/cadastro
+  // diverge de quem efetivamente vendeu). Por isso os candidatos pra
+  // checar atividade terrestre são a união do roster com quem já
+  // confirmadamente vendeu aéreo, não só o roster sozinho — senão essa
+  // agência nunca seria checada pra terrestre e sairia classificada como
+  // "só aéreo" mesmo se também vendesse terrestre.
+  const aereo365 = await buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(365), hoje);
+  const codigosEmpresa = [...new Set([...roster.map((a) => a.codigo_empresa), ...aereo365.keys()])];
+
+  const [terrestre365, aereo30, terrestre30] = await Promise.all([
+    buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(365), hoje),
+    buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(30), hoje),
+    buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(30), hoje),
+  ]);
+
+  const vendendo30dSet = new Set([...aereo30.keys(), ...terrestre30.keys()]);
+  const vendendo30d = vendendo30dSet.size;
+
+  const soAereoCodigos = [...aereo365.keys()].filter((codigo) => !terrestre365.has(codigo));
+  const soTerrestreCodigos = [...terrestre365.keys()].filter((codigo) => !aereo365.has(codigo));
+  const ambosCodigos = [...aereo365.keys()].filter((codigo) => terrestre365.has(codigo));
+  const ativasUltimos12m = soAereoCodigos.length + soTerrestreCodigos.length + ambosCodigos.length;
+  const pct = (n: number) =>
+    ativasUltimos12m > 0 ? Math.round((n / ativasUltimos12m) * 1000) / 10 : 0;
+
+  const [air12m, nonAir12m] = await Promise.all([
+    buscarAir(diasAtrasIso(365), hoje, codigoExecutivo),
+    buscarNonAir(diasAtrasIso(365), hoje, codigoExecutivo),
+  ]);
+
+  return {
+    vendendo30d,
+    vendendo30dPct:
+      totalAgenciasReais > 0 ? Math.round((vendendo30d / totalAgenciasReais) * 100) : 0,
+    crossCanal: {
+      ativasUltimos12m,
+      // = totalAgencias (nosso banco, Agencia.executivoId), não o roster
+      // do SST — mesma convenção do resto do app (ver ExecutivoPerfil).
+      aprovadas: totalAgenciasReais,
+      volAereo: air12m.tarifa,
+      volTerrestre: nonAir12m.tarifa,
+      soAereo: {
+        quantidade: soAereoCodigos.length,
+        pct: pct(soAereoCodigos.length),
+        agencias: soAereoCodigos.map((codigo) =>
+          paraAgenciaSegmento(codigo, rosterPorCodigo, aereo365.get(codigo)?.tarifa ?? 0),
+        ),
+      },
+      soTerrestre: {
+        quantidade: soTerrestreCodigos.length,
+        pct: pct(soTerrestreCodigos.length),
+        agencias: soTerrestreCodigos.map((codigo) =>
+          paraAgenciaSegmento(codigo, rosterPorCodigo, terrestre365.get(codigo)?.tarifa ?? 0),
+        ),
+      },
+      ambos: {
+        quantidade: ambosCodigos.length,
+        pct: pct(ambosCodigos.length),
+        agencias: ambosCodigos.map((codigo) =>
+          paraAgenciaSegmento(
+            codigo,
+            rosterPorCodigo,
+            (aereo365.get(codigo)?.tarifa ?? 0) + (terrestre365.get(codigo)?.tarifa ?? 0),
+          ),
+        ),
+      },
+    },
+  };
+}
+
+async function construirTopAgencias(
+  codigoExecutivo: number,
+  inicio: string,
+  fim: string,
+): Promise<RankingAgencia[]> {
+  const resposta = await comCache(`exec:${codigoExecutivo}:top-clientes:${inicio}:${fim}`, () =>
+    sstGet<RawTopClientesResponse>("/api/consolidado/top-clientes", {
+      startDate: inicio,
+      endDate: fim,
+      codigoExecutivo,
+      limit: 20,
+    }),
+  );
+  return resposta.geral.map((item, indice) => ({
+    posicao: indice + 1,
+    nome: item.nome,
+    valor: item.tarifa,
+  }));
+}
+
+async function obterDashboard(
+  codigoExecutivo: number,
+  promotorId: string,
+  agencias: ExecutivoAgenciaResumo[],
+): Promise<ExecutivoDashboard> {
+  const mock = await executivoDashboardMockService.obterDashboard(
+    promotorId,
+    agencias.length,
+    agencias,
+  );
+
+  const [heroEKpis, vendasETendencia, crossCanalEVendendo, topMes, topAno] = await Promise.all([
+    comFallback("hero+kpis", construirHeroEKpis(codigoExecutivo), {
+      hero: mock.hero,
+      kpis: mock.kpis,
+    }),
+    comFallback("vendasMensais+tendencia30d", construirVendasMensaisETendencia(codigoExecutivo), {
+      vendasMensais: mock.vendasMensais,
+      vendasMensaisTotalAno: mock.vendasMensaisTotalAno,
+      vendasMensaisVariacaoAltaPct: mock.vendasMensaisVariacaoAltaPct,
+      vendasMensaisVariacaoBaixaPct: mock.vendasMensaisVariacaoBaixaPct,
+      tendencia30d: mock.tendencia30d,
+      tendencia30dTotal: mock.tendencia30dTotal,
+    }),
+    comFallback(
+      "crossCanal+vendendo30d",
+      construirCrossCanalEVendendo30d(codigoExecutivo, agencias.length),
+      {
+        crossCanal: mock.crossCanal,
+        vendendo30d: mock.miniStats.vendendo30d,
+        vendendo30dPct: mock.miniStats.vendendo30dPct,
+      },
+    ),
+    comFallback(
+      "topAgenciasMes",
+      construirTopAgencias(codigoExecutivo, janelaMesAnterior().fim, hojeIso()),
+      mock.topAgenciasMes,
+    ),
+    comFallback(
+      "topAgenciasAno",
+      construirTopAgencias(codigoExecutivo, `${hojeIso().slice(0, 4)}-01-01`, hojeIso()),
+      mock.topAgenciasAno,
+    ),
+  ]);
+
+  return {
+    ...mock,
+    hero: heroEKpis.hero,
+    kpis: { ...heroEKpis.kpis, projecaoFimMes: mock.kpis.projecaoFimMes },
+    miniStats: {
+      ...mock.miniStats,
+      agencias: agencias.length,
+      vendendo30d: crossCanalEVendendo.vendendo30d,
+      vendendo30dPct: crossCanalEVendendo.vendendo30dPct,
+    },
+    vendasMensais: vendasETendencia.vendasMensais,
+    vendasMensaisTotalAno: vendasETendencia.vendasMensaisTotalAno,
+    vendasMensaisVariacaoAltaPct: vendasETendencia.vendasMensaisVariacaoAltaPct,
+    vendasMensaisVariacaoBaixaPct: vendasETendencia.vendasMensaisVariacaoBaixaPct,
+    tendencia30d: vendasETendencia.tendencia30d,
+    tendencia30dTotal: vendasETendencia.tendencia30dTotal,
+    crossCanal: crossCanalEVendendo.crossCanal,
+    topAgenciasMes: topMes,
+    topAgenciasAno: topAno,
+    // fidelidadePorCompanhia, saudeCarteira, paradasComHistorico, emQueda:
+    // fora de escopo (ver plano), continuam vindo do mock via `...mock`
+    // acima.
+  };
+}
+
+export const executivoDashboardSstService = {
+  obterDashboard,
+};

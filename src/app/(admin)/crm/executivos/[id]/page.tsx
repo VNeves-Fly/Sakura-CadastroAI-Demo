@@ -2,7 +2,11 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { montarExecutivoDetalheView } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
+import {
+  mapAgencia,
+  montarExecutivoPerfil,
+} from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
+import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 import { ExecutivoDashboardView } from "@/modules/atribuicoes/views/executivo-dashboard-view";
 
 const CARGOS_ADMIN = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
@@ -29,7 +33,13 @@ export default async function ExecutivoDetalhePage({ params }: { params: { id: s
     ]),
   );
 
-  const detalhe = montarExecutivoDetalheView(promotor.toJSON(), gestoresPorId, agencias);
+  const perfil = montarExecutivoPerfil(promotor.toJSON(), gestoresPorId, agencias);
+  const { dashboard } = await executivoDashboardController.obterDashboard(
+    perfil.sica,
+    perfil.id,
+    perfil.totalAgencias,
+    agencias.map(mapAgencia),
+  );
 
-  return <ExecutivoDashboardView detalhe={detalhe} />;
+  return <ExecutivoDashboardView detalhe={{ perfil, dashboard }} />;
 }
