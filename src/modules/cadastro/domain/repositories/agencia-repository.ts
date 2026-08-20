@@ -604,6 +604,21 @@ export interface AgenciaRepository {
       signatarios: ContratoSignatarioData[];
     },
   ): Promise<{ id: string }>;
+  // Mesma coisa que criarContrato + atualizarStatus em sequência, só que
+  // numa transação só — evita ficar com o Contrato criado e a Agencia sem
+  // avançar se a segunda escrita falhar depois da primeira (incidente real,
+  // ver AprovarCadastroComplementarUseCase).
+  criarContratoEAvancarStatus(
+    agenciaId: string,
+    dadosContrato: {
+      provedorId: string;
+      status: string;
+      origemGeracao: OrigemGeracaoContrato;
+      signatarios: ContratoSignatarioData[];
+    },
+    novoStatus: string,
+    contexto: ContextoMudancaStatus,
+  ): Promise<{ contratoId: string; agencia: Agencia }>;
   atualizarStatusContrato(contratoId: string, status: string): Promise<void>;
   // Só quem estava EM ATENDIMENTO chama isto (ver comentário no
   // schema.prisma) — simplesmente abrir o dossiê sem estar atendendo não

@@ -134,6 +134,7 @@ function repositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRep
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
     criarContrato: jest.fn(),
+    criarContratoEAvancarStatus: jest.fn(),
     atualizarStatusContrato: jest.fn(),
     marcarAtualizacaoComoVista: jest.fn(),
     marcarInfoPendente: jest.fn(),
