@@ -15,8 +15,8 @@ export async function RankingsSecao({ resumoEDiaPromise }: RankingsSecaoProps) {
   const resumoEDia = await resumoEDiaPromise;
   return (
     <>
-      <TopAgenciasCard rankingPorMes={resumoEDia.rankingPorMes} />
-      <TopFornecedoresCard fornecedoresPorMes={resumoEDia.fornecedoresPorMes} />
+      <TopAgenciasCard rankingPorPeriodo={resumoEDia.rankingPorPeriodo} />
+      <TopFornecedoresCard fornecedoresPorPeriodo={resumoEDia.fornecedoresPorPeriodo} />
     </>
   );
 }

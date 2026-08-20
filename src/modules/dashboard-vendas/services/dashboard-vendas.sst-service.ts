@@ -936,8 +936,9 @@ interface RawResumoTerrestreLinhaCompleta {
 }
 
 // GET /api/agencias/top só pra pegar identidade (base/executivo) — já é
-// usado em `rankingPorMes` com janela mês/ano; aqui pedimos os últimos
-// 365 dias inteiros, numa chamada só (testado: 5.438 linhas, sem paginar).
+// usado em `rankingPorPeriodo` com janelas de dia/mês/ano; aqui pedimos os
+// últimos 365 dias inteiros, numa chamada só (testado: 5.438 linhas, sem
+// paginar).
 interface RawIdentidadeAerea {
   codigo_empresa: number;
   codigo_base: string;
@@ -1300,8 +1301,8 @@ async function obterResumoEDia(): Promise<
     DashboardVendasData,
     | "resumoPorPeriodo"
     | "miniKpis"
-    | "rankingPorMes"
-    | "fornecedoresPorMes"
+    | "rankingPorPeriodo"
+    | "fornecedoresPorPeriodo"
     | "nacionalInternacionalPorMes"
   >
 > {
@@ -1313,8 +1314,12 @@ async function obterResumoEDia(): Promise<
   const [
     overviewHoje,
     overviewOntem,
+    topAgenciasHoje,
+    topAgenciasOntem,
     topAgenciasMes,
     topAgenciasAno,
+    rankingCiasHoje,
+    rankingCiasOntem,
     rankingCiasMes,
     rankingCiasAno,
     nacIntMes,
@@ -1330,6 +1335,20 @@ async function obterResumoEDia(): Promise<
       painel: "FILIAL",
       situacao: "ATIVOS",
     }),
+    // Ranking de um dia só (startDate = endDate) — antes só existiam as
+    // janelas mês-a-data/ano-a-data; filtro do cabeçalho passou a dirigir
+    // também os rankings (pedido do usuário, 2026-08-20), então precisa
+    // de um dado por dia igual o overview já tinha.
+    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+      startDate: hoje,
+      endDate: hoje,
+      limit: TAMANHO_RANKING,
+    }),
+    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+      startDate: ontem,
+      endDate: ontem,
+      limit: TAMANHO_RANKING,
+    }),
     sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
       startDate: inicioMes,
       endDate: hoje,
@@ -1339,6 +1358,16 @@ async function obterResumoEDia(): Promise<
       startDate: inicioAno,
       endDate: hoje,
       limit: TAMANHO_RANKING,
+    }),
+    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+      startDate: hoje,
+      endDate: hoje,
+      limit: TAMANHO_RANKING_FORNECEDORES,
+    }),
+    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+      startDate: ontem,
+      endDate: ontem,
+      limit: TAMANHO_RANKING_FORNECEDORES,
     }),
     sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
       startDate: inicioMes,
@@ -1369,11 +1398,15 @@ async function obterResumoEDia(): Promise<
       ano: paraResumoDia(overviewHoje, "ano"),
     },
     miniKpis: paraMiniKpisPorPeriodo(overviewHoje, overviewOntem),
-    rankingPorMes: {
+    rankingPorPeriodo: {
+      hoje: paraTopAgencias(topAgenciasHoje.data),
+      ontem: paraTopAgencias(topAgenciasOntem.data),
       mes: paraTopAgencias(topAgenciasMes.data),
       ano: paraTopAgencias(topAgenciasAno.data),
     },
-    fornecedoresPorMes: {
+    fornecedoresPorPeriodo: {
+      hoje: paraTopFornecedores(rankingCiasHoje.data),
+      ontem: paraTopFornecedores(rankingCiasOntem.data),
       mes: paraTopFornecedores(rankingCiasMes.data),
       ano: paraTopFornecedores(rankingCiasAno.data),
     },

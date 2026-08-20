@@ -776,8 +776,23 @@ async function obterDashboardMock(): Promise<DashboardVendasData> {
     conversao: construirConversao(),
     vendasMensais: construirVendasMensais(),
     vendasDiarias: construirVendasDiarias(),
-    rankingPorMes: { mes: construirTopAgencias(1), ano: construirTopAgencias(11.4) },
-    fornecedoresPorMes: { mes: construirTopFornecedores(1), ano: construirTopFornecedores(11.4) },
+    // Escala hoje/ontem proporcional ao mesmo ratio de
+    // construirResumoPorPeriodo (hoje ≈ 9,9% do mês, ontem ≈ 6,9% —
+    // aereo.valor de cada período ali) — filtro do cabeçalho passou a
+    // dirigir também os rankings (pedido do usuário, 2026-08-20; antes só
+    // existia Mês/Ano aqui).
+    rankingPorPeriodo: {
+      hoje: construirTopAgencias(0.099),
+      ontem: construirTopAgencias(0.069),
+      mes: construirTopAgencias(1),
+      ano: construirTopAgencias(11.4),
+    },
+    fornecedoresPorPeriodo: {
+      hoje: construirTopFornecedores(0.099),
+      ontem: construirTopFornecedores(0.069),
+      mes: construirTopFornecedores(1),
+      ano: construirTopFornecedores(11.4),
+    },
     nacionalInternacionalPorMes: {
       mes: construirNacionalInternacional(1),
       ano: construirNacionalInternacional(11.4),
@@ -798,8 +813,8 @@ export const dashboardVendasMockService = {
     return {
       resumoPorPeriodo: dados.resumoPorPeriodo,
       miniKpis: dados.miniKpis,
-      rankingPorMes: dados.rankingPorMes,
-      fornecedoresPorMes: dados.fornecedoresPorMes,
+      rankingPorPeriodo: dados.rankingPorPeriodo,
+      fornecedoresPorPeriodo: dados.fornecedoresPorPeriodo,
       nacionalInternacionalPorMes: dados.nacionalInternacionalPorMes,
     };
   },

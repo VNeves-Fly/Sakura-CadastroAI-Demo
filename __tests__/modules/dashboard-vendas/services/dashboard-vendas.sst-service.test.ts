@@ -319,7 +319,7 @@ describe("dashboardVendasSstService", () => {
   it("normaliza o ranking de agências (sem canal separado no SST — assume aereo)", async () => {
     const resultado = await dashboardVendasSstService.obterDashboard();
 
-    expect(resultado.rankingPorMes.mes).toEqual([
+    expect(resultado.rankingPorPeriodo.mes).toEqual([
       { posicao: 1, nome: "TJT VIAGENS", canal: "aereo", valor: 5674287.35, qtd: 5244 },
       { posicao: 2, nome: "VAI DE PROMO", canal: "aereo", valor: 3748413.08, qtd: 3909 },
     ]);
@@ -329,7 +329,7 @@ describe("dashboardVendasSstService", () => {
     const resultado = await dashboardVendasSstService.obterDashboard();
     const total = 83073026.42 + 16111634.17;
 
-    expect(resultado.fornecedoresPorMes.mes).toEqual([
+    expect(resultado.fornecedoresPorPeriodo.mes).toEqual([
       {
         nome: "LATAM",
         qtdBilhetes: 26177,
