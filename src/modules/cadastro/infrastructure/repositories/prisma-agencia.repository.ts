@@ -977,6 +977,26 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return this.toDomain(record);
   }
 
+  private dadosSignatariosCreate(signatarios: ContratoSignatarioData[]) {
+    return signatarios.map((signatario) => ({
+      nome: signatario.nome,
+      email: signatario.email,
+      cpf: signatario.cpf,
+      rg: signatario.rgNumero,
+      rgOrgaoEmissor: signatario.rgOrgaoEmissor,
+      nacionalidade: signatario.nacionalidade,
+      estadoCivil: signatario.estadoCivil,
+      dataNascimento: signatario.dataNascimento,
+      cepSnapshot: signatario.endereco.cep || null,
+      logradouroSnapshot: signatario.endereco.logradouro || null,
+      numeroSnapshot: signatario.endereco.numero || null,
+      complementoSnapshot: signatario.endereco.complemento || null,
+      bairroSnapshot: signatario.endereco.bairro || null,
+      cidadeSnapshot: signatario.endereco.cidade || null,
+      ufSnapshot: signatario.endereco.uf || null,
+    }));
+  }
+
   async criarContrato(
     agenciaId: string,
     data: {
@@ -992,28 +1012,65 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         provedorId: data.provedorId,
         status: data.status as PrismaStatusContrato,
         origemGeracao: data.origemGeracao,
-        signatarios: {
-          create: data.signatarios.map((signatario) => ({
-            nome: signatario.nome,
-            email: signatario.email,
-            cpf: signatario.cpf,
-            rg: signatario.rgNumero,
-            rgOrgaoEmissor: signatario.rgOrgaoEmissor,
-            nacionalidade: signatario.nacionalidade,
-            estadoCivil: signatario.estadoCivil,
-            dataNascimento: signatario.dataNascimento,
-            cepSnapshot: signatario.endereco.cep || null,
-            logradouroSnapshot: signatario.endereco.logradouro || null,
-            numeroSnapshot: signatario.endereco.numero || null,
-            complementoSnapshot: signatario.endereco.complemento || null,
-            bairroSnapshot: signatario.endereco.bairro || null,
-            cidadeSnapshot: signatario.endereco.cidade || null,
-            ufSnapshot: signatario.endereco.uf || null,
-          })),
-        },
+        signatarios: { create: this.dadosSignatariosCreate(data.signatarios) },
       },
     });
     return { id: contrato.id };
+  }
+
+  // Cria o Contrato e avança o status da Agencia (+ HistoricoEtapaCadastro)
+  // numa transação só — evita o estado inconsistente "contrato criado, mas
+  // Agencia nunca saiu de em_complementar" quando a segunda escrita falhava
+  // depois da primeira (incidente real de produção, 2026-08-19: cadastro
+  // cmsxng1sk001f01s6wa3hj8hv ficou com Contrato em aguardando_assinatura e
+  // Agencia travada em em_complementar, escondendo os botões de decisão —
+  // ver AprovarCadastroComplementarUseCase). criarContrato sozinho continua
+  // existindo só pra AnalisarCadastroUseCase, que trata o avanço de status
+  // via registrarAnaliseFinal (fluxo separado, não tocado aqui).
+  async criarContratoEAvancarStatus(
+    agenciaId: string,
+    dadosContrato: {
+      provedorId: string;
+      status: string;
+      origemGeracao: OrigemGeracaoContrato;
+      signatarios: ContratoSignatarioData[];
+    },
+    novoStatus: string,
+    contexto: ContextoMudancaStatus,
+  ): Promise<{ contratoId: string; agencia: Agencia }> {
+    return this.prisma.$transaction(async (tx) => {
+      const contrato = await tx.contrato.create({
+        data: {
+          agenciaId,
+          provedorId: dadosContrato.provedorId,
+          status: dadosContrato.status as PrismaStatusContrato,
+          origemGeracao: dadosContrato.origemGeracao,
+          signatarios: { create: this.dadosSignatariosCreate(dadosContrato.signatarios) },
+        },
+      });
+
+      const atual = await tx.agencia.findUniqueOrThrow({
+        where: { id: agenciaId },
+        select: { status: true },
+      });
+      const record = await tx.agencia.update({
+        where: { id: agenciaId },
+        data: { status: novoStatus as PrismaStatusAgencia, infoPendente: false },
+      });
+      await tx.historicoEtapaCadastro.create({
+        data: {
+          agenciaId,
+          statusAnterior: atual.status,
+          statusNovo: novoStatus as PrismaStatusAgencia,
+          usuarioEmail: contexto.usuarioEmail,
+          origem: contexto.origem,
+          observacao: contexto.observacao ?? null,
+          desbloqueioManual: contexto.desbloqueioManual ?? null,
+        },
+      });
+
+      return { contratoId: contrato.id, agencia: this.toDomain(record) };
+    });
   }
 
   async atualizarStatusContrato(contratoId: string, status: string): Promise<void> {
