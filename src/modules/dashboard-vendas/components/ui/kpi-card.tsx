@@ -41,10 +41,16 @@ export function KpiCard({
 
   const icone = (
     <span
-      className="flex size-8 shrink-0 items-center justify-center rounded-full sm:size-10"
+      // Quadrado com cantos arredondados, no mesmo estilo dos cards
+      // (`rounded-2xl`) — não é mais círculo (`rounded-full`); em 32/40px,
+      // `rounded-2xl` (16px) vira círculo (50% do lado), então usa
+      // `rounded-xl` (12px) pra manter a mesma linguagem visual do card
+      // sem virar bolinha (pedido do usuário, 2026-08-20, print de
+      // referência).
+      className="flex size-10 shrink-0 items-center justify-center rounded-xl sm:size-12"
       style={{ backgroundColor: corFundoIcone }}
     >
-      <Icon className="size-4 sm:size-5" style={{ color: cor }} />
+      <Icon className="size-5 sm:size-6" style={{ color: cor }} />
     </span>
   );
 
@@ -89,7 +95,10 @@ export function KpiCard({
           {texto}
         </div>
         {badgeTopo || badgeRodape ? (
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          // Indentado pra alinhar com o bloco de texto (ícone + gap: 40/48px
+          // + 8/12px), não mais colado na borda esquerda do card junto do
+          // ícone — print de referência do usuário, 2026-08-20.
+          <div className="ml-12 flex flex-wrap items-center gap-1.5 sm:ml-[60px] sm:gap-2">
             {badgeTopo ? (
               <span
                 className="rounded-md px-2 py-0.5 text-[11px] font-bold"
@@ -99,10 +108,11 @@ export function KpiCard({
               </span>
             ) : null}
             {badgeRodape ? (
-              <span
-                className="rounded-md px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
-                style={{ backgroundColor: corFundoIcone, color: cor }}
-              >
+              // Cinza/preto fixo — não é mais a cor do canal (rosa/azul):
+              // é uma margem, não um dado "daquele" canal, então não devia
+              // herdar a identidade visual dele (pedido do usuário,
+              // 2026-08-20).
+              <span className="text-foreground bg-muted rounded-md border border-neutral-400 px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base">
                 {badgeRodape}
               </span>
             ) : null}
@@ -127,10 +137,9 @@ export function KpiCard({
       {texto}
 
       {badgeRodape ? (
-        <span
-          className="absolute right-4 bottom-4 rounded-md px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base"
-          style={{ backgroundColor: corFundoIcone, color: cor }}
-        >
+        // Mesmo cinza/preto fixo do modo horizontal acima — margem não
+        // herda a cor do canal (pedido do usuário, 2026-08-20).
+        <span className="text-foreground bg-muted absolute right-4 bottom-4 rounded-md border border-neutral-400 px-3 py-1 text-sm font-bold tracking-wide sm:px-3.5 sm:py-1.5 sm:text-base">
           {badgeRodape}
         </span>
       ) : null}
