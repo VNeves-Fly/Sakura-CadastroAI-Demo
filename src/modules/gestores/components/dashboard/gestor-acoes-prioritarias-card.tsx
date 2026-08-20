@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { SortableDataTable } from "@/modules/shared/components/sortable-data-table";
 import { cn } from "@/lib/utils";
@@ -32,9 +33,11 @@ function badgeSemComprar(dias: number) {
   return <Badge variant="outline">{dias} dias</Badge>;
 }
 
-// Card "Ações prioritárias" — não existe no dashboard de Executivo (que usa
-// dois RiscoCollapsivel separados, sem toggle). Aqui é um único card com
-// alternância entre os dois critérios (SPEC pedida pelo usuário,
+// Card "Ações prioritárias" — todos os valores são mock-gerados (volume365d,
+// diasSemComprar derivados de hash do agência ID); nomes/CNPJs das agências
+// e base (do executivo dono) são reais. Não existe no dashboard de Executivo
+// (que usa dois RiscoCollapsivel separados, sem toggle). Aqui é um único card
+// com alternância entre os dois critérios (SPEC pedida pelo usuário,
 // 2026-08-17), limitado às 10 primeiras linhas + "Mostrando X de Y".
 export function GestorAcoesPrioritariasCard({
   paradasComHistorico,
@@ -58,31 +61,34 @@ export function GestorAcoesPrioritariasCard({
           </p>
         </div>
 
-        <div className="bg-muted flex shrink-0 items-center gap-1 rounded-full p-1 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setAba("paradas")}
-            className={cn(
-              "rounded-full px-3 py-1.5 whitespace-nowrap transition",
-              aba === "paradas"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Paradas com histórico
-          </button>
-          <button
-            type="button"
-            onClick={() => setAba("queda")}
-            className={cn(
-              "rounded-full px-3 py-1.5 whitespace-nowrap transition",
-              aba === "queda"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Em queda
-          </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <MockBadge />
+          <div className="bg-muted flex items-center gap-1 rounded-full p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setAba("paradas")}
+              className={cn(
+                "rounded-full px-3 py-1.5 whitespace-nowrap transition",
+                aba === "paradas"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Paradas com histórico
+            </button>
+            <button
+              type="button"
+              onClick={() => setAba("queda")}
+              className={cn(
+                "rounded-full px-3 py-1.5 whitespace-nowrap transition",
+                aba === "queda"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Em queda
+            </button>
+          </div>
         </div>
       </div>
 

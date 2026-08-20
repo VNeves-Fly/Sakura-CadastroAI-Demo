@@ -16,8 +16,18 @@ export class PrismaNotificacaoRepository implements NotificacaoRepository {
     return records.map((record) => this.toDomain(record));
   }
 
+  // Transação: toda notificação da agência significa "ela respondeu",
+  // então desliga o infoPendente (ver comentário no schema.prisma) na
+  // mesma operação — nunca existe um estado intermediário onde a
+  // notificação já foi gravada mas a tag ainda está ligada.
   async create(data: CreateNotificacaoData): Promise<Notificacao> {
-    const record = await this.prisma.notificacao.create({ data });
+    const [record] = await this.prisma.$transaction([
+      this.prisma.notificacao.create({ data }),
+      this.prisma.agencia.update({
+        where: { id: data.agenciaId },
+        data: { infoPendente: false },
+      }),
+    ]);
     return this.toDomain(record);
   }
 

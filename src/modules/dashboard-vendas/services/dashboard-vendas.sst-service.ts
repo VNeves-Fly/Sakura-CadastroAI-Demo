@@ -2,6 +2,7 @@ import {
   requireSstApiKey,
   sstBaseUrl,
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
+import { valkeyGet, valkeySet } from "@/modules/dashboard-vendas/infrastructure/valkey-cache.util";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import {
   calcularCurvaHoraria,
@@ -24,6 +25,7 @@ import type {
   GrupoRecencia,
   MiniKpis,
   NacionalInternacional,
+  PeriodoResumo,
   ProjecaoDia,
   RecenciaAgencias,
   ResumoDia,
@@ -55,10 +57,12 @@ const TAMANHO_RANKING_FORNECEDORES = 200;
 
 // `vendasMensais`/`vendasDiarias`/`conversao` não têm endpoint de série
 // pronto — cada carregamento faz várias chamadas extras (uma por mês/dia).
-// Cache em memória de processo (TTL curto) evita repetir isso a cada
-// navegação. NÃO é distribuído: reseta a cada deploy/restart e não é
-// compartilhado entre instâncias — se o app escalar horizontalmente,
-// precisa de um cache compartilhado (Redis) no lugar deste Map.
+// Cache de dois níveis (TTL curto) evita repetir isso a cada navegação:
+// L1 é o `Map` de sempre (por processo, sem I/O — cobre repetições dentro
+// da mesma instância). L2 é o Valkey (`valkey-cache.util.ts`), compartilhado
+// entre instâncias do Cloud Run — só entra em jogo com `VALKEY_URL`
+// configurada; sem ela, `valkeyGet`/`valkeySet` são no-ops e o
+// comportamento fica idêntico ao `Map` isolado de antes.
 const TTL_CACHE_MS = 10 * 60 * 1000;
 const cacheConsolidado = new Map<string, { expiraEm: number; valor: unknown }>();
 
@@ -67,8 +71,16 @@ async function comCache<T>(chave: string, buscar: () => Promise<T>): Promise<T> 
   if (cacheado && cacheado.expiraEm > Date.now()) {
     return cacheado.valor as T;
   }
+
+  const doValkey = await valkeyGet<T>(chave);
+  if (doValkey !== undefined) {
+    cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor: doValkey });
+    return doValkey;
+  }
+
   const valor = await buscar();
   cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor });
+  await valkeySet(chave, valor, TTL_CACHE_MS / 1000);
   return valor;
 }
 
@@ -260,14 +272,22 @@ async function comFallback<T>(rotulo: string, tarefa: Promise<T>, valorMock: T):
 }
 
 // Shape bruto de GET /api/consolidado/overview (confirmado contra o SST
-// real, 2026-08-14) — `margem`/`tarifa`/`tickets`/`clientes`/`ticket_medio`
-// por período (dia/mes/ano), por canal (total/aereo/terrestre).
+// real, 2026-08-19) — `margem`/`tarifa`/`tickets`/`clientes`/`ticket_medio`
+// por período (dia/mes/ano), por canal (total/aereo/terrestre). `nacInter`
+// já vem embutido aqui — sem precisar de chamada separada a
+// /api/relatorios/nacional-vs-internacional pra hoje/ontem (só mês/ano
+// continuam usando `buscarNacInt`, que também alimenta vendasMensais via
+// cache compartilhado, ver obterResumoEDia).
 interface RawPeriodoOverview {
   tarifa: number;
   margem: number;
   clientes: number;
   tickets: number;
   ticket_medio: number;
+  nacInter: {
+    nacional: { tickets: number; tarifa: number; percentual: number };
+    internacional: { tickets: number; tarifa: number; percentual: number };
+  };
 }
 interface RawCanalOverview {
   dia: RawPeriodoOverview;
@@ -298,18 +318,23 @@ interface RawTopAgencia {
   tarifa_total: number;
 }
 
-// GET /api/reports/ranking-cias — `nome_companhia` às vezes vem só o
-// código numérico da companhia em vez do nome. Confirmado contra o
-// código-fonte do SST (docs/resposta.md, item 2): não é falta de lógica —
-// o SST já faz um LEFT JOIN com a tabela de companhias e só cai pro
-// código quando essa tabela não tem a companhia cadastrada (gap de dado
-// na origem/SICA, não algo que uma tradução nossa resolva sozinha).
-// Recomendação recebida: portar o mapa local IATA→nome que o CRM antigo
-// já usava (`SIGLA_TO_NOME`, docs/CRM.md:261) como fallback de exibição —
-// ainda não portado aqui por falta do conteúdo real desse mapa (repassado
-// como veio até lá).
+// GET /api/reports/ranking-cias — o SST já trocou o nome desses dois
+// campos pelo menos uma vez em produção sem aviso (`codigo_fornecedor`/
+// `nome_companhia` → `numero_cia_iata`/`nome_cia`, observado em
+// 2026-08-19) — por isso os dois formatos ficam como opcionais aqui e
+// `paraTopFornecedores` abaixo aceita qualquer um dos dois. Também já
+// veio `nome_companhia` só com o código numérico da companhia em vez do
+// nome (confirmado contra o código-fonte do SST, docs/resposta.md, item
+// 2: LEFT JOIN que cai pro código quando a tabela de companhias não tem
+// a companhia cadastrada — gap de dado na origem/SICA). Recomendação
+// recebida: portar o mapa local IATA→nome que o CRM antigo já usava
+// (`SIGLA_TO_NOME`, docs/CRM.md:261) como fallback de exibição — ainda
+// não portado aqui por falta do conteúdo real desse mapa.
 interface RawRankingCia {
-  nome_companhia: string;
+  codigo_fornecedor?: number | string;
+  nome_companhia?: string;
+  numero_cia_iata?: number | string;
+  nome_cia?: string;
   total_bilhetes: number;
   tarifa_total: number;
 }
@@ -378,15 +403,52 @@ async function buscarNacInt(inicio: string, fim: string): Promise<RawPaginado<Ra
 
 // `limit=500` cobre o universo hoje (38 filiais num teste real) — sem
 // paginação de verdade, mesma decisão de escopo do resto do arquivo.
+// `comCache` (não `sstGet` direto) de propósito: `construirConversao` e
+// `construirCruzamento` chamam isto cada um por conta própria, no mesmo
+// carregamento — sem cache, batia 2x no SST pro mesmo dado (ver
+// docs/optimize.md, ponto 1).
 async function totalAgenciasAtivas(): Promise<number> {
-  const resposta = await sstGet<RawPaginado<RawSaudeBase>>("/api/reports/saude-bases", {
-    limit: 500,
+  return comCache("saude-bases", async () => {
+    const resposta = await sstGet<RawPaginado<RawSaudeBase>>("/api/reports/saude-bases", {
+      limit: 500,
+    });
+    return resposta.data.reduce((acumulado, base) => acumulado + base.agencias_ativas, 0);
   });
-  return resposta.data.reduce((acumulado, base) => acumulado + base.agencias_ativas, 0);
 }
 
 function calcularVariacaoPct(atual: number, anterior: number): number {
   return anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
+}
+
+// `recenciaECruzamento` (estágio anterior no waterfall de
+// dashboard-vendas-view.tsx) já busca `Map<codigo, {ultima, ...}>` pra
+// janelas largas (365d aéreo / 90d terrestre, ver `buscarAereoJanela`/
+// `buscarTerrestreJanela` abaixo). Qualquer janela "N dias atrás → hoje"
+// mais estreita que essas (ex.: 30d, mês corrente, usadas em
+// `construirConversao`) já está coberta por elas — dá pra responder "essa
+// agência vendeu nesse intervalo?" só com `ultima >= corte`, sem nova
+// chamada ao SST. Só funciona pra janelas que terminam hoje: pra uma
+// janela no passado (ex. mês anterior), `ultima` sendo posterior ao fim
+// da janela não prova nem desmente venda dentro dela — aí cai pro fetch
+// de verdade (ver chamadas em codigosAgenciasAereo/codigosAgenciasTerrestre
+// abaixo). Cache miss aqui é barato (é só um Map.get + no máximo 1 GET no
+// Valkey) comparado ao custo de paginar terrestre de novo.
+async function tentarDerivarDeJanela(
+  chaveJanela: string,
+  corte: string,
+): Promise<Set<number> | undefined> {
+  const cacheado = cacheConsolidado.get(chaveJanela);
+  const mapa =
+    cacheado && cacheado.expiraEm > Date.now()
+      ? (cacheado.valor as Map<number, DadosPorAgencia>)
+      : await valkeyGet<Map<number, DadosPorAgencia>>(chaveJanela);
+  if (!mapa) return undefined;
+
+  const codigos = new Set<number>();
+  for (const [codigo, dados] of mapa) {
+    if (dados.ultima >= corte) codigos.add(codigo);
+  }
+  return codigos;
 }
 
 // GET /api/consolidado/air/resumo-agrupado — confirmado contra o SST
@@ -398,6 +460,14 @@ interface RawResumoAgrupadoLinha {
 }
 
 async function codigosAgenciasAereo(inicio: string, fim: string): Promise<Set<number>> {
+  if (fim === hojeIso()) {
+    const viaJanela = await tentarDerivarDeJanela(
+      `aereo-janela:${JANELA_AEREO_RECENCIA_DIAS}:${fim}`,
+      inicio,
+    );
+    if (viaJanela) return viaJanela;
+  }
+
   return comCache(`codigos-aereo:${inicio}:${fim}`, async () => {
     const linhas = await sstGet<RawResumoAgrupadoLinha[]>("/api/consolidado/air/resumo-agrupado", {
       agruparPor: "codigoEmpresa",
@@ -420,6 +490,14 @@ interface RawResumoTerrestreLinha {
 const LIMITE_PAGINA_TERRESTRE = 500;
 
 async function codigosAgenciasTerrestre(inicio: string, fim: string): Promise<Set<number>> {
+  if (fim === hojeIso()) {
+    const viaJanela = await tentarDerivarDeJanela(
+      `terrestre-janela:${JANELA_TERRESTRE_RECENCIA_DIAS}:${fim}`,
+      inicio,
+    );
+    if (viaJanela) return viaJanela;
+  }
+
   return comCache(`codigos-terrestre:${inicio}:${fim}`, async () => {
     const primeira = await sstGet<RawPaginado<RawResumoTerrestreLinha>>("/api/resumos/terrestre", {
       startDate: inicio,
@@ -467,6 +545,10 @@ function paraCanalResumo(periodo: RawPeriodoOverview): CanalResumo {
     // nunca vem pronto da origem (mesmo contrato do mock).
     participacaoPct: 0,
     margemPct: periodo.margem,
+    // nacInter já vem embutido no mesmo bucket — cada canal (aéreo,
+    // terrestre) tem o seu próprio, não é o mesmo valor duplicado (ver
+    // comentário em CanalResumo).
+    nacIntDetalhe: paraNacIntDoOverview(periodo),
   };
 }
 
@@ -475,15 +557,36 @@ function paraResumoDia(overview: RawOverviewResponse, periodo: "dia" | "mes" | "
     atualizadoEm: new Date(),
     aereo: paraCanalResumo(overview.filial.aereo[periodo]),
     terrestre: paraCanalResumo(overview.filial.terrestre[periodo]),
+    // Margem combinada (Aéreo + Terrestre) — vem do bucket "total" do
+    // overview, separado da margem de cada canal (pedido do usuário,
+    // 2026-08-19).
+    margemTotalPct: overview.filial.total[periodo].margem,
   };
 }
 
-function paraMiniKpis(overviewHoje: RawOverviewResponse): MiniKpis {
-  const aereoHoje = overviewHoje.filial.aereo.dia;
+function paraMiniKpis(aereo: RawPeriodoOverview): MiniKpis {
   return {
-    clientesDistintos: aereoHoje.clientes,
-    bilhetesAereo: aereoHoje.tickets,
-    ticketMedioAereo: aereoHoje.ticket_medio,
+    clientesDistintos: aereo.clientes,
+    bilhetesAereo: aereo.tickets,
+    ticketMedioAereo: aereo.ticket_medio,
+  };
+}
+
+// Um MiniKpis por período (mesma chave de resumoPorPeriodo) — todo o
+// dado já vem nas respostas de overview já buscadas pra resumoPorPeriodo
+// (overviewHoje tem dia/mes/ano, overviewOntem tem o "dia" de ontem), sem
+// chamada nova ao SST (corrigido 2026-08-19 — antes ficava sempre fixo em
+// "hoje", os cards Clientes/Bilhetes/Ticket Médio não acompanhavam o
+// seletor de período do card de cima).
+function paraMiniKpisPorPeriodo(
+  overviewHoje: RawOverviewResponse,
+  overviewOntem: RawOverviewResponse,
+): Record<PeriodoResumo, MiniKpis> {
+  return {
+    hoje: paraMiniKpis(overviewHoje.filial.aereo.dia),
+    ontem: paraMiniKpis(overviewOntem.filial.aereo.dia),
+    mes: paraMiniKpis(overviewHoje.filial.aereo.mes),
+    ano: paraMiniKpis(overviewHoje.filial.aereo.ano),
   };
 }
 
@@ -500,7 +603,10 @@ function paraTopAgencias(linhas: RawTopAgencia[]): TopAgencia[] {
 function paraTopFornecedores(linhas: RawRankingCia[]): TopFornecedor[] {
   const valorTotal = linhas.reduce((acumulado, linha) => acumulado + linha.tarifa_total, 0);
   return linhas.map((linha) => ({
-    nome: linha.nome_companhia,
+    nome:
+      linha.nome_cia ||
+      linha.nome_companhia ||
+      String(linha.numero_cia_iata ?? linha.codigo_fornecedor ?? "Desconhecido"),
     qtdBilhetes: linha.total_bilhetes,
     valor: linha.tarifa_total,
     participacaoPct: valorTotal > 0 ? (linha.tarifa_total / valorTotal) * 100 : 0,
@@ -515,6 +621,23 @@ function paraNacionalInternacional(linhas: RawNacIntRow[]): NacionalInternaciona
     internacional: {
       valor: internacional?.tarifa_total ?? 0,
       bilhetes: internacional?.total_bilhetes ?? 0,
+    },
+  };
+}
+
+// Mesmo shape de saída de paraNacionalInternacional, mas a partir do
+// `nacInter` que já vem embutido em /api/consolidado/overview — usado
+// pra hoje/ontem, que só têm essa resposta disponível (mês/ano seguem
+// vindo de buscarNacInt, compartilhado com vendasMensais via cache).
+function paraNacIntDoOverview(periodoOverview: RawPeriodoOverview): NacionalInternacional {
+  return {
+    nacional: {
+      valor: periodoOverview.nacInter.nacional.tarifa,
+      bilhetes: periodoOverview.nacInter.nacional.tickets,
+    },
+    internacional: {
+      valor: periodoOverview.nacInter.internacional.tarifa,
+      bilhetes: periodoOverview.nacInter.internacional.tickets,
     },
   };
 }
@@ -709,6 +832,7 @@ async function construirConversao(): Promise<Conversao> {
     periodoComparativo,
     aereoMes,
     terrestreMes,
+    totalClientes: ativas,
   };
 
   const terrestre: ConversaoCanal = {
@@ -719,6 +843,7 @@ async function construirConversao(): Promise<Conversao> {
     periodoComparativo,
     aereoMes,
     terrestreMes,
+    totalClientes: ativas,
   };
 
   const ambos: ConversaoCanal = {
@@ -735,6 +860,7 @@ async function construirConversao(): Promise<Conversao> {
     periodoComparativo,
     aereoMes,
     terrestreMes,
+    totalClientes: ativas,
   };
 
   return { ambos, aereo, terrestre };
@@ -810,8 +936,9 @@ interface RawResumoTerrestreLinhaCompleta {
 }
 
 // GET /api/agencias/top só pra pegar identidade (base/executivo) — já é
-// usado em `rankingPorMes` com janela mês/ano; aqui pedimos os últimos
-// 365 dias inteiros, numa chamada só (testado: 5.438 linhas, sem paginar).
+// usado em `rankingPorPeriodo` com janelas de dia/mês/ano; aqui pedimos os
+// últimos 365 dias inteiros, numa chamada só (testado: 5.438 linhas, sem
+// paginar).
 interface RawIdentidadeAerea {
   codigo_empresa: number;
   codigo_base: string;
@@ -1167,15 +1294,15 @@ export function __limparCacheParaTestes(): void {
 }
 
 // Seções "rápidas" — poucas chamadas, sem paginação. Separado do resto
-// pra poder ser exibido (via Suspense, ver dashboard-new/page.tsx)
+// pra poder ser exibido (via Suspense, ver crm/dashboard/page.tsx)
 // enquanto as seções pesadas abaixo ainda carregam.
 async function obterResumoEDia(): Promise<
   Pick<
     DashboardVendasData,
     | "resumoPorPeriodo"
     | "miniKpis"
-    | "rankingPorMes"
-    | "fornecedoresPorMes"
+    | "rankingPorPeriodo"
+    | "fornecedoresPorPeriodo"
     | "nacionalInternacionalPorMes"
   >
 > {
@@ -1187,8 +1314,12 @@ async function obterResumoEDia(): Promise<
   const [
     overviewHoje,
     overviewOntem,
+    topAgenciasHoje,
+    topAgenciasOntem,
     topAgenciasMes,
     topAgenciasAno,
+    rankingCiasHoje,
+    rankingCiasOntem,
     rankingCiasMes,
     rankingCiasAno,
     nacIntMes,
@@ -1204,6 +1335,20 @@ async function obterResumoEDia(): Promise<
       painel: "FILIAL",
       situacao: "ATIVOS",
     }),
+    // Ranking de um dia só (startDate = endDate) — antes só existiam as
+    // janelas mês-a-data/ano-a-data; filtro do cabeçalho passou a dirigir
+    // também os rankings (pedido do usuário, 2026-08-20), então precisa
+    // de um dado por dia igual o overview já tinha.
+    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+      startDate: hoje,
+      endDate: hoje,
+      limit: TAMANHO_RANKING,
+    }),
+    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+      startDate: ontem,
+      endDate: ontem,
+      limit: TAMANHO_RANKING,
+    }),
     sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
       startDate: inicioMes,
       endDate: hoje,
@@ -1215,6 +1360,16 @@ async function obterResumoEDia(): Promise<
       limit: TAMANHO_RANKING,
     }),
     sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+      startDate: hoje,
+      endDate: hoje,
+      limit: TAMANHO_RANKING_FORNECEDORES,
+    }),
+    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+      startDate: ontem,
+      endDate: ontem,
+      limit: TAMANHO_RANKING_FORNECEDORES,
+    }),
+    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
       startDate: inicioMes,
       endDate: hoje,
       limit: TAMANHO_RANKING_FORNECEDORES,
@@ -1224,14 +1379,15 @@ async function obterResumoEDia(): Promise<
       endDate: hoje,
       limit: TAMANHO_RANKING_FORNECEDORES,
     }),
-    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
-      startDate: inicioMes,
-      endDate: hoje,
-    }),
-    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
-      startDate: inicioAno,
-      endDate: hoje,
-    }),
+    // `buscarNacInt` (não `sstGet` direto) de propósito: o mês corrente
+    // aqui é o mesmo intervalo que `construirVendasMensais` pede pro mês
+    // em curso (ver docs/optimize.md, ponto 2) — passando pelo `comCache`
+    // os dois reaproveitam a mesma resposta em vez de duplicar a chamada.
+    // Hoje/ontem não precisam de chamada equivalente: o `nacInter` já vem
+    // embutido em /api/consolidado/overview (confirmado 2026-08-19), ver
+    // paraNacIntDoOverview.
+    buscarNacInt(inicioMes, hoje),
+    buscarNacInt(inicioAno, hoje),
   ]);
 
   return {
@@ -1241,12 +1397,16 @@ async function obterResumoEDia(): Promise<
       mes: paraResumoDia(overviewHoje, "mes"),
       ano: paraResumoDia(overviewHoje, "ano"),
     },
-    miniKpis: paraMiniKpis(overviewHoje),
-    rankingPorMes: {
+    miniKpis: paraMiniKpisPorPeriodo(overviewHoje, overviewOntem),
+    rankingPorPeriodo: {
+      hoje: paraTopAgencias(topAgenciasHoje.data),
+      ontem: paraTopAgencias(topAgenciasOntem.data),
       mes: paraTopAgencias(topAgenciasMes.data),
       ano: paraTopAgencias(topAgenciasAno.data),
     },
-    fornecedoresPorMes: {
+    fornecedoresPorPeriodo: {
+      hoje: paraTopFornecedores(rankingCiasHoje.data),
+      ontem: paraTopFornecedores(rankingCiasOntem.data),
       mes: paraTopFornecedores(rankingCiasMes.data),
       ano: paraTopFornecedores(rankingCiasAno.data),
     },

@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Bus, Plane, Trophy, Users } from "lucide-react";
-import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { RankedList } from "@/modules/dashboard-vendas/components/ui/ranked-list";
+import { FiltroTipoRotaPopover } from "@/modules/dashboard-vendas/components/ui/filtro-tipo-rota-popover";
 import { TopAgenciasDetalheModal } from "@/modules/dashboard-vendas/components/top-agencias-detalhe-modal";
 import {
   formatarMoedaAbreviada,
@@ -11,21 +11,23 @@ import {
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import {
   dividirPorTipoRota,
-  OPCOES_TIPO_ROTA,
   valorNoTipoRota,
   type TipoRota,
 } from "@/modules/dashboard-vendas/utils/tipo-rota.util";
 import {
   COR_AZUL,
   COR_ROSA,
-  COR_ROXO,
 } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
-import type { Canal, TopAgencia } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
-
-const OPCOES_PERIODO: { valor: "mes" | "ano"; label: string }[] = [
-  { valor: "mes", label: "Mês" },
-  { valor: "ano", label: "Ano" },
-];
+import {
+  useFiltroPeriodoDashboardStore,
+  resolverPeriodo,
+  LABEL_PERIODO_TITULO,
+} from "@/modules/dashboard-vendas/stores/filtro-periodo-dashboard.store";
+import type {
+  Canal,
+  PeriodoResumo,
+  TopAgencia,
+} from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 export const ICONE_CANAL: Record<Canal, typeof Plane> = {
   aereo: Plane,
@@ -39,18 +41,27 @@ export const COR_CANAL: Record<Canal, string> = {
 };
 
 interface TopAgenciasCardProps {
-  rankingPorMes: Record<string, TopAgencia[]>;
+  rankingPorPeriodo: Record<PeriodoResumo, TopAgencia[]>;
 }
 
 // 4.10 — Top 10 Agências visível no card; clicar abre o ranking completo
-// (scroll infinito, 20 em 20, mesma ordem) no modal. Filtro
-// Nacional/Internacional/Todos (pedido do usuário, 2026-08-17) reordena
-// pelo valor mockado de cada escopo — ver tipo-rota.util.ts.
-export function TopAgenciasCard({ rankingPorMes }: TopAgenciasCardProps) {
-  const [periodo, setPeriodo] = useState<"mes" | "ano">("mes");
+// (scroll infinito, 20 em 20, mesma ordem) no modal. Período (Hoje/Ontem/
+// Mês/Ano/Personalizado) vem da store global do cabeçalho — não é mais
+// filtro próprio deste card (pedido do usuário, 2026-08-20; antes só
+// entendia Mês/Ano, isolado dos outros cards). Filtro Nacional/
+// Internacional/Todos (pedido do usuário, 2026-08-17) continua local a
+// este card, atrás do botão "Filtrar" — reordena pelo valor mockado de
+// cada escopo, ver tipo-rota.util.ts.
+export function TopAgenciasCard({ rankingPorPeriodo }: TopAgenciasCardProps) {
+  const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
   const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
-  const rankingCompleto = useMemo(() => rankingPorMes[periodo] ?? [], [rankingPorMes, periodo]);
+
+  const periodoComDados = resolverPeriodo(filtro);
+  const rankingCompleto = useMemo(
+    () => rankingPorPeriodo[periodoComDados] ?? [],
+    [rankingPorPeriodo, periodoComDados],
+  );
 
   const rankingFiltrado = useMemo(() => {
     const comSplit = rankingCompleto.map((agencia) => ({
@@ -79,20 +90,10 @@ export function TopAgenciasCard({ rankingPorMes }: TopAgenciasCardProps) {
     <>
       <RankedList
         icon={Trophy}
-        titulo="Top 10 Agências (mês)"
+        titulo={`Top 10 Agências (${LABEL_PERIODO_TITULO[periodoComDados]})`}
         subtitulo="Modalidade: Aéreo + Terrestre"
         aoClicar={() => setModalAberto(true)}
-        acoes={
-          <div className="flex items-center gap-2">
-            <PeriodToggle
-              opcoes={OPCOES_TIPO_ROTA}
-              valor={tipoRota}
-              onChange={setTipoRota}
-              cor={COR_ROXO}
-            />
-            <PeriodToggle opcoes={OPCOES_PERIODO} valor={periodo} onChange={setPeriodo} />
-          </div>
-        }
+        acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
         itens={top10.map((agencia) => {
           const Icone = ICONE_CANAL[agencia.canal];
           return {
@@ -110,7 +111,7 @@ export function TopAgenciasCard({ rankingPorMes }: TopAgenciasCardProps) {
       <TopAgenciasDetalheModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
-        titulo={`Top Agências (${periodo === "mes" ? "mês" : "ano"})`}
+        titulo={`Top Agências (${LABEL_PERIODO_TITULO[periodoComDados]})`}
         itens={rankingCompleto}
       />
     </>

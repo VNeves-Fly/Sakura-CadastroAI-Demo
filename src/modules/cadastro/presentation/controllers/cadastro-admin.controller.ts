@@ -14,6 +14,7 @@ import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/in
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaHistoricoEdicaoCadastroRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-historico-edicao-cadastro.repository";
 import { PrismaDecisaoHumanaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-decisao-humana.repository";
+import { PrismaNotificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-notificacao.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
 import { D4SignAdapter } from "@/modules/cadastro/infrastructure/adapters/d4sign.adapter";
 import { MockAnaliseIaService } from "@/modules/cadastro/infrastructure/adapters/mock-analise-ia.adapter";
@@ -124,6 +125,10 @@ import {
   ReprovarDocumentoUseCase,
   type ReprovarDocumentoInput,
 } from "@/modules/cadastro/application/use-cases/reprovar-documento.use-case";
+import {
+  ReanalisarDocumentoUseCase,
+  type ReanalisarDocumentoInput,
+} from "@/modules/cadastro/application/use-cases/reanalisar-documento.use-case";
 import { ObterArquivoDocumentoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-documento.use-case";
 import { LocalDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/local-documento-arquivo.adapter";
 import { GcsDocumentoArquivoAdapter } from "@/modules/cadastro/infrastructure/adapters/gcs-documento-arquivo.adapter";
@@ -180,6 +185,7 @@ const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaR
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const historicoEdicaoCadastroRepository = new PrismaHistoricoEdicaoCadastroRepository(prisma);
 const decisaoHumanaRepository = new PrismaDecisaoHumanaRepository(prisma);
+const notificacaoRepository = new PrismaNotificacaoRepository(prisma);
 // Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
 // configurada, senão lê do disco local (uploads/).
 const documentoArquivoService = process.env.GCS_BUCKET_NAME
@@ -225,6 +231,37 @@ export const cadastroAdminController = {
   obterDetalhe(id: string) {
     const useCase = new ObterDetalheAgenciaUseCase(agenciaRepository);
     return useCase.execute(id);
+  },
+
+  // Log de eventos "cliente enviou algo novo" (mensagem/documento — ver
+  // ReceberMensagemWhatsAppUseCase e ReenviarDocumentoUseCase) — dossiê lê
+  // isso pra saber o que mudou desde a última vez que quem atendia viu a
+  // ficha (ver temAtualizacaoPendente).
+  listarNotificacoes(agenciaId: string) {
+    return notificacaoRepository.findByAgenciaId(agenciaId);
+  },
+
+  // Só chamar quando quem está abrindo o dossiê é o mesmo analista em
+  // atendimento da agência (ver comentário no schema.prisma) — abrir sem
+  // estar atendendo não deve "resolver" a atualização pendente.
+  marcarAtualizacaoComoVista(agenciaId: string, analistaId: string) {
+    return agenciaRepository.marcarAtualizacaoComoVista(agenciaId, analistaId);
+  },
+
+  // Marcação manual da tag "info pendente" (ver comentário no
+  // schema.prisma) — pro caso do analista estar esperando algo da agência
+  // por um canal que não passa por SolicitarReenvioDocumentosUseCase
+  // (ligação, e-mail avulso etc.). Mesmo método usado pelo caminho
+  // automático — não precisa de rastro de quem ligou, só de quem tirou
+  // (ver desmarcarInfoPendente).
+  marcarInfoPendente(agenciaId: string) {
+    return agenciaRepository.marcarInfoPendente(agenciaId);
+  },
+
+  // Remoção manual da tag "info pendente" (ver comentário no
+  // schema.prisma) — grava quem/quando pra deixar rastro.
+  desmarcarInfoPendente(agenciaId: string, analistaId: string) {
+    return agenciaRepository.desmarcarInfoPendente(agenciaId, analistaId);
   },
 
   obterDadosReceita(agenciaId: string) {
@@ -448,6 +485,11 @@ export const cadastroAdminController = {
 
   reprovarDocumento(input: ReprovarDocumentoInput) {
     const useCase = new ReprovarDocumentoUseCase(documentoRepository);
+    return useCase.execute(input);
+  },
+
+  reanalisarDocumento(input: ReanalisarDocumentoInput) {
+    const useCase = new ReanalisarDocumentoUseCase(documentoRepository);
     return useCase.execute(input);
   },
 

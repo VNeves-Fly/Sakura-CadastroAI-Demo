@@ -11,8 +11,9 @@ interface PeriodToggleProps<T extends string> {
 }
 
 // Segmented control genérico — Hoje/Ontem/Este mês/Este ano; Mês/Ano;
-// Aéreo+Terrestre/Aéreo/Terrestre. Mesmo desenho visual do pill de
-// período já usado em `DashboardKpiCard` (bg-muted + pill ativo colorido).
+// Aéreo+Terrestre/Aéreo/Terrestre; Todos/Nacional/Internacional. Cantos
+// quadrados (rounded-lg), no mesmo padrão dos cards do dashboard — não é
+// mais pill/rounded-full (pedido do usuário, 2026-08-19).
 export function PeriodToggle<T extends string>({
   opcoes,
   valor,
@@ -20,7 +21,7 @@ export function PeriodToggle<T extends string>({
   cor = COR_ROSA,
 }: PeriodToggleProps<T>) {
   return (
-    <div className="bg-muted flex shrink-0 items-center gap-1 rounded-full p-1">
+    <div className="bg-muted flex shrink-0 items-center gap-0.5 rounded-lg p-1 sm:gap-1">
       {opcoes.map((opcao) => {
         const ativo = valor === opcao.valor;
         return (
@@ -29,7 +30,7 @@ export function PeriodToggle<T extends string>({
             type="button"
             onClick={() => onChange(opcao.valor)}
             className={cn(
-              "rounded-full px-3 py-1.5 text-xs font-bold tracking-wide whitespace-nowrap transition",
+              "rounded-md px-2 py-1 text-[11px] font-bold tracking-wide whitespace-nowrap transition sm:px-3 sm:py-1.5 sm:text-xs",
               ativo ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
             style={ativo ? { backgroundColor: cor } : undefined}

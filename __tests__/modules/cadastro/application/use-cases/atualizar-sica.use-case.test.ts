@@ -25,6 +25,11 @@ function agenciaFake(overrides: Partial<Parameters<typeof Agencia.create>[0]> = 
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
     executivoId: null,
+    atualizacaoVistaEm: null,
+    atualizacaoVistaPor: null,
+    infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
     ...overrides,
   });
 }

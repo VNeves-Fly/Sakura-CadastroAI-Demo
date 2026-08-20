@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Mail, MapPin, Pencil, Trophy, Heart, Circle } from "lucide-react";
+import { Mail, MapPin, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { ToggleVisibilidadeButton } from "@/modules/shared/components/toggle-visibilidade-button";
 import {
@@ -15,10 +16,10 @@ interface ExecutivoProfileHeaderProps {
 
 // Cartão de identidade do executivo (SPEC seção 3.2) — avatar com
 // gradiente único por id, badges de bases/conquistas e os 3 KPIs de topo
-// (agências / gestor responsável / vendendo últimos 30d).
+// (agências / gestor responsável / vendendo últimos 30d). Nome, email, sica,
+// bases, totalAgencias e gestorNome são reais; vendendoUltimos30d e
+// conquistas são mock-gerados.
 export function ExecutivoProfileHeader({ perfil }: ExecutivoProfileHeaderProps) {
-  const conquistas = perfil.conquistas;
-
   return (
     <div className="border-border bg-card rounded-2xl border p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -61,24 +62,6 @@ export function ExecutivoProfileHeader({ perfil }: ExecutivoProfileHeaderProps) 
                 ))}
               </div>
             ) : null}
-
-            <div className="flex flex-wrap gap-1.5">
-              <Badge variant="outline" className="gap-1">
-                <Heart className="size-3" /> {conquistas.agencias10k} Agências 10K
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Heart className="size-3" /> {conquistas.agencias100k} Agências 100K
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Heart className="size-3" /> {conquistas.agencias1m} Agências 1M
-              </Badge>
-              <Badge className="gap-1">
-                <Trophy className="size-3" /> {conquistas.agencias10m} Agências 10M
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <Circle className="size-3" /> {conquistas.agenciasSemVenda} Agências s/venda
-              </Badge>
-            </div>
           </div>
         </div>
 
@@ -109,10 +92,13 @@ export function ExecutivoProfileHeader({ perfil }: ExecutivoProfileHeaderProps) 
             Gestor responsável
           </p>
         </div>
-        <div>
-          <p className="text-success text-2xl font-bold">
-            <SensitiveValue value={perfil.vendendoUltimos30d} />
-          </p>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <p className="text-success text-2xl font-bold">
+              <SensitiveValue value={perfil.vendendoUltimos30d} />
+            </p>
+            <MockBadge className="mt-1" />
+          </div>
           <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
             Venderam últimos 30d · <SensitiveValue value={`${perfil.vendendoUltimos30dPct}%`} />
           </p>

@@ -108,6 +108,8 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
         endereco: socio.endereco,
       }));
 
+    let agencia: Agencia;
+
     if (gerarContratoAutomaticamente) {
       const contratoResult = await this.contratoAssinaturaService.gerarEEnviar({
         cnpj: detalhe.agencia.cnpj,
@@ -124,30 +126,41 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
         signatarios,
       });
 
-      const contrato = await this.agenciaRepository.criarContrato(id, {
-        provedorId: contratoResult.provedorId,
-        status: contratoResult.status,
-        origemGeracao: "humano",
-        signatarios,
-      });
+      // Contrato + avanço de status numa transação só (ver
+      // criarContratoEAvancarStatus) — antes eram duas escritas separadas
+      // e uma falha entre elas deixava o Contrato criado com a Agencia
+      // travada em em_complementar (incidente real, 2026-08-19).
+      const resultado = await this.agenciaRepository.criarContratoEAvancarStatus(
+        id,
+        {
+          provedorId: contratoResult.provedorId,
+          status: contratoResult.status,
+          origemGeracao: "humano",
+          signatarios,
+        },
+        STATUS_AGUARDANDO_ASSINATURA,
+        { usuarioEmail: analistaEmail, origem: "usuario" },
+      );
+      agencia = resultado.agencia;
       await persistirKeySigners(
         this.contratoAssinaturaRepository,
-        contrato.id,
+        resultado.contratoId,
         contratoResult.signatariosKeySigner,
       );
     } else {
-      await this.agenciaRepository.criarContrato(id, {
-        provedorId: CONTRATO_PROVEDOR_ID_PENDENTE,
-        status: CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
-        origemGeracao: "externo",
-        signatarios,
-      });
+      const resultado = await this.agenciaRepository.criarContratoEAvancarStatus(
+        id,
+        {
+          provedorId: CONTRATO_PROVEDOR_ID_PENDENTE,
+          status: CONTRATO_STATUS_AGUARDANDO_ASSINATURA,
+          origemGeracao: "externo",
+          signatarios,
+        },
+        STATUS_AGUARDANDO_ASSINATURA,
+        { usuarioEmail: analistaEmail, origem: "usuario" },
+      );
+      agencia = resultado.agencia;
     }
-
-    const agencia = await this.agenciaRepository.atualizarStatus(id, STATUS_AGUARDANDO_ASSINATURA, {
-      usuarioEmail: analistaEmail,
-      origem: "usuario",
-    });
 
     // Auditoria de quem aprovou manualmente — best-effort: a agência já
     // avançou pro contrato, então uma falha aqui nunca deve reverter o

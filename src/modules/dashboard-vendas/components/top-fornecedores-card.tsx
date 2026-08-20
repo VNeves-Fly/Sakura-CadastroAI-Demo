@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Plane } from "lucide-react";
-import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { RankedList } from "@/modules/dashboard-vendas/components/ui/ranked-list";
+import { FiltroTipoRotaPopover } from "@/modules/dashboard-vendas/components/ui/filtro-tipo-rota-popover";
 import { TopFornecedoresDetalheModal } from "@/modules/dashboard-vendas/components/top-fornecedores-detalhe-modal";
 import {
   formatarMoedaAbreviada,
@@ -12,21 +12,23 @@ import {
 } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import {
   dividirPorTipoRota,
-  OPCOES_TIPO_ROTA,
   valorNoTipoRota,
   type TipoRota,
 } from "@/modules/dashboard-vendas/utils/tipo-rota.util";
 import {
   COR_ROSA,
   COR_ROSA_BG,
-  COR_ROXO,
 } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
-import type { TopFornecedor } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
-
-const OPCOES_PERIODO: { valor: "mes" | "ano"; label: string }[] = [
-  { valor: "mes", label: "Mês" },
-  { valor: "ano", label: "Ano" },
-];
+import {
+  useFiltroPeriodoDashboardStore,
+  resolverPeriodo,
+  LABEL_PERIODO_TITULO,
+  LABEL_PERIODO_PREPOSICAO,
+} from "@/modules/dashboard-vendas/stores/filtro-periodo-dashboard.store";
+import type {
+  PeriodoResumo,
+  TopFornecedor,
+} from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 export function LogoFornecedor({ nome }: { nome: string }) {
   return (
@@ -40,20 +42,26 @@ export function LogoFornecedor({ nome }: { nome: string }) {
 }
 
 interface TopFornecedoresCardProps {
-  fornecedoresPorMes: Record<string, TopFornecedor[]>;
+  fornecedoresPorPeriodo: Record<PeriodoResumo, TopFornecedor[]>;
 }
 
 // 4.10 — Top 10 Fornecedores visível no card; clicar abre o ranking
-// completo (scroll infinito, 20 em 20, mesma ordem) no modal. Filtro
-// Nacional/Internacional/Todos (pedido do usuário, 2026-08-17) reordena
-// pelo valor mockado de cada escopo — ver tipo-rota.util.ts.
-export function TopFornecedoresCard({ fornecedoresPorMes }: TopFornecedoresCardProps) {
-  const [periodo, setPeriodo] = useState<"mes" | "ano">("mes");
+// completo (scroll infinito, 20 em 20, mesma ordem) no modal. Período
+// (Hoje/Ontem/Mês/Ano/Personalizado) vem da store global do cabeçalho —
+// não é mais filtro próprio deste card (pedido do usuário, 2026-08-20;
+// antes só entendia Mês/Ano, isolado dos outros cards). Filtro Nacional/
+// Internacional/Todos (pedido do usuário, 2026-08-17) continua local a
+// este card, atrás do botão "Filtrar" — reordena pelo valor mockado de
+// cada escopo, ver tipo-rota.util.ts.
+export function TopFornecedoresCard({ fornecedoresPorPeriodo }: TopFornecedoresCardProps) {
+  const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
   const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
+
+  const periodoComDados = resolverPeriodo(filtro);
   const rankingCompleto = useMemo(
-    () => fornecedoresPorMes[periodo] ?? [],
-    [fornecedoresPorMes, periodo],
+    () => fornecedoresPorPeriodo[periodoComDados] ?? [],
+    [fornecedoresPorPeriodo, periodoComDados],
   );
 
   const rankingFiltrado = useMemo(() => {
@@ -81,20 +89,10 @@ export function TopFornecedoresCard({ fornecedoresPorMes }: TopFornecedoresCardP
     <>
       <RankedList
         icon={Plane}
-        titulo="Top 10 Fornecedores (mês)"
-        subtitulo="% = participação no volume do mês"
+        titulo={`Top 10 Fornecedores (${LABEL_PERIODO_TITULO[periodoComDados]})`}
+        subtitulo={`% = participação no volume ${LABEL_PERIODO_PREPOSICAO[periodoComDados]}`}
         aoClicar={() => setModalAberto(true)}
-        acoes={
-          <div className="flex items-center gap-2">
-            <PeriodToggle
-              opcoes={OPCOES_TIPO_ROTA}
-              valor={tipoRota}
-              onChange={setTipoRota}
-              cor={COR_ROXO}
-            />
-            <PeriodToggle opcoes={OPCOES_PERIODO} valor={periodo} onChange={setPeriodo} />
-          </div>
-        }
+        acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
         itens={top10.map((fornecedor) => ({
           icone: <LogoFornecedor nome={fornecedor.nome} />,
           nome: fornecedor.nome,
@@ -107,7 +105,7 @@ export function TopFornecedoresCard({ fornecedoresPorMes }: TopFornecedoresCardP
       <TopFornecedoresDetalheModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
-        titulo={`Top Fornecedores (${periodo === "mes" ? "mês" : "ano"})`}
+        titulo={`Top Fornecedores (${LABEL_PERIODO_TITULO[periodoComDados]})`}
         itens={rankingCompleto}
       />
     </>

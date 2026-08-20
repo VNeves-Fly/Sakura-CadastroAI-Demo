@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Trophy } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/gestores/utils/formatar-moeda.util";
 import type { RankingAgencia } from "@/modules/gestores/types/gestor-detalhe.types";
@@ -10,8 +11,9 @@ interface GestorTopAgenciasCardProps {
   verTodasHref?: string;
 }
 
-// Ranking numerado de agências — mesmo componente do dashboard de
-// Executivo, com link opcional "Ver todas".
+// Ranking numerado de agências — nomes são reais, mas valores (valor) são
+// mock-gerados (derivados de hash do agência ID). Mesmo componente do
+// dashboard de Executivo, com link opcional "Ver todas".
 export function GestorTopAgenciasCard({
   titulo,
   ranking,
@@ -20,9 +22,12 @@ export function GestorTopAgenciasCard({
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">
-          <Trophy className="text-warning size-4" />
-          {titulo}
+        <h3 className="text-foreground flex items-center justify-between gap-2 text-sm font-semibold">
+          <span className="flex items-center gap-2">
+            <Trophy className="text-warning size-4" />
+            {titulo}
+          </span>
+          <MockBadge />
         </h3>
         {verTodasHref ? (
           <Link href={verTodasHref} className="text-primary text-xs font-medium hover:underline">

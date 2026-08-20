@@ -9,6 +9,8 @@ export interface CadastrosSearchParams {
   dir?: string;
   filtro?: string | string[];
   meusAtendimentos?: string;
+  // "1" = só com info pendente, "0" = só sem, ausente = todos.
+  infoPendente?: string;
 }
 
 export function paraArray(valor: string | string[] | undefined): string[] {
@@ -81,6 +83,12 @@ export async function resolverFiltrosCadastros(
   // no banco pelas agências onde o analista logado é o atendente ATIVO —
   // sem sessão não há o que filtrar, então o switch é ignorado.
   const meusAtendimentosAtivo = searchParams.meusAtendimentos === "1" && !!analistaId;
+  const infoPendente =
+    searchParams.infoPendente === "1"
+      ? true
+      : searchParams.infoPendente === "0"
+        ? false
+        : undefined;
 
   return {
     filtros: {
@@ -93,6 +101,7 @@ export async function resolverFiltrosCadastros(
       base: baseDoFiltro,
       gestorId: gestorIdForcado ?? gestorDoFiltro,
       atendenteAtivoId: meusAtendimentosAtivo ? analistaId : undefined,
+      infoPendente,
     },
     escopoRestrito,
     sortBy,

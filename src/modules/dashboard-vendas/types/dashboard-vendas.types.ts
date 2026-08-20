@@ -1,4 +1,4 @@
-// Modelo de dados da página /dashboard-new — módulo isolado e 100% mock
+// Modelo de dados da página /crm/dashboard — módulo isolado e 100% mock
 // (não existe base de vendas aéreas/terrestres neste projeto ainda, ver
 // SPEC_Dashboard_Sakura.md). Estrutura calcada na seção 6 da spec, só
 // tipos que já chegam prontos pra View consumir (a normalização de
@@ -12,12 +12,22 @@ export interface CanalResumo {
   quantidade: number;
   participacaoPct: number;
   margemPct: number;
+  // Share Nacional/Internacional (valor + bilhetes de cada lado, não só
+  // %) deste canal especificamente — Aéreo e Terrestre têm splits
+  // diferentes (não é o mesmo dado duplicado, cada canal tem seu próprio
+  // nacInter na origem) — mostrado na barra embaixo do card, com tooltip
+  // ao passar o mouse (pedido do usuário, 2026-08-19).
+  nacIntDetalhe: NacionalInternacional;
 }
 
 export interface ResumoDia {
   atualizadoEm: Date;
   aereo: CanalResumo;
   terrestre: CanalResumo;
+  // Margem combinada (Aéreo + Terrestre) do período — vem de
+  // overview.filial.total[periodo].margem no serviço real (pedido do
+  // usuário, 2026-08-19).
+  margemTotalPct: number;
 }
 
 export interface MiniKpis {
@@ -111,6 +121,10 @@ export interface ConversaoCanal {
   periodoComparativo: string;
   aereoMes: { valor: number; bilhetes: number };
   terrestreMes: { valor: number; vendas: number };
+  // Total de agências da carteira consideradas no cálculo de Saúde —
+  // mostrado na outra extremidade do card "Saúde" (pedido do usuário,
+  // 2026-08-19).
+  totalClientes: number;
 }
 
 export type Conversao = Record<Canal, ConversaoCanal>;
@@ -176,7 +190,12 @@ export interface AgenciaCruzamentoDetalhe {
 
 export interface DashboardVendasData {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
-  miniKpis: MiniKpis;
+  // Um conjunto de mini-KPIs por período (mesma chave de
+  // resumoPorPeriodo) — antes era um valor fixo (sempre "hoje"), por
+  // isso os cards Clientes/Bilhetes/Ticket Médio não acompanhavam o
+  // seletor Hoje/Ontem/Este mês/Este ano do card de cima (corrigido
+  // 2026-08-19).
+  miniKpis: Record<PeriodoResumo, MiniKpis>;
   intraday: BucketIntraday[];
   projecao: ProjecaoDia;
   acuracia: AcuraciaProjecao;
@@ -185,8 +204,11 @@ export interface DashboardVendasData {
   conversao: Conversao;
   vendasMensais: VendaMensal[];
   vendasDiarias: VendaDiaria[];
-  rankingPorMes: Record<string, TopAgencia[]>;
-  fornecedoresPorMes: Record<string, TopFornecedor[]>;
+  // Chave por PeriodoResumo (não só mês/ano) — filtro do cabeçalho agora
+  // dirige os rankings também (pedido do usuário, 2026-08-20; antes só
+  // "mes"/"ano", cada card tinha seu próprio período isolado).
+  rankingPorPeriodo: Record<PeriodoResumo, TopAgencia[]>;
+  fornecedoresPorPeriodo: Record<PeriodoResumo, TopFornecedor[]>;
   nacionalInternacionalPorMes: Record<string, NacionalInternacional>;
   cruzamentoCanais: CruzamentoCanais;
   cruzamentoDetalhe: Record<ChaveCruzamento, AgenciaCruzamentoDetalhe[]>;

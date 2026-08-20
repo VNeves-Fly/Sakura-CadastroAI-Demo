@@ -11,6 +11,11 @@ const STATUS_DADOS_FALTANTES = new Set(["em_analise", "em_complementar"]);
 
 export function montarAgenciaCarteiraView(agencia: ExecutivoAgenciaResumo): AgenciaCarteiraView {
   const seed = hashParaNumero(agencia.id);
+  // ~1 em 10 nasce sem venda no ano (mesmo padrão de gerarMetricasMock em
+  // promotor-lista.adapter.ts) — sem essa variação o filtro "Apenas
+  // agências que estão comprando" nunca excluiria ninguém, já que toda
+  // agência teria vendasAno positivo.
+  const semVenda = seed % 10 === 0;
 
   return {
     id: agencia.id,
@@ -20,8 +25,8 @@ export function montarAgenciaCarteiraView(agencia: ExecutivoAgenciaResumo): Agen
     dadosFaltantes: STATUS_DADOS_FALTANTES.has(agencia.status),
     inativada: agencia.status === "recusado",
     categoria: CATEGORIAS[seed % CATEGORIAS.length]!,
-    vendasAno: ((seed % 900) + 20) * 10_000,
-    bilhetesAno: 20 + (seed % 400),
+    vendasAno: semVenda ? 0 : ((seed % 900) + 20) * 10_000,
+    bilhetesAno: semVenda ? 0 : 20 + (seed % 400),
     diasSemComprar: seed % 400,
     limite: ((seed % 900) + 20) * 12_000,
   };

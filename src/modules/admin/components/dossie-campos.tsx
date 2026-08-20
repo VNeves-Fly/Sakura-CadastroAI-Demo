@@ -28,6 +28,7 @@ import { VisualizarDocumento } from "@/modules/admin/components/visualizar-docum
 import { formatarData, formatarPercentual } from "@/modules/admin/utils/dossie-campos.util";
 import { formatarEndereco } from "@/modules/admin/adapters/dossie.adapter";
 import { maskCep } from "@/modules/cadastro/utils/cep.util";
+import { maskCpf } from "@/modules/cadastro/utils/cpf.util";
 
 // Blocos de apresentação reaproveitados entre o dossiê do funil
 // (/cadastros/[id]) e o dossiê do arquivo (/arquivo/[id]) — mesma
@@ -305,6 +306,43 @@ function CnaesStage1Detalhe({
   );
 }
 
+// QSA oficial da Receita Federal (stage1.socios.oficiais) — schema livre
+// (Record<string, unknown>[], decidido pelo agente, mesma razão de
+// camposExtraidos): só nome/cpf foram observados até hoje, mas qualquer
+// outro campo que a Receita mandar (ex.: qualificação) aparece via
+// CamposDetalhe em vez de ser descartado.
+function QsaOficialDetalhe({ oficiais }: { oficiais: Array<Record<string, unknown>> }) {
+  if (oficiais.length === 0) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        QSA oficial não retornado pela Receita para este cadastro.
+      </span>
+    );
+  }
+
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {oficiais.map((socio, index) => {
+        const { nome, cpf, ...outrosCampos } = socio;
+        return (
+          <li
+            key={index}
+            className="border-border bg-muted/30 rounded-lg border px-2.5 py-1.5 text-xs"
+          >
+            <span className="text-foreground font-semibold">
+              {typeof nome === "string" && nome ? nome : `Sócio ${index + 1}`}
+            </span>
+            {typeof cpf === "string" && cpf ? (
+              <span className="text-muted-foreground"> — CPF {maskCpf(cpf)}</span>
+            ) : null}
+            <CamposDetalhe titulo="Ver demais campos" campos={outrosCampos} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 // Verificação cadastral (stage1) — comparação fornecido x oficial que o
 // agente já calcula na avaliação (e-mail, sócios) mais CNAEs com
 // compatibilidade de turismo. Razão Social/Nome Fantasia (também stage1)
@@ -377,6 +415,7 @@ export function VerificacaoCadastral({ stage1 }: { stage1: AnaliseIaStage1 | nul
               Nenhuma divergência entre os sócios fornecidos e o QSA oficial.
             </span>
           )}
+          <QsaOficialDetalhe oficiais={stage1.socios.oficiais} />
         </div>
       ) : null}
     </div>
@@ -547,6 +586,7 @@ type InserirDocumentoManualActionFn = (
   representanteLegalId: string | null,
   formData: FormData,
 ) => Promise<void>;
+type ReanalisarDocumentoActionFn = (agenciaId: string, documentoId: string) => Promise<void>;
 
 // Quem/quando/por quê o documento chegou no status atual — sempre visível
 // (ver infoAuditoria em VisualizarDocumento), não só no `title` de um
@@ -787,6 +827,44 @@ function InserirDocumentoManual({
   );
 }
 
+// Reanalisar o MESMO arquivo já reprovado, sem exigir reenvio — cobre "olhei
+// de novo e devia ter aprovado" (decisão do usuário: manter o lastro do
+// reprovado original, a linha nova segue o Aprovar/Reprovar normal do
+// dossiê, sem atalho de aprovação automática). Só aparece ao lado do upload
+// manual quando o slot está REPROVADO (ver CampoDocumento).
+function ReanalisarDocumento({
+  agenciaId,
+  documentoId,
+  reanalisarDocumentoAction,
+}: {
+  agenciaId: string;
+  documentoId: string;
+  reanalisarDocumentoAction: ReanalisarDocumentoActionFn;
+}) {
+  const [enviando, setEnviando] = useState(false);
+
+  return (
+    <form
+      action={async () => {
+        setEnviando(true);
+        try {
+          await reanalisarDocumentoAction(agenciaId, documentoId);
+        } finally {
+          setEnviando(false);
+        }
+      }}
+    >
+      <button
+        type="submit"
+        disabled={enviando}
+        className="border-input text-foreground hover:bg-accent w-fit rounded-full border px-3 py-1 text-xs font-medium transition disabled:opacity-50"
+      >
+        {enviando ? "Enviando..." : "Reanalisar o mesmo arquivo"}
+      </button>
+    </form>
+  );
+}
+
 // Referência de arquivo (contrato social, RG, procuração) em destaque —
 // mesmo tratamento de "código"/citação usado no mapa-redesign-sakura.html
 // (fundo tintado + cor de marca + monoespaçada). Clicável: abre a
@@ -875,7 +953,10 @@ export function Arquivo({
 // já que o soft-delete só marca o status, não apaga a linha do banco.
 // Slot vazio ou reprovado ganham o upload manual (ver
 // InserirDocumentoManual) — os únicos dois estados em que inserir
-// manualmente é permitido (ver InserirDocumentoManualUseCase).
+// manualmente é permitido (ver InserirDocumentoManualUseCase). Slot
+// reprovado ganha também o botão de reanalisar o mesmo arquivo (ver
+// ReanalisarDocumento/ReanalisarDocumentoUseCase), pro caso do analista
+// mudar de ideia sem precisar de reenvio novo.
 export function CampoDocumento({
   documento,
   analise,
@@ -885,6 +966,7 @@ export function CampoDocumento({
   aprovarDocumentoAction,
   reprovarDocumentoAction,
   inserirDocumentoManualAction,
+  reanalisarDocumentoAction,
   somenteLeitura = false,
   reenviado = false,
 }: {
@@ -898,6 +980,7 @@ export function CampoDocumento({
   aprovarDocumentoAction?: AprovarDocumentoActionFn;
   reprovarDocumentoAction?: ReprovarDocumentoActionFn;
   inserirDocumentoManualAction?: InserirDocumentoManualActionFn;
+  reanalisarDocumentoAction?: ReanalisarDocumentoActionFn;
   somenteLeitura?: boolean;
   reenviado?: boolean;
 }) {
@@ -923,7 +1006,19 @@ export function CampoDocumento({
         <span className="bg-warning-bg text-warning-text w-fit rounded-full px-2.5 py-0.5 text-xs font-bold uppercase">
           Aguardando reenvio
         </span>
-        <AuditoriaDocumento documento={documento} />
+        {/* Visualização do arquivo reprovado — sem agenciaId/actions,
+            Arquivo renderiza só o modo leitura (visualizar + auditoria),
+            sem aprovar/reprovar (que não fazem sentido pra uma decisão já
+            tomada). Precisa disso pro analista reavaliar o arquivo antes
+            de decidir reanalisar (ver ReanalisarDocumento). */}
+        <Arquivo documento={documento} analise={analise} />
+        {!somenteLeitura && agenciaId && reanalisarDocumentoAction ? (
+          <ReanalisarDocumento
+            agenciaId={agenciaId}
+            documentoId={documento.id}
+            reanalisarDocumentoAction={reanalisarDocumentoAction}
+          />
+        ) : null}
         {!somenteLeitura && agenciaId && tipo && inserirDocumentoManualAction ? (
           <InserirDocumentoManual
             agenciaId={agenciaId}

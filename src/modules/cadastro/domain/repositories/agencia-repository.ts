@@ -311,6 +311,9 @@ export interface ListarCadastrosFiltros {
   // no momento (AtendimentoAgencia.liberadoEm null), via
   // Agencia.atendimentosAgencia.
   atendenteAtivoId?: string;
+  // "Com" (true) / "sem" (false) / todos (undefined) — ver
+  // Agencia.infoPendente no schema.
+  infoPendente?: boolean;
   // 1-based — já validada/normalizada (inteiro >= 1) por quem chama (a
   // page, que é a fronteira real de confiança pra esse parâmetro vindo da
   // querystring).
@@ -349,6 +352,10 @@ export interface ListarCadastrosItem {
   // Consulta mais recente ao SST (qualquer método) — badge da coluna SICA
   // em /cadastros. null = nunca consultado (ou toda tentativa falhou).
   consultaSicaMaisRecente: ConsultaSstItem | null;
+  // Ver temAtualizacaoPendente (agencia.entity.ts) — mensagem de cliente
+  // ou documento reenviado desde a última vez que quem atendia viu a
+  // ficha.
+  temAtualizacaoPendente: boolean;
 }
 
 export interface ListarCadastrosResult {
@@ -597,7 +604,37 @@ export interface AgenciaRepository {
       signatarios: ContratoSignatarioData[];
     },
   ): Promise<{ id: string }>;
+  // Mesma coisa que criarContrato + atualizarStatus em sequência, só que
+  // numa transação só — evita ficar com o Contrato criado e a Agencia sem
+  // avançar se a segunda escrita falhar depois da primeira (incidente real,
+  // ver AprovarCadastroComplementarUseCase).
+  criarContratoEAvancarStatus(
+    agenciaId: string,
+    dadosContrato: {
+      provedorId: string;
+      status: string;
+      origemGeracao: OrigemGeracaoContrato;
+      signatarios: ContratoSignatarioData[];
+    },
+    novoStatus: string,
+    contexto: ContextoMudancaStatus,
+  ): Promise<{ contratoId: string; agencia: Agencia }>;
   atualizarStatusContrato(contratoId: string, status: string): Promise<void>;
+  // Só quem estava EM ATENDIMENTO chama isto (ver comentário no
+  // schema.prisma) — simplesmente abrir o dossiê sem estar atendendo não
+  // deve chamar este método.
+  marcarAtualizacaoComoVista(agenciaId: string, analistaId: string): Promise<void>;
+  // Liga "info pendente" (ver comentário no schema.prisma) — chamado só
+  // por SolicitarReenvioDocumentosUseCase. Desligar automático não tem
+  // método próprio: acontece sozinho em atualizarStatus (qualquer
+  // transição) e em PrismaNotificacaoRepository.create (qualquer
+  // notificação da agência). Desligar manual é desmarcarInfoPendente,
+  // abaixo.
+  marcarInfoPendente(agenciaId: string): Promise<void>;
+  // Remoção manual pelo analista (dossiê) — grava quem/quando pra deixar
+  // rastro (ver infoPendenteRemovidoPor/Em no schema.prisma), diferente
+  // dos desligamentos automáticos acima, que não tocam esses dois campos.
+  desmarcarInfoPendente(agenciaId: string, analistaId: string): Promise<void>;
   listar(filtros: ListarCadastrosFiltros): Promise<ListarCadastrosResult>;
   obterKpis(): Promise<CadastrosKpis>;
   obterAnaliseContratos(dias: number): Promise<AnaliseContratos>;

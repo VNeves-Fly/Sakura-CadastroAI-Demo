@@ -48,6 +48,11 @@ function agenciaFake(status: string): Agencia {
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
     executivoId: null,
+    atualizacaoVistaEm: null,
+    atualizacaoVistaPor: null,
+    infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
   });
 }
 
@@ -130,6 +135,10 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
     criarContrato: jest.fn().mockResolvedValue({ id: "contrato-1" }),
+    criarContratoEAvancarStatus: jest.fn().mockResolvedValue({
+      contratoId: "contrato-1",
+      agencia: agenciaFake(STATUS_AGUARDANDO_ASSINATURA),
+    }),
     atualizarStatusContrato: jest.fn(),
     listar: jest.fn(),
     obterKpis: jest.fn(),
@@ -238,16 +247,29 @@ describe("AprovarCadastroComplementarUseCase", () => {
     const resultado = await useCase.execute(INPUT);
 
     expect(contratoAssinaturaService.gerarEEnviar).toHaveBeenCalled();
-    expect(agenciaRepository.criarContrato).toHaveBeenCalledWith(
+    // Contrato + avanço de status precisam ir juntos na mesma chamada (uma
+    // transação só) — não mais duas escritas separadas (criarContrato +
+    // atualizarStatus), que podiam ficar pela metade se a segunda falhasse
+    // depois da primeira (incidente real, 2026-08-19).
+    expect(agenciaRepository.criarContratoEAvancarStatus).toHaveBeenCalledWith(
       "agencia-1",
       expect.objectContaining({ origemGeracao: "humano" }),
-    );
-    expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
-      "agencia-1",
       STATUS_AGUARDANDO_ASSINATURA,
       { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
+  });
+
+  it("propaga o erro sem registrar keySigner/DecisaoHumana se criarContratoEAvancarStatus falhar", async () => {
+    const { useCase, contratoAssinaturaRepository, decisaoHumanaRepository } = criarUseCase({
+      agenciaRepository: criarRepositorioFake({
+        criarContratoEAvancarStatus: jest.fn().mockRejectedValue(new Error("db fora do ar")),
+      }),
+    });
+
+    await expect(useCase.execute(INPUT)).rejects.toThrow("db fora do ar");
+    expect(contratoAssinaturaRepository.registrarDestinatario).not.toHaveBeenCalled();
+    expect(decisaoHumanaRepository.create).not.toHaveBeenCalled();
   });
 
   it("persiste o keySigner de cada signatário capturado na resposta do createlist", async () => {
@@ -426,14 +448,14 @@ describe("AprovarCadastroComplementarUseCase", () => {
     const resultado = await useCase.execute({ ...INPUT, gerarContratoAutomaticamente: false });
 
     expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
-    expect(agenciaRepository.criarContrato).toHaveBeenCalledWith("agencia-1", {
-      provedorId: "pendente",
-      status: "aguardando_assinatura",
-      origemGeracao: "externo",
-      signatarios: expect.any(Array),
-    });
-    expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
+    expect(agenciaRepository.criarContratoEAvancarStatus).toHaveBeenCalledWith(
       "agencia-1",
+      {
+        provedorId: "pendente",
+        status: "aguardando_assinatura",
+        origemGeracao: "externo",
+        signatarios: expect.any(Array),
+      },
       STATUS_AGUARDANDO_ASSINATURA,
       { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
@@ -450,6 +472,6 @@ describe("AprovarCadastroComplementarUseCase", () => {
     const resultado = await useCase.execute(INPUT);
 
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
-    expect(agenciaRepository.atualizarStatus).toHaveBeenCalled();
+    expect(agenciaRepository.criarContratoEAvancarStatus).toHaveBeenCalled();
   });
 });

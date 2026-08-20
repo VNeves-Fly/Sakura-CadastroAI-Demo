@@ -17,7 +17,9 @@ import {
   UserPlus,
   MapPin,
   Building2,
+  Store,
   FileSignature,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -57,10 +59,11 @@ const CARGOS_NAO_ADMIN: Cargo[] = ["ANALISTA", "GESTOR", "EXECUTIVO"];
 // "Executivos" (/executivos, internamente "Promotor") — Admin/Diretor
 // cadastram qualquer um, Gestor só os seus; Analista/Executivo não cadastram.
 const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
-// "Dashboard (novo)" — restrito a ADMIN (pedido do usuário, 2026-08-13);
-// diferente de CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica
-// de fora (guard real é no page.tsx — isto só evita mostrar o item).
-const CARGOS_SEM_DASHBOARD_NOVO: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GESTOR", "EXECUTIVO"];
+// "Dashboard CRM" (ex-"Dashboard (novo)", renomeado 2026-08-18) —
+// restrito a ADMIN (pedido do usuário, 2026-08-13); diferente de
+// CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica de fora
+// (guard real é no page.tsx — isto só evita mostrar o item).
+const CARGOS_SEM_DASHBOARD_CRM: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GESTOR", "EXECUTIVO"];
 
 // Lista de itens extraída direto do produto real (print de referência,
 // onboarding.flysakura.com/admin/onboarding/cadastros) — só "Cadastros"
@@ -68,22 +71,9 @@ const CARGOS_SEM_DASHBOARD_NOVO: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GES
 // referência) mas ficam desabilitados até cada módulo existir de fato.
 const GRUPOS_NAV: AdminNavGrupo[] = [
   {
-    label: "Painéis",
-    itens: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      // Reprodução da SPEC do CRM Sakura (SPEC_Dashboard_Sakura.md),
-      // dados mock — ver dashboard-vendas.mock-service.ts.
-      {
-        label: "Dashboard (novo)",
-        href: "/crm/dashboard-new",
-        icon: BarChart2,
-        ocultoPara: CARGOS_SEM_DASHBOARD_NOVO,
-      },
-    ],
-  },
-  {
     label: "Onboarding",
     itens: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
       {
         label: "Atendimento",
@@ -106,6 +96,14 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
     // comercial Base -> Gestor -> Executivo.
     label: "Comercial",
     itens: [
+      // Reprodução da SPEC do CRM Sakura (SPEC_Dashboard_Sakura.md),
+      // dados mock — ver dashboard-vendas.mock-service.ts.
+      {
+        label: "Dashboard CRM",
+        href: "/crm/dashboard",
+        icon: BarChart2,
+        ocultoPara: CARGOS_SEM_DASHBOARD_CRM,
+      },
       {
         label: "Bases",
         href: "/bases",
@@ -123,6 +121,20 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         href: "/crm/executivos",
         icon: UserPlus,
         ocultoPara: CARGOS_SEM_GESTAO_DE_EXECUTIVOS,
+      },
+      {
+        label: "Agências",
+        href: "/crm/agencias",
+        icon: Store,
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        // SPEC recebida do usuário (2026-08-18) — reprodução 1:1 só de
+        // front-end, sem dado real (ver novas-agencias.mock-service.ts).
+        label: "Novas Agências",
+        href: "/crm/novas-agencias",
+        icon: Sparkles,
+        ocultoPara: CARGOS_NAO_ADMIN,
       },
       {
         label: "Associações",
@@ -205,9 +217,10 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                           // "/cadastros" é prefixo de toda subrota (usuários,
                           // eventos, messenger) — precisa de match exato,
                           // senão o item errado também fica ativo. "Dashboard
-                          // (novo)" mudou pra /crm/dashboard-new (2026-08-17)
-                          // e não colide mais com "/dashboard", mas o match
-                          // exato continua valendo pro item raiz.
+                          // CRM" (ex-"Dashboard (novo)") é /crm/dashboard
+                          // (renomeado de /crm/dashboard-new em 2026-08-18)
+                          // e não colide com "/dashboard", mas o match exato
+                          // continua valendo pro item raiz.
                           ROTAS_EXATAS.has(item.href)
                             ? pathname === item.href
                             : pathname.startsWith(item.href)
@@ -219,7 +232,7 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                         <span>{item.label}</span>
                       </SidebarMenuButton>
                       {item.href === "/atendimento" && totalNaoLidas > 0 && (
-                        <SidebarMenuBadge className="bg-success text-success-foreground">
+                        <SidebarMenuBadge className="bg-success text-success-foreground peer-hover/menu-button:text-success-foreground peer-data-active/menu-button:text-success-foreground">
                           {totalNaoLidas}
                         </SidebarMenuBadge>
                       )}

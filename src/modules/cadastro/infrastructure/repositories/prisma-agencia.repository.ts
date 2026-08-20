@@ -15,7 +15,7 @@ import {
   ResultadoAnaliseIa as PrismaResultadoAnaliseIa,
   TipoDocumento,
 } from "@prisma/client";
-import { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
+import { Agencia, temAtualizacaoPendente } from "@/modules/cadastro/domain/entities/agencia.entity";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
 import { documentoRecordToDomain } from "@/modules/cadastro/infrastructure/repositories/prisma-documento.repository";
 import {
@@ -140,6 +140,11 @@ interface AgenciaRecord {
   travelLinkSalvoPor: string | null;
   travelLinkSalvoEm: Date | null;
   executivoId: string | null;
+  atualizacaoVistaEm: Date | null;
+  atualizacaoVistaPor: string | null;
+  infoPendente: boolean;
+  infoPendenteRemovidoPor: string | null;
+  infoPendenteRemovidoEm: Date | null;
 }
 
 const ENDERECO_VAZIO: EnderecoData = {
@@ -440,6 +445,33 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
   async findById(id: string): Promise<Agencia | null> {
     const record = await this.prisma.agencia.findUnique({ where: { id } });
     return record ? this.toDomain(record) : null;
+  }
+
+  async marcarAtualizacaoComoVista(agenciaId: string, analistaId: string): Promise<void> {
+    await this.prisma.agencia.update({
+      where: { id: agenciaId },
+      data: { atualizacaoVistaEm: new Date(), atualizacaoVistaPor: analistaId },
+    });
+  }
+
+  async marcarInfoPendente(agenciaId: string): Promise<void> {
+    await this.prisma.agencia.update({
+      where: { id: agenciaId },
+      // Zera o rastro de remoção manual do ciclo anterior — não faz
+      // sentido um "removido por/em" antigo sobreviver a um novo pedido.
+      data: { infoPendente: true, infoPendenteRemovidoPor: null, infoPendenteRemovidoEm: null },
+    });
+  }
+
+  async desmarcarInfoPendente(agenciaId: string, analistaId: string): Promise<void> {
+    await this.prisma.agencia.update({
+      where: { id: agenciaId },
+      data: {
+        infoPendente: false,
+        infoPendenteRemovidoPor: analistaId,
+        infoPendenteRemovidoEm: new Date(),
+      },
+    });
   }
 
   async findByContratoProvedorId(provedorId: string): Promise<ContratoPorProvedorId | null> {
@@ -796,7 +828,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       });
       const record = await tx.agencia.update({
         where: { id },
-        data: { status: status as PrismaStatusAgencia },
+        // Qualquer transição de status "resolve" o info pendente (ver
+        // comentário no schema.prisma) — o cadastro andou, então o que
+        // quer que estivesse esperando da agência não trava mais nada.
+        data: { status: status as PrismaStatusAgencia, infoPendente: false },
       });
       await tx.historicoEtapaCadastro.create({
         data: {
@@ -942,6 +977,26 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return this.toDomain(record);
   }
 
+  private dadosSignatariosCreate(signatarios: ContratoSignatarioData[]) {
+    return signatarios.map((signatario) => ({
+      nome: signatario.nome,
+      email: signatario.email,
+      cpf: signatario.cpf,
+      rg: signatario.rgNumero,
+      rgOrgaoEmissor: signatario.rgOrgaoEmissor,
+      nacionalidade: signatario.nacionalidade,
+      estadoCivil: signatario.estadoCivil,
+      dataNascimento: signatario.dataNascimento,
+      cepSnapshot: signatario.endereco.cep || null,
+      logradouroSnapshot: signatario.endereco.logradouro || null,
+      numeroSnapshot: signatario.endereco.numero || null,
+      complementoSnapshot: signatario.endereco.complemento || null,
+      bairroSnapshot: signatario.endereco.bairro || null,
+      cidadeSnapshot: signatario.endereco.cidade || null,
+      ufSnapshot: signatario.endereco.uf || null,
+    }));
+  }
+
   async criarContrato(
     agenciaId: string,
     data: {
@@ -957,28 +1012,65 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         provedorId: data.provedorId,
         status: data.status as PrismaStatusContrato,
         origemGeracao: data.origemGeracao,
-        signatarios: {
-          create: data.signatarios.map((signatario) => ({
-            nome: signatario.nome,
-            email: signatario.email,
-            cpf: signatario.cpf,
-            rg: signatario.rgNumero,
-            rgOrgaoEmissor: signatario.rgOrgaoEmissor,
-            nacionalidade: signatario.nacionalidade,
-            estadoCivil: signatario.estadoCivil,
-            dataNascimento: signatario.dataNascimento,
-            cepSnapshot: signatario.endereco.cep || null,
-            logradouroSnapshot: signatario.endereco.logradouro || null,
-            numeroSnapshot: signatario.endereco.numero || null,
-            complementoSnapshot: signatario.endereco.complemento || null,
-            bairroSnapshot: signatario.endereco.bairro || null,
-            cidadeSnapshot: signatario.endereco.cidade || null,
-            ufSnapshot: signatario.endereco.uf || null,
-          })),
-        },
+        signatarios: { create: this.dadosSignatariosCreate(data.signatarios) },
       },
     });
     return { id: contrato.id };
+  }
+
+  // Cria o Contrato e avança o status da Agencia (+ HistoricoEtapaCadastro)
+  // numa transação só — evita o estado inconsistente "contrato criado, mas
+  // Agencia nunca saiu de em_complementar" quando a segunda escrita falhava
+  // depois da primeira (incidente real de produção, 2026-08-19: cadastro
+  // cmsxng1sk001f01s6wa3hj8hv ficou com Contrato em aguardando_assinatura e
+  // Agencia travada em em_complementar, escondendo os botões de decisão —
+  // ver AprovarCadastroComplementarUseCase). criarContrato sozinho continua
+  // existindo só pra AnalisarCadastroUseCase, que trata o avanço de status
+  // via registrarAnaliseFinal (fluxo separado, não tocado aqui).
+  async criarContratoEAvancarStatus(
+    agenciaId: string,
+    dadosContrato: {
+      provedorId: string;
+      status: string;
+      origemGeracao: OrigemGeracaoContrato;
+      signatarios: ContratoSignatarioData[];
+    },
+    novoStatus: string,
+    contexto: ContextoMudancaStatus,
+  ): Promise<{ contratoId: string; agencia: Agencia }> {
+    return this.prisma.$transaction(async (tx) => {
+      const contrato = await tx.contrato.create({
+        data: {
+          agenciaId,
+          provedorId: dadosContrato.provedorId,
+          status: dadosContrato.status as PrismaStatusContrato,
+          origemGeracao: dadosContrato.origemGeracao,
+          signatarios: { create: this.dadosSignatariosCreate(dadosContrato.signatarios) },
+        },
+      });
+
+      const atual = await tx.agencia.findUniqueOrThrow({
+        where: { id: agenciaId },
+        select: { status: true },
+      });
+      const record = await tx.agencia.update({
+        where: { id: agenciaId },
+        data: { status: novoStatus as PrismaStatusAgencia, infoPendente: false },
+      });
+      await tx.historicoEtapaCadastro.create({
+        data: {
+          agenciaId,
+          statusAnterior: atual.status,
+          statusNovo: novoStatus as PrismaStatusAgencia,
+          usuarioEmail: contexto.usuarioEmail,
+          origem: contexto.origem,
+          observacao: contexto.observacao ?? null,
+          desbloqueioManual: contexto.desbloqueioManual ?? null,
+        },
+      });
+
+      return { contratoId: contrato.id, agencia: this.toDomain(record) };
+    });
   }
 
   async atualizarStatusContrato(contratoId: string, status: string): Promise<void> {
@@ -1032,6 +1124,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       };
     }
 
+    if (filtros.infoPendente !== undefined) {
+      where.infoPendente = filtros.infoPendente;
+    }
+
     const tamanhoPagina = filtros.tamanhoPagina ?? TAMANHO_PAGINA_CADASTROS;
 
     const [records, total] = await Promise.all([
@@ -1071,6 +1167,19 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       ]),
     );
 
+    // Mesma ideia de `distinct` acima — 1 linha (a mais recente) por
+    // agência, numa query só, pra alimentar o badge de "tem atualização
+    // pendente" (ver temAtualizacaoPendente) sem N+1.
+    const ultimasNotificacoes = await this.prisma.notificacao.findMany({
+      where: { agenciaId: { in: records.map((record) => record.id) } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["agenciaId"],
+      select: { agenciaId: true, createdAt: true },
+    });
+    const ultimaNotificacaoPorAgenciaId = new Map(
+      ultimasNotificacoes.map((notificacao) => [notificacao.agenciaId, notificacao.createdAt]),
+    );
+
     return {
       items: records.map((record) => ({
         agencia: this.toDomain(record),
@@ -1086,6 +1195,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
         executivoBase: null,
         executivoGestor: record.executivo?.gestor?.nome ?? null,
         consultaSicaMaisRecente: consultaSicaPorAgenciaId.get(record.id) ?? null,
+        temAtualizacaoPendente: temAtualizacaoPendente(
+          record.atualizacaoVistaEm,
+          ultimaNotificacaoPorAgenciaId.get(record.id) ?? null,
+        ),
       })),
       total,
     };
@@ -1234,6 +1347,11 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       travelLinkSalvoPor: record.travelLinkSalvoPor,
       travelLinkSalvoEm: record.travelLinkSalvoEm,
       executivoId: record.executivoId,
+      atualizacaoVistaEm: record.atualizacaoVistaEm,
+      atualizacaoVistaPor: record.atualizacaoVistaPor,
+      infoPendente: record.infoPendente,
+      infoPendenteRemovidoPor: record.infoPendenteRemovidoPor,
+      infoPendenteRemovidoEm: record.infoPendenteRemovidoEm,
     });
   }
 }

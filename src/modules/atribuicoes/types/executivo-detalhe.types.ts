@@ -41,6 +41,11 @@ export interface VendasMesHero {
   variacaoPct: number; // vs mesmo dia do mês anterior
 }
 
+// Filtro Dia/Ontem/Mês/Ano do card hero (reaproveita o PeriodToggle já
+// usado no dashboard-vendas) — cada período tem seu próprio mock
+// determinístico, ver gerarHeroPorPeriodo em executivo-detalhe.adapter.ts.
+export type PeriodoVendasMesHero = "dia" | "ontem" | "mes" | "ano";
+
 export interface KpisSecundarios {
   mesAnteriorValor: number;
   mesAnteriorFaltaValor: number;
@@ -128,7 +133,7 @@ export interface AgenciaEmQueda {
 }
 
 export interface ExecutivoDashboard {
-  hero: VendasMesHero;
+  hero: Record<PeriodoVendasMesHero, VendasMesHero>;
   kpis: KpisSecundarios;
   miniStats: MiniStats;
   fidelidadePorCompanhia: LoyaltyChip[];

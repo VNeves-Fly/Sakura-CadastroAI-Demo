@@ -46,6 +46,11 @@ function agenciaFake(): Agencia {
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
     executivoId: null,
+    atualizacaoVistaEm: null,
+    atualizacaoVistaPor: null,
+    infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
   });
 }
 
@@ -129,7 +134,11 @@ function repositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRep
     salvarSica: jest.fn(),
     salvarTravelLink: jest.fn(),
     criarContrato: jest.fn(),
+    criarContratoEAvancarStatus: jest.fn(),
     atualizarStatusContrato: jest.fn(),
+    marcarAtualizacaoComoVista: jest.fn(),
+    marcarInfoPendente: jest.fn(),
+    desmarcarInfoPendente: jest.fn(),
     listar: jest.fn(),
     obterKpis: jest.fn(),
     obterAnaliseContratos: jest.fn(),

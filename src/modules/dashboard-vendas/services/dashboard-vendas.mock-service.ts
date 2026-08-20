@@ -8,6 +8,7 @@ import type {
   ChaveRecencia,
   CruzamentoCanais,
   DashboardVendasData,
+  MiniKpis,
   NacionalInternacional,
   PeriodoResumo,
   ProjecaoDia,
@@ -79,27 +80,62 @@ function construirIntraday(): BucketIntraday[] {
   }));
 }
 
+// Deriva um NacionalInternacional a partir do valor/quantidade do próprio
+// canal (× fração nacional) — mock simples, sem inventar números soltos
+// extras por período/canal.
+function derivarNacInt(valor: number, quantidade: number, nacionalPct: number) {
+  const fracaoNacional = nacionalPct / 100;
+  return {
+    nacional: {
+      valor: Math.round(valor * fracaoNacional),
+      bilhetes: Math.round(quantidade * fracaoNacional),
+    },
+    internacional: {
+      valor: Math.round(valor * (1 - fracaoNacional)),
+      bilhetes: Math.round(quantidade * (1 - fracaoNacional)),
+    },
+  };
+}
+
 function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
   const base: Record<
     PeriodoResumo,
-    { atualizadoEm: Date; aereo: [number, number, number]; terrestre: [number, number, number] }
+    {
+      atualizadoEm: Date;
+      // valor, quantidade, margemPct, % nacional do share NAC/INT deste
+      // canal — cada canal (aéreo/terrestre) tem o seu próprio share, não
+      // é o mesmo dado duplicado entre os dois (pedido do usuário,
+      // 2026-08-19).
+      aereo: [number, number, number, number];
+      terrestre: [number, number, number, number];
+      // Margem combinada Aéreo+Terrestre (overview.filial.total no
+      // serviço real) — distinta da margem de cada canal.
+      margemTotalPct: number;
+    }
   > = {
-    // valor, quantidade, margemPct — participação é derivada no adapter.
-    hoje: { atualizadoEm: ATUALIZADO_EM, aereo: [282_267.49, 158, 4.1], terrestre: [0, 0, 0] },
+    hoje: {
+      atualizadoEm: ATUALIZADO_EM,
+      aereo: [282_267.49, 158, 4.1, 34.8],
+      terrestre: [0, 0, 0, 0],
+      margemTotalPct: 4.1,
+    },
     ontem: {
       atualizadoEm: new Date(2026, 7, 12, 23, 59),
-      aereo: [195_430.2, 121, 3.8],
-      terrestre: [3_200, 4, 14.2],
+      aereo: [195_430.2, 121, 3.8, 31.5],
+      terrestre: [3_200, 4, 14.2, 88.6],
+      margemTotalPct: 4.0,
     },
     mes: {
       atualizadoEm: ATUALIZADO_EM,
-      aereo: [2_847_500.32, 1_840, 4.3],
-      terrestre: [42_300, 28, 15.6],
+      aereo: [2_847_500.32, 1_840, 4.3, 32.1],
+      terrestre: [42_300, 28, 15.6, 91.2],
+      margemTotalPct: 4.5,
     },
     ano: {
       atualizadoEm: ATUALIZADO_EM,
-      aereo: [1_320_800_000, 742_300, 4.2],
-      terrestre: [26_700_000, 9_840, 15.1],
+      aereo: [1_320_800_000, 742_300, 4.2, 29.4],
+      terrestre: [26_700_000, 9_840, 15.1, 89.9],
+      margemTotalPct: 4.6,
     },
   };
 
@@ -107,20 +143,54 @@ function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
   const resultado = {} as Record<PeriodoResumo, ResumoDia>;
   for (const periodo of periodos) {
     const item = base[periodo];
+    const [aereoValor, aereoQuantidade, aereoMargem, aereoNacionalPct] = item.aereo;
+    const [terrestreValor, terrestreQuantidade, terrestreMargem, terrestreNacionalPct] =
+      item.terrestre;
     resultado[periodo] = {
       atualizadoEm: item.atualizadoEm,
       aereo: {
-        valor: item.aereo[0],
-        quantidade: item.aereo[1],
+        valor: aereoValor,
+        quantidade: aereoQuantidade,
         participacaoPct: 0,
-        margemPct: item.aereo[2],
+        margemPct: aereoMargem,
+        nacIntDetalhe: derivarNacInt(aereoValor, aereoQuantidade, aereoNacionalPct),
       },
       terrestre: {
-        valor: item.terrestre[0],
-        quantidade: item.terrestre[1],
+        valor: terrestreValor,
+        quantidade: terrestreQuantidade,
         participacaoPct: 0,
-        margemPct: item.terrestre[2],
+        margemPct: terrestreMargem,
+        nacIntDetalhe: derivarNacInt(terrestreValor, terrestreQuantidade, terrestreNacionalPct),
       },
+      margemTotalPct: item.margemTotalPct,
+    };
+  }
+  return resultado;
+}
+
+// Um MiniKpis por período, derivado do mesmo resumoPorPeriodo (bilhetes/
+// ticket médio ficam sempre consistentes com o card Aéreo de cima) — só
+// "clientesDistintos" é hardcoded aqui, sem fonte própria na fixture
+// (corrigido 2026-08-19: antes miniKpis era um valor fixo só de "hoje",
+// os cards de baixo não acompanhavam o seletor de período).
+function construirMiniKpisPorPeriodo(
+  resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>,
+): Record<PeriodoResumo, MiniKpis> {
+  const clientesPorPeriodo: Record<PeriodoResumo, number> = {
+    hoje: 29,
+    ontem: 24,
+    mes: 187,
+    ano: 1_450,
+  };
+
+  const periodos = Object.keys(resumoPorPeriodo) as PeriodoResumo[];
+  const resultado = {} as Record<PeriodoResumo, MiniKpis>;
+  for (const periodo of periodos) {
+    const aereo = resumoPorPeriodo[periodo].aereo;
+    resultado[periodo] = {
+      clientesDistintos: clientesPorPeriodo[periodo],
+      bilhetesAereo: aereo.quantidade,
+      ticketMedioAereo: aereo.quantidade > 0 ? Math.round(aereo.valor / aereo.quantidade) : 0,
     };
   }
   return resultado;
@@ -392,6 +462,9 @@ function construirConversao(): DashboardVendasData["conversao"] {
   const periodoComparativo = "1–12 jul vs 1–12 ago";
   const aereoMes = { valor: 91_200_456, bilhetes: 51_040 };
   const terrestreMes = { valor: 1_200_576, vendas: 442 };
+  // Mesma base de agências usada em CruzamentoCanais — total de clientes
+  // considerado no cálculo de Saúde, não varia por canal.
+  const totalClientes = construirCruzamentoCanais().totalAgenciasCarteira;
   const porCanal: Record<
     Canal,
     { saude: number; volume: number; bilhetesVendas: number; agencias: number }
@@ -412,6 +485,7 @@ function construirConversao(): DashboardVendasData["conversao"] {
       periodoComparativo,
       aereoMes,
       terrestreMes,
+      totalClientes,
     };
   }
   return resultado;
@@ -689,10 +763,11 @@ function construirCruzamentoDetalhe(
 
 async function obterDashboardMock(): Promise<DashboardVendasData> {
   const cruzamentoCanais = construirCruzamentoCanais();
+  const resumoPorPeriodo = construirResumoPorPeriodo();
 
   return {
-    resumoPorPeriodo: construirResumoPorPeriodo(),
-    miniKpis: { clientesDistintos: 29, bilhetesAereo: 158, ticketMedioAereo: 1_786.5 },
+    resumoPorPeriodo,
+    miniKpis: construirMiniKpisPorPeriodo(resumoPorPeriodo),
     intraday: construirIntraday(),
     projecao: construirProjecao(),
     acuracia: construirAcuracia(),
@@ -701,8 +776,23 @@ async function obterDashboardMock(): Promise<DashboardVendasData> {
     conversao: construirConversao(),
     vendasMensais: construirVendasMensais(),
     vendasDiarias: construirVendasDiarias(),
-    rankingPorMes: { mes: construirTopAgencias(1), ano: construirTopAgencias(11.4) },
-    fornecedoresPorMes: { mes: construirTopFornecedores(1), ano: construirTopFornecedores(11.4) },
+    // Escala hoje/ontem proporcional ao mesmo ratio de
+    // construirResumoPorPeriodo (hoje ≈ 9,9% do mês, ontem ≈ 6,9% —
+    // aereo.valor de cada período ali) — filtro do cabeçalho passou a
+    // dirigir também os rankings (pedido do usuário, 2026-08-20; antes só
+    // existia Mês/Ano aqui).
+    rankingPorPeriodo: {
+      hoje: construirTopAgencias(0.099),
+      ontem: construirTopAgencias(0.069),
+      mes: construirTopAgencias(1),
+      ano: construirTopAgencias(11.4),
+    },
+    fornecedoresPorPeriodo: {
+      hoje: construirTopFornecedores(0.099),
+      ontem: construirTopFornecedores(0.069),
+      mes: construirTopFornecedores(1),
+      ano: construirTopFornecedores(11.4),
+    },
     nacionalInternacionalPorMes: {
       mes: construirNacionalInternacional(1),
       ano: construirNacionalInternacional(11.4),
@@ -723,8 +813,8 @@ export const dashboardVendasMockService = {
     return {
       resumoPorPeriodo: dados.resumoPorPeriodo,
       miniKpis: dados.miniKpis,
-      rankingPorMes: dados.rankingPorMes,
-      fornecedoresPorMes: dados.fornecedoresPorMes,
+      rankingPorPeriodo: dados.rankingPorPeriodo,
+      fornecedoresPorPeriodo: dados.fornecedoresPorPeriodo,
       nacionalInternacionalPorMes: dados.nacionalInternacionalPorMes,
     };
   },

@@ -13,9 +13,11 @@ interface AdminHeaderProps {
 // Rótulos das páginas do Admin pro breadcrumb "Sakura · {Página}" — cada
 // página nova entra aqui conforme for sendo construída.
 const ROTULOS_PAGINA: Record<string, string> = {
-  "/crm/dashboard-new": "Dashboard (novo)",
+  "/crm/dashboard": "Dashboard CRM",
   "/crm/gestores": "Gestores",
   "/crm/executivos": "Executivos",
+  "/crm/agencias": "Agências",
+  "/crm/novas-agencias": "Análise de Novas Agências",
   "/dashboard": "Dashboard",
   "/cadastros/usuarios": "Usuários",
   "/cadastros/messenger": "Messenger",

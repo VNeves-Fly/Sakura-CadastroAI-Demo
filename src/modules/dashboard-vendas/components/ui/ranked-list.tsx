@@ -15,10 +15,14 @@ interface RankedListProps {
   titulo: string;
   subtitulo: string;
   acoes?: ReactNode;
+  // Conteúdo extra entre o cabeçalho e a lista — hoje só o filtro
+  // "Personalizado" (campos de data + aviso), mostrado quando o toggle
+  // de período está nesse valor (pedido do usuário, 2026-08-18).
+  extra?: ReactNode;
   itens: RankedListItem[];
   // Opcional — card inteiro fica clicável (abre modal com o ranking
-  // completo). `acoes` (o toggle Mês/Ano) para a propagação, senão
-  // trocar de período também abriria o modal.
+  // completo). `acoes`/`extra` (toggle e campos de data) param a
+  // propagação, senão interagir com eles também abriria o modal.
   aoClicar?: () => void;
 }
 
@@ -29,6 +33,7 @@ export function RankedList({
   titulo,
   subtitulo,
   acoes,
+  extra,
   itens,
   aoClicar,
 }: RankedListProps) {
@@ -58,6 +63,15 @@ export function RankedList({
         </div>
         {acoes ? <div onClick={(evento) => evento.stopPropagation()}>{acoes}</div> : null}
       </div>
+
+      {/* justify-end: o filtro de tipo de rota fica alinhado à direita,
+          junto do toggle de período de cima (pedido do usuário,
+          2026-08-19) — antes ficava colado à esquerda. */}
+      {extra ? (
+        <div className="mt-3 flex justify-end" onClick={(evento) => evento.stopPropagation()}>
+          {extra}
+        </div>
+      ) : null}
 
       <ul className="mt-3 flex flex-col gap-2.5">
         {itens.map((item, indice) => (

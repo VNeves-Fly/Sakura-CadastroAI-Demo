@@ -214,6 +214,31 @@ model Agencia {
   travelLinkSalvoPor String?
   travelLinkSalvoEm  DateTime?
 
+  // Marca a última vez que quem estava EM ATENDIMENTO desta agência viu a
+  // ficha (ver marcarAtualizacaoComoVista) — só abrir o dossiê sem estar
+  // atendendo não atualiza isso (mesmo critério de "não dá pra espiar sem
+  // assumir" já usado em atendimento/marcar-como-lida). "Tem atualização
+  // pendente" = existe Notificacao(agenciaId) com createdAt depois disto
+  // (ou null = nunca visto e já existe alguma notificação).
+  atualizacaoVistaEm  DateTime?
+  atualizacaoVistaPor String?
+
+  // "Info pendente" — indiferente de status, marca que o analista está
+  // esperando algo DA agência (oposto de atualizacaoVistaEm/Notificacao,
+  // que é "a agência mandou algo, o analista que tem que olhar"). Liga em
+  // SolicitarReenvioDocumentosUseCase (analista pediu reenvio); desliga
+  // sozinha quando chega qualquer Notificacao dessa agência (ver
+  // PrismaNotificacaoRepository.create) ou quando o status muda (ver
+  // atualizarStatus) — nunca precisa ser desligada manualmente.
+  infoPendente Boolean @default(false)
+  // Preenchidos só quando um analista remove a tag manualmente pelo
+  // dossiê (decisão do usuário: cobre o caso de resolver por fora do
+  // sistema — ligação, e-mail direto — sem gerar Notificacao nem mudar
+  // status). Zerados de novo em marcarInfoPendente, pra não sobrar rastro
+  // velho de um ciclo anterior grudado no próximo.
+  infoPendenteRemovidoPor String?
+  infoPendenteRemovidoEm  DateTime?
+
   complementar              CadastroComplementar?
   representantesLegais      RepresentanteLegal[]
   documentos                Documento[]

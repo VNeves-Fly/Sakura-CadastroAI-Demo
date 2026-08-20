@@ -28,12 +28,16 @@ export interface AgenciasCarteiraFiltros {
   busca: string;
   dadosFaltantes: "todos" | "pendentes";
   // Sem fonte de dado real (nenhum canal de venda ligado a Agencia hoje)
-  // — mantido como filtro visual configurável, mesmo tratamento do
-  // toggle GCP na lista de executivos.
+  // — mantido como filtro visual configurável, mesmo tratamento de
+  // outros filtros sem dado real confirmado.
   canalVendas: "todos" | "aereo" | "terrestre" | "ambos";
   premiacao: "todas" | CategoriaPremiacao;
   ultimaCompra: "qualquer" | "ate30" | "30a90" | "mais90";
   ordenarPor: "vendasAno" | "vendasPeriodo" | "ticketMedio" | "ultimaCompra";
   inativadasSakura: "ocultar" | "mostrar";
   periodo: PeriodoVendas;
+  // "Apenas agências que estão comprando" — filtra pra só quem teve
+  // venda (valorNoPeriodo(...).vendas > 0) no período selecionado acima
+  // (pedido do usuário, 2026-08-19).
+  apenasComprando: boolean;
 }

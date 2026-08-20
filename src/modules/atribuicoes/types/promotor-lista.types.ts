@@ -15,6 +15,10 @@ export interface PromotorListaView {
   semVinculo: boolean;
   // Mock: deriva de vendasAno === 0 (ver adapter).
   semVenda: boolean;
+  // Mock front-end (ver promotor-status.store.ts) — default true. Distinto
+  // de semVinculo: aqui é um status definido manualmente pelo botão
+  // Inativar/Ativar da lista, não derivado de base/gestor.
+  ativo: boolean;
   aprovadas: number;
   vendendo30d: number;
   paradas90d: number;
@@ -28,11 +32,11 @@ export interface PromotorListaFiltros {
   busca: string;
   esconderInativo: boolean;
   ocultarSemVendas: boolean;
-  // Sem fonte de dado/regra de negócio confirmada (ver SPEC seção 2.1,
-  // item 4) — mantido só como toggle visual até definição do time de
-  // negócio; não filtra nada por enquanto.
-  gcp: boolean;
 }
+
+// Paginação client-side da lista (pedido do usuário, 2026-08-19) — mesmo
+// padrão de TAMANHO_PAGINA_AGENCIAS em agencia-carteira.types.ts.
+export const TAMANHO_PAGINA_EXECUTIVOS = 25;
 
 export type PromotorListaColunaOrdenavel =
   | "nome"

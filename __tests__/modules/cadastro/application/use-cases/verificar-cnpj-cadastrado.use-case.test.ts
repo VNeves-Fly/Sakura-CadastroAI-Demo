@@ -44,6 +44,11 @@ function agenciaFake(cnpj: string): Agencia {
     travelLinkSalvoPor: null,
     travelLinkSalvoEm: null,
     executivoId: null,
+    atualizacaoVistaEm: null,
+    atualizacaoVistaPor: null,
+    infoPendente: false,
+    infoPendenteRemovidoPor: null,
+    infoPendenteRemovidoEm: null,
   });
 }
 

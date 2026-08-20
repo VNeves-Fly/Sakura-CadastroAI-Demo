@@ -10,16 +10,76 @@ const originalEnv = process.env;
 // 2026-08-14 — ver conversa que motivou esta integração.
 const overviewFixture = {
   filial: {
-    total: { dia: {}, mes: {}, ano: {} },
+    total: { dia: { margem: 5 }, mes: { margem: 5.5 }, ano: { margem: 5.8 } },
     aereo: {
-      dia: { tarifa: 524242.53, margem: 4.02, clientes: 62, tickets: 270, ticket_medio: 1941.64 },
-      mes: { tarifa: 1e6, margem: 4.1, clientes: 100, tickets: 500, ticket_medio: 2000 },
-      ano: { tarifa: 1e7, margem: 4.2, clientes: 1000, tickets: 5000, ticket_medio: 2000 },
+      dia: {
+        tarifa: 524242.53,
+        margem: 4.02,
+        clientes: 62,
+        tickets: 270,
+        ticket_medio: 1941.64,
+        nacInter: {
+          nacional: { tickets: 190, tarifa: 367_000, percentual: 70 },
+          internacional: { tickets: 80, tarifa: 157_242.53, percentual: 30 },
+        },
+      },
+      mes: {
+        tarifa: 1e6,
+        margem: 4.1,
+        clientes: 100,
+        tickets: 500,
+        ticket_medio: 2000,
+        nacInter: {
+          nacional: { tickets: 350, tarifa: 700_000, percentual: 70 },
+          internacional: { tickets: 150, tarifa: 300_000, percentual: 30 },
+        },
+      },
+      ano: {
+        tarifa: 1e7,
+        margem: 4.2,
+        clientes: 1000,
+        tickets: 5000,
+        ticket_medio: 2000,
+        nacInter: {
+          nacional: { tickets: 3500, tarifa: 7e6, percentual: 70 },
+          internacional: { tickets: 1500, tarifa: 3e6, percentual: 30 },
+        },
+      },
     },
     terrestre: {
-      dia: { tarifa: 17034.52, margem: 10.02, clientes: 15, tickets: 26, ticket_medio: 655.17 },
-      mes: { tarifa: 5e4, margem: 15, clientes: 10, tickets: 30, ticket_medio: 1666 },
-      ano: { tarifa: 5e5, margem: 15, clientes: 100, tickets: 300, ticket_medio: 1666 },
+      dia: {
+        tarifa: 17034.52,
+        margem: 10.02,
+        clientes: 15,
+        tickets: 26,
+        ticket_medio: 655.17,
+        nacInter: {
+          nacional: { tickets: 23, tarifa: 15_000, percentual: 88 },
+          internacional: { tickets: 3, tarifa: 2_034.52, percentual: 12 },
+        },
+      },
+      mes: {
+        tarifa: 5e4,
+        margem: 15,
+        clientes: 10,
+        tickets: 30,
+        ticket_medio: 1666,
+        nacInter: {
+          nacional: { tickets: 27, tarifa: 44_000, percentual: 88 },
+          internacional: { tickets: 3, tarifa: 6_000, percentual: 12 },
+        },
+      },
+      ano: {
+        tarifa: 5e5,
+        margem: 15,
+        clientes: 100,
+        tickets: 300,
+        ticket_medio: 1666,
+        nacInter: {
+          nacional: { tickets: 264, tarifa: 440_000, percentual: 88 },
+          internacional: { tickets: 36, tarifa: 60_000, percentual: 12 },
+        },
+      },
     },
   },
 };
@@ -61,6 +121,12 @@ function dataIsoBrasiliaHaDias(dias: number): string {
     month: "2-digit",
     day: "2-digit",
   }).format(data);
+}
+
+// Mesma conta de `inicioMesIso()` do service — primeiro dia do mês
+// corrente, no fuso America/Sao_Paulo.
+function inicioMesIsoTeste(): string {
+  return `${dataIsoBrasiliaHaDias(0).slice(0, 7)}-01`;
 }
 
 // Datas usadas pelo algoritmo de projeção: mesmo dia da semana, últimas
@@ -214,6 +280,12 @@ describe("dashboardVendasSstService", () => {
       ...originalEnv,
       SST_API_KEY: "secret-teste",
       SST_BASE_URL: "https://sst.teste",
+      // Explicitamente desligado: sem isto, quem tiver VALKEY_URL
+      // configurada no .env local (pro Valkey real do docker-compose)
+      // faria estes testes baterem no Valkey de verdade via `...originalEnv`
+      // acima — cache persistindo entre testes/execuções e quebrando as
+      // asserções de contagem de chamada ao `fetch` abaixo.
+      VALKEY_URL: undefined,
     };
     global.fetch = jest.fn(async (url: RequestInfo | URL) => ({
       ok: true,
@@ -237,16 +309,17 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.resumoPorPeriodo.mes.aereo.valor).toBe(1e6);
     expect(resultado.resumoPorPeriodo.ano.terrestre.valor).toBe(5e5);
     expect(resultado.miniKpis).toEqual({
-      clientesDistintos: 62,
-      bilhetesAereo: 270,
-      ticketMedioAereo: 1941.64,
+      hoje: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      ontem: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      mes: { clientesDistintos: 100, bilhetesAereo: 500, ticketMedioAereo: 2000 },
+      ano: { clientesDistintos: 1000, bilhetesAereo: 5000, ticketMedioAereo: 2000 },
     });
   });
 
   it("normaliza o ranking de agências (sem canal separado no SST — assume aereo)", async () => {
     const resultado = await dashboardVendasSstService.obterDashboard();
 
-    expect(resultado.rankingPorMes.mes).toEqual([
+    expect(resultado.rankingPorPeriodo.mes).toEqual([
       { posicao: 1, nome: "TJT VIAGENS", canal: "aereo", valor: 5674287.35, qtd: 5244 },
       { posicao: 2, nome: "VAI DE PROMO", canal: "aereo", valor: 3748413.08, qtd: 3909 },
     ]);
@@ -256,7 +329,7 @@ describe("dashboardVendasSstService", () => {
     const resultado = await dashboardVendasSstService.obterDashboard();
     const total = 83073026.42 + 16111634.17;
 
-    expect(resultado.fornecedoresPorMes.mes).toEqual([
+    expect(resultado.fornecedoresPorPeriodo.mes).toEqual([
       {
         nome: "LATAM",
         qtdBilhetes: 26177,
@@ -377,6 +450,80 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.cruzamentoDetalhe.nenhum).toEqual([]);
   });
 
+  it("deriva codigosAgenciasAereo/Terrestre de janelas que terminam hoje (30d/mês corrente) a partir do que recenciaECruzamento já buscou, sem paginar terrestre de novo (ver docs/optimize.md)", async () => {
+    // Roda na mesma ordem sequencial da view real (dashboard-vendas-view.tsx):
+    // recenciaECruzamento antes de conversao — só assim a janela fica em
+    // cache pra conversao aproveitar.
+    await dashboardVendasSstService.obterRecenciaECruzamento();
+
+    const fetchMock = global.fetch as jest.Mock;
+    const chamadasAntes = fetchMock.mock.calls.length;
+
+    const conversao = await dashboardVendasSstService.obterConversao();
+
+    const chamadasDepois = fetchMock.mock.calls.slice(chamadasAntes);
+    const chamadasTerrestre = chamadasDepois.filter(([url]) =>
+      String(url).includes("/api/resumos/terrestre"),
+    );
+    const chamadasAereoResumoAgrupado = chamadasDepois.filter(([url]) =>
+      String(url).includes("/api/consolidado/air/resumo-agrupado"),
+    );
+
+    // 3 janelas em conversao (30d, mês corrente, mês anterior) — só a de
+    // "mês anterior" não termina hoje, então só ela precisa buscar de novo.
+    expect(chamadasTerrestre).toHaveLength(1);
+    expect(chamadasAereoResumoAgrupado).toHaveLength(1);
+
+    // Ambos(30d) derivado da janela: aereo {1} (cod.1, 5d atrás) ∪
+    // terrestre {3} (cod.3, 10d atrás) = {1,3} — cod.2 fica de fora (aereo
+    // 100d atrás, terrestre 40d atrás, os dois fora dos últimos 30d).
+    expect(conversao.ambos.saudePct).toBeCloseTo((2 / 300) * 100);
+  });
+
+  it("reaproveita nacint/nonair do mês corrente entre estágios sequenciais — guardrail contra paralelizar o waterfall (ver docs/optimize.md)", async () => {
+    const inicioMes = inicioMesIsoTeste();
+    const hoje = dataIsoBrasiliaHaDias(0);
+
+    // Mesma ordem da view real: resumoEDia → conversao → vendasMensais.
+    await dashboardVendasSstService.obterResumoEDia();
+    await dashboardVendasSstService.obterConversao();
+    await dashboardVendasSstService.obterVendasMensais();
+
+    const fetchMock = global.fetch as jest.Mock;
+    const contarChamadas = (caminho: string) =>
+      fetchMock.mock.calls.filter(([url]) => {
+        const str = String(url);
+        if (!str.includes(caminho)) return false;
+        const parsed = new URL(str);
+        return (
+          parsed.searchParams.get("startDate") === inicioMes &&
+          parsed.searchParams.get("endDate") === hoje
+        );
+      }).length;
+
+    // Se isto passar a dar 2, o waterfall deixou de ser sequencial e o
+    // reaproveitamento via comCache (que hoje é "de graça") parou de
+    // funcionar — ver ponto 2 de docs/optimize.md.
+    expect(contarChamadas("/api/consolidado/nacional-vs-internacional")).toBe(1);
+    expect(contarChamadas("/api/consolidado/non-air")).toBe(1);
+  });
+
+  it("reaproveita /api/reports/saude-bases entre recenciaECruzamento e conversao — não bate 2x no SST pro mesmo total (ver docs/optimize.md, ponto 1)", async () => {
+    // Mesma ordem da view real: recenciaECruzamento → conversao.
+    await dashboardVendasSstService.obterRecenciaECruzamento();
+    await dashboardVendasSstService.obterConversao();
+
+    const fetchMock = global.fetch as jest.Mock;
+    const chamadasSaudeBases = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/reports/saude-bases"),
+    );
+
+    // `totalAgenciasAtivas()` é usada por construirConversao (`ativas`) e
+    // por construirCruzamento (`totalCarteira`) — mesmo dado, mesmo
+    // request. Sem `comCache` nela, batia 2x no SST à toa.
+    expect(chamadasSaudeBases).toHaveLength(1);
+  });
+
   it("mantém intraday/acuracia vindos do mock (fora de escopo — ver docs/faltante.md)", async () => {
     const resultado = await dashboardVendasSstService.obterDashboard();
 
@@ -487,9 +634,10 @@ describe("dashboardVendasSstService", () => {
     expect(resultado.cruzamentoCanais.totalAgenciasCarteira).not.toBe(300);
     // ...mas o resto do dashboard (que não depende disso) continua real.
     expect(resultado.miniKpis).toEqual({
-      clientesDistintos: 62,
-      bilhetesAereo: 270,
-      ticketMedioAereo: 1941.64,
+      hoje: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      ontem: { clientesDistintos: 62, bilhetesAereo: 270, ticketMedioAereo: 1941.64 },
+      mes: { clientesDistintos: 100, bilhetesAereo: 500, ticketMedioAereo: 2000 },
+      ano: { clientesDistintos: 1000, bilhetesAereo: 5000, ticketMedioAereo: 2000 },
     });
   });
 });
