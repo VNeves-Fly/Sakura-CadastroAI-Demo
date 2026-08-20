@@ -10,6 +10,7 @@ import type {
   ExecutivoDashboard,
   KpisSecundarios,
   MiniStats,
+  SegmentoSaude,
   VendasMesHero,
 } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
@@ -213,6 +214,7 @@ interface RawAgenciaAtiva {
   codigo_empresa: number;
   nome: string;
   cnpj: string;
+  empresa_status: string;
 }
 
 async function buscarOverview(data: string, codigoExecutivo: number): Promise<RawOverviewResponse> {
@@ -402,6 +404,80 @@ function paraAgenciaSegmento(
   return { nome: agencia?.nome ?? `Agência ${codigo}`, cnpj: agencia?.cnpj ?? "", valor };
 }
 
+// `saudeCarteira` original da SPEC cruza venda com "limite de crédito
+// comercial" (labels "Ativas c/ crédito"/"Potenciais s/ limite"/"Ociosas
+// limite parado") — bloqueado, esse conceito não existe no schema
+// espelhado do SICA (só existe `histcred`, que é limite de *pagamento*,
+// não de compra; ver docs/mock-exec-resp.md). Decisão do usuário
+// (2026-08-20): reinterpretar os 4 grupos usando só recência de venda +
+// `empresa_status` do roster (mesma fonte de dado de
+// `construirCrossCanalEVendendo30d`, sem nenhuma chamada nova ao SST) —
+// mesma estratégia que `dashboard-vendas.sst-service.ts` já usa pra
+// `recencia`/`cruzamentoCanais` (ver docs/faltante.md), que também nunca
+// teve acesso a limite de crédito.
+function construirSaudeCarteira(
+  codigosEmpresa: number[],
+  rosterPorCodigo: Map<number, RawAgenciaAtiva>,
+  aereo365: Map<number, { tarifa: number; qtd: number }>,
+  terrestre365: Map<number, { tarifa: number; qtd: number }>,
+  vendendo30dSet: Set<number>,
+): SegmentoSaude[] {
+  const total = codigosEmpresa.length;
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
+  const valor365 = (codigo: number) =>
+    (aereo365.get(codigo)?.tarifa ?? 0) + (terrestre365.get(codigo)?.tarifa ?? 0);
+
+  const ativasCodigos = codigosEmpresa.filter((codigo) => vendendo30dSet.has(codigo));
+  const potenciaisCodigos = codigosEmpresa.filter(
+    (codigo) => !vendendo30dSet.has(codigo) && (aereo365.has(codigo) || terrestre365.has(codigo)),
+  );
+  const semVenda365Codigos = codigosEmpresa.filter(
+    (codigo) => !aereo365.has(codigo) && !terrestre365.has(codigo),
+  );
+  const ociosasCodigos = semVenda365Codigos.filter(
+    (codigo) => rosterPorCodigo.get(codigo)?.empresa_status === "ativo",
+  );
+  const inativasCodigos = semVenda365Codigos.filter(
+    (codigo) => rosterPorCodigo.get(codigo)?.empresa_status !== "ativo",
+  );
+
+  const grupo = (
+    chave: SegmentoSaude["chave"],
+    label: string,
+    descricao: string,
+    codigos: number[],
+    comValor: boolean,
+  ): SegmentoSaude => ({
+    chave,
+    label,
+    descricao,
+    quantidade: codigos.length,
+    pct: pct(codigos.length),
+    agencias: codigos.map((codigo) =>
+      paraAgenciaSegmento(codigo, rosterPorCodigo, comValor ? valor365(codigo) : 0),
+    ),
+  });
+
+  return [
+    grupo("ativas", "Ativas", "Vendeu nos últimos 30 dias", ativasCodigos, true),
+    grupo(
+      "potenciais",
+      "Potenciais",
+      "Vendeu nos últimos 12 meses, mas não nos últimos 30 dias",
+      potenciaisCodigos,
+      true,
+    ),
+    grupo("ociosas", "Ociosas", "Aprovada, sem venda nos últimos 12 meses", ociosasCodigos, false),
+    grupo(
+      "inativas",
+      "Inativas",
+      "Status inativo no SICA, sem venda nos últimos 12 meses",
+      inativasCodigos,
+      false,
+    ),
+  ];
+}
+
 async function construirCrossCanalEVendendo30d(
   codigoExecutivo: number,
   totalAgenciasReais: number,
@@ -409,6 +485,7 @@ async function construirCrossCanalEVendendo30d(
   crossCanal: ExecutivoDashboard["crossCanal"];
   vendendo30d: number;
   vendendo30dPct: number;
+  saudeCarteira: SegmentoSaude[];
 }> {
   const hoje = hojeIso();
   const roster = await buscarRoster(codigoExecutivo);
@@ -450,6 +527,13 @@ async function construirCrossCanalEVendendo30d(
     vendendo30d,
     vendendo30dPct:
       totalAgenciasReais > 0 ? Math.round((vendendo30d / totalAgenciasReais) * 100) : 0,
+    saudeCarteira: construirSaudeCarteira(
+      codigosEmpresa,
+      rosterPorCodigo,
+      aereo365,
+      terrestre365,
+      vendendo30dSet,
+    ),
     crossCanal: {
       ativasUltimos12m,
       // = totalAgencias (nosso banco, Agencia.executivoId), não o roster
@@ -517,23 +601,29 @@ async function obterCrossCanalEMiniStats(
   promotorId: string,
   totalAgencias: number,
   agencias: ExecutivoAgenciaResumo[],
-): Promise<{ crossCanal: ExecutivoDashboard["crossCanal"]; miniStats: MiniStats }> {
+): Promise<{
+  crossCanal: ExecutivoDashboard["crossCanal"];
+  miniStats: MiniStats;
+  saudeCarteira: SegmentoSaude[];
+}> {
   const mock = await executivoDashboardMockService.obterDashboard(
     promotorId,
     totalAgencias,
     agencias,
   );
   const resultado = await comFallback(
-    "crossCanal+vendendo30d",
+    "crossCanal+vendendo30d+saudeCarteira",
     construirCrossCanalEVendendo30d(codigoExecutivo, totalAgencias),
     {
       crossCanal: mock.crossCanal,
       vendendo30d: mock.miniStats.vendendo30d,
       vendendo30dPct: mock.miniStats.vendendo30dPct,
+      saudeCarteira: mock.saudeCarteira,
     },
   );
   return {
     crossCanal: resultado.crossCanal,
+    saudeCarteira: resultado.saudeCarteira,
     miniStats: {
       ...mock.miniStats,
       agencias: totalAgencias,

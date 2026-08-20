@@ -5,6 +5,7 @@ import type {
   ExecutivoDashboard,
   KpisSecundarios,
   MiniStats,
+  SegmentoSaude,
 } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 // Ponto único de decisão mock↔real do dashboard do executivo (mesmo
@@ -44,12 +45,20 @@ export const executivoDashboardController = {
     return { hero: mock.hero, kpis: mock.kpis };
   },
 
+  // `saudeCarteira` vem junto (mesma chamada/loop por agência de
+  // crossCanal — sem custo extra ao SST); reinterpretada por recência de
+  // venda + `empresa_status` do roster, não por limite de crédito
+  // (bloqueado, ver executivo-dashboard.sst-service.ts).
   async obterCrossCanalEMiniStats(
     sica: number | null,
     promotorId: string,
     totalAgencias: number,
     agencias: ExecutivoAgenciaResumo[],
-  ): Promise<{ crossCanal: ExecutivoDashboard["crossCanal"]; miniStats: MiniStats }> {
+  ): Promise<{
+    crossCanal: ExecutivoDashboard["crossCanal"];
+    miniStats: MiniStats;
+    saudeCarteira: SegmentoSaude[];
+  }> {
     if (usaSstReal(sica)) {
       return executivoDashboardSstService.obterCrossCanalEMiniStats(
         sica,
@@ -63,35 +72,10 @@ export const executivoDashboardController = {
       totalAgencias,
       agencias,
     );
-    return { crossCanal: mock.crossCanal, miniStats: mock.miniStats };
-  },
-
-  // Campos que nunca dependem do SST hoje — sem componente de UI pra
-  // vendasMensais/tendencia30d/topAgencias (ver executivo-dashboard.sst-service.ts)
-  // e saudeCarteira/fidelidadePorCompanhia/paradasComHistorico/emQueda
-  // bloqueados por decisão de negócio (ver plano de implementação).
-  // Resolve na hora (sem I/O) — não precisa de Suspense.
-  async obterSecoesEstaticas(
-    promotorId: string,
-    totalAgencias: number,
-    agencias: ExecutivoAgenciaResumo[],
-  ): Promise<
-    Pick<
-      ExecutivoDashboard,
-      | "saudeCarteira"
-      | "fidelidadePorCompanhia"
-      | "vendasMensais"
-      | "vendasMensaisTotalAno"
-      | "vendasMensaisVariacaoAltaPct"
-      | "vendasMensaisVariacaoBaixaPct"
-      | "tendencia30d"
-      | "tendencia30dTotal"
-      | "topAgenciasMes"
-      | "topAgenciasAno"
-      | "paradasComHistorico"
-      | "emQueda"
-    >
-  > {
-    return executivoDashboardMockService.obterDashboard(promotorId, totalAgencias, agencias);
+    return {
+      crossCanal: mock.crossCanal,
+      miniStats: mock.miniStats,
+      saudeCarteira: mock.saudeCarteira,
+    };
   },
 };

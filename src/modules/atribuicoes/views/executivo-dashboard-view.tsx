@@ -51,11 +51,6 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
       agencias,
     ),
   );
-  const secoesEstaticasPromise = executivoDashboardController.obterSecoesEstaticas(
-    perfil.id,
-    perfil.totalAgencias,
-    agencias,
-  );
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -101,7 +96,7 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
       </Suspense>
 
       <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
-        <ExecutivoSaudeCarteiraSecao secoesEstaticasPromise={secoesEstaticasPromise} />
+        <ExecutivoSaudeCarteiraSecao crossCanalPromise={crossCanalPromise} />
       </Suspense>
     </div>
   );

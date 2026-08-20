@@ -2,14 +2,16 @@ import { SaudeCarteiraCard } from "@/modules/atribuicoes/components/executivo/da
 import type { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 
 interface ExecutivoSaudeCarteiraSecaoProps {
-  secoesEstaticasPromise: ReturnType<typeof executivoDashboardController.obterSecoesEstaticas>;
+  crossCanalPromise: ReturnType<typeof executivoDashboardController.obterCrossCanalEMiniStats>;
 }
 
-// `saudeCarteira` é 100% mock hoje (sem I/O, ver executivo-dashboard.controller.ts)
-// — em Suspense só por simetria com as outras seções, resolve na hora.
+// `saudeCarteira` vem da mesma chamada de `crossCanal` (mesmo roster +
+// dados de recência já buscados, ver executivo-dashboard.sst-service.ts)
+// — Suspense próprio só pra não acoplar a renderização deste card à de
+// `ExecutivoCrossCanalSecao`, mas ambos resolvem junto (mesma promise).
 export async function ExecutivoSaudeCarteiraSecao({
-  secoesEstaticasPromise,
+  crossCanalPromise,
 }: ExecutivoSaudeCarteiraSecaoProps) {
-  const { saudeCarteira } = await secoesEstaticasPromise;
+  const { saudeCarteira } = await crossCanalPromise;
   return <SaudeCarteiraCard segmentos={saudeCarteira} />;
 }
