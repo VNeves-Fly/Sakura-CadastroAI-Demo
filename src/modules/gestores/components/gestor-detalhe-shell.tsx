@@ -9,7 +9,9 @@ import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types
 
 interface GestorDetalheShellProps {
   perfil: GestorPerfil;
-  abaAtiva: "dashboard" | "executivos" | "agenda" | "agencias";
+  // "agenda" removida (pedido do usuário, 2026-08-20) — aba e rota
+  // apagadas, ver gestor-tabs-nav.tsx.
+  abaAtiva: "dashboard" | "executivos" | "agencias";
   children: ReactNode;
 }
 
