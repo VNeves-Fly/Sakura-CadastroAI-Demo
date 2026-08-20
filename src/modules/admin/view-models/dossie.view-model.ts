@@ -63,6 +63,7 @@ export async function obterDossieView(id: string) {
     historicoComplementar,
     decisoesHumanas,
     notificacoes,
+    observacoes,
   ] = await Promise.all([
     contratoAtual
       ? cadastroAdminController.listarEmailsFalhaEntregaContrato(contratoAtual.id)
@@ -108,6 +109,9 @@ export async function obterDossieView(id: string) {
     // Log de "cliente enviou algo novo" (mensagem/documento) — filtrado
     // abaixo pelas que ainda não foram vistas por quem estava atendendo.
     cadastroAdminController.listarNotificacoes(agencia.id),
+    // Notas livres do analista sobre o cadastro (ver ObservacaoCadastro) —
+    // mais recente primeiro, não afeta nenhum outro dado da agência.
+    cadastroAdminController.listarObservacoes(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
   // `keySigner` também vem daqui — precisa pro botão "Ver/copiar link" na
@@ -226,5 +230,6 @@ export async function obterDossieView(id: string) {
     historicoEdicoesEmpresa,
     decisaoComplementar,
     notificacoesPendentes,
+    observacoes,
   };
 }

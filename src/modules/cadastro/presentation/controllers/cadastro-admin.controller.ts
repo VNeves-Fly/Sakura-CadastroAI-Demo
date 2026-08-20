@@ -13,6 +13,7 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaHistoricoEdicaoCadastroRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-historico-edicao-cadastro.repository";
+import { PrismaObservacaoCadastroRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-observacao-cadastro.repository";
 import { PrismaDecisaoHumanaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-decisao-humana.repository";
 import { PrismaNotificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-notificacao.repository";
 import { MockD4SignService } from "@/modules/cadastro/infrastructure/adapters/mock-d4sign.adapter";
@@ -39,6 +40,10 @@ import { InserirDocumentoManualUseCase } from "@/modules/cadastro/application/us
 import type { InserirDocumentoManualInput } from "@/modules/cadastro/application/use-cases/inserir-documento-manual.use-case";
 import { EditarDadosEmpresaUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
 import type { EditarDadosEmpresaInput } from "@/modules/cadastro/application/use-cases/editar-dados-empresa.use-case";
+import {
+  RegistrarObservacaoCadastroUseCase,
+  type RegistrarObservacaoCadastroInput,
+} from "@/modules/cadastro/application/use-cases/registrar-observacao-cadastro.use-case";
 import { EditarDadosBancariosUseCase } from "@/modules/cadastro/application/use-cases/editar-dados-bancarios.use-case";
 import type { EditarDadosBancariosInput } from "@/modules/cadastro/application/use-cases/editar-dados-bancarios.use-case";
 import { ListarCadastrosUseCase } from "@/modules/cadastro/application/use-cases/listar-cadastros.use-case";
@@ -184,6 +189,7 @@ const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaRepository(prisma);
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const historicoEdicaoCadastroRepository = new PrismaHistoricoEdicaoCadastroRepository(prisma);
+const observacaoCadastroRepository = new PrismaObservacaoCadastroRepository(prisma);
 const decisaoHumanaRepository = new PrismaDecisaoHumanaRepository(prisma);
 const notificacaoRepository = new PrismaNotificacaoRepository(prisma);
 // Mesmo critério do FileStorage: GCS real quando GCS_BUCKET_NAME está
@@ -667,6 +673,18 @@ export const cadastroAdminController = {
 
   listarHistoricoEdicoes(entidadeId: string) {
     return historicoEdicaoCadastroRepository.findByEntidadeId(entidadeId);
+  },
+
+  listarObservacoes(agenciaId: string) {
+    return observacaoCadastroRepository.findByAgenciaId(agenciaId);
+  },
+
+  registrarObservacao(input: RegistrarObservacaoCadastroInput) {
+    const useCase = new RegistrarObservacaoCadastroUseCase(
+      observacaoCadastroRepository,
+      agenciaRepository,
+    );
+    return useCase.execute(input);
   },
 
   editarDadosEmpresa(input: EditarDadosEmpresaInput) {

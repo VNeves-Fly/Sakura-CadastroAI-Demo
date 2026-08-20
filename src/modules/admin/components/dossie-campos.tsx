@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Eye } from "lucide-react";
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
+import type { ObservacaoCadastro } from "@/modules/cadastro/domain/entities/observacao-cadastro.entity";
 import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 import type { DadosReceitaCnae } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
@@ -1640,5 +1641,80 @@ export function HistoricoAtendimentoAgencia({
         ))}
       </div>
     </details>
+  );
+}
+
+type RegistrarObservacaoActionFn = (agenciaId: string, formData: FormData) => Promise<void>;
+
+// Lista de observações livres do analista sobre o cadastro (ver
+// ObservacaoCadastro) — não muda nenhum dado da agência, é só contexto que
+// não cabe em campo estruturado (ex.: "cliente pediu pra ligar depois das
+// 18h"). Append-only: sem editar/remover, mesma convenção de
+// HistoricoEdicaoCadastro/HistoricoAtendimentoAgencia. `somenteLeitura`
+// esconde só o formulário de registrar — a lista continua visível pra
+// qualquer cargo com acesso ao dossiê.
+export function ObservacoesCadastro({
+  agenciaId,
+  observacoes,
+  registrarObservacaoAction,
+  somenteLeitura = false,
+}: {
+  agenciaId: string;
+  observacoes: ObservacaoCadastro[];
+  registrarObservacaoAction: RegistrarObservacaoActionFn;
+  somenteLeitura?: boolean;
+}) {
+  const [enviando, setEnviando] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {!somenteLeitura ? (
+        <form
+          action={async (formData) => {
+            setEnviando(true);
+            try {
+              await registrarObservacaoAction(agenciaId, formData);
+            } finally {
+              setEnviando(false);
+            }
+          }}
+          className="flex flex-col gap-2"
+        >
+          <textarea
+            name="texto"
+            required
+            rows={2}
+            placeholder="Registrar uma observação sobre este cadastro..."
+            className={TEXTAREA_MOTIVO_DECISAO}
+          />
+          <button
+            type="submit"
+            disabled={enviando}
+            className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {enviando ? "Enviando..." : "Registrar observação"}
+          </button>
+        </form>
+      ) : null}
+
+      {observacoes.length === 0 ? (
+        <p className="text-muted-foreground text-sm">Nenhuma observação registrada ainda.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {observacoes.map((observacao) => (
+            <div
+              key={observacao.id}
+              className="border-border bg-muted/20 flex flex-col gap-1 rounded-xl border px-3 py-2 text-sm"
+            >
+              <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-foreground font-semibold">{observacao.registradoPor}</span>
+                <span>{formatarData(observacao.createdAt)}</span>
+              </div>
+              <p className="text-foreground whitespace-pre-wrap">{observacao.texto}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

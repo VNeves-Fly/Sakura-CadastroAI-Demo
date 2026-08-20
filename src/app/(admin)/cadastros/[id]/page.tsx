@@ -18,6 +18,7 @@ import {
   ScrollText,
   FolderCheck,
   Bell,
+  MessageSquare,
   Sparkles,
   Eye,
   Clock,
@@ -39,6 +40,7 @@ import {
   ComparacaoEnderecoEmpresa,
   CampoEmailContato,
   HistoricoAtendimentoAgencia,
+  ObservacoesCadastro,
 } from "@/modules/admin/components/dossie-campos";
 import {
   formatarData,
@@ -105,6 +107,7 @@ import {
   reprovarDocumentoAction,
   inserirDocumentoManualAction,
   reanalisarDocumentoAction,
+  registrarObservacaoAction,
   editarSocioAction,
   adicionarSocioAction,
   removerSocioAction,
@@ -340,6 +343,7 @@ export default async function DossieAgenciaPage({
     historicoEdicoesEmpresa,
     decisaoComplementar,
     notificacoesPendentes,
+    observacoes,
   } = view;
 
   // Item mais recente do histórico de edições da própria Agencia cujo
@@ -598,6 +602,25 @@ export default async function DossieAgenciaPage({
           />
         </div>
       ) : null}
+
+      {/* Observações não são específicas de etapa (decisão do usuário,
+          2026-08-20) — ficam sempre visíveis, independente de qual etapa
+          está sendo exibida na trilha. Quem pode registrar é o mesmo
+          critério das outras ações do dossiê: atendimento assumido, sem
+          depender de estar na etapa atual (por isso `atendimentoAssumidoPorMim`
+          direto, não `podeAgir`). */}
+      <SecaoColapsavel
+        titulo="Observações"
+        icon={<MessageSquare className="size-4" />}
+        defaultAberta
+      >
+        <ObservacoesCadastro
+          agenciaId={agencia.id}
+          observacoes={observacoes}
+          registrarObservacaoAction={registrarObservacaoAction}
+          somenteLeitura={!atendimentoAssumidoPorMim}
+        />
+      </SecaoColapsavel>
 
       {/* Complementar concentra TODOS os dados que o cliente preencheu
           (/cadastro + /chat) + revisão de documento — só existe nesta

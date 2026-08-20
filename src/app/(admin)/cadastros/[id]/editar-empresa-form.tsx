@@ -97,7 +97,7 @@ export function EditarEmpresaForm({
           onClick={() => setAberto(false)}
         >
           <div
-            className="bg-card flex h-full max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl shadow-2xl"
+            className="bg-card flex h-full max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="border-border flex items-center justify-between gap-2 border-b px-5 py-3">
