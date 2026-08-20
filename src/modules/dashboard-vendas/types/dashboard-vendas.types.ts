@@ -204,8 +204,11 @@ export interface DashboardVendasData {
   conversao: Conversao;
   vendasMensais: VendaMensal[];
   vendasDiarias: VendaDiaria[];
-  rankingPorMes: Record<string, TopAgencia[]>;
-  fornecedoresPorMes: Record<string, TopFornecedor[]>;
+  // Chave por PeriodoResumo (não só mês/ano) — filtro do cabeçalho agora
+  // dirige os rankings também (pedido do usuário, 2026-08-20; antes só
+  // "mes"/"ano", cada card tinha seu próprio período isolado).
+  rankingPorPeriodo: Record<PeriodoResumo, TopAgencia[]>;
+  fornecedoresPorPeriodo: Record<PeriodoResumo, TopFornecedor[]>;
   nacionalInternacionalPorMes: Record<string, NacionalInternacional>;
   cruzamentoCanais: CruzamentoCanais;
   cruzamentoDetalhe: Record<ChaveCruzamento, AgenciaCruzamentoDetalhe[]>;

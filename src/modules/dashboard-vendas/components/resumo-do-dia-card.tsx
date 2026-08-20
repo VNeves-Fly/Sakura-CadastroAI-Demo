@@ -1,10 +1,9 @@
 "use client";
 
 import { Bus, Clock, Plane } from "lucide-react";
-import { PeriodToggle } from "@/modules/dashboard-vendas/components/ui/period-toggle";
 import { KpiCard } from "@/modules/dashboard-vendas/components/ui/kpi-card";
 import { NacIntMiniBar } from "@/modules/dashboard-vendas/components/ui/nac-int-mini-bar";
-import { PersonalizadoDateRange } from "@/modules/dashboard-vendas/components/ui/personalizado-date-range";
+import { FiltroPeriodoDashboardPopover } from "@/modules/dashboard-vendas/components/ui/filtro-periodo-dashboard-popover";
 import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
 import {
@@ -17,57 +16,29 @@ import {
   COR_ROSA,
   COR_ROSA_BG,
 } from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
+import {
+  useFiltroPeriodoDashboardStore,
+  resolverPeriodo,
+} from "@/modules/dashboard-vendas/stores/filtro-periodo-dashboard.store";
 import type {
   PeriodoResumo,
   ResumoDia,
 } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
-// "Personalizado" é só de UI por enquanto — não existe (ainda) uma fonte
-// de dados que calcule um intervalo arbitrário de datas (isso exigiria
-// uma consulta nova no back-end, fora do escopo atual, que é só front-end
-// — decisão do usuário, 2026-08-18). Enquanto isso, mostra a prévia de
-// "Este mês" com um aviso deixando claro que o filtro ainda não está
-// conectado a um cálculo real.
-export type FiltroResumo = PeriodoResumo | "personalizado";
-export const PERIODO_PREVIA_PERSONALIZADO: PeriodoResumo = "mes";
-
-const OPCOES_PERIODO: { valor: FiltroResumo; label: string }[] = [
-  { valor: "hoje", label: "Hoje" },
-  { valor: "ontem", label: "Ontem" },
-  { valor: "mes", label: "Este mês" },
-  { valor: "ano", label: "Este ano" },
-  { valor: "personalizado", label: "Personalizado" },
-];
-
 interface ResumoDoDiaCardProps {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
-  // Estado do filtro controlado pelo pai (ResumoDoDiaComMiniKpis) — os
-  // mini-KPIs de baixo (Clientes/Bilhetes/Ticket Médio) precisam do mesmo
-  // período selecionado aqui, então não pode mais ser state interno
-  // (corrigido 2026-08-19, ver comentário em mini-kpis-grid.tsx).
-  filtro: FiltroResumo;
-  onFiltroChange: (filtro: FiltroResumo) => void;
-  dataInicial: string;
-  onDataInicialChange: (valor: string) => void;
-  dataFinal: string;
-  onDataFinalChange: (valor: string) => void;
 }
 
 // 4.1 — KPI principal do topo, seletor de período e o par Aéreo/Terrestre,
-// cada um com sua barra de share Nacional/Internacional embaixo. Todo o
-// toggle é local/client-side: os 4 cenários já vêm calculados na fixture,
-// sem refetch.
-export function ResumoDoDiaCard({
-  resumoPorPeriodo,
-  filtro,
-  onFiltroChange,
-  dataInicial,
-  onDataInicialChange,
-  dataFinal,
-  onDataFinalChange,
-}: ResumoDoDiaCardProps) {
+// cada um com sua barra de share Nacional/Internacional embaixo. Filtro de
+// período agora vem da store global (`useFiltroPeriodoDashboardStore`) —
+// dirige também os mini-KPIs de baixo e os rankings de Top 10 Agências/
+// Fornecedores (pedido do usuário, 2026-08-20; antes era state local só
+// deste card, levantado uma vez até `ResumoDoDiaComMiniKpis` em 2026-08-19).
+export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
+  const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
   const personalizado = filtro === "personalizado";
-  const periodoComDados: PeriodoResumo = personalizado ? PERIODO_PREVIA_PERSONALIZADO : filtro;
+  const periodoComDados: PeriodoResumo = resolverPeriodo(filtro);
   const resumo = resumoPorPeriodo[periodoComDados];
   const totalPeriodo = resumo.aereo.valor + resumo.terrestre.valor;
   // Ticket médio por canal — computado aqui mesmo (valor / quantidade),
@@ -101,18 +72,7 @@ export function ResumoDoDiaCard({
           </p>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
-          <PeriodToggle opcoes={OPCOES_PERIODO} valor={filtro} onChange={onFiltroChange} />
-
-          {personalizado ? (
-            <PersonalizadoDateRange
-              dataInicial={dataInicial}
-              dataFinal={dataFinal}
-              onDataInicialChange={onDataInicialChange}
-              onDataFinalChange={onDataFinalChange}
-            />
-          ) : null}
-        </div>
+        <FiltroPeriodoDashboardPopover />
       </div>
 
       {personalizado ? <PersonalizadoAviso periodoPreviaLabel="Este mês" /> : null}
