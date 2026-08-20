@@ -1,23 +1,61 @@
-"use client";
-
 import Link from "next/link";
+import { Suspense } from "react";
 import { AlertTriangle } from "lucide-react";
 import { ExecutivoProfileHeader } from "@/modules/atribuicoes/components/executivo/executivo-profile-header";
 import { ExecutivoTabsNav } from "@/modules/atribuicoes/components/executivo/executivo-tabs-nav";
-import { VendasMesHeroCard } from "@/modules/atribuicoes/components/executivo/dashboard/vendas-mes-hero-card";
-import { KpisSecundariosGrid } from "@/modules/atribuicoes/components/executivo/dashboard/kpis-secundarios";
-import { MiniStatsGrid } from "@/modules/atribuicoes/components/executivo/dashboard/mini-stats";
-import { CrossCanalCard } from "@/modules/atribuicoes/components/executivo/dashboard/cross-canal-card";
-import { SaudeCarteiraCard } from "@/modules/atribuicoes/components/executivo/dashboard/saude-carteira-card";
-import type { ExecutivoDetalheView } from "@/modules/atribuicoes/types/executivo-detalhe.types";
+import { SecaoSkeleton } from "@/modules/atribuicoes/components/executivo/dashboard/secao-skeleton";
+import { ExecutivoHeroKpisSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-hero-kpis-secao";
+import { ExecutivoCrossCanalSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-cross-canal-secao";
+import { ExecutivoSaudeCarteiraSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-saude-carteira-secao";
+import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
+import type {
+  ExecutivoAgenciaResumo,
+  ExecutivoPerfil,
+} from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 interface ExecutivoDashboardViewProps {
-  detalhe: ExecutivoDetalheView;
+  perfil: ExecutivoPerfil;
+  agencias: ExecutivoAgenciaResumo[];
 }
 
-export function ExecutivoDashboardView({ detalhe }: ExecutivoDashboardViewProps) {
-  const { perfil, dashboard } = detalhe;
+// Encadeia a seção pesada (`crossCanal`) depois que a rápida (`heroKpis`)
+// resolveu ou falhou — nunca propaga a rejeição de `gate` adiante, só usa
+// pra escalonar o timing. Mesmo truque de dashboard-vendas-view.tsx: evita
+// disparar todas as chamadas ao SST de uma vez, que foi a causa da
+// lentidão reportada (2026-08-20) — a página esperava as ~2N chamadas do
+// loop de terrestre por agência resolverem antes de mostrar até o hero.
+function depoisDe<T>(gate: Promise<unknown>, tarefa: () => Promise<T>): Promise<T> {
+  return gate.catch(() => undefined).then(() => tarefa());
+}
+
+// Dispara as buscas aqui (não em page.tsx) e passa as promises ainda
+// pendentes pros componentes de seção, cada um no seu próprio `Suspense` —
+// a página abre com o header/perfil (já real, sem SST) na hora, hero/kpis
+// logo em seguida, e só a seção de crossCanal (a mais cara) fica em
+// skeleton por mais tempo. Mesma arquitetura de streaming de
+// dashboard-vendas-view.tsx.
+export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardViewProps) {
   const nomeBase = perfil.bases[0] ? `${perfil.nome} (${perfil.bases[0]})` : perfil.nome;
+
+  const heroKpisPromise = executivoDashboardController.obterHeroKpis(
+    perfil.sica,
+    perfil.id,
+    perfil.totalAgencias,
+    agencias,
+  );
+  const crossCanalPromise = depoisDe(heroKpisPromise, () =>
+    executivoDashboardController.obterCrossCanalEMiniStats(
+      perfil.sica,
+      perfil.id,
+      perfil.totalAgencias,
+      agencias,
+    ),
+  );
+  const secoesEstaticasPromise = executivoDashboardController.obterSecoesEstaticas(
+    perfil.id,
+    perfil.totalAgencias,
+    agencias,
+  );
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -47,12 +85,24 @@ export function ExecutivoDashboardView({ detalhe }: ExecutivoDashboardViewProps)
         </div>
       ) : null}
 
-      <VendasMesHeroCard hero={dashboard.hero} />
-      <KpisSecundariosGrid kpis={dashboard.kpis} />
-      <MiniStatsGrid miniStats={dashboard.miniStats} />
+      <Suspense fallback={<SecaoSkeleton altura="h-40" />}>
+        <ExecutivoHeroKpisSecao heroKpisPromise={heroKpisPromise} />
+      </Suspense>
 
-      <CrossCanalCard crossCanal={dashboard.crossCanal} />
-      <SaudeCarteiraCard segmentos={dashboard.saudeCarteira} />
+      <Suspense
+        fallback={
+          <>
+            <SecaoSkeleton altura="h-24" />
+            <SecaoSkeleton altura="h-72" />
+          </>
+        }
+      >
+        <ExecutivoCrossCanalSecao crossCanalPromise={crossCanalPromise} />
+      </Suspense>
+
+      <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
+        <ExecutivoSaudeCarteiraSecao secoesEstaticasPromise={secoesEstaticasPromise} />
+      </Suspense>
     </div>
   );
 }

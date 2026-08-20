@@ -150,8 +150,3 @@ export interface ExecutivoDashboard {
   paradasComHistorico: AgenciaRisco[];
   emQueda: AgenciaEmQueda[];
 }
-
-export interface ExecutivoDetalheView {
-  perfil: ExecutivoPerfil;
-  dashboard: ExecutivoDashboard;
-}

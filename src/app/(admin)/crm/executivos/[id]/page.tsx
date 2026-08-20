@@ -6,7 +6,6 @@ import {
   mapAgencia,
   montarExecutivoPerfil,
 } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
-import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 import { ExecutivoDashboardView } from "@/modules/atribuicoes/views/executivo-dashboard-view";
 
 const CARGOS_ADMIN = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
@@ -34,12 +33,9 @@ export default async function ExecutivoDetalhePage({ params }: { params: { id: s
   );
 
   const perfil = montarExecutivoPerfil(promotor.toJSON(), gestoresPorId, agencias);
-  const { dashboard } = await executivoDashboardController.obterDashboard(
-    perfil.sica,
-    perfil.id,
-    perfil.totalAgencias,
-    agencias.map(mapAgencia),
-  );
 
-  return <ExecutivoDashboardView detalhe={{ perfil, dashboard }} />;
+  // Busca do dashboard (SST) disparada dentro de `ExecutivoDashboardView`,
+  // não aqui — a página não espera por ela, só por `perfil`/`agencias`
+  // (banco próprio, rápido). Ver comentário em executivo-dashboard-view.tsx.
+  return <ExecutivoDashboardView perfil={perfil} agencias={agencias.map(mapAgencia)} />;
 }

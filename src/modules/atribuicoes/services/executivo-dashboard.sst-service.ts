@@ -9,8 +9,7 @@ import type {
   ExecutivoAgenciaResumo,
   ExecutivoDashboard,
   KpisSecundarios,
-  RankingAgencia,
-  VendaMensal,
+  MiniStats,
   VendasMesHero,
 } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
@@ -31,6 +30,26 @@ import type {
 // `/api/consolidado/non-air?codigoEmpresa=X` (agregado, esse sim filtra
 // certo) em vez da listagem bruta. `/api/reports/ranking-cias` também não
 // filtra por executivo — `fidelidadePorCompanhia` continua mock.
+//
+// Duas funções expostas (`obterHeroKpis`/`obterCrossCanalEMiniStats`), não
+// uma só `obterDashboard` — pedido do usuário (2026-08-20): a página
+// `/crm/executivos/:id` estava demorando muito pra abrir porque esperava
+// as duas seções (rápida + pesada) resolverem juntas antes de renderizar
+// qualquer coisa. Separadas, o controller/view (ver
+// executivo-dashboard.controller.ts e executivo-dashboard-view.tsx) pode
+// mostrar hero+kpis assim que prontos e só a seção de crossCanal (a mais
+// pesada, por causa do loop por agência) fica atrás de Suspense — mesma
+// filosofia de streaming progressivo do dashboard-vendas.sst-service.ts.
+//
+// `vendasMensais`/`tendencia30d`/`topAgenciasMes`/`topAgenciasAno` NÃO são
+// computados aqui (ficam mock, via `...mock` no retorno) — nenhum
+// componente em `components/executivo/dashboard/` consome esses campos
+// hoje (só existem no tipo `ExecutivoDashboard`), então buscá-los de
+// verdade seria ~78 chamadas ao SST por carregamento sem nenhum ganho
+// visível — era a maior fatia do tempo de carregamento reportado como
+// lento. As queries (nacional-vs-internacional por mês, air/non-air por
+// dia, top-clientes) continuam documentadas no plano de implementação;
+// reintroduzir quando um card de verdade existir pra esses dados.
 
 const TTL_CACHE_MS = 10 * 60 * 1000;
 const cache = new Map<string, { expiraEm: number; valor: unknown }>();
@@ -154,37 +173,6 @@ function janelaMesAnterior(): { inicio: string; fim: string } {
   };
 }
 
-const NOMES_MESES = [
-  "Jan",
-  "Fev",
-  "Mar",
-  "Abr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Set",
-  "Out",
-  "Nov",
-  "Dez",
-];
-
-function mesesDoAnoAteHoje(): Array<{ label: string; inicio: string; fim: string }> {
-  const { ano, mes } = partesHoje();
-  const sufixoAno = String(ano).slice(-2);
-  const meses: Array<{ label: string; inicio: string; fim: string }> = [];
-  for (let m = 1; m <= mes; m++) {
-    const inicio = paraIso(ano, m, 1);
-    const fim = m === mes ? hojeIso() : paraIso(ano, m, ultimoDiaDoMes(ano, m));
-    meses.push({ label: `${NOMES_MESES[m - 1]}/${sufixoAno}`, inicio, fim });
-  }
-  return meses;
-}
-
-function ultimosNDias(quantidade: number): string[] {
-  return Array.from({ length: quantidade }, (_, indice) => diasAtrasIso(quantidade - 1 - indice));
-}
-
 function calcularVariacaoPct(atual: number, anterior: number): number {
   return anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
 }
@@ -221,26 +209,10 @@ interface RawResumoAgrupadoLinha {
   quantidade_bilhetes: number;
 }
 
-interface RawNacIntRow {
-  tipo_rota: "NAC" | "INTER";
-  total_bilhetes: number;
-  tarifa_total: number;
-}
-
 interface RawAgenciaAtiva {
   codigo_empresa: number;
   nome: string;
   cnpj: string;
-}
-
-interface RawTopCliente {
-  codigo: number;
-  nome: string;
-  tarifa: number;
-  tickets: number;
-}
-interface RawTopClientesResponse {
-  geral: RawTopCliente[];
 }
 
 async function buscarOverview(data: string, codigoExecutivo: number): Promise<RawOverviewResponse> {
@@ -290,32 +262,6 @@ async function buscarNonAir(
       status: "ATIVOS",
     }),
   );
-}
-
-async function buscarNacInt(
-  inicio: string,
-  fim: string,
-  codigoExecutivo: number,
-): Promise<RawPaginado<RawNacIntRow>> {
-  return comCache(`exec:${codigoExecutivo}:nacint:${inicio}:${fim}`, () =>
-    sstGet<RawPaginado<RawNacIntRow>>("/api/consolidado/nacional-vs-internacional", {
-      startDate: inicio,
-      endDate: fim,
-      codigoExecutivo,
-    }),
-  );
-}
-
-function paraNacionalInternacional(linhas: RawNacIntRow[]): {
-  nacional: number;
-  internacional: number;
-} {
-  const nacional = linhas.find((linha) => linha.tipo_rota === "NAC");
-  const internacional = linhas.find((linha) => linha.tipo_rota === "INTER");
-  return {
-    nacional: nacional?.tarifa_total ?? 0,
-    internacional: internacional?.tarifa_total ?? 0,
-  };
 }
 
 // `/api/agencias/ativas?codigoExecutivo=X` — roster completo da carteira
@@ -447,55 +393,6 @@ async function construirHeroEKpis(
   };
 }
 
-async function construirVendasMensaisETendencia(codigoExecutivo: number): Promise<{
-  vendasMensais: VendaMensal[];
-  vendasMensaisTotalAno: number;
-  vendasMensaisVariacaoAltaPct: number;
-  vendasMensaisVariacaoBaixaPct: number;
-  tendencia30d: number[];
-  tendencia30dTotal: number;
-}> {
-  const meses = mesesDoAnoAteHoje();
-  const vendasMensais = await Promise.all(
-    meses.map(async (mes): Promise<VendaMensal> => {
-      const [nacInt, terrestre] = await Promise.all([
-        buscarNacInt(mes.inicio, mes.fim, codigoExecutivo),
-        buscarNonAir(mes.inicio, mes.fim, codigoExecutivo),
-      ]);
-      const { nacional, internacional } = paraNacionalInternacional(nacInt.data);
-      return { mes: mes.label, nacional, internacional, terrestre: terrestre.tarifa };
-    }),
-  );
-
-  const totaisMensais = vendasMensais.map(
-    (mes) => mes.nacional + mes.internacional + mes.terrestre,
-  );
-  const vendasMensaisTotalAno = totaisMensais.reduce((acc, valor) => acc + valor, 0);
-  const variacoesMensais = totaisMensais
-    .slice(1)
-    .map((valor, indice) => calcularVariacaoPct(valor, totaisMensais[indice]!));
-
-  const dias = ultimosNDias(30);
-  const valoresDiarios = await Promise.all(
-    dias.map(async (dia) => {
-      const [air, nonAir] = await Promise.all([
-        buscarAir(dia, dia, codigoExecutivo),
-        buscarNonAir(dia, dia, codigoExecutivo),
-      ]);
-      return air.tarifa + nonAir.tarifa;
-    }),
-  );
-
-  return {
-    vendasMensais,
-    vendasMensaisTotalAno,
-    vendasMensaisVariacaoAltaPct: variacoesMensais.length > 0 ? Math.max(...variacoesMensais) : 0,
-    vendasMensaisVariacaoBaixaPct: variacoesMensais.length > 0 ? Math.min(...variacoesMensais) : 0,
-    tendencia30d: valoresDiarios,
-    tendencia30dTotal: valoresDiarios.reduce((acc, valor) => acc + valor, 0),
-  };
-}
-
 function paraAgenciaSegmento(
   codigo: number,
   roster: Map<number, RawAgenciaAtiva>,
@@ -589,96 +486,64 @@ async function construirCrossCanalEVendendo30d(
   };
 }
 
-async function construirTopAgencias(
-  codigoExecutivo: number,
-  inicio: string,
-  fim: string,
-): Promise<RankingAgencia[]> {
-  const resposta = await comCache(`exec:${codigoExecutivo}:top-clientes:${inicio}:${fim}`, () =>
-    sstGet<RawTopClientesResponse>("/api/consolidado/top-clientes", {
-      startDate: inicio,
-      endDate: fim,
-      codigoExecutivo,
-      limit: 20,
-    }),
-  );
-  return resposta.geral.map((item, indice) => ({
-    posicao: indice + 1,
-    nome: item.nome,
-    valor: item.tarifa,
-  }));
-}
-
-async function obterDashboard(
+// Seção rápida (~6 chamadas, todas agregadas — sem loop por agência) —
+// pode renderizar assim que pronta, sem esperar `obterCrossCanalEMiniStats`.
+async function obterHeroKpis(
   codigoExecutivo: number,
   promotorId: string,
+  totalAgencias: number,
   agencias: ExecutivoAgenciaResumo[],
-): Promise<ExecutivoDashboard> {
+): Promise<{ hero: ExecutivoDashboard["hero"]; kpis: KpisSecundarios }> {
   const mock = await executivoDashboardMockService.obterDashboard(
     promotorId,
-    agencias.length,
+    totalAgencias,
     agencias,
   );
-
-  const [heroEKpis, vendasETendencia, crossCanalEVendendo, topMes, topAno] = await Promise.all([
-    comFallback("hero+kpis", construirHeroEKpis(codigoExecutivo), {
-      hero: mock.hero,
-      kpis: mock.kpis,
-    }),
-    comFallback("vendasMensais+tendencia30d", construirVendasMensaisETendencia(codigoExecutivo), {
-      vendasMensais: mock.vendasMensais,
-      vendasMensaisTotalAno: mock.vendasMensaisTotalAno,
-      vendasMensaisVariacaoAltaPct: mock.vendasMensaisVariacaoAltaPct,
-      vendasMensaisVariacaoBaixaPct: mock.vendasMensaisVariacaoBaixaPct,
-      tendencia30d: mock.tendencia30d,
-      tendencia30dTotal: mock.tendencia30dTotal,
-    }),
-    comFallback(
-      "crossCanal+vendendo30d",
-      construirCrossCanalEVendendo30d(codigoExecutivo, agencias.length),
-      {
-        crossCanal: mock.crossCanal,
-        vendendo30d: mock.miniStats.vendendo30d,
-        vendendo30dPct: mock.miniStats.vendendo30dPct,
-      },
-    ),
-    comFallback(
-      "topAgenciasMes",
-      construirTopAgencias(codigoExecutivo, janelaMesAnterior().fim, hojeIso()),
-      mock.topAgenciasMes,
-    ),
-    comFallback(
-      "topAgenciasAno",
-      construirTopAgencias(codigoExecutivo, `${hojeIso().slice(0, 4)}-01-01`, hojeIso()),
-      mock.topAgenciasAno,
-    ),
-  ]);
-
+  const resultado = await comFallback("hero+kpis", construirHeroEKpis(codigoExecutivo), {
+    hero: mock.hero,
+    kpis: mock.kpis,
+  });
   return {
-    ...mock,
-    hero: heroEKpis.hero,
-    kpis: { ...heroEKpis.kpis, projecaoFimMes: mock.kpis.projecaoFimMes },
+    hero: resultado.hero,
+    kpis: { ...resultado.kpis, projecaoFimMes: mock.kpis.projecaoFimMes },
+  };
+}
+
+// Seção pesada (roster + loop de terrestre por agência, ~2N+5 chamadas) —
+// fica atrás do próprio Suspense na view, separada de hero+kpis (ver
+// comentário no topo do arquivo).
+async function obterCrossCanalEMiniStats(
+  codigoExecutivo: number,
+  promotorId: string,
+  totalAgencias: number,
+  agencias: ExecutivoAgenciaResumo[],
+): Promise<{ crossCanal: ExecutivoDashboard["crossCanal"]; miniStats: MiniStats }> {
+  const mock = await executivoDashboardMockService.obterDashboard(
+    promotorId,
+    totalAgencias,
+    agencias,
+  );
+  const resultado = await comFallback(
+    "crossCanal+vendendo30d",
+    construirCrossCanalEVendendo30d(codigoExecutivo, totalAgencias),
+    {
+      crossCanal: mock.crossCanal,
+      vendendo30d: mock.miniStats.vendendo30d,
+      vendendo30dPct: mock.miniStats.vendendo30dPct,
+    },
+  );
+  return {
+    crossCanal: resultado.crossCanal,
     miniStats: {
       ...mock.miniStats,
-      agencias: agencias.length,
-      vendendo30d: crossCanalEVendendo.vendendo30d,
-      vendendo30dPct: crossCanalEVendendo.vendendo30dPct,
+      agencias: totalAgencias,
+      vendendo30d: resultado.vendendo30d,
+      vendendo30dPct: resultado.vendendo30dPct,
     },
-    vendasMensais: vendasETendencia.vendasMensais,
-    vendasMensaisTotalAno: vendasETendencia.vendasMensaisTotalAno,
-    vendasMensaisVariacaoAltaPct: vendasETendencia.vendasMensaisVariacaoAltaPct,
-    vendasMensaisVariacaoBaixaPct: vendasETendencia.vendasMensaisVariacaoBaixaPct,
-    tendencia30d: vendasETendencia.tendencia30d,
-    tendencia30dTotal: vendasETendencia.tendencia30dTotal,
-    crossCanal: crossCanalEVendendo.crossCanal,
-    topAgenciasMes: topMes,
-    topAgenciasAno: topAno,
-    // fidelidadePorCompanhia, saudeCarteira, paradasComHistorico, emQueda:
-    // fora de escopo (ver plano), continuam vindo do mock via `...mock`
-    // acima.
   };
 }
 
 export const executivoDashboardSstService = {
-  obterDashboard,
+  obterHeroKpis,
+  obterCrossCanalEMiniStats,
 };
