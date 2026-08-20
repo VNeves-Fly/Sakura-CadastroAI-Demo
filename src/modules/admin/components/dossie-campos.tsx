@@ -1623,7 +1623,9 @@ export function HistoricoAtendimentoAgencia({
   }
 
   return (
-    <details className="border-border bg-muted/20 rounded-lg border px-3 py-2 text-xs">
+    // py-1.5 (não py-2) — mesma altura fechada dos outros botões/chips do
+    // header do dossiê (ver BOTAO em atendimento-agencia-acoes.tsx).
+    <details className="border-border bg-muted/20 rounded-lg border px-3 py-1.5 text-xs">
       <summary className="text-muted-foreground cursor-pointer font-semibold">
         Histórico de atendimento ({historico.length})
       </summary>
@@ -1687,7 +1689,7 @@ export function ObservacoesCadastro({
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="border-input text-foreground hover:bg-accent inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition"
+        className="border-input text-foreground hover:bg-accent inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition"
       >
         <MessageSquare className="size-3.5" />
         Observações

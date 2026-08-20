@@ -426,7 +426,7 @@ export default async function DossieAgenciaPage({
         <VoltarButton />
         <div className="flex flex-wrap items-center gap-2">
           {agencia.infoPendente ? (
-            <span className="bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-bold">
+            <span className="bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-full py-1.5 pr-1 pl-2.5 text-xs font-bold">
               <Clock className="size-3.5" />
               Info pendente
               {somenteLeituraPorCargo ? null : (
@@ -446,7 +446,7 @@ export default async function DossieAgenciaPage({
               <button
                 type="submit"
                 title="Marcar que está esperando algo da agência (fora do fluxo de reenvio de documento)"
-                className="border-input text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition"
+                className="border-input text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition"
               >
                 <Clock className="size-3.5" />
                 Marcar info pendente
