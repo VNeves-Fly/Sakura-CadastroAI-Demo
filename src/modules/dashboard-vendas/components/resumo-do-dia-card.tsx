@@ -61,8 +61,11 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
             </p>
             {/* Margem combinada Aéreo+Terrestre (overview.filial.total),
                 separada da margem de cada canal mostrada nos cards abaixo
-                (pedido do usuário, 2026-08-19). */}
-            <span className="bg-primary/10 text-primary rounded-md px-2 py-1 text-xs font-bold">
+                (pedido do usuário, 2026-08-19). Cinza/preto + borda grafite
+                — não é mais rosa: margem não é um dado "de canal" (pedido
+                do usuário, 2026-08-20, mesmo motivo do badge "MARGEM X%"
+                do KpiCard). */}
+            <span className="text-foreground bg-muted rounded-md border border-neutral-400 px-2 py-1 text-xs font-bold">
               MARGEM TOTAL {formatarPercentual(resumo.margemTotalPct)}
             </span>
           </div>
