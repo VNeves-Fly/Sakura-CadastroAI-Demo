@@ -258,6 +258,7 @@ model Agencia {
   consultasSst              ConsultaSst[]
   atendimentosAgencia       AtendimentoAgencia[]
   solicitacoesAtendimento   SolicitacaoAtendimentoAgencia[]
+  observacoes               ObservacaoCadastro[]
 
   @@map("agencias")
 }
@@ -625,6 +626,24 @@ model HistoricoEdicaoCadastro {
   @@index([agenciaId])
   @@index([entidadeId])
   @@map("historico_edicoes_cadastro")
+}
+
+// Nota livre do analista sobre o cadastro (não muda nenhum dado da
+// agência, diferente de HistoricoEdicaoCadastro) — lista tipo "mensagens",
+// só append (sem edição/remoção), pra registrar contexto que não cabe em
+// nenhum campo estruturado (ex.: "cliente pediu pra ligar depois das 18h").
+model ObservacaoCadastro {
+  id        String  @id @default(cuid())
+  agenciaId String
+  agencia   Agencia @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+
+  texto         String @db.Text
+  registradoPor String
+
+  createdAt DateTime @default(now())
+
+  @@index([agenciaId])
+  @@map("observacoes_cadastro")
 }
 
 // Auditoria de reconsultas manuais de AMAT/SOFIA (ver ReconsultarCreditoUseCase)
