@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, CheckCircle2, XCircle } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StatusTab } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
@@ -10,28 +10,17 @@ interface AgenciasStatusTabsProps {
   contadores: Record<StatusTab, number>;
 }
 
-const ABAS: { chave: StatusTab; label: string; icon: typeof LayoutGrid; corAtiva: string }[] = [
-  { chave: "todas", label: "Todas", icon: LayoutGrid, corAtiva: "text-primary border-primary" },
-  {
-    chave: "aprovadas",
-    label: "Aprovadas",
-    icon: CheckCircle2,
-    corAtiva: "text-success border-success",
-  },
-  {
-    chave: "reprovadas_inativas",
-    label: "Reprovadas + Inativas",
-    icon: XCircle,
-    corAtiva: "text-destructive border-destructive",
-  },
+const ABAS: { chave: StatusTab; label: string }[] = [
+  { chave: "ativas", label: "Ativas" },
+  { chave: "inativas", label: "Inativas" },
 ];
 
-// Abas "underline" da listagem de Agências (SPEC seção 3.2) — cada uma
-// mostra o contador real do grupo (calculado em memória a partir da
-// carteira já carregada, ver use-agencias-carteira.view-model.ts).
+// Abas de status (SPEC_AGENCIAS_SAKURA seção 2.4) — só 2 abas, cor ativa
+// var(--color-primary) pra ambas (a SPEC não diferencia cor por aba como
+// a versão anterior fazia com verde/vermelho).
 export function AgenciasStatusTabs({ statusTab, onChange, contadores }: AgenciasStatusTabsProps) {
   return (
-    <div className="border-border flex gap-1 overflow-x-auto border-b">
+    <div className="border-border flex items-stretch gap-1.5 border-b">
       {ABAS.map((aba) => {
         const ativa = aba.chave === statusTab;
         return (
@@ -40,15 +29,20 @@ export function AgenciasStatusTabs({ statusTab, onChange, contadores }: Agencias
             type="button"
             onClick={() => onChange(aba.chave)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition",
+              "flex items-center gap-1.5 border-b-2 px-3.5 py-3 text-[13.5px] font-semibold transition",
               ativa
-                ? aba.corAtiva
+                ? "border-primary text-primary"
                 : "text-muted-foreground hover:text-foreground border-transparent",
             )}
           >
-            <aba.icon className="size-4" />
+            <LayoutGrid className="size-3.75" />
             {aba.label}
-            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-semibold">
+            <span
+              className={cn(
+                "text-xs font-semibold",
+                ativa ? "text-primary" : "text-muted-foreground/60",
+              )}
+            >
               {contadores[aba.chave].toLocaleString("pt-BR")}
             </span>
           </button>

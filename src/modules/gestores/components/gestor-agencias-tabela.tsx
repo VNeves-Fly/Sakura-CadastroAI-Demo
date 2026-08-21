@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +8,6 @@ import {
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
-import { AgenciaDetalheModal } from "@/modules/agencias-crm/components/detalhe/agencia-detalhe-modal";
 import { valorNoPeriodo } from "@/modules/gestores/adapters/gestor-agencias-tab.adapter";
 import { formatarMoedaAbreviada } from "@/modules/gestores/utils/formatar-moeda.util";
 import type {
@@ -27,12 +25,6 @@ interface GestorAgenciasTabelaProps {
 // colunas Executivo (link pro detalhe) e Base a mais, porque a carteira
 // aqui soma vários executivos.
 export function GestorAgenciasTabela({ agencias, periodo }: GestorAgenciasTabelaProps) {
-  // Abre o mesmo modal de detalhe usado em /crm/agencias — não existe
-  // rota de página própria pra agência (é sempre modal), então "linkar"
-  // aqui é abrir esse modal com o id clicado (pedido do usuário,
-  // 2026-08-20; antes o nome era só texto estático, sem nenhuma ação).
-  const [agenciaSelecionadaId, setAgenciaSelecionadaId] = useState<string | null>(null);
-
   const colunas: SortableColumn<AgenciaDaGestaoView>[] = [
     {
       key: "posicao",
@@ -46,13 +38,13 @@ export function GestorAgenciasTabela({ agencias, periodo }: GestorAgenciasTabela
       sortable: true,
       sortValue: (a) => a.nome,
       render: (a) => (
-        <button
-          type="button"
-          onClick={() => setAgenciaSelecionadaId(a.id)}
+        <Link
+          href={`/crm/agencias/${a.id}`}
           className="text-primary text-left font-medium hover:underline"
+          onClick={(evento) => evento.stopPropagation()}
         >
           {a.nome}
-        </button>
+        </Link>
       ),
     },
     {
@@ -158,19 +150,11 @@ export function GestorAgenciasTabela({ agencias, periodo }: GestorAgenciasTabela
   ];
 
   return (
-    <>
-      <SortableDataTable
-        columns={colunas}
-        rows={agencias}
-        rowKey={(a) => a.id}
-        emptyMessage="Nenhuma agência encontrada com esses filtros."
-      />
-      <AgenciaDetalheModal
-        agenciaId={agenciaSelecionadaId}
-        onOpenChange={(open) => {
-          if (!open) setAgenciaSelecionadaId(null);
-        }}
-      />
-    </>
+    <SortableDataTable
+      columns={colunas}
+      rows={agencias}
+      rowKey={(a) => a.id}
+      emptyMessage="Nenhuma agência encontrada com esses filtros."
+    />
   );
 }

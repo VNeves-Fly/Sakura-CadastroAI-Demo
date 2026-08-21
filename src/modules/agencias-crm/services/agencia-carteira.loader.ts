@@ -18,9 +18,18 @@ import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-c
 // volume de dado deste ambiente hoje; se a base crescer pra dezenas de
 // milhares de agências (a SPEC cita ~20 mil), essa listagem precisa migrar
 // pra paginação real no banco, como /cadastros já faz.
+//
+// `status: ["ativo", "recusado"]` é explícito de propósito — sem isso,
+// ListarCadastrosUseCase aplica o próprio default (só os 5 status "em
+// andamento" da fila de cadastro: em_analise/em_complementar/aguardando_*),
+// que EXCLUI justamente ativo/recusado — os dois únicos status que as
+// abas Ativas/Inativas desta listagem mostram (ver use-agencias-carteira.
+// view-model.ts). Bug encontrado em 2026-08-21 revisando o design: a
+// listagem nunca populava com dado real porque nenhuma agência em
+// andamento bate com nenhuma das duas abas.
 export async function carregarAgenciasCarteira(): Promise<AgenciaCarteiraView[]> {
   const [{ items }, promotores, bases] = await Promise.all([
-    cadastroAdminController.listarCadastros({ todos: true }),
+    cadastroAdminController.listarCadastros({ todos: true, status: ["ativo", "recusado"] }),
     atribuicoesAdminController.listarPromotores(),
     basesController.list(),
   ]);
@@ -42,6 +51,7 @@ export async function carregarAgenciasCarteira(): Promise<AgenciaCarteiraView[]>
     executivoId: agencia.executivoId,
     executivoNome,
     executivoGestor,
+    sicaCodigo: agencia.sicaCodigo,
   }));
 
   return montarAgenciasCarteiraViewList(itensBrutos, executivoPorId, regiaoPorBase);

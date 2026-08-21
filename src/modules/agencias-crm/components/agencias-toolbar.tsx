@@ -1,38 +1,29 @@
 "use client";
 
-import { Filter } from "lucide-react";
 import { BuscaListaInput } from "@/modules/shared/components/busca-lista-input";
 import { cn } from "@/lib/utils";
-import type { AgenciasCarteiraFiltros } from "@/modules/agencias-crm/types/agencia-carteira.types";
+import type { TopVendas } from "@/modules/agencias-crm/view-models/use-agencias-carteira.view-model";
 
 interface AgenciasToolbarProps {
   busca: string;
   onBuscaChange: (valor: string) => void;
-  ordenarPor: AgenciasCarteiraFiltros["ordenarPor"];
-  onTopVendasChange: (valor: "vendasAno" | "vendasMes") => void;
-  quantidadeFiltrosAtivos: number;
-  painelFiltrosAberto: boolean;
-  onTogglePainelFiltros: () => void;
+  topVendas: TopVendas;
+  onTopVendasChange: (valor: TopVendas) => void;
   atualizadoEm: string;
 }
 
-// Barra de controle superior da listagem (SPEC seções 2.3 e 3.1) —
-// "Financial Adapter — Atualizado em..." é texto informativo estático
-// (não existe fonte de "última sincronização" real pra essa listagem
-// hoje; ver observação de escala no loader deste módulo).
+// Barra de controle superior da listagem (SPEC_AGENCIAS_SAKURA seções 2.2
+// e 2.3) — "Financial Adapter — Atualizado em..." é texto informativo
+// estático (não existe fonte de "última sincronização" real pra essa
+// listagem hoje). Painel de filtros avançados removido nessa reestilização
+// (pedido do usuário, 2026-08-21) — a SPEC nova só prevê busca + toggle.
 export function AgenciasToolbar({
   busca,
   onBuscaChange,
-  ordenarPor,
+  topVendas,
   onTopVendasChange,
-  quantidadeFiltrosAtivos,
-  painelFiltrosAberto,
-  onTogglePainelFiltros,
   atualizadoEm,
 }: AgenciasToolbarProps) {
-  const topVendas: "vendasAno" | "vendasMes" =
-    ordenarPor === "vendasMes" ? "vendasMes" : "vendasAno";
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -47,7 +38,7 @@ export function AgenciasToolbar({
               type="button"
               onClick={() => onTopVendasChange("vendasAno")}
               className={cn(
-                "rounded-full px-3 py-1.5 transition",
+                "rounded-full px-4 py-1.5 transition",
                 topVendas === "vendasAno"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
@@ -59,7 +50,7 @@ export function AgenciasToolbar({
               type="button"
               onClick={() => onTopVendasChange("vendasMes")}
               className={cn(
-                "rounded-full px-3 py-1.5 transition",
+                "rounded-full px-4 py-1.5 transition",
                 topVendas === "vendasMes"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
@@ -68,20 +59,6 @@ export function AgenciasToolbar({
               Mês
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={onTogglePainelFiltros}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition",
-              painelFiltrosAberto
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-input text-foreground hover:bg-accent",
-            )}
-          >
-            <Filter className="size-3.5" />
-            Filtros{quantidadeFiltrosAtivos > 0 ? ` (${quantidadeFiltrosAtivos})` : ""}
-          </button>
         </div>
       </div>
 

@@ -7,42 +7,10 @@ import type {
   AgenciaDetalheView,
   CategoriaPremiacao,
   FaturaAgencia,
-  ReservaAgencia,
-  ResumoModalidade,
   TopCompanhiaAgencia,
-  TopRotaAgencia,
-  VendaMensalAgencia,
 } from "@/modules/agencias-crm/types/agencia-detalhe.types";
 
 const CATEGORIAS: CategoriaPremiacao[] = ["10K", "100K", "1M", "10M"];
-const MESES_PT = [
-  "Jan",
-  "Fev",
-  "Mar",
-  "Abr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Set",
-  "Out",
-  "Nov",
-  "Dez",
-];
-const AEROPORTOS = [
-  "GRU",
-  "GIG",
-  "BSB",
-  "CNF",
-  "POA",
-  "SSA",
-  "REC",
-  "FOR",
-  "CWB",
-  "MAO",
-  "VVI",
-  "CGB",
-];
 const COMPANHIAS_AEREAS = [
   "Azul",
   "Gol",
@@ -80,71 +48,11 @@ function labelEtapa(status: string): string {
   return "contrato";
 }
 
-function gerarEvolucaoMensal(base: number, volumeAno: number): VendaMensalAgencia[] {
-  const hoje = new Date();
-  const totalMeses = hoje.getMonth() + 1;
-  const anoCurto = String(hoje.getFullYear()).slice(-2);
-  const mediaMes = volumeAno / totalMeses;
-
-  return Array.from({ length: totalMeses }, (_, indice) => {
-    const seed = base + indice * 97;
-    const nacional = Math.round(mediaMes * (0.5 + (seed % 60) / 100) * 0.55);
-    const internacional = Math.round(nacional * (0.3 + ((seed >> 3) % 50) / 100));
-    const terrestre = Math.round(nacional * (0.02 + ((seed >> 5) % 5) / 100));
-    return { mes: `${MESES_PT[indice]}/${anoCurto}`, nacional, internacional, terrestre };
-  });
-}
-
-function gerarTopRotas(base: number): TopRotaAgencia[] {
-  return Array.from({ length: 10 }, (_, indice) => {
-    const seed = base + indice * 53;
-    const trechos = Array.from(
-      { length: 3 + (seed % 3) },
-      (_, i) => AEROPORTOS[(seed >> i) % AEROPORTOS.length]!,
-    );
-    return {
-      rota: trechos.join("/"),
-      bilhetes: 20 + (seed % 300),
-      volume: 5_000 + (seed % 200_000),
-      internacional: seed % 5 === 0,
-    };
-  }).sort((a, b) => b.bilhetes - a.bilhetes);
-}
-
 function gerarTopCompanhias(base: number): TopCompanhiaAgencia[] {
   return COMPANHIAS_AEREAS.map((nome, indice) => ({
     nome,
     volume: 10_000 + (hashParaNumero(`${base}-${nome}`) % ((10 - indice) * 40_000 + 5_000)),
   })).sort((a, b) => b.volume - a.volume);
-}
-
-function gerarReservas(base: number, quantidade: number): ReservaAgencia[] {
-  return Array.from({ length: quantidade }, (_, indice) => {
-    const seed = base + indice * 71;
-    const aereo = seed % 4 !== 0;
-    const hoje = new Date();
-    hoje.setDate(hoje.getDate() - (seed % 365));
-    return {
-      id: `res-${indice}`,
-      tipo: aereo ? "aereo" : "terrestre",
-      data: hoje.toISOString(),
-      identificador: aereo
-        ? String(1_720_000_000_000 + (seed % 90_000_000_000))
-        : `T${String(seed % 100_000).padStart(5, "0")}`,
-      descricao: aereo
-        ? `${AEROPORTOS[seed % AEROPORTOS.length]}/${AEROPORTOS[(seed >> 2) % AEROPORTOS.length]}/${AEROPORTOS[seed % AEROPORTOS.length]}`
-        : "BUS",
-      referencia: aereo ? `Cia ${900 + (seed % 100)}` : null,
-      valor: 200 + (seed % 4_000),
-    };
-  });
-}
-
-// Dias de antecedência entre compra e embarque (mock — ver comentário do
-// tipo AgenciaDetalheAntecedencia), faixa de 5,0 a 60,0 dias com 1 casa
-// decimal.
-function gerarAntecedenciaDias(seed: number): number {
-  return Math.round((5 + (seed % 550) / 10) * 10) / 10;
 }
 
 function gerarFaturas(base: number, quantidade: number): FaturaAgencia[] {
@@ -188,7 +96,6 @@ export function montarAgenciaDetalheView(
   const bilhetesNacional = Math.round(bilhetesAno * 0.72);
   const bilhetesInternacional = bilhetesAno - bilhetesNacional;
   const diasSemComprar = semVenda ? 90 + (base % 300) : base % 400;
-  const mesesBaseAntecedencia = new Date().getMonth() + 1;
   const dataUltimaCompraMock = semVenda
     ? null
     : new Date(Date.now() - diasSemComprar * 86_400_000).toISOString();
@@ -227,20 +134,6 @@ export function montarAgenciaDetalheView(
     temRiscoCadastral: (detalhe.analiseIa?.flagsRisco.length ?? 0) > 0,
     ativoSistema: agencia.status === "ativo",
     ativadoEm: agencia.createdAt.toISOString(),
-    kpisTopo: {
-      antecedenciaNacional: {
-        dias: semVenda ? 0 : gerarAntecedenciaDias(base),
-        bilhetes: bilhetesNacional,
-        mesesBase: mesesBaseAntecedencia,
-      },
-      antecedenciaInternacional: {
-        dias: semVenda ? 0 : gerarAntecedenciaDias(base >> 3),
-        bilhetes: bilhetesInternacional,
-        mesesBase: mesesBaseAntecedencia,
-      },
-      diasSemComprar,
-      dataUltimaCompra: dataUltimaCompraMock,
-    },
     dadosDocumentacao: {
       empresa: {
         nomeFantasia: agencia.nomeFantasia,
@@ -304,15 +197,6 @@ export function montarAgenciaDetalheView(
       bloqCred: base % 20 === 0,
     },
     vendas: {
-      riscoEmissao: {
-        alto30d: base % 5,
-        alto90d: base % 9,
-        medio90d: 2 + (base % 12),
-        valorEmRiscoAlto: (base % 9) * 8_000,
-        scoreMedio90d: 40 + (base % 55),
-        ultimaVendaRiscoAlto:
-          base % 9 > 0 ? new Date(Date.now() - (base % 30) * 86_400_000).toISOString() : null,
-      },
       aereoNacional: {
         volume: volumeNacional,
         bilhetes: bilhetesNacional,
@@ -329,52 +213,9 @@ export function montarAgenciaDetalheView(
         pctMix: volumeAno > 0 ? Math.round((volumeTerrestre / volumeAno) * 100) : 0,
       },
       volumeTotalAno: volumeAno,
-      mediaVendasDia: {
-        valor: Math.round(volumeAno / 365),
-        bilhetesDia: Math.round((bilhetesAno / 365) * 10) / 10,
-        dias: 365,
-      },
-      reservasAereo: {
-        total: bilhetesAno,
-        nacional: bilhetesNacional,
-        internacional: bilhetesInternacional,
-      },
       ticketMedioAereo:
         bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0,
-      variacaoMesAnterior: {
-        pct: ((base % 40) - 15) / 10,
-        valor: Math.round(volumeAno / 12),
-      },
-      evolucaoMensal: gerarEvolucaoMensal(base, volumeAno),
-      topRotas: gerarTopRotas(base),
       topCompanhias: gerarTopCompanhias(base),
-      mixAereoTerrestre: {
-        aereoPct:
-          volumeAno > 0
-            ? Math.round(((volumeNacional + volumeInternacional) / volumeAno) * 100)
-            : 0,
-        terrestrePct: volumeAno > 0 ? Math.round((volumeTerrestre / volumeAno) * 100) : 0,
-      },
-      resumoComparativo: (
-        [
-          { modalidade: "Aéreo Nacional", volume: volumeNacional, itens: bilhetesNacional },
-          {
-            modalidade: "Aéreo Internacional",
-            volume: volumeInternacional,
-            itens: bilhetesInternacional,
-          },
-          {
-            modalidade: "Terrestre",
-            volume: volumeTerrestre,
-            itens: Math.round(bilhetesAno * 0.08),
-          },
-        ] satisfies { modalidade: string; volume: number; itens: number }[]
-      ).map((linha): ResumoModalidade => ({
-        ...linha,
-        pctMix: volumeAno > 0 ? Math.round((linha.volume / volumeAno) * 100) : 0,
-        mediaMensal: Math.round(linha.volume / 12),
-      })),
-      reservas: gerarReservas(base, semVenda ? 0 : 30 + (base % 40)),
       faturas: gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
     },
   };

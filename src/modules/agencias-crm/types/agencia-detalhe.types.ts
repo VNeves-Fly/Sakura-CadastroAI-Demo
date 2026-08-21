@@ -76,24 +76,6 @@ export interface AgenciaDetalheDadosDocumentacao {
   socios: AgenciaDetalheSocio[];
 }
 
-export interface AgenciaDetalheAntecedencia {
-  dias: number; // mock — não existe data de compra x data de embarque por bilhete no domínio hoje
-  bilhetes: number; // mock — mesmo total de vendas.aereoNacional/aereoInternacional.bilhetes
-  mesesBase: number; // mock — nº de meses considerados (ano corrente até o mês atual)
-}
-
-// KPIs de topo do modal (SPEC 4.1, faixa de 4 cards acima das abas) — todo
-// mock determinístico: "antecedência" (compra x embarque) e "dias sem
-// comprar" não têm fonte real hoje (sem bilhete/reserva individual no
-// domínio). "dias sem comprar" replica a mesma fórmula da listagem
-// (agencia-carteira.adapter.ts) pra bater com o valor mostrado lá.
-export interface AgenciaDetalheKpisTopo {
-  antecedenciaNacional: AgenciaDetalheAntecedencia;
-  antecedenciaInternacional: AgenciaDetalheAntecedencia;
-  diasSemComprar: number;
-  dataUltimaCompra: string | null;
-}
-
 export interface AgenciaDetalhePerfilComercial {
   sica: string | null; // real
   base: string | null; // melhor esforço
@@ -113,41 +95,9 @@ export interface AgenciaDetalhePerfilComercial {
   bloqCred: boolean; // mock
 }
 
-export interface VendaMensalAgencia {
-  mes: string;
-  nacional: number;
-  internacional: number;
-  terrestre: number;
-}
-
-export interface TopRotaAgencia {
-  rota: string;
-  bilhetes: number;
-  volume: number;
-  internacional: boolean;
-}
-
 export interface TopCompanhiaAgencia {
   nome: string;
   volume: number;
-}
-
-export interface ResumoModalidade {
-  modalidade: string;
-  volume: number;
-  pctMix: number;
-  mediaMensal: number;
-  itens: number;
-}
-
-export interface ReservaAgencia {
-  id: string;
-  tipo: "aereo" | "terrestre";
-  data: string;
-  identificador: string;
-  descricao: string;
-  referencia: string | null;
-  valor: number;
 }
 
 export interface FaturaAgencia {
@@ -159,28 +109,12 @@ export interface FaturaAgencia {
 }
 
 export interface AgenciaDetalheVendas {
-  riscoEmissao: {
-    alto30d: number;
-    alto90d: number;
-    medio90d: number;
-    valorEmRiscoAlto: number;
-    scoreMedio90d: number;
-    ultimaVendaRiscoAlto: string | null;
-  };
   aereoNacional: { volume: number; bilhetes: number; pctAereo: number };
   aereoInternacional: { volume: number; bilhetes: number; pctAereo: number };
   terrestre: { volume: number; servicos: number; pctMix: number };
   volumeTotalAno: number;
-  mediaVendasDia: { valor: number; bilhetesDia: number; dias: number };
-  reservasAereo: { total: number; nacional: number; internacional: number };
   ticketMedioAereo: number;
-  variacaoMesAnterior: { pct: number; valor: number };
-  evolucaoMensal: VendaMensalAgencia[];
-  topRotas: TopRotaAgencia[];
   topCompanhias: TopCompanhiaAgencia[];
-  mixAereoTerrestre: { aereoPct: number; terrestrePct: number };
-  resumoComparativo: ResumoModalidade[];
-  reservas: ReservaAgencia[];
   faturas: FaturaAgencia[];
 }
 
@@ -191,7 +125,6 @@ export interface AgenciaDetalheView {
   temRiscoCadastral: boolean; // real — AnaliseIaAgencia.flagsRisco.length > 0
   ativoSistema: boolean; // real — status === "ativo"
   ativadoEm: string | null; // real — melhor data disponível de ativação (createdAt como aproximação)
-  kpisTopo: AgenciaDetalheKpisTopo;
   dadosDocumentacao: AgenciaDetalheDadosDocumentacao;
   perfilComercial: AgenciaDetalhePerfilComercial;
   vendas: AgenciaDetalheVendas;
