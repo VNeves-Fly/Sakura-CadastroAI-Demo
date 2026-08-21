@@ -5,9 +5,8 @@ import type {
   AgenciaCarteiraView,
   AgenciasCarteiraFiltros,
   OpcaoFiltro,
-  StatusTab,
 } from "@/modules/agencias-crm/types/agencia-carteira.types";
-import { TAMANHO_PAGINA_AGENCIAS } from "@/modules/agencias-crm/types/agencia-carteira.types";
+import { TAMANHO_PAGINA_AGENCIAS_PADRAO } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
 const FILTROS_INICIAIS: AgenciasCarteiraFiltros = {
   busca: "",
@@ -41,8 +40,6 @@ function valorDeOrdenacao(
       return agencia.vendasMes;
     case "razaoSocial":
       return agencia.razaoSocial;
-    case "createdAt":
-      return agencia.createdAt;
     case "ultimaCompra":
       return agencia.diasSemComprar;
     case "bilhetes":
@@ -56,10 +53,18 @@ function valorDeOrdenacao(
 }
 
 export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
-  const [statusTab, setStatusTab] = useState<StatusTab>("todas");
   const [filtros, setFiltros] = useState<AgenciasCarteiraFiltros>(FILTROS_INICIAIS);
   const [painelFiltrosAberto, setPainelFiltrosAberto] = useState(false);
   const [pagina, setPagina] = useState(1);
+  const [tamanhoPagina, setTamanhoPaginaState] = useState(TAMANHO_PAGINA_AGENCIAS_PADRAO);
+
+  // Trocar o tamanho da página sempre volta pra página 1 — a página
+  // atual pode não existir mais no novo tamanho (ex.: pág. 5 de 20 itens
+  // não existe se o tamanho virar 250).
+  function setTamanhoPagina(tamanho: number) {
+    setTamanhoPaginaState(tamanho);
+    setPagina(1);
+  }
 
   function atualizarFiltro<K extends keyof AgenciasCarteiraFiltros>(
     chave: K,
@@ -73,20 +78,6 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     setFiltros(FILTROS_INICIAIS);
     setPagina(1);
   }
-
-  function mudarStatusTab(valor: StatusTab) {
-    setStatusTab(valor);
-    setPagina(1);
-  }
-
-  const contadores = useMemo(
-    () => ({
-      todas: agencias.length,
-      aprovadas: agencias.filter((agencia) => agencia.status === "ativo").length,
-      reprovadas_inativas: agencias.filter((agencia) => agencia.reprovadaOuInativa).length,
-    }),
-    [agencias],
-  );
 
   const opcoesExecutivo: OpcaoFiltro[] = useMemo(() => {
     const mapa = new Map<string, string>();
@@ -125,15 +116,7 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     const buscaLiteral = buscaCriticos ? "" : buscaNormalizada;
 
     const filtradas = agencias.filter((agencia) => {
-      if (statusTab === "aprovadas" && agencia.status !== "ativo") return false;
-      if (statusTab === "reprovadas_inativas" && !agencia.reprovadaOuInativa) return false;
-      if (
-        filtros.ocultarInativadas &&
-        statusTab !== "reprovadas_inativas" &&
-        agencia.reprovadaOuInativa
-      ) {
-        return false;
-      }
+      if (filtros.ocultarInativadas && agencia.reprovadaOuInativa) return false;
       if (filtros.regiao !== "todas" && agencia.regiao !== filtros.regiao) return false;
       if (filtros.base !== "todas" && agencia.base !== filtros.base) return false;
       if (filtros.executivoId !== "todos" && agencia.executivoId !== filtros.executivoId) {
@@ -172,7 +155,7 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
       }
       return String(valorA).localeCompare(String(valorB)) * sinal;
     });
-  }, [agencias, statusTab, filtros]);
+  }, [agencias, filtros]);
 
   // Clique em cabeçalho de coluna (SPEC 3.5) — mesma coluna alterna
   // asc/desc, coluna nova entra sempre em desc (maior primeiro).
@@ -185,11 +168,11 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     }));
   }
 
-  const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / TAMANHO_PAGINA_AGENCIAS));
+  const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / tamanhoPagina));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const agenciasDaPagina = agenciasFiltradas.slice(
-    (paginaAtual - 1) * TAMANHO_PAGINA_AGENCIAS,
-    paginaAtual * TAMANHO_PAGINA_AGENCIAS,
+    (paginaAtual - 1) * tamanhoPagina,
+    paginaAtual * tamanhoPagina,
   );
 
   const quantidadeFiltrosAtivos = Object.entries(filtros).filter(([chave, valor]) => {
@@ -200,9 +183,6 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
   }).length;
 
   return {
-    statusTab,
-    mudarStatusTab,
-    contadores,
     filtros,
     atualizarFiltro,
     alternarOrdenacao,
@@ -219,5 +199,7 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     pagina: paginaAtual,
     totalPaginas,
     setPagina,
+    tamanhoPagina,
+    setTamanhoPagina,
   };
 }

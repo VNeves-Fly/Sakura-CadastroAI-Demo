@@ -8,12 +8,10 @@ import { cn } from "@/lib/utils";
 import type {
   AgenciaCarteiraView,
   AgenciasCarteiraFiltros,
-  StatusTab,
 } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
 interface AgenciasCarteiraTabelaProps {
   agencias: AgenciaCarteiraView[];
-  statusTab: StatusTab;
   ordenarPor: AgenciasCarteiraFiltros["ordenarPor"];
   ordenarDirecao: AgenciasCarteiraFiltros["ordenarDirecao"];
   onOrdenar: (coluna: AgenciasCarteiraFiltros["ordenarPor"]) => void;
@@ -51,18 +49,15 @@ function dataUltimaCompra(diasSemComprar: number): { texto: string; recente: boo
 // Tabela principal da listagem de Agências (SPEC seção 3.5) — cabeçalhos
 // clicáveis pra ordenação (estado vem de fora, ver
 // use-agencias-carteira.view-model.ts, pra sobreviver à paginação
-// client-side). Coluna "Motivo" só aparece na aba Reprovadas + Inativas.
+// client-side).
 export function AgenciasCarteiraTabela({
   agencias,
-  statusTab,
   ordenarPor,
   ordenarDirecao,
   onOrdenar,
   onAbrirDetalhe,
   offsetPagina,
 }: AgenciasCarteiraTabelaProps) {
-  const mostrarMotivo = statusTab === "reprovadas_inativas";
-
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
@@ -105,18 +100,13 @@ export function AgenciasCarteiraTabela({
                 </th>
               );
             })}
-            {mostrarMotivo ? (
-              <th className="text-muted-foreground px-3 py-2.5 text-xs font-semibold tracking-wide uppercase">
-                Motivo
-              </th>
-            ) : null}
           </tr>
         </thead>
         <tbody>
           {agencias.length === 0 ? (
             <tr>
               <td
-                colSpan={COLUNAS.length + (mostrarMotivo ? 1 : 0)}
+                colSpan={COLUNAS.length}
                 className="text-muted-foreground py-12 text-center text-sm"
               >
                 Nenhuma agência encontrada com esses filtros.
@@ -128,7 +118,11 @@ export function AgenciasCarteiraTabela({
               return (
                 <tr
                   key={agencia.id}
-                  onClick={() => onAbrirDetalhe(agencia.id)}
+                  // CNPJ, não `agencia.id` (código SST) — o modal/API de
+                  // detalhe resolvem o cadastro local por CNPJ, já que a
+                  // identidade desta listagem vem do roster do SST, não da
+                  // tabela `Agencia` (ver route.ts de /api/agencias-crm/:id).
+                  onClick={() => onAbrirDetalhe(agencia.cnpj)}
                   className="border-border hover:bg-muted/30 cursor-pointer border-b last:border-0"
                 >
                   <td className="text-muted-foreground px-3 py-2.5">{offsetPagina + indice + 1}</td>
@@ -197,9 +191,6 @@ export function AgenciasCarteiraTabela({
                   <td className="px-3 py-2.5 text-right">
                     <SensitiveValue value={formatarMoedaAbreviada(agencia.limite)} />
                   </td>
-                  {mostrarMotivo ? (
-                    <td className="text-muted-foreground px-3 py-2.5">{agencia.motivo ?? "—"}</td>
-                  ) : null}
                 </tr>
               );
             })
