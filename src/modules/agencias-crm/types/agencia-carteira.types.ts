@@ -13,7 +13,6 @@
 // hoje — seguem mock, razão documentada no adapter.
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 export type CanalVendas = "aereo" | "terrestre" | "ambos";
-export type StatusTab = "todas" | "aprovadas" | "reprovadas_inativas";
 
 export interface AgenciaCarteiraView {
   id: string;

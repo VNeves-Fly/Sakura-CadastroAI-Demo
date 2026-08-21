@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { AgenciasStatusTabs } from "@/modules/agencias-crm/components/agencias-status-tabs";
 import { AgenciasToolbar } from "@/modules/agencias-crm/components/agencias-toolbar";
 import { AgenciasFiltroPanel } from "@/modules/agencias-crm/components/agencias-filtro-panel";
 import { AgenciasCarteiraTabela } from "@/modules/agencias-crm/components/agencias-carteira-tabela";
@@ -18,9 +17,6 @@ interface AgenciasListaViewProps {
 export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewProps) {
   const [agenciaSelecionadaId, setAgenciaSelecionadaId] = useState<string | null>(null);
   const {
-    statusTab,
-    mudarStatusTab,
-    contadores,
     filtros,
     atualizarFiltro,
     alternarOrdenacao,
@@ -61,8 +57,6 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
         atualizadoEm={atualizadoEm}
       />
 
-      <AgenciasStatusTabs statusTab={statusTab} onChange={mudarStatusTab} contadores={contadores} />
-
       {painelFiltrosAberto ? (
         <AgenciasFiltroPanel
           filtros={filtros}
@@ -78,7 +72,6 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
       <div className="border-border bg-card overflow-hidden rounded-2xl border">
         <AgenciasCarteiraTabela
           agencias={agenciasDaPagina}
-          statusTab={statusTab}
           ordenarPor={filtros.ordenarPor}
           ordenarDirecao={filtros.ordenarDirecao}
           onOrdenar={alternarOrdenacao}
