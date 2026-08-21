@@ -58,7 +58,9 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       render: (a) => (
         <button
           type="button"
-          onClick={() => setAgenciaSelecionadaId(a.id)}
+          // CNPJ, não `a.id` (código SST) — mesmo motivo de
+          // agencias-carteira-tabela.tsx em /crm/agencias.
+          onClick={() => setAgenciaSelecionadaId(a.cnpj)}
           className="text-primary text-left font-medium hover:underline"
         >
           {a.nome}

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { httpError, httpOk } from "@/modules/shared/presentation/http-response";
+import { NotFoundError } from "@/modules/shared/domain/errors";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { montarAgenciaDetalheView } from "@/modules/agencias-crm/adapters/agencia-detalhe.adapter";
@@ -26,6 +27,12 @@ function comTimeout<T>(promessa: Promise<T>, ms: number, valorPadrao: T): Promis
   ]);
 }
 
+// CNPJ (14 dígitos) — jeito de distinguir um id vindo do roster do SST
+// (/crm/agencias, aba Agências do executivo: essas listagens não têm id
+// local, só CNPJ) de um cuid local de verdade (aba Agências do Gestor,
+// que ainda lê direto da tabela `Agencia` e já manda o id certo).
+const REGEX_CNPJ = /^\d{14}$/;
+
 // Detalhe sob demanda pro modal de Agências (SPEC_AGENCIAS_SAKURA.md,
 // seção 4) — chamado client-side quando uma linha da listagem é clicada
 // (ver use-agencia-detalhe.view-model.ts). Reaproveita o mesmo motor real
@@ -37,13 +44,32 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     return httpError("Acesso não permitido.", 403);
   }
 
-  const detalhe = await cadastroAdminController.obterDetalhe(params.id);
-  if (!detalhe) {
-    return httpError("Agência não encontrada.", 404);
+  let agenciaLocalId = params.id;
+  if (REGEX_CNPJ.test(params.id)) {
+    const porCnpj = await cadastroAdminController.buscarPorCnpj(params.id);
+    if (!porCnpj) {
+      // Agência real na carteira comercial (SST), mas nunca passou pelo
+      // cadastro/onboarding deste app — não existe dossiê pra montar.
+      return httpError("Esta agência ainda não tem cadastro completo nesta plataforma.", 404);
+    }
+    agenciaLocalId = porCnpj.id;
+  }
+
+  // ObterDetalheAgenciaUseCase lança NotFoundError (não devolve null) —
+  // captura aqui em vez de um `if (!detalhe)` morto, mesmo padrão de
+  // /api/cadastros/documentos/[id]/arquivo/route.ts.
+  let detalhe;
+  try {
+    detalhe = await cadastroAdminController.obterDetalhe(agenciaLocalId);
+  } catch (erro) {
+    if (erro instanceof NotFoundError) {
+      return httpError("Agência não encontrada.", 404);
+    }
+    throw erro;
   }
 
   const [dadosReceita, promotores] = await Promise.all([
-    cadastroAdminController.obterDadosReceita(params.id).catch(() => null),
+    cadastroAdminController.obterDadosReceita(agenciaLocalId).catch(() => null),
     atribuicoesAdminController.listarPromotores(),
   ]);
 
