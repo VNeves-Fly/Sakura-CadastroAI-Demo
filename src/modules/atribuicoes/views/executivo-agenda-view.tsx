@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ExecutivoProfileHeader } from "@/modules/atribuicoes/components/executivo/executivo-profile-header";
 import { ExecutivoTabsNav } from "@/modules/atribuicoes/components/executivo/executivo-tabs-nav";
 import { AgendaHeader } from "@/modules/atribuicoes/components/executivo/agenda/agenda-header";
@@ -17,9 +17,19 @@ import type {
 interface ExecutivoAgendaViewProps {
   perfil: ExecutivoPerfil;
   agenciasReais: ExecutivoAgenciaResumo[];
+  // Elementos já resolvidos pelo Server Component pai (page.tsx) — este
+  // componente é client só pela agenda (kanban/calendário/lista), nunca
+  // busca SST ele mesmo (ver criarExecutivoHeaderStatsSlots).
+  statsAgenciasSlot?: ReactNode;
+  statsVendendo30dSlot?: ReactNode;
 }
 
-export function ExecutivoAgendaView({ perfil, agenciasReais }: ExecutivoAgendaViewProps) {
+export function ExecutivoAgendaView({
+  perfil,
+  agenciasReais,
+  statsAgenciasSlot,
+  statsVendendo30dSlot,
+}: ExecutivoAgendaViewProps) {
   const {
     visao,
     setVisao,
@@ -50,7 +60,11 @@ export function ExecutivoAgendaView({ perfil, agenciasReais }: ExecutivoAgendaVi
   return (
     <div className="flex w-full flex-col gap-5">
       <h1 className="text-foreground text-xl font-semibold">Detalhes do Executivo</h1>
-      <ExecutivoProfileHeader perfil={perfil} />
+      <ExecutivoProfileHeader
+        perfil={perfil}
+        statsAgenciasSlot={statsAgenciasSlot}
+        statsVendendo30dSlot={statsVendendo30dSlot}
+      />
       <ExecutivoTabsNav executivoId={perfil.id} abaAtiva="agenda" />
 
       <AgendaHeader

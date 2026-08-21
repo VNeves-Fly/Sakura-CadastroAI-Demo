@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { AgenciaSegmentoModal } from "@/modules/atribuicoes/components/executivo/dashboard/agencia-segmento-modal";
 import { cn } from "@/lib/utils";
@@ -19,9 +18,12 @@ const CORES: Record<SegmentoSaude["chave"], string> = {
 };
 
 // SegmentedHealthCard (SPEC 4.8) — 4 cards clicáveis, cada um abre o
-// modal padrão "ver lista" com as agências daquele segmento. Todos os
-// valores (segmentação, quantidades, percentuais) são mock-gerados;
-// nomes/CNPJs das agências nos modais são também mock.
+// modal padrão "ver lista" com as agências daquele segmento. Dados reais,
+// via SST (ver executivoDashboardSstService.construirSaudeCarteira) —
+// segmentação por recência de venda + status cadastral da agência, não
+// por limite de crédito (conceito bloqueado, "ativas c/ crédito"/
+// "potenciais s/ limite" da SPEC original não existem no schema do SICA;
+// ver comentário na função pra detalhe).
 export function SaudeCarteiraCard({ segmentos }: SaudeCarteiraCardProps) {
   const [segmentoAberto, setSegmentoAberto] = useState<SegmentoSaude | null>(null);
 
@@ -34,7 +36,6 @@ export function SaudeCarteiraCard({ segmentos }: SaudeCarteiraCardProps) {
             Segmenta as agências aprovadas em 4 grupos para priorizar ações.
           </p>
         </div>
-        <MockBadge />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

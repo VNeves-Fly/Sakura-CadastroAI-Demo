@@ -26,8 +26,12 @@ const PERIODOS: { chave: PeriodoVendas; label: string }[] = [
   { chave: "ano", label: "Ano" },
 ];
 
-// MultiFilterToolbar (SPEC seção 6.1) — 6 selects na primeira linha,
-// busca + contador + período em pills na segunda.
+// MultiFilterToolbar (SPEC seção 6.1) — 4 selects na primeira linha,
+// busca + contador + período em pills na segunda. "Dados Faltantes" e
+// "Inativadas Sakura" foram removidos (2026-08-20): eram sobre o funil de
+// cadastro/onboarding deste app (`Agencia.status`), que não existe mais
+// nesta aba — a lista agora vem do roster do SST (ver
+// executivo-agencias.adapter.ts).
 export function AgenciasFiltrosToolbar({
   filtros,
   onAtualizarFiltro,
@@ -35,19 +39,7 @@ export function AgenciasFiltrosToolbar({
 }: AgenciasFiltrosToolbarProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Campo label="Dados Faltantes">
-          <SelectField
-            value={filtros.dadosFaltantes}
-            onValueChange={(v) =>
-              onAtualizarFiltro("dadosFaltantes", (v as typeof filtros.dadosFaltantes) ?? "todos")
-            }
-            options={[
-              { value: "todos", label: "Todos" },
-              { value: "pendentes", label: "Pendentes" },
-            ]}
-          />
-        </Campo>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Campo label="Canal de Vendas">
           <SelectField
             value={filtros.canalVendas}
@@ -102,21 +94,6 @@ export function AgenciasFiltrosToolbar({
               { value: "vendasPeriodo", label: "Vendas Período" },
               { value: "ticketMedio", label: "Ticket Médio" },
               { value: "ultimaCompra", label: "Última Compra" },
-            ]}
-          />
-        </Campo>
-        <Campo label="Inativadas Sakura">
-          <SelectField
-            value={filtros.inativadasSakura}
-            onValueChange={(v) =>
-              onAtualizarFiltro(
-                "inativadasSakura",
-                (v as typeof filtros.inativadasSakura) ?? "ocultar",
-              )
-            }
-            options={[
-              { value: "ocultar", label: "Ocultar inativadas" },
-              { value: "mostrar", label: "Mostrar todas" },
             ]}
           />
         </Campo>

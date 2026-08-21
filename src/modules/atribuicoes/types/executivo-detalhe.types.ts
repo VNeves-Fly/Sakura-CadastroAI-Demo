@@ -103,6 +103,31 @@ export interface CrossCanal {
   ambos: SegmentoComLista;
 }
 
+// Linha de agência da aba "Agências" do executivo — vem do roster do SST
+// (`/api/agencias/ativas?codigoExecutivo`), não da tabela `Agencia` deste
+// app (que é o funil de cadastro/onboarding, um conceito diferente; ver
+// executivo-dashboard.sst-service.ts). `faixaRecencia` é uma aproximação:
+// o SST não expõe data exata da última venda por agência num formato
+// barato de buscar (só presença/ausência dentro de janelas de 30/90/365
+// dias) — por isso é uma faixa, não uma contagem de dias.
+export type CanalAgenciaCarteira = "aereo" | "terrestre" | "ambos" | "nenhum";
+export type FaixaRecenciaAgencia = "ate30d" | "30a90d" | "90a365d" | "semVenda365d";
+
+export interface AgenciaCarteiraResumo {
+  codigo: number;
+  nome: string;
+  cnpj: string;
+  status: string; // empresa_status do SST ("ativo"/"inativo")
+  canal: CanalAgenciaCarteira;
+  faixaRecencia: FaixaRecenciaAgencia;
+  vendasAno: number; // tarifa 365d, aéreo + terrestre
+  bilhetesAno: number;
+  vendas90d: number;
+  bilhetes90d: number;
+  vendas30d: number;
+  bilhetes30d: number;
+}
+
 export interface SegmentoSaude {
   chave: "ativas" | "potenciais" | "ociosas" | "inativas";
   label: string;
@@ -149,9 +174,4 @@ export interface ExecutivoDashboard {
   topAgenciasAno: RankingAgencia[];
   paradasComHistorico: AgenciaRisco[];
   emQueda: AgenciaEmQueda[];
-}
-
-export interface ExecutivoDetalheView {
-  perfil: ExecutivoPerfil;
-  dashboard: ExecutivoDashboard;
 }

@@ -18,7 +18,6 @@ import {
   ScrollText,
   FolderCheck,
   Bell,
-  MessageSquare,
   Sparkles,
   Eye,
   Clock,
@@ -427,7 +426,7 @@ export default async function DossieAgenciaPage({
         <VoltarButton />
         <div className="flex flex-wrap items-center gap-2">
           {agencia.infoPendente ? (
-            <span className="bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-bold">
+            <span className="bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-full py-1.5 pr-1 pl-2.5 text-xs font-bold">
               <Clock className="size-3.5" />
               Info pendente
               {somenteLeituraPorCargo ? null : (
@@ -447,7 +446,7 @@ export default async function DossieAgenciaPage({
               <button
                 type="submit"
                 title="Marcar que está esperando algo da agência (fora do fluxo de reenvio de documento)"
-                className="border-input text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition"
+                className="border-input text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition"
               >
                 <Clock className="size-3.5" />
                 Marcar info pendente
@@ -477,6 +476,18 @@ export default async function DossieAgenciaPage({
             />
           )}
           <HistoricoAtendimentoAgencia historico={historicoAtendimento} />
+          {/* Observações não são específicas de etapa (decisão do usuário,
+              2026-08-20) — o painel fica sempre disponível, independente de
+              qual etapa está sendo exibida na trilha. Quem pode registrar é
+              o mesmo critério das outras ações do dossiê: atendimento
+              assumido, sem depender de estar na etapa atual (por isso
+              `atendimentoAssumidoPorMim` direto, não `podeAgir`). */}
+          <ObservacoesCadastro
+            agenciaId={agencia.id}
+            observacoes={observacoes}
+            registrarObservacaoAction={registrarObservacaoAction}
+            somenteLeitura={!atendimentoAssumidoPorMim}
+          />
           {somenteLeituraPorCargo ? null : <AtendimentoButton agenciaId={agencia.id} />}
         </div>
       </div>
@@ -602,25 +613,6 @@ export default async function DossieAgenciaPage({
           />
         </div>
       ) : null}
-
-      {/* Observações não são específicas de etapa (decisão do usuário,
-          2026-08-20) — ficam sempre visíveis, independente de qual etapa
-          está sendo exibida na trilha. Quem pode registrar é o mesmo
-          critério das outras ações do dossiê: atendimento assumido, sem
-          depender de estar na etapa atual (por isso `atendimentoAssumidoPorMim`
-          direto, não `podeAgir`). */}
-      <SecaoColapsavel
-        titulo="Observações"
-        icon={<MessageSquare className="size-4" />}
-        defaultAberta
-      >
-        <ObservacoesCadastro
-          agenciaId={agencia.id}
-          observacoes={observacoes}
-          registrarObservacaoAction={registrarObservacaoAction}
-          somenteLeitura={!atendimentoAssumidoPorMim}
-        />
-      </SecaoColapsavel>
 
       {/* Complementar concentra TODOS os dados que o cliente preencheu
           (/cadastro + /chat) + revisão de documento — só existe nesta

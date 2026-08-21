@@ -111,6 +111,25 @@ export class D4SignAdapter implements ContratoAssinaturaService {
       },
     );
 
+    // Visto ao vivo em produção (2026-08-20, cadastro cmsyv823l004501s6a4x691hv):
+    // request() devolve null quando a resposta veio com response.ok mas
+    // corpo vazio/não-JSON (json().catch(() => null) em request()) — sem
+    // essa checagem, o destructuring abaixo quebrava com "Cannot
+    // destructure property 'uuid' from null" (TypeError cru, sem contexto
+    // de qual chamada falhou). Erro explícito aqui em vez de mudar
+    // request() globalmente — não dá pra saber se outro endpoint depende
+    // do retorno null silencioso (mesma lição do histórico de regressões
+    // deste adapter, ver docs/d4sign.md).
+    if (
+      !response ||
+      typeof response !== "object" ||
+      typeof (response as { uuid?: unknown }).uuid !== "string"
+    ) {
+      throw new Error(
+        `D4Sign /documents/${safeUuid}/makedocumentbytemplateword não devolveu um documento válido: ${JSON.stringify(response)}`,
+      );
+    }
+
     const { uuid } = response as { uuid: string };
     return uuid;
   }

@@ -5,7 +5,7 @@ import {
   montarAgenciasCarteiraViewList,
   valorNoPeriodo,
 } from "@/modules/atribuicoes/adapters/executivo-agencias.adapter";
-import type { ExecutivoAgenciaResumo } from "@/modules/atribuicoes/types/executivo-detalhe.types";
+import type { AgenciaCarteiraResumo } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 import type {
   AgenciaCarteiraView,
   AgenciasCarteiraFiltros,
@@ -13,14 +13,23 @@ import type {
 
 const FILTROS_INICIAIS: AgenciasCarteiraFiltros = {
   busca: "",
-  dadosFaltantes: "todos",
   canalVendas: "todos",
   premiacao: "todas",
   ultimaCompra: "qualquer",
   ordenarPor: "vendasAno",
-  inativadasSakura: "ocultar",
   periodo: "mes",
   apenasComprando: false,
+};
+
+// Rank numérico da faixa de recência — maior = mais tempo sem comprar.
+// Só usado pra ordenação (`ordenarPor: "ultimaCompra"`), já que
+// `faixaRecencia` não é mais um número de dias exato (ver
+// executivo-agencias.types.ts).
+const RANK_RECENCIA: Record<AgenciaCarteiraView["faixaRecencia"], number> = {
+  ate30d: 1,
+  "30a90d": 2,
+  "90a365d": 3,
+  semVenda365d: 4,
 };
 
 function valorDeOrdenacao(agencia: AgenciaCarteiraView, filtros: AgenciasCarteiraFiltros): number {
@@ -30,33 +39,36 @@ function valorDeOrdenacao(agencia: AgenciaCarteiraView, filtros: AgenciasCarteir
     case "ticketMedio":
       return valorNoPeriodo(agencia, filtros.periodo).ticketMedio;
     case "ultimaCompra":
-      return agencia.diasSemComprar;
+      return RANK_RECENCIA[agencia.faixaRecencia];
     case "vendasAno":
     default:
       return agencia.vendasAno;
   }
 }
 
-export function useExecutivoAgenciasViewModel(agenciasReais: ExecutivoAgenciaResumo[]) {
+export function useExecutivoAgenciasViewModel(agenciasCarteira: AgenciaCarteiraResumo[]) {
   const [filtros, setFiltros] = useState<AgenciasCarteiraFiltros>(FILTROS_INICIAIS);
 
-  const agencias = useMemo(() => montarAgenciasCarteiraViewList(agenciasReais), [agenciasReais]);
+  const agencias = useMemo(
+    () => montarAgenciasCarteiraViewList(agenciasCarteira),
+    [agenciasCarteira],
+  );
 
   const agenciasFiltradas = useMemo(() => {
     const buscaNormalizada = filtros.busca.trim().toLowerCase();
 
     const filtradas = agencias.filter((agencia) => {
-      if (filtros.inativadasSakura === "ocultar" && agencia.inativada) return false;
-      if (filtros.dadosFaltantes === "pendentes" && !agencia.dadosFaltantes) return false;
+      if (filtros.canalVendas !== "todos" && agencia.canal !== filtros.canalVendas) return false;
       if (filtros.premiacao !== "todas" && agencia.categoria !== filtros.premiacao) return false;
-      if (filtros.ultimaCompra === "ate30" && agencia.diasSemComprar > 30) return false;
+      if (filtros.ultimaCompra === "ate30" && agencia.faixaRecencia !== "ate30d") return false;
+      if (filtros.ultimaCompra === "30a90" && agencia.faixaRecencia !== "30a90d") return false;
       if (
-        filtros.ultimaCompra === "30a90" &&
-        (agencia.diasSemComprar <= 30 || agencia.diasSemComprar > 90)
+        filtros.ultimaCompra === "mais90" &&
+        agencia.faixaRecencia !== "90a365d" &&
+        agencia.faixaRecencia !== "semVenda365d"
       ) {
         return false;
       }
-      if (filtros.ultimaCompra === "mais90" && agencia.diasSemComprar <= 90) return false;
       if (filtros.apenasComprando && valorNoPeriodo(agencia, filtros.periodo).vendas <= 0) {
         return false;
       }

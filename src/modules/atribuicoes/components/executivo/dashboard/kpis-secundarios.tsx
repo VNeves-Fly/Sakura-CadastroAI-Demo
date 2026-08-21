@@ -1,4 +1,3 @@
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { KpiCard } from "@/modules/atribuicoes/components/executivo/dashboard/kpi-card";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
@@ -8,16 +7,13 @@ interface KpisSecundariosProps {
   kpis: KpisSecundarios;
 }
 
-// Linha de 4 cards de KPI secundários (SPEC 4.2) — todos os valores são
-// mock (mesAnteriorValor, projecaoFimMes, acumuladoAnoValor, ticketMedio30d
-// derivados de hash do promotor ID).
+// Linha de 4 cards de KPI secundários (SPEC 4.2) — dados reais, via SST
+// (ver executivoDashboardSstService.obterHeroKpis), exceto `projecaoFimMes`
+// (mock, badge no próprio card abaixo — ver TODO em construirHeroEKpis).
 export function KpisSecundariosGrid({ kpis }: KpisSecundariosProps) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <h3 className="text-muted-foreground text-xs font-semibold">KPIs Secundários</h3>
-        <MockBadge />
-      </div>
+      <h3 className="text-muted-foreground text-xs font-semibold">KPIs Secundários</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Mês anterior (realizado)"
@@ -41,6 +37,7 @@ export function KpisSecundariosGrid({ kpis }: KpisSecundariosProps) {
           tooltip="Projeção linear com base no ritmo de vendas do mês corrente."
           value={<SensitiveValue value={formatarMoedaAbreviada(kpis.projecaoFimMes)} />}
           subtext="ritmo atual"
+          mock
         />
         <KpiCard
           label="Acumulado ano"

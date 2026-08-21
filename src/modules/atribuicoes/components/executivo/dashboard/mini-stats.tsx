@@ -1,5 +1,4 @@
 import { Building2, TrendingUp, AlertTriangle, Wallet } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { KpiCard } from "@/modules/atribuicoes/components/executivo/dashboard/kpi-card";
 import type { MiniStats as MiniStatsType } from "@/modules/atribuicoes/types/executivo-detalhe.types";
@@ -8,16 +7,16 @@ interface MiniStatsProps {
   miniStats: MiniStatsType;
 }
 
-// Linha de 4 mini-cards estatísticos (SPEC 4.3) — nota: "agencias" é real
-// (total de agências aprovadas), mas vendendo30d, ociosasLimite e comCredito
-// são mock (derivados de hash do promotor ID).
+// Linha de 4 mini-cards estatísticos (SPEC 4.3) — "agencias", "vendendo30d"
+// e "vendendo30dPct" são reais, via SST (ver
+// executivoDashboardSstService.obterCrossCanalEMiniStats). "ociosasLimite"
+// e "comCredito" continuam mock (badge no próprio card abaixo — dependem
+// do conceito de limite de crédito comercial, decisão de negócio em
+// aberto, ver plano de implementação).
 export function MiniStatsGrid({ miniStats }: MiniStatsProps) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <h3 className="text-muted-foreground text-xs font-semibold">Mini Stats</h3>
-        <MockBadge />
-      </div>
+      <h3 className="text-muted-foreground text-xs font-semibold">Mini Stats</h3>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiCard
           compact
@@ -52,6 +51,7 @@ export function MiniStatsGrid({ miniStats }: MiniStatsProps) {
               <SensitiveValue value={miniStats.ociosasLimite} />
             </span>
           }
+          mock
         />
         <KpiCard
           compact
@@ -63,6 +63,7 @@ export function MiniStatsGrid({ miniStats }: MiniStatsProps) {
               <SensitiveValue value={miniStats.comCredito} />
             </span>
           }
+          mock
         />
       </div>
     </div>

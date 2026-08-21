@@ -344,6 +344,27 @@ describe("D4SignAdapter", () => {
     expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 
+  // Regressão real de produção (2026-08-20, cadastro
+  // cmsyv823l004501s6a4x691hv): response.ok=true mas o corpo não é JSON
+  // válido (json() lança) faz request() devolver null (json().catch(()
+  // => null)) sem passar pelo `if (!response.ok)` — sem a checagem em
+  // criarDocumento, isso quebrava com um TypeError cru de destructuring
+  // ("Cannot destructure property 'uuid' from null"), sem contexto de
+  // qual chamada falhou.
+  it("lança erro descritivo (não um TypeError cru) se o makedocumentbytemplateword vier ok mas sem corpo JSON válido", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error("Unexpected end of JSON input");
+      },
+    });
+
+    await expect(
+      new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar(input),
+    ).rejects.toThrow("não devolveu um documento válido");
+  });
+
   it("lança erro descritivo se alguma chamada ao D4Sign falhar", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
