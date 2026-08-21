@@ -105,11 +105,17 @@ export function ReceitaTotalCard({ hero, perfilId }: ReceitaTotalCardProps) {
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          {/* items-center (não items-baseline): o valor grande de 32px e o
-              bloco de margem/rentab. de 2 linhas precisam ficar centralizados
-              um em relação ao outro como grupo. */}
+          {/* items-center (não items-baseline): o valor grande e o bloco de
+              margem/rentab. de 2 linhas precisam ficar centralizados um em
+              relação ao outro como grupo. Gradiente/tamanho do valor
+              padronizados com o "valor total" do Dashboard CRM (ver
+              resumo-do-dia-card.tsx) e do Gestor — pedido do usuário,
+              2026-08-21, pra manter os 3 dashboards visualmente iguais. */}
           <div className="flex flex-wrap items-center gap-4">
-            <p className="text-primary text-[32px] leading-tight font-extrabold tracking-tight">
+            <p
+              className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
+              style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
+            >
               <SensitiveValue value={formatarMoedaCompleta(dadosDoPeriodo.valor)} />
             </p>
             <MargemRentabBloco

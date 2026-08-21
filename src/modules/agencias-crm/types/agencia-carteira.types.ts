@@ -13,6 +13,12 @@
 // mock, razão documentada no adapter.
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 export type CanalVendas = "aereo" | "terrestre" | "ambos";
+// SPEC_AGENCIAS_SAKURA (pixel, 2026-08-21) trocou as 3 abas antigas
+// (Todas/Aprovadas/Reprovadas+Inativas) por só 2 — "Ativas" (mesmo grupo
+// de "aprovadas": status === "ativo") e "Inativas" (mesmo grupo de
+// "reprovadas_inativas": reprovadaOuInativa). A aba "Todas" agregada foi
+// removida (pedido do usuário).
+export type StatusTab = "ativas" | "inativas";
 
 export interface AgenciaCarteiraView {
   id: string; // = String(codigoEmpresa) do SST
@@ -34,31 +40,10 @@ export interface AgenciaCarteiraView {
   vendasAno: number; // real (SST) — mock se sem venda detectada
   diasSemComprar: number; // real (SST, data_ultima_venda) — mock se sem venda detectada
   limite: number; // mock — SICA só espelha limite de crédito de fatura, não limite de compra
-}
-
-export interface OpcaoFiltro {
-  value: string;
-  label: string;
-}
-
-export interface AgenciasCarteiraFiltros {
-  busca: string;
-  regiao: "todas" | string;
-  base: "todas" | string;
-  executivoId: "todos" | string;
-  gestorNome: "todos" | string;
-  // Sem fonte real na listagem hoje (DadosReceita não é resolvido em lote
-  // por ListarCadastrosUseCase, só no detalhe de uma agência) — mesmo
-  // tratamento do toggle GCP em promotor-lista.types.ts: fica visível
-  // (SPEC pede) mas não filtra nada ainda.
-  situacaoReceita: "todas" | string;
-  dadosFaltantes: "todos" | "pendentes";
-  canalVendas: "todos" | CanalVendas;
-  premiacao: "todas" | CategoriaPremiacao;
-  ultimaCompra: "qualquer" | "ate30" | "30a90" | "mais90";
-  ordenarPor: "vendasAno" | "vendasMes" | "razaoSocial" | "ultimaCompra" | "bilhetes" | "limite";
-  ordenarDirecao: "asc" | "desc";
-  ocultarInativadas: boolean;
+  sica: string | null; // real — mesmo código de codigoEmpresa, formatado como no SICA
+  margemPct: number; // mock — sem margem por agência modelada no domínio hoje
+  margemLYPct: number; // mock
+  margemVariacaoPct: number; // mock
 }
 
 // Configurável pelo usuário no rodapé da tabela (AgenciasPaginacao) —
