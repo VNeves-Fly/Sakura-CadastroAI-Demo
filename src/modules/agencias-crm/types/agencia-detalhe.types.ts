@@ -64,7 +64,7 @@ export interface AgenciaDetalheSocio {
   email: string | null; // real
   telefone: string | null; // real
   papel: string; // real (aproximação: "Administrador" se administrativo, senão "Sócio")
-  participacaoPct: number | null; // mock — Prisma não guarda % de participação societária hoje
+  participacaoPct: number | null; // sem fonte real — Prisma não guarda % de participação societária hoje; sempre `null`, UI mostra "—"
   temRg: boolean; // real
   temProcuracao: boolean; // real
 }
@@ -82,8 +82,8 @@ export interface AgenciaDetalhePerfilComercial {
   base: string | null; // melhor esforço
   gestorNome: string | null; // real
   executivoNome: string | null; // real
-  segmento: string | null; // mock — sem campo real de segmento comercial
-  mediaFaturamento: number | null; // mock
+  segmento: string | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
+  mediaFaturamento: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
   bancoNome: string | null; // real (CadastroComplementar, provavelmente null — roadmap não usado pela UI de cadastro hoje)
   bancoCodigo: string | null; // real
   bancoAgencia: string | null; // real
@@ -91,8 +91,8 @@ export interface AgenciaDetalhePerfilComercial {
   limiteFaturado: number; // mock
   limiteCartao: number; // mock
   dataUltimaCompra: string | null; // real (SST) — mock se sicaCodigo ausente
-  comissaoPct: number; // mock
-  incentivoPct: number; // mock
+  comissaoPct: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
+  incentivoPct: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
   bloqCred: boolean; // mock
 }
 

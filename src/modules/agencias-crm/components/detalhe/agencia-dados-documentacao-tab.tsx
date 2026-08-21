@@ -248,7 +248,10 @@ export function AgenciaDadosDocumentacaoTab({
                   <div>
                     <p className="text-foreground text-sm font-semibold">{socioSelecionado.nome}</p>
                     <p className="text-muted-foreground text-xs">
-                      {socioSelecionado.participacaoPct}% {socioSelecionado.papel}
+                      {socioSelecionado.participacaoPct !== null
+                        ? `${socioSelecionado.participacaoPct}%`
+                        : "—"}{" "}
+                      {socioSelecionado.papel}
                     </p>
                   </div>
                 </div>

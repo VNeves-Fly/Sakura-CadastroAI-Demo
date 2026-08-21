@@ -182,7 +182,9 @@ export function montarAgenciaDetalheView(
     email: representante.email || null,
     telefone: representante.telefone || null,
     papel: representante.administrativo ? "Sócio-Administrador" : "Sócio",
-    participacaoPct: 10 + (hashParaNumero(representante.id) % 70),
+    // Sem fonte real — Prisma não guarda % de participação societária
+    // hoje (pedido do usuário, 2026-08-21: não mockar, mostrar "—").
+    participacaoPct: null,
     temRg: representante.rg !== null,
     temProcuracao: representante.procuracao !== null,
   }));
@@ -257,8 +259,11 @@ export function montarAgenciaDetalheView(
       base: executivoContexto.base,
       gestorNome: executivoContexto.gestorNome,
       executivoNome: detalhe.executivoNome,
-      segmento: blocoVendas.semVenda ? null : ["Lazer", "Corporativo", "Misto"][base % 3]!,
-      mediaFaturamento: blocoVendas.semVenda ? null : Math.round(blocoVendas.volumeAno / 8),
+      // Sem fonte real (segmento comercial, faturamento médio, comissão e
+      // incentivo não existem em nenhum sistema hoje) — não mockar, UI
+      // mostra "—" (pedido do usuário, 2026-08-21).
+      segmento: null,
+      mediaFaturamento: null,
       bancoNome: detalhe.complementar?.bancoNome ?? null,
       bancoCodigo: detalhe.complementar?.bancoCodigo ?? null,
       bancoAgencia: detalhe.complementar?.bancoAgencia ?? null,
@@ -266,8 +271,8 @@ export function montarAgenciaDetalheView(
       limiteFaturado: Math.round(blocoVendas.volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
       limiteCartao: Math.round(blocoVendas.volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
       dataUltimaCompra: blocoVendas.dataUltimaCompra,
-      comissaoPct: 0.5 + ((base >> 2) % 30) / 10,
-      incentivoPct: (base >> 5) % 10 === 0 ? 1 + ((base >> 7) % 20) / 10 : 0,
+      comissaoPct: null,
+      incentivoPct: null,
       bloqCred: base % 20 === 0,
     },
     vendas: blocoVendas.vendas,
@@ -378,8 +383,11 @@ export function montarAgenciaDetalheViewSst(
       base: executivoContexto.base,
       gestorNome: executivoContexto.gestorNome,
       executivoNome: executivoContexto.executivoNome ?? baseEmpresa.nome_executivo,
-      segmento: blocoVendas.semVenda ? null : ["Lazer", "Corporativo", "Misto"][base % 3]!,
-      mediaFaturamento: blocoVendas.semVenda ? null : Math.round(blocoVendas.volumeAno / 8),
+      // Sem fonte real (segmento comercial, faturamento médio, comissão e
+      // incentivo não existem em nenhum sistema hoje) — não mockar, UI
+      // mostra "—" (pedido do usuário, 2026-08-21).
+      segmento: null,
+      mediaFaturamento: null,
       bancoNome: null,
       bancoCodigo: null,
       bancoAgencia: null,
@@ -390,8 +398,8 @@ export function montarAgenciaDetalheViewSst(
       limiteCartao:
         baseEmpresa.total_limite_cred_cartao_credito || baseEmpresa.limite_cred_cartao_credito || 0,
       dataUltimaCompra: blocoVendas.dataUltimaCompra,
-      comissaoPct: 0.5 + ((base >> 2) % 30) / 10,
-      incentivoPct: (base >> 5) % 10 === 0 ? 1 + ((base >> 7) % 20) / 10 : 0,
+      comissaoPct: null,
+      incentivoPct: null,
       bloqCred: baseEmpresa.bloqueio_credito === "SIM",
     },
     vendas: blocoVendas.vendas,
