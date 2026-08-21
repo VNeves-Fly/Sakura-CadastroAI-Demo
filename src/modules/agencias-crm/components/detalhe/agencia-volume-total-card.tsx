@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { Bus, Clock, Plane } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { formatarMoedaCompleta } from "@/modules/agencias-crm/utils/formatar-moeda.util";
@@ -42,14 +41,15 @@ function ponderar(
 
 // Card "Volume total" — aba Dashboard do detalhe de Agência (SPEC
 // seção 3.5.A). `vendas.aereoNacional/aereoInternacional/terrestre/
-// volumeTotalAno/ticketMedioAereo` são mock determinístico (mesmo mock do
-// resto de agencia-detalhe.adapter.ts — não existe venda por agência
-// modelada no domínio hoje); margem/rentab. por canal são mock à parte
-// (ver canal-margem-mock.util.ts). Por isso o valor grande aqui segue a
-// cor sólida `var(--color-primary)` pedida na SPEC, não o gradiente
-// rosa→roxo→azul usado no Dashboard CRM/Executivo/Gestor — lá o hero é
-// real (ou parcialmente real); aqui o card inteiro é mock, sinalizado
-// pelo MockBadge.
+// volumeTotalAno/ticketMedioAereo` vêm do SST real (agenciaDetalheSstService.
+// obterVendas, ver agencia-detalhe.adapter.ts) quando a agência tem venda
+// detectada — mock por hash só como fallback, mesmo critério do resto do
+// módulo. Só margem/rentab. por canal (`AgenciaMargemRentabBloco mock`,
+// ver canal-margem-mock.util.ts), a repartição por dia/ontem/mês (só
+// "ano" é o total real) e "Atualizado em" continuam sempre mock — por
+// isso o valor grande aqui segue a cor sólida `var(--color-primary)`
+// pedida na SPEC, não o gradiente rosa→roxo→azul usado no Dashboard CRM/
+// Executivo/Gestor.
 export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotalCardProps) {
   const filtro = useFiltroPeriodoAgenciaStore((estado) => estado.filtro);
   const periodo = resolverPeriodoAgencia(filtro);
@@ -131,10 +131,10 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
             rentabLYValor={rentabTotalLYValor}
             rentabLYVariacaoPct={rentabTotalLYVariacaoPct}
             tamanho="grande"
+            mock
           />
         </div>
         <div className="flex flex-col items-end gap-2">
-          <MockBadge />
           <FiltroPeriodoAgenciaPopover />
         </div>
       </div>

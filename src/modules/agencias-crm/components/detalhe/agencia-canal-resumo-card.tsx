@@ -63,6 +63,7 @@ export function AgenciaCanalResumoCard({
           rentabLYValor={rentabLYValor}
           rentabLYVariacaoPct={margem.rentabLYVariacaoPct}
           tamanho="pequeno"
+          mock
         />
       </div>
 

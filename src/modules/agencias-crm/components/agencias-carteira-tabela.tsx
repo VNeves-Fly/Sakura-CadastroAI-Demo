@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,10 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
           <span className="text-center">Executivo</span>
           <span className="text-right">Vendas mês ⇅</span>
           <span className="text-primary text-right">Vendas ano ↓</span>
-          <span className="text-right">Margem</span>
+          <span className="flex items-center justify-end gap-1 text-right">
+            Margem
+            <MockBadge />
+          </span>
         </div>
 
         {agencias.length === 0 ? (

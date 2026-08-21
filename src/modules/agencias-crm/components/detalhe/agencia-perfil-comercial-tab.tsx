@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Landmark, ShieldCheck, UserCog, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   formatarData,
@@ -35,11 +36,12 @@ function Secao({
   );
 }
 
-function Campo({ label, children }: { label: string; children: ReactNode }) {
+function Campo({ label, mock, children }: { label: string; mock?: boolean; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+      <span className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-semibold tracking-wide uppercase">
         {label}
+        {mock ? <MockBadge /> : null}
       </span>
       <div className="text-foreground text-sm">{children}</div>
     </div>
@@ -47,9 +49,10 @@ function Campo({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // Aba "Perfil Comercial" (SPEC seção 4.4) — sica/base/gestor/executivo são
-// reais; limites, comissão, incentivo, segmento e média de faturamento são
-// mock determinístico (ver agencia-detalhe.adapter.ts) porque não existe
-// hoje modelagem real de limite de crédito/comissão no domínio de Agência.
+// reais. Limite Faturado/Cartão e Bloqueio de Crédito também são reais
+// (SST, `base-empresa-cadastro`, ver agencia-detalhe.adapter.ts) — só
+// segmento, média de faturamento, comissão e incentivo continuam mock
+// determinístico, sem fonte real hoje.
 export function AgenciaPerfilComercialTab({ perfil }: AgenciaPerfilComercialTabProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -57,13 +60,13 @@ export function AgenciaPerfilComercialTab({ perfil }: AgenciaPerfilComercialTabP
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Campo label="SICA">{perfil.sica ?? "—"}</Campo>
           <Campo label="Base">{perfil.base ?? "—"}</Campo>
-          <Campo label="Segmento">
+          <Campo label="Segmento" mock>
             {perfil.segmento ? <Badge variant="outline">{perfil.segmento}</Badge> : "—"}
           </Campo>
 
           <Campo label="Gestor">{perfil.gestorNome ?? "—"}</Campo>
           <Campo label="Executivo (Promotor)">{perfil.executivoNome ?? "—"}</Campo>
-          <Campo label="Média de Faturamento">
+          <Campo label="Média de Faturamento" mock>
             {perfil.mediaFaturamento !== null ? (
               <SensitiveValue value={formatarMoedaAbreviada(perfil.mediaFaturamento)} />
             ) : (
@@ -91,8 +94,10 @@ export function AgenciaPerfilComercialTab({ perfil }: AgenciaPerfilComercialTabP
             )}
           </Campo>
 
-          <Campo label="Comissão">{formatarPercentual(perfil.comissaoPct)}</Campo>
-          <Campo label="Incentivo">
+          <Campo label="Comissão" mock>
+            {formatarPercentual(perfil.comissaoPct)}
+          </Campo>
+          <Campo label="Incentivo" mock>
             {perfil.incentivoPct > 0 ? formatarPercentual(perfil.incentivoPct) : "—"}
           </Campo>
           <Campo label="Data Última Compra">

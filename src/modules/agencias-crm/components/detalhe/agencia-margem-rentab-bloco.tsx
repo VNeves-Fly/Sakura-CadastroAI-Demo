@@ -1,4 +1,5 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   formatarMoedaCompleta,
@@ -14,13 +15,17 @@ interface AgenciaMargemRentabBlocoProps {
   rentabLYValor: number;
   rentabLYVariacaoPct: number;
   tamanho?: "grande" | "pequeno";
+  // Mostra "MK" ao lado do rótulo — margem/rentabilidade não têm fonte
+  // real hoje (ver canal-margem-mock.util.ts) mesmo quando o valor
+  // principal do card ao redor (volume, ticket médio) já é real via SST;
+  // por isso o badge fica neste bloco, não no card inteiro (mesmo padrão
+  // de MargemRentabBloco do módulo Executivo).
+  mock?: boolean;
 }
 
 // Bloco "MARGEM.../RENTAB. LY" do card "Volume total" e dos sub-cards de
 // canal (Aéreo/Terrestre) — mesmo padrão visual do MargemRentabBloco já
-// usado em Executivo/Gestor (duplicado por isolamento de módulo). Aqui o
-// card inteiro já leva um único MockBadge no topo (SPEC 3.5.A), então esse
-// bloco não precisa de badge inline próprio.
+// usado em Executivo/Gestor (duplicado por isolamento de módulo).
 export function AgenciaMargemRentabBloco({
   margemLabel,
   margemPct,
@@ -29,6 +34,7 @@ export function AgenciaMargemRentabBloco({
   rentabLYValor,
   rentabLYVariacaoPct,
   tamanho = "grande",
+  mock,
 }: AgenciaMargemRentabBlocoProps) {
   const margemNegativa = margemVariacaoPct < 0;
   const grande = tamanho === "grande";
@@ -43,6 +49,7 @@ export function AgenciaMargemRentabBloco({
       >
         <span className="flex items-center gap-1.5">
           <span className="text-muted-foreground/70 font-bold tracking-wide">{margemLabel}</span>
+          {mock ? <MockBadge /> : null}
           <span className="text-foreground/80 font-bold">{formatarPercentual(margemPct)}</span>
         </span>
         <span className="flex items-center gap-1.5">
