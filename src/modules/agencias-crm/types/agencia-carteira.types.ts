@@ -41,9 +41,6 @@ export interface AgenciaCarteiraView {
   diasSemComprar: number; // real (SST, data_ultima_venda) — mock se sem venda detectada
   limite: number; // mock — SICA só espelha limite de crédito de fatura, não limite de compra
   sica: string | null; // real — mesmo código de codigoEmpresa, formatado como no SICA
-  margemPct: number; // mock — sem margem por agência modelada no domínio hoje
-  margemLYPct: number; // mock
-  margemVariacaoPct: number; // mock
 }
 
 // Configurável pelo usuário no rodapé da tabela (AgenciasPaginacao) —

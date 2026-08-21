@@ -1,8 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
@@ -13,11 +11,14 @@ interface AgenciasCarteiraTabelaProps {
   offsetPagina: number;
 }
 
-// Grid de colunas idêntico no header e nas linhas (SPEC_AGENCIAS_SAKURA
-// seção 2.5): # | Agência | Código SICA | Base | Executivo | Vendas mês |
-// Vendas ano | Margem.
+// Grid de colunas idêntico no header e nas linhas: # | Agência | Código
+// SICA | Base | Executivo | Vendas mês | Vendas ano. Coluna "Margem" da
+// SPEC original removida (pedido do usuário, 2026-08-21) — não tem fonte
+// real na carteira inteira (só o Aéreo por agência individual tem
+// margem/rentabilidade no SST, e isso exigiria uma chamada por agência,
+// ~21 mil chamadas; ver docs/crm-agencias-backend.md).
 const COLS =
-  "44px minmax(240px,1.3fr) 110px 90px minmax(160px,1.4fr) minmax(120px,1fr) minmax(130px,1fr) minmax(130px,1fr)";
+  "44px minmax(240px,1.3fr) 110px 90px minmax(160px,1.4fr) minmax(120px,1fr) minmax(130px,1fr)";
 
 // Tabela principal da listagem de Agências (SPEC seção 2.5) — headers são
 // indicadores estáticos (⇅/↓), sem ordenação por coluna real (a ordenação
@@ -31,7 +32,7 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
     <div className="overflow-x-auto">
       <div style={{ minWidth: 1040 }}>
         <div
-          className="border-border grid border-b px-2 py-3 text-[11px] font-bold tracking-[0.05em] text-[#8888AA] uppercase"
+          className="border-border grid border-b px-4 py-3 text-[11px] font-bold tracking-[0.05em] text-[#8888AA] uppercase"
           style={{ gridTemplateColumns: COLS }}
         >
           <span>#</span>
@@ -41,10 +42,6 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
           <span className="text-center">Executivo</span>
           <span className="text-right">Vendas mês ⇅</span>
           <span className="text-primary text-right">Vendas ano ↓</span>
-          <span className="flex items-center justify-end gap-1 text-right">
-            Margem
-            <MockBadge />
-          </span>
         </div>
 
         {agencias.length === 0 ? (
@@ -53,7 +50,6 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
           </p>
         ) : (
           agencias.map((agencia, indice) => {
-            const margemNegativa = agencia.margemVariacaoPct < 0;
             const par = (offsetPagina + indice) % 2 === 0;
             return (
               <div
@@ -65,7 +61,7 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
                 // filtro por CNPJ (confirmado por curl real, 2026-08-21).
                 onClick={() => router.push(`/crm/agencias/${agencia.id}`)}
                 className={cn(
-                  "border-border grid cursor-pointer items-center border-b px-2 py-3.5 text-[13px] text-[#2A2A40] transition-colors hover:bg-[#FCF3F8]",
+                  "border-border grid cursor-pointer items-center border-b px-4 py-3.5 text-[13px] text-[#2A2A40] transition-colors hover:bg-[#FCF3F8]",
                   par ? "bg-[#FBFBFE]" : "bg-background",
                 )}
                 style={{ gridTemplateColumns: COLS }}
@@ -100,27 +96,6 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
                     value={agencia.vendasAno > 0 ? formatarMoedaAbreviada(agencia.vendasAno) : "—"}
                   />
                 </span>
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-[13px] font-semibold text-[#1A1A2E]">
-                    {agencia.margemPct.toFixed(1).replace(".", ",")}%
-                  </span>
-                  <span className="flex items-center gap-0.5 text-[10.5px] text-[#9494AC]">
-                    LY: {agencia.margemLYPct.toFixed(1).replace(".", ",")}%
-                    <span
-                      className={cn(
-                        "inline-flex items-center font-bold",
-                        margemNegativa ? "text-destructive" : "text-success",
-                      )}
-                    >
-                      {margemNegativa ? (
-                        <ArrowDownRight className="size-2.5" />
-                      ) : (
-                        <ArrowUpRight className="size-2.5" />
-                      )}
-                      {Math.abs(agencia.margemVariacaoPct).toFixed(1).replace(".", ",")}%
-                    </span>
-                  </span>
-                </div>
               </div>
             );
           })
