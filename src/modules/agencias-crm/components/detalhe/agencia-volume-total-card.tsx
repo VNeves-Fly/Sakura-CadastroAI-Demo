@@ -7,7 +7,6 @@ import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util"
 import { formatarMoedaCompleta } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import {
   gerarAtualizadoEm,
-  gerarNacIntTerrestre,
   gerarVolumePorPeriodo,
 } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import { AgenciaMargemRentabBloco } from "@/modules/agencias-crm/components/detalhe/agencia-margem-rentab-bloco";
@@ -42,11 +41,12 @@ function ponderar(
 // volumeTotalAno/ticketMedioAereo/margemAereo/margemTerrestre` vêm do SST
 // real (agenciaDetalheSstService.obterVendas, ver agencia-detalhe.adapter.ts)
 // quando a agência tem venda detectada — mock por hash só como fallback,
-// mesmo critério do resto do módulo. Margem/rentabilidade não reagem ao
-// filtro "Período" (sempre a janela anual, real ou mock) — só a
-// repartição por dia/ontem/mês do valor grande é mock (ver
-// gerarVolumePorPeriodo), assim como o split NAC/INT do Terrestre e
-// "Atualizado em". Por isso o valor grande aqui segue a cor sólida
+// mesmo critério do resto do módulo. Isso inclui o NAC/INT do Terrestre
+// (`vendas.terrestre.nacPct/intPct`, agrupado por `nac_int` real do SST).
+// Margem/rentabilidade e NAC/INT não reagem ao filtro "Período" (sempre a
+// janela anual, real ou mock) — só a repartição por dia/ontem/mês do
+// valor grande é mock (ver gerarVolumePorPeriodo), assim como "Atualizado
+// em". Por isso o valor grande aqui segue a cor sólida
 // `var(--color-primary)` pedida na SPEC, não o gradiente rosa→roxo→azul
 // usado no Dashboard CRM/Executivo/Gestor.
 export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotalCardProps) {
@@ -54,10 +54,9 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
   const periodo = resolverPeriodoAgencia(filtro);
   const { margemAereo, margemTerrestre } = vendas;
 
-  const { nacIntTerrestre, volumePorPeriodo, atualizadoEm } = useMemo(() => {
+  const { volumePorPeriodo, atualizadoEm } = useMemo(() => {
     const base = hashParaNumero(agenciaId);
     return {
-      nacIntTerrestre: gerarNacIntTerrestre(base),
       volumePorPeriodo: gerarVolumePorPeriodo(base, vendas.volumeTotalAno),
       atualizadoEm: gerarAtualizadoEm(base),
     };
@@ -163,8 +162,8 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
           quantidade={servicosTerrestre}
           unidade="serviços"
           ticketMedio={ticketMedioTerrestre}
-          nacPct={nacIntTerrestre.nacPct}
-          intPct={nacIntTerrestre.intPct}
+          nacPct={vendas.terrestre.nacPct}
+          intPct={vendas.terrestre.intPct}
           margem={margemTerrestre}
         />
       </div>

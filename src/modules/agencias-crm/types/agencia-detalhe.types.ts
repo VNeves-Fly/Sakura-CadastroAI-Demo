@@ -165,7 +165,10 @@ export interface CanalMargem {
 export interface AgenciaDetalheVendas {
   aereoNacional: { volume: number; bilhetes: number; pctAereo: number };
   aereoInternacional: { volume: number; bilhetes: number; pctAereo: number };
-  terrestre: { volume: number; servicos: number; pctMix: number };
+  // nacPct/intPct: real (SST, agrupado por `nac_int` em
+  // /api/resumos/terrestre, ver agencia-detalhe.sst-service.ts) quando a
+  // agência tem venda terrestre detectada — mock por hash como fallback.
+  terrestre: { volume: number; servicos: number; pctMix: number; nacPct: number; intPct: number };
   volumeTotalAno: number;
   ticketMedioAereo: number;
   topCompanhias: TopCompanhiaAgencia[];

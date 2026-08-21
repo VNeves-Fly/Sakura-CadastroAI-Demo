@@ -5,6 +5,7 @@ import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import {
   gerarMargemAereo,
   gerarMargemTerrestre,
+  gerarNacIntTerrestre,
 } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
@@ -191,6 +192,7 @@ function construirBlocoVendas(
     gerarMargemTerrestre,
     volumeTerrestre,
   );
+  const terrestreNacInt = vendasReais?.terrestreNacInt ?? gerarNacIntTerrestre(base);
 
   return {
     categoria,
@@ -212,6 +214,8 @@ function construirBlocoVendas(
         volume: volumeTerrestre,
         servicos: servicosTerrestre,
         pctMix: volumeAno > 0 ? Math.round((volumeTerrestre / volumeAno) * 100) : 0,
+        nacPct: terrestreNacInt.nacPct,
+        intPct: terrestreNacInt.intPct,
       },
       volumeTotalAno: volumeAno,
       ticketMedioAereo:

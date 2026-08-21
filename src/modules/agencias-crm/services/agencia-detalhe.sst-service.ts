@@ -211,6 +211,71 @@ interface RawPaginado<T> {
   total: number;
 }
 
+// `nac_int` vem em cada linha bruta de /api/resumos/terrestre (curl
+// real, 2026-08-21) — "NAC" ou "INTER" — mas não existe num agregado
+// pronto (só o total combinado via /api/consolidado/non-air). Pagina o
+// bruto do ano e conta local, mesmo padrão de buscarTopRotas. Terrestre
+// tem volume bem menor que aéreo por agência (visto em amostras reais),
+// então paginar o ano inteiro por uma única agência aqui é barato —
+// diferente da carteira inteira em agencia-carteira.sst-service.ts.
+interface RawResumoTerrestreNacInt {
+  nac_int: "NAC" | "INTER";
+  cancelado: number;
+}
+
+const LIMITE_PAGINA_TERRESTRE_NACINT = 500;
+
+async function buscarTerrestreNacInt(
+  codigoEmpresa: string,
+  inicio: string,
+  fim: string,
+): Promise<{ nacPct: number; intPct: number }> {
+  return comCache(
+    `agencias-crm:detalhe:${codigoEmpresa}:terrestre-nacint:${inicio}:${fim}`,
+    async () => {
+      const primeira = await sstGet<RawPaginado<RawResumoTerrestreNacInt>>(
+        "/api/resumos/terrestre",
+        {
+          codigoEmpresa,
+          startDate: inicio,
+          endDate: fim,
+          page: 1,
+          limit: LIMITE_PAGINA_TERRESTRE_NACINT,
+        },
+      );
+      const totalPaginas = Math.ceil(primeira.total / LIMITE_PAGINA_TERRESTRE_NACINT);
+      const numerosPaginasRestantes = Array.from(
+        { length: Math.max(0, totalPaginas - 1) },
+        (_, indice) => indice + 2,
+      );
+      const paginasRestantes = await mapComConcorrenciaLimitada(numerosPaginasRestantes, (pagina) =>
+        sstGet<RawPaginado<RawResumoTerrestreNacInt>>("/api/resumos/terrestre", {
+          codigoEmpresa,
+          startDate: inicio,
+          endDate: fim,
+          page: pagina,
+          limit: LIMITE_PAGINA_TERRESTRE_NACINT,
+        }),
+      );
+
+      let nac = 0;
+      let inter = 0;
+      for (const pagina of [primeira, ...paginasRestantes]) {
+        for (const linha of pagina.data) {
+          if (linha.cancelado) continue;
+          if (linha.nac_int === "NAC") nac += 1;
+          else inter += 1;
+        }
+      }
+      const total = nac + inter;
+      return {
+        nacPct: total > 0 ? Math.round((nac / total) * 100) : 0,
+        intPct: total > 0 ? Math.round((inter / total) * 100) : 0,
+      };
+    },
+  );
+}
+
 const LIMITE_RESERVAS_POR_CANAL = 30;
 // ACHADO (curl real, 2026-08-21): /api/resumos/aereo sem startDate/endDate
 // não devolve as linhas mais recentes primeiro (página 1 começa no início
@@ -513,6 +578,7 @@ export interface VendasReaisSst {
   dataUltimaCompra: string | null;
   margemAereo: CanalMargemSst;
   margemTerrestre: CanalMargemSst;
+  terrestreNacInt: { nacPct: number; intPct: number };
 }
 
 export const agenciaDetalheSstService = {
@@ -594,7 +660,7 @@ export const agenciaDetalheSstService = {
     const bilhetesAereoAno = aereoNac.tickets + aereoInter.tickets;
     const proporcaoNacional = bilhetesAereoAno > 0 ? aereoNac.tickets / bilhetesAereoAno : 1;
 
-    const [topRotas, topCompanhias, faturas, evolucaoMensal] = await Promise.all([
+    const [topRotas, topCompanhias, faturas, evolucaoMensal, terrestreNacInt] = await Promise.all([
       comFallback("top-rotas", buscarTopRotas(sicaCodigo), [] as TopRotaAgencia[]),
       comFallback(
         "top-companhias",
@@ -607,6 +673,10 @@ export const agenciaDetalheSstService = {
         buscarEvolucaoMensal(sicaCodigo, proporcaoNacional),
         [] as VendaMensalAgencia[],
       ),
+      comFallback("terrestre-nac-int", buscarTerrestreNacInt(sicaCodigo, inicioAno, fim), {
+        nacPct: 0,
+        intPct: 0,
+      }),
     ]);
 
     const valorMesAtual = mesAtual[0].tarifa + mesAtual[1].tarifa;
@@ -656,6 +726,7 @@ export const agenciaDetalheSstService = {
       dataUltimaCompra,
       margemAereo,
       margemTerrestre,
+      terrestreNacInt,
     };
   },
 };
