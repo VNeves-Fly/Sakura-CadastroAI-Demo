@@ -44,7 +44,10 @@ export function SaudeCarteiraCard({ segmentos }: SaudeCarteiraCardProps) {
             key={segmento.chave}
             type="button"
             onClick={() => setSegmentoAberto(segmento)}
-            className={cn("rounded-xl border p-4 text-left transition", CORES[segmento.chave])}
+            className={cn(
+              "rounded-xl border p-4 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-md",
+              CORES[segmento.chave],
+            )}
           >
             <div className="flex items-center justify-between gap-1">
               <span className="text-[11px] font-semibold tracking-wide uppercase">

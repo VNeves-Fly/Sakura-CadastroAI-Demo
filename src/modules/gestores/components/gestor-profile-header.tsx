@@ -30,32 +30,39 @@ export function GestorProfileHeader({ perfil }: GestorProfileHeaderProps) {
   const basesRestantes = perfil.bases.length - CHIPS_VISIVEIS_INICIALMENTE;
 
   return (
-    <div className="border-border bg-card rounded-2xl border p-6">
-      <div className="flex flex-wrap items-start justify-between gap-6">
-        <div className="flex items-start gap-4">
+    <div className="border-border bg-card rounded-2xl border p-5">
+      {/* Linha única centralizada (align-items:center), sem divisória e
+          sem grid de métricas — diferente do ExecutivoProfileHeader de
+          propósito (SPEC 3.3, checklist §5): o cartão do gestor tem pill
+          de status "ATIVO"/base/tag que o do executivo não tem, e não tem
+          os botões de visualizar/editar. */}
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
           <span
-            className="flex size-16 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
+            className="flex size-[54px] shrink-0 items-center justify-center rounded-full text-[19px] font-bold tracking-wide text-white"
             style={{ background: gerarGradienteAvatar(perfil.id) }}
           >
             {extrairIniciais(perfil.nome)}
           </span>
 
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-foreground text-xl font-bold">{perfil.nome}</h1>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-foreground text-xl font-extrabold tracking-tight uppercase">
+                {perfil.nome}
+              </h1>
               <Badge variant="outline" className="font-mono">
                 #{perfil.identificador}
               </Badge>
               <Badge
                 variant="outline"
                 className={cn(
-                  "gap-1",
+                  "gap-1.5",
                   perfil.ativo
                     ? "border-success/30 bg-success/10 text-success"
                     : "border-muted-foreground/30 bg-muted text-muted-foreground",
                 )}
               >
-                <Circle className="size-2 fill-current" />
+                <Circle className="size-1.5 fill-current" />
                 {perfil.ativo ? "ATIVO" : "INATIVO"}
               </Badge>
             </div>
@@ -84,10 +91,16 @@ export function GestorProfileHeader({ perfil }: GestorProfileHeaderProps) {
 
             {perfil.bases.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5">
+                {/* Tag rosa (não Badge outline) — mesmo estilo da tag
+                    "CWB" da SPEC 3.3, diferente da lista cinza de bases
+                    do ExecutivoProfileHeader. */}
                 {basesVisiveis.map((base, indice) => (
-                  <Badge key={`${base}-${indice}`} variant="outline">
+                  <span
+                    key={`${base}-${indice}`}
+                    className="border-primary/20 bg-primary/5 text-primary rounded-full border px-3 py-1 text-[11.5px] font-semibold"
+                  >
                     {base}
-                  </Badge>
+                  </span>
                 ))}
                 {!expandido && basesRestantes > 0 ? (
                   <button
@@ -112,7 +125,7 @@ export function GestorProfileHeader({ perfil }: GestorProfileHeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-start gap-8">
           <Stat value={perfil.totalExecutivos} label="Executivos" />
           <Stat value={perfil.totalAgencias} label="Agências" />
           <Stat
@@ -136,11 +149,11 @@ function Stat({
   valueClassName?: string;
 }) {
   return (
-    <div className="text-right">
-      <p className={cn("text-2xl font-bold", valueClassName ?? "text-foreground")}>
+    <div className="flex flex-col items-center gap-0.5">
+      <p className={cn("text-xl font-bold", valueClassName ?? "text-foreground")}>
         <SensitiveValue value={value} />
       </p>
-      <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+      <p className="text-muted-foreground text-center text-[10.5px] font-semibold tracking-wide uppercase">
         {label}
       </p>
     </div>

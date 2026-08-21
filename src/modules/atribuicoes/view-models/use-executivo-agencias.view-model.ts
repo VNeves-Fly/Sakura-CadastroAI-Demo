@@ -14,7 +14,6 @@ import type {
 const FILTROS_INICIAIS: AgenciasCarteiraFiltros = {
   busca: "",
   canalVendas: "todos",
-  premiacao: "todas",
   ultimaCompra: "qualquer",
   ordenarPor: "vendasAno",
   periodo: "mes",
@@ -59,7 +58,6 @@ export function useExecutivoAgenciasViewModel(agenciasCarteira: AgenciaCarteiraR
 
     const filtradas = agencias.filter((agencia) => {
       if (filtros.canalVendas !== "todos" && agencia.canal !== filtros.canalVendas) return false;
-      if (filtros.premiacao !== "todas" && agencia.categoria !== filtros.premiacao) return false;
       if (filtros.ultimaCompra === "ate30" && agencia.faixaRecencia !== "ate30d") return false;
       if (filtros.ultimaCompra === "30a90" && agencia.faixaRecencia !== "30a90d") return false;
       if (

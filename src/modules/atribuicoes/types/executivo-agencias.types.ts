@@ -31,10 +31,12 @@ export interface AgenciaCarteiraView {
   limite: number;
 }
 
+// Filtro "Premiação" removido daqui (2026-08-21, pedido do usuário) — a
+// coluna "Categoria" continua na tabela (AgenciaCarteiraView.categoria),
+// só não dá mais pra filtrar por ela.
 export interface AgenciasCarteiraFiltros {
   busca: string;
   canalVendas: "todos" | "aereo" | "terrestre" | "ambos";
-  premiacao: "todas" | CategoriaPremiacao;
   ultimaCompra: "qualquer" | "ate30" | "30a90" | "mais90";
   ordenarPor: "vendasAno" | "vendasPeriodo" | "ticketMedio" | "ultimaCompra";
   periodo: PeriodoVendas;
