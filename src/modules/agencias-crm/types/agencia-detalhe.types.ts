@@ -16,7 +16,7 @@ export interface AgenciaDetalheEmpresa {
   cnpj: string; // real
   statusLabel: string; // real
   statusClasses: string; // real
-  etapaLabel: string; // real (derivado do status)
+  etapaLabel: string | null; // real (derivado do status) — null quando a agência não tem cadastro/onboarding neste app (fonte 100% SST, ver adapter)
   situacaoReceita: string | null; // real (DadosReceita.situacaoCadastral) — null = "Não consultado"
   dataAbertura: string | null; // real
   tempoDeCnpj: string | null; // real (calculado)
@@ -64,7 +64,7 @@ export interface AgenciaDetalheSocio {
   email: string | null; // real
   telefone: string | null; // real
   papel: string; // real (aproximação: "Administrador" se administrativo, senão "Sócio")
-  participacaoPct: number | null; // mock — Prisma não guarda % de participação societária hoje
+  participacaoPct: number | null; // sem fonte real — Prisma não guarda % de participação societária hoje; sempre `null`, UI mostra "—"
   temRg: boolean; // real
   temProcuracao: boolean; // real
 }
@@ -82,8 +82,8 @@ export interface AgenciaDetalhePerfilComercial {
   base: string | null; // melhor esforço
   gestorNome: string | null; // real
   executivoNome: string | null; // real
-  segmento: string | null; // mock — sem campo real de segmento comercial
-  mediaFaturamento: number | null; // mock
+  segmento: string | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
+  mediaFaturamento: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
   bancoNome: string | null; // real (CadastroComplementar, provavelmente null — roadmap não usado pela UI de cadastro hoje)
   bancoCodigo: string | null; // real
   bancoAgencia: string | null; // real
@@ -91,8 +91,8 @@ export interface AgenciaDetalhePerfilComercial {
   limiteFaturado: number; // mock
   limiteCartao: number; // mock
   dataUltimaCompra: string | null; // real (SST) — mock se sicaCodigo ausente
-  comissaoPct: number; // mock
-  incentivoPct: number; // mock
+  comissaoPct: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
+  incentivoPct: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
   bloqCred: boolean; // mock
 }
 
@@ -143,6 +143,20 @@ export interface ReservaAgencia {
   valor: number;
 }
 
+// Margem/rentabilidade de um canal (Aéreo ou Terrestre) — real (SST,
+// /api/consolidado/air|non-air, ver agencia-detalhe.sst-service.ts)
+// quando a agência tem sicaCodigo e a integração está ligada; mock
+// determinístico como fallback. `rentabLYValor` é o valor absoluto (R$)
+// do mesmo período do ano anterior, direto do SST — não mais derivado de
+// `volume * pct`.
+export interface CanalMargem {
+  margemPct: number;
+  margemLYPct: number;
+  margemVariacaoPct: number;
+  rentabLYValor: number;
+  rentabLYVariacaoPct: number;
+}
+
 // vendas: real (SST, ver agencia-detalhe.sst-service.ts) quando a
 // agência tem sicaCodigo e a integração está ligada — mock por hash
 // como fallback (sem sicaCodigo, sem venda detectada, ou integração
@@ -151,11 +165,16 @@ export interface ReservaAgencia {
 export interface AgenciaDetalheVendas {
   aereoNacional: { volume: number; bilhetes: number; pctAereo: number };
   aereoInternacional: { volume: number; bilhetes: number; pctAereo: number };
-  terrestre: { volume: number; servicos: number; pctMix: number };
+  // nacPct/intPct: real (SST, agrupado por `nac_int` em
+  // /api/resumos/terrestre, ver agencia-detalhe.sst-service.ts) quando a
+  // agência tem venda terrestre detectada — mock por hash como fallback.
+  terrestre: { volume: number; servicos: number; pctMix: number; nacPct: number; intPct: number };
   volumeTotalAno: number;
   ticketMedioAereo: number;
   topCompanhias: TopCompanhiaAgencia[];
   faturas: FaturaAgencia[];
+  margemAereo: CanalMargem;
+  margemTerrestre: CanalMargem;
 }
 
 export interface AgenciaDetalheView {

@@ -21,8 +21,9 @@ const CORES: Record<string, string> = {
 };
 
 // Card "Top Companhias Aéreas" (SPEC seção 3.5.B) — `companhias` vem de
-// `vendas.topCompanhias` (mock determinístico, ver agencia-detalhe.adapter.ts,
-// mesmo dado que já existia no antigo modal), aqui só reestilizado e
+// `vendas.topCompanhias`, real via SST (GET /api/reports/ranking-cias,
+// ver agencia-detalhe.sst-service.ts) quando a agência tem venda
+// detectada; mock por hash como fallback. Aqui só reestilizado e
 // limitado às 8 primeiras.
 export function AgenciaTopCompanhiasCard({ companhias }: AgenciaTopCompanhiasCardProps) {
   const top8 = companhias.slice(0, 8);

@@ -3,11 +3,18 @@ import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { montarAgenciaDetalheView } from "@/modules/agencias-crm/adapters/agencia-detalhe.adapter";
+import {
+  montarAgenciaDetalheView,
+  montarAgenciaDetalheViewSst,
+} from "@/modules/agencias-crm/adapters/agencia-detalhe.adapter";
 import { AgenciaDetalheView } from "@/modules/agencias-crm/views/agencia-detalhe-view";
 import { NotFoundError } from "@/modules/shared/domain/errors";
 import { usaSstReal } from "@/modules/agencias-crm/infrastructure/agencia-sst-client.util";
-import { agenciaDetalheSstService } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
+import {
+  agenciaDetalheSstService,
+  type CadastroComercialSst,
+  type VendasReaisSst,
+} from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
 import { agenciaCarteiraSstService } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
 import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
@@ -29,52 +36,111 @@ function comTimeout<T>(promessa: Promise<T>, ms: number, valorPadrao: T): Promis
   ]);
 }
 
-// CNPJ (14 dígitos) — jeito de distinguir um id vindo do roster do SST
+// "Última compra"/"dias sem comprar" usam a MESMA fonte da listagem
+// (janela de 365d via resumo-agrupado, cacheada 10min) em vez do cálculo
+// de obterVendas (janela mais curta, 14-90d) — evita a página mostrar
+// uma data diferente da que já apareceu na linha da tabela pro mesmo
+// código.
+async function obterVendasComMetricasDaCarteira(
+  sicaCodigo: string,
+): Promise<VendasReaisSst | null> {
+  const [vendasReais, metricasCarteira] = await Promise.all([
+    agenciaDetalheSstService.obterVendas(sicaCodigo).catch((erro) => {
+      console.error(
+        "[agencias-crm] Falha ao buscar vendas reais do SST — página segue 100% mock.",
+        erro,
+      );
+      return null;
+    }),
+    comTimeout(
+      agenciaCarteiraSstService.obterMetricasCarteira().catch(() => null),
+      TIMEOUT_METRICAS_CARTEIRA_MS,
+      null,
+    ),
+  ]);
+
+  const metrica = metricasCarteira?.get(sicaCodigo);
+  if (vendasReais && metrica?.dataUltimaCompra) {
+    vendasReais.diasSemComprar = metrica.diasSemComprar;
+    vendasReais.dataUltimaCompra = metrica.dataUltimaCompra;
+  }
+  return vendasReais;
+}
+
+// Código SICA (dígitos puros) — identidade vinda do roster do SST
 // (/crm/agencias, aba Agências do executivo: essas listagens não têm id
-// local, só CNPJ) de um cuid local de verdade (aba Agências do Gestor,
-// que ainda lê direto da tabela `Agencia` e já manda o id certo).
-const REGEX_CNPJ = /^\d{14}$/;
+// local, só código SICA, ver agencia-carteira.loader.ts). Um cuid local
+// (aba Agências do Gestor, que ainda lê direto a tabela `Agencia`) nunca
+// é só dígitos.
+const REGEX_CODIGO_SICA = /^\d+$/;
 
-// Página de detalhe da Agência (/crm/agencias/[id]) — mesmo esqueleto de
-// /crm/executivos/[id] e /crm/gestores/[id] (guard → controller → notFound
-// → Promise.all pra dado relacionado → adapter → View). Reaproveita o
-// mesmo motor real de /cadastros/:id (obterDetalhe/obterDadosReceita) que
-// antes alimentava a API /api/agencias-crm/:id do modal — a rota interna
-// foi removida junto com o modal, essa página busca direto via
-// controller, sem round-trip HTTP (mesmo padrão de Executivo/Gestor).
-export default async function AgenciaDetalhePage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(nextAuthOptions);
-  if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
-    redirect("/cadastros");
+// Caminho 100% SST (decisão do usuário, 2026-08-21: /crm/agencias é a
+// carteira comercial do SST, não o funil de onboarding deste app). Sem
+// SST_API_KEY não tem outra fonte pra essa página — 500 explícito (via
+// throw, cai no error.tsx) em vez de tentar e estourar dentro de
+// `sstGet`.
+async function renderizarDetalheSst(codigoEmpresa: number) {
+  if (!usaSstReal()) {
+    throw new Error("Integração com o SST não está configurada.");
   }
 
-  let agenciaLocalId = params.id;
-  if (REGEX_CNPJ.test(params.id)) {
-    const porCnpj = await cadastroAdminController.buscarPorCnpj(params.id);
-    if (!porCnpj) {
-      // Agência real na carteira comercial (SST), mas nunca passou pelo
-      // cadastro/onboarding deste app — não existe dossiê pra montar.
-      notFound();
-    }
-    agenciaLocalId = porCnpj.id;
+  const [cadastroComercial, promotores] = await Promise.all([
+    agenciaDetalheSstService
+      .obterCadastroComercial(codigoEmpresa)
+      .catch((erro): CadastroComercialSst => {
+        console.error("[agencias-crm] Falha ao buscar cadastro comercial do SST.", erro);
+        return { baseEmpresa: null, cadastro: null };
+      }),
+    atribuicoesAdminController.listarPromotores(),
+  ]);
+
+  if (!cadastroComercial.baseEmpresa) {
+    notFound();
   }
 
+  // Gestor/base/executivo são melhor esforço via Promotor.sica — única
+  // hierarquia Executivo→Gestor que existe, o SST não modela Gestor (ver
+  // agencia-carteira.adapter.ts, mesmo critério já usado na listagem).
+  const promotor = promotores.find((item) => item.sica === codigoEmpresa) ?? null;
+  const gestorNome = promotor?.gestorId
+    ? ((await atribuicoesAdminController.listarGestores()).find(
+        (gestor) => gestor.id === promotor.gestorId,
+      )?.nome ?? null)
+    : null;
+
+  const vendasReais = await obterVendasComMetricasDaCarteira(String(codigoEmpresa));
+
+  const view = montarAgenciaDetalheViewSst(
+    codigoEmpresa,
+    cadastroComercial,
+    { base: promotor?.bases[0] ?? null, gestorNome, executivoNome: promotor?.nome ?? null },
+    vendasReais,
+  );
+  if (!view) {
+    notFound();
+  }
+
+  return <AgenciaDetalheView detalhe={view} />;
+}
+
+// Dossiê local (aba Agências do Gestor, ou qualquer link direto com o id
+// real de uma agência que passou pelo cadastro/onboarding deste app) —
+// inalterado, reaproveita o motor de /cadastros/:id.
+async function renderizarDetalheLocal(id: string) {
   // `obterDetalhe` lança NotFoundError pra id inexistente (não retorna
-  // null — diferente de buscarPromotorPorId/Gestor usado em Executivo/
-  // Gestor); sem este catch, um id inválido (ex.: linha mock em
-  // /crm/agencias) derrubava a página inteira com um erro não tratado em
-  // vez de cair no not-found.tsx normal do Next (bug reportado pelo
-  // usuário, 2026-08-21).
+  // null) — sem este catch, um id inválido derrubava a página inteira
+  // com um erro não tratado em vez de cair no not-found.tsx normal do
+  // Next (bug reportado pelo usuário, 2026-08-21).
   let detalhe: AgenciaDetalhe;
   try {
-    detalhe = await cadastroAdminController.obterDetalhe(agenciaLocalId);
+    detalhe = await cadastroAdminController.obterDetalhe(id);
   } catch (erro) {
     if (erro instanceof NotFoundError) notFound();
     throw erro;
   }
 
   const [dadosReceita, promotores, gestores] = await Promise.all([
-    cadastroAdminController.obterDadosReceita(agenciaLocalId).catch(() => null),
+    cadastroAdminController.obterDadosReceita(id).catch(() => null),
     atribuicoesAdminController.listarPromotores(),
     atribuicoesAdminController.listarGestores(),
   ]);
@@ -91,39 +157,8 @@ export default async function AgenciaDetalhePage({ params }: { params: { id: str
   // segue 100% mock (comportamento idêntico ao de antes desta
   // integração) — mesmo critério de agencia-carteira.loader.ts.
   const sicaCodigo = detalhe.agencia.sicaCodigo;
-  const usaSst = usaSstReal() && Boolean(sicaCodigo);
-
-  // "Última compra" do detalhe usa a MESMA fonte da listagem (janela de
-  // 365d via resumo-agrupado, cacheada 10min) em vez do cálculo de
-  // obterVendas (janela mais curta, 14-90d, só pra achar uma amostra de
-  // vendas recentes) — evita a página mostrar uma data diferente da que
-  // já apareceu na linha da tabela pro mesmo sicaCodigo. As duas
-  // chamadas só dependem de sicaCodigo (não uma da outra), então correm
-  // em paralelo — nunca sequencial.
-  const [vendasReais, metricasCarteira] = await Promise.all([
-    usaSst
-      ? agenciaDetalheSstService.obterVendas(sicaCodigo!).catch((erro) => {
-          console.error(
-            "[agencias-crm] Falha ao buscar vendas reais do SST — página segue 100% mock.",
-            erro,
-          );
-          return null;
-        })
-      : Promise.resolve(null),
-    usaSst
-      ? comTimeout(
-          agenciaCarteiraSstService.obterMetricasCarteira().catch(() => null),
-          TIMEOUT_METRICAS_CARTEIRA_MS,
-          null,
-        )
-      : Promise.resolve(null),
-  ]);
-
-  const metrica = sicaCodigo ? metricasCarteira?.get(sicaCodigo) : undefined;
-  if (vendasReais && metrica?.dataUltimaCompra) {
-    vendasReais.diasSemComprar = metrica.diasSemComprar;
-    vendasReais.dataUltimaCompra = metrica.dataUltimaCompra;
-  }
+  const vendasReais =
+    usaSstReal() && sicaCodigo ? await obterVendasComMetricasDaCarteira(sicaCodigo) : null;
 
   const view = montarAgenciaDetalheView(
     detalhe,
@@ -133,4 +168,21 @@ export default async function AgenciaDetalhePage({ params }: { params: { id: str
   );
 
   return <AgenciaDetalheView detalhe={view} />;
+}
+
+// Página de detalhe da Agência (/crm/agencias/[id]) — mesmo esqueleto de
+// /crm/executivos/[id] e /crm/gestores/[id]. `:id` decide o caminho: só
+// dígitos (código SICA, vindo do roster do SST) → 100% SST; qualquer
+// outra coisa (cuid local, aba Agências do Gestor) → dossiê local.
+export default async function AgenciaDetalhePage({ params }: { params: { id: string } }) {
+  const session = await getServerSession(nextAuthOptions);
+  if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
+    redirect("/cadastros");
+  }
+
+  if (REGEX_CODIGO_SICA.test(params.id)) {
+    return renderizarDetalheSst(Number(params.id));
+  }
+
+  return renderizarDetalheLocal(params.id);
 }

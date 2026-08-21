@@ -6,6 +6,7 @@ import {
   mapComConcorrenciaLimitada,
   sstGet,
 } from "@/modules/agencias-crm/infrastructure/agencia-sst-client.util";
+import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type {
   FaturaAgencia,
   ReservaAgencia,
@@ -13,6 +14,90 @@ import type {
   TopRotaAgencia,
   VendaMensalAgencia,
 } from "@/modules/agencias-crm/types/agencia-detalhe.types";
+
+// Cadastro comercial (identidade/contato/endereço/limites) pro modal de
+// detalhe — dois endpoints complementares, achados por curl real
+// (2026-08-21), nenhum dos dois pede filtro de executivo:
+// - GET /api/reports/base-empresa-cadastro?codigoEmpresa=X: nome fantasia,
+//   endereço, executivo, limites de crédito REAIS (limite_cred_faturado/
+//   limite_cred_cartao_credito), bloqueio de crédito, data de cadastro,
+//   status ativo/inativo (empresa_ativa) — e já devolve o CNPJ da empresa,
+//   então basta esse código pra encadear a segunda chamada.
+// - GET /api/agencias/cadastro?cnpj=X (com a máscara 00.000.000/0000-00,
+//   não dígitos puros): razão social, contato, endereço mais completo,
+//   IE/IM/IATA/EMBRATUR.
+// Nenhum dos dois tem sócios, documentos, análise de risco ou dados da
+// Receita Federal (CNAE, capital social) — esse bloco fica vazio/null pra
+// agência sem cadastro de onboarding neste app (decisão do usuário,
+// 2026-08-21: o modal do CRM não deve depender do banco local).
+interface RawBaseEmpresaCadastro {
+  codigo_empresa: number;
+  empresa_ativa: "SIM" | "NÃO";
+  nome_chave: string;
+  nome_fantasia: string;
+  CNPJ: string;
+  endereco: string;
+  numero: number | string | null;
+  complemento: string | null;
+  bairro: string;
+  CEP: string;
+  cidade: string;
+  uf: string;
+  telefone_principal: string;
+  email_empresa: string;
+  descricao_tipo_empresa: string;
+  data_cadastro: string;
+  filial_nome: string;
+  codigo_executivo: number;
+  nome_executivo: string;
+  bloqueio_credito: "SIM" | "NÃO";
+  limite_cred_faturado: number;
+  total_limite_cred_faturado: number;
+  limite_cred_cartao_credito: number;
+  total_limite_cred_cartao_credito: number;
+}
+
+interface RawAgenciaCadastro {
+  razao_social: string;
+  cnpj: string;
+  contato: string;
+  telefone: string;
+  email: string;
+  endereco: string;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+}
+
+async function buscarBaseEmpresaCadastro(
+  codigoEmpresa: number,
+): Promise<RawBaseEmpresaCadastro | null> {
+  return comCache(`agencias-crm:base-empresa-cadastro:${codigoEmpresa}`, async () => {
+    const resposta = await sstGet<{ data: RawBaseEmpresaCadastro[] }>(
+      "/api/reports/base-empresa-cadastro",
+      { codigoEmpresa, limit: 1 },
+    );
+    return resposta.data[0] ?? null;
+  });
+}
+
+async function buscarCadastroPorCnpj(cnpjDigitos: string): Promise<RawAgenciaCadastro | null> {
+  return comCache(`agencias-crm:agencia-cadastro:${cnpjDigitos}`, async () => {
+    const resposta = await sstGet<{ data: RawAgenciaCadastro[] }>("/api/agencias/cadastro", {
+      cnpj: maskCnpj(cnpjDigitos),
+      limit: 1,
+    });
+    return resposta.data[0] ?? null;
+  });
+}
+
+export interface CadastroComercialSst {
+  baseEmpresa: RawBaseEmpresaCadastro | null;
+  cadastro: RawAgenciaCadastro | null;
+}
 
 // Integração real com o SST pro bloco "vendas" do modal de detalhe —
 // UMA agência por vez (filtro `codigoEmpresa`, = sicaCodigo), diferente
@@ -46,10 +131,15 @@ import type {
 //   (poucas páginas, LIMITE_PAGINAS_TOP_ROTAS) — amostra suficiente pra
 //   um ranking de rotas sem custear a paginação inteira do ano.
 
+// `margem`/`rentabilidade` vêm prontos do SST nesses dois endpoints (curl
+// real, 2026-08-21) — não precisam ser derivados; só não eram lidos até
+// agora (só `tarifa`/`tickets`/`ticket_medio` eram usados).
 interface RawConsolidadoPeriodo {
   tarifa: number;
   tickets: number;
   ticket_medio: number;
+  rentabilidade: number;
+  margem: number;
 }
 
 // Cacheadas (10min, mesma infra da Fase 1) — dentro da janela de cache,
@@ -90,7 +180,13 @@ async function buscarNonAir(
   );
 }
 
-const ZERO_PERIODO: RawConsolidadoPeriodo = { tarifa: 0, tickets: 0, ticket_medio: 0 };
+const ZERO_PERIODO: RawConsolidadoPeriodo = {
+  tarifa: 0,
+  tickets: 0,
+  ticket_medio: 0,
+  rentabilidade: 0,
+  margem: 0,
+};
 
 interface RawResumoAereoLinha {
   bilhete: string;
@@ -113,6 +209,71 @@ interface RawResumoTerrestreLinha {
 interface RawPaginado<T> {
   data: T[];
   total: number;
+}
+
+// `nac_int` vem em cada linha bruta de /api/resumos/terrestre (curl
+// real, 2026-08-21) — "NAC" ou "INTER" — mas não existe num agregado
+// pronto (só o total combinado via /api/consolidado/non-air). Pagina o
+// bruto do ano e conta local, mesmo padrão de buscarTopRotas. Terrestre
+// tem volume bem menor que aéreo por agência (visto em amostras reais),
+// então paginar o ano inteiro por uma única agência aqui é barato —
+// diferente da carteira inteira em agencia-carteira.sst-service.ts.
+interface RawResumoTerrestreNacInt {
+  nac_int: "NAC" | "INTER";
+  cancelado: number;
+}
+
+const LIMITE_PAGINA_TERRESTRE_NACINT = 500;
+
+async function buscarTerrestreNacInt(
+  codigoEmpresa: string,
+  inicio: string,
+  fim: string,
+): Promise<{ nacPct: number; intPct: number }> {
+  return comCache(
+    `agencias-crm:detalhe:${codigoEmpresa}:terrestre-nacint:${inicio}:${fim}`,
+    async () => {
+      const primeira = await sstGet<RawPaginado<RawResumoTerrestreNacInt>>(
+        "/api/resumos/terrestre",
+        {
+          codigoEmpresa,
+          startDate: inicio,
+          endDate: fim,
+          page: 1,
+          limit: LIMITE_PAGINA_TERRESTRE_NACINT,
+        },
+      );
+      const totalPaginas = Math.ceil(primeira.total / LIMITE_PAGINA_TERRESTRE_NACINT);
+      const numerosPaginasRestantes = Array.from(
+        { length: Math.max(0, totalPaginas - 1) },
+        (_, indice) => indice + 2,
+      );
+      const paginasRestantes = await mapComConcorrenciaLimitada(numerosPaginasRestantes, (pagina) =>
+        sstGet<RawPaginado<RawResumoTerrestreNacInt>>("/api/resumos/terrestre", {
+          codigoEmpresa,
+          startDate: inicio,
+          endDate: fim,
+          page: pagina,
+          limit: LIMITE_PAGINA_TERRESTRE_NACINT,
+        }),
+      );
+
+      let nac = 0;
+      let inter = 0;
+      for (const pagina of [primeira, ...paginasRestantes]) {
+        for (const linha of pagina.data) {
+          if (linha.cancelado) continue;
+          if (linha.nac_int === "NAC") nac += 1;
+          else inter += 1;
+        }
+      }
+      const total = nac + inter;
+      return {
+        nacPct: total > 0 ? Math.round((nac / total) * 100) : 0,
+        intPct: total > 0 ? Math.round((inter / total) * 100) : 0,
+      };
+    },
+  );
 }
 
 const LIMITE_RESERVAS_POR_CANAL = 30;
@@ -392,6 +553,16 @@ function formatarIso(data: Date): string {
   }).format(data);
 }
 
+// Margem/rentabilidade real de um canal (Aéreo ou Terrestre) — período
+// atual (365d) e o mesmo período do ano anterior (365-730d atrás), pra
+// dar "LY" e variação real (ver obterVendas).
+export interface CanalMargemSst {
+  margemPct: number;
+  rentabilidade: number;
+  margemLYPct: number;
+  rentabilidadeLY: number;
+}
+
 export interface VendasReaisSst {
   aereoNacional: { volume: number; bilhetes: number };
   aereoInternacional: { volume: number; bilhetes: number };
@@ -405,9 +576,22 @@ export interface VendasReaisSst {
   faturas: FaturaAgencia[];
   diasSemComprar: number | null;
   dataUltimaCompra: string | null;
+  margemAereo: CanalMargemSst;
+  margemTerrestre: CanalMargemSst;
+  terrestreNacInt: { nacPct: number; intPct: number };
 }
 
 export const agenciaDetalheSstService = {
+  // `base-empresa-cadastro` primeiro (já devolve o CNPJ) pra encadear
+  // `agencias/cadastro` — uma chamada extra, não duas em paralelo, já que
+  // a segunda depende do CNPJ que só a primeira devolve. `null` nos dois
+  // significa "código SICA não existe no SST" (agência não encontrada).
+  async obterCadastroComercial(codigoEmpresa: number): Promise<CadastroComercialSst> {
+    const baseEmpresa = await buscarBaseEmpresaCadastro(codigoEmpresa);
+    const cadastro = baseEmpresa ? await buscarCadastroPorCnpj(baseEmpresa.CNPJ) : null;
+    return { baseEmpresa, cadastro };
+  },
+
   // Uma chamada por abertura do modal (o fetch do detalhe é síncrono
   // hoje, sem streaming — ver route.ts). Cada sub-bloco tem fallback
   // isolado: se um falhar, os outros seguem reais.
@@ -420,42 +604,63 @@ export const agenciaDetalheSstService = {
     // entraria nas duas janelas (startDate/endDate são inclusivos no
     // SST) e o dia contaria duas vezes em variacaoMesAnterior.
     const fimMesAnterior = diasAtrasIso(31);
+    // "LY" (mesmo período do ano anterior) pra margem/rentabilidade real
+    // — janela de 365d adjacente à janela "ano" (365-730d atrás), sem
+    // sobreposição, mesmo critério de fimMesAnterior acima.
+    const inicioAnoLY = diasAtrasIso(730);
+    const fimAnoLY = diasAtrasIso(365);
 
-    const [aereoNac, aereoInter, terrestre, mesAtual, mesAnterior, reservasInfo] =
-      await Promise.all([
-        comFallback("aereo-nacional", buscarAir(sicaCodigo, inicioAno, fim, "NAC"), ZERO_PERIODO),
-        comFallback(
-          "aereo-internacional",
-          buscarAir(sicaCodigo, inicioAno, fim, "INTER"),
-          ZERO_PERIODO,
-        ),
-        comFallback("terrestre-total", buscarNonAir(sicaCodigo, inicioAno, fim), ZERO_PERIODO),
-        comFallback(
-          "variacao-mes-atual",
-          Promise.all([
-            buscarAir(sicaCodigo, inicioMesAtual, fim),
-            buscarNonAir(sicaCodigo, inicioMesAtual, fim),
-          ]),
-          [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
-        ),
-        comFallback(
-          "variacao-mes-anterior",
-          Promise.all([
-            buscarAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
-            buscarNonAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
-          ]),
-          [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
-        ),
-        comFallback("reservas", buscarReservasRecentes(sicaCodigo), {
-          reservas: [] as ReservaAgencia[],
-          dataUltimaCompra: null as string | null,
-        }),
-      ]);
+    const [
+      aereoNac,
+      aereoInter,
+      terrestre,
+      mesAtual,
+      mesAnterior,
+      reservasInfo,
+      aereoLY,
+      terrestreLY,
+    ] = await Promise.all([
+      comFallback("aereo-nacional", buscarAir(sicaCodigo, inicioAno, fim, "NAC"), ZERO_PERIODO),
+      comFallback(
+        "aereo-internacional",
+        buscarAir(sicaCodigo, inicioAno, fim, "INTER"),
+        ZERO_PERIODO,
+      ),
+      comFallback("terrestre-total", buscarNonAir(sicaCodigo, inicioAno, fim), ZERO_PERIODO),
+      comFallback(
+        "variacao-mes-atual",
+        Promise.all([
+          buscarAir(sicaCodigo, inicioMesAtual, fim),
+          buscarNonAir(sicaCodigo, inicioMesAtual, fim),
+        ]),
+        [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
+      ),
+      comFallback(
+        "variacao-mes-anterior",
+        Promise.all([
+          buscarAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
+          buscarNonAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
+        ]),
+        [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
+      ),
+      comFallback("reservas", buscarReservasRecentes(sicaCodigo), {
+        reservas: [] as ReservaAgencia[],
+        dataUltimaCompra: null as string | null,
+      }),
+      // Sem `tipoRota` — combinado NAC+INTER direto do SST (confirmado
+      // por curl real que bate com a soma dos dois filtrados).
+      comFallback("aereo-margem-ly", buscarAir(sicaCodigo, inicioAnoLY, fimAnoLY), ZERO_PERIODO),
+      comFallback(
+        "terrestre-margem-ly",
+        buscarNonAir(sicaCodigo, inicioAnoLY, fimAnoLY),
+        ZERO_PERIODO,
+      ),
+    ]);
 
     const bilhetesAereoAno = aereoNac.tickets + aereoInter.tickets;
     const proporcaoNacional = bilhetesAereoAno > 0 ? aereoNac.tickets / bilhetesAereoAno : 1;
 
-    const [topRotas, topCompanhias, faturas, evolucaoMensal] = await Promise.all([
+    const [topRotas, topCompanhias, faturas, evolucaoMensal, terrestreNacInt] = await Promise.all([
       comFallback("top-rotas", buscarTopRotas(sicaCodigo), [] as TopRotaAgencia[]),
       comFallback(
         "top-companhias",
@@ -468,6 +673,10 @@ export const agenciaDetalheSstService = {
         buscarEvolucaoMensal(sicaCodigo, proporcaoNacional),
         [] as VendaMensalAgencia[],
       ),
+      comFallback("terrestre-nac-int", buscarTerrestreNacInt(sicaCodigo, inicioAno, fim), {
+        nacPct: 0,
+        intPct: 0,
+      }),
     ]);
 
     const valorMesAtual = mesAtual[0].tarifa + mesAtual[1].tarifa;
@@ -477,6 +686,23 @@ export const agenciaDetalheSstService = {
     const diasSemComprar = dataUltimaCompra
       ? Math.max(0, Math.floor((Date.now() - new Date(dataUltimaCompra).getTime()) / 86_400_000))
       : null;
+
+    // Aéreo combinado (NAC+INTER) — soma dos dois já buscados acima, não
+    // precisa de uma 3ª chamada só pra margem/rentabilidade total.
+    const tarifaAereoAno = aereoNac.tarifa + aereoInter.tarifa;
+    const rentabilidadeAereoAno = aereoNac.rentabilidade + aereoInter.rentabilidade;
+    const margemAereo: CanalMargemSst = {
+      margemPct: tarifaAereoAno > 0 ? (rentabilidadeAereoAno / tarifaAereoAno) * 100 : 0,
+      rentabilidade: rentabilidadeAereoAno,
+      margemLYPct: aereoLY.margem,
+      rentabilidadeLY: aereoLY.rentabilidade,
+    };
+    const margemTerrestre: CanalMargemSst = {
+      margemPct: terrestre.margem,
+      rentabilidade: terrestre.rentabilidade,
+      margemLYPct: terrestreLY.margem,
+      rentabilidadeLY: terrestreLY.rentabilidade,
+    };
 
     return {
       aereoNacional: { volume: Math.round(aereoNac.tarifa), bilhetes: aereoNac.tickets },
@@ -498,6 +724,9 @@ export const agenciaDetalheSstService = {
       faturas,
       diasSemComprar,
       dataUltimaCompra,
+      margemAereo,
+      margemTerrestre,
+      terrestreNacInt,
     };
   },
 };

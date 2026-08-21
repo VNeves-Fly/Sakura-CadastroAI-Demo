@@ -17,10 +17,11 @@ interface AgenciaMargemRentabBlocoProps {
 }
 
 // Bloco "MARGEM.../RENTAB. LY" do card "Volume total" e dos sub-cards de
-// canal (Aéreo/Terrestre) — mesmo padrão visual do MargemRentabBloco já
-// usado em Executivo/Gestor (duplicado por isolamento de módulo). Aqui o
-// card inteiro já leva um único MockBadge no topo (SPEC 3.5.A), então esse
-// bloco não precisa de badge inline próprio.
+// canal (Aéreo/Terrestre) — real via SST (GET /api/consolidado/air|non-air,
+// ver agencia-detalhe.adapter.ts) quando a agência tem venda detectada;
+// mock por hash como fallback, mesmo critério do resto do módulo. Mesmo
+// padrão visual do MargemRentabBloco já usado em Executivo/Gestor
+// (duplicado por isolamento de módulo).
 export function AgenciaMargemRentabBloco({
   margemLabel,
   margemPct,

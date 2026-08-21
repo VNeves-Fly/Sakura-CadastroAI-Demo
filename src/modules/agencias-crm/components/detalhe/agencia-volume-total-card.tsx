@@ -2,15 +2,11 @@
 
 import { useMemo } from "react";
 import { Bus, Clock, Plane } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { formatarMoedaCompleta } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import {
   gerarAtualizadoEm,
-  gerarMargemAereo,
-  gerarMargemTerrestre,
-  gerarNacIntTerrestre,
   gerarVolumePorPeriodo,
 } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import { AgenciaMargemRentabBloco } from "@/modules/agencias-crm/components/detalhe/agencia-margem-rentab-bloco";
@@ -42,29 +38,29 @@ function ponderar(
 
 // Card "Volume total" — aba Dashboard do detalhe de Agência (SPEC
 // seção 3.5.A). `vendas.aereoNacional/aereoInternacional/terrestre/
-// volumeTotalAno/ticketMedioAereo` são mock determinístico (mesmo mock do
-// resto de agencia-detalhe.adapter.ts — não existe venda por agência
-// modelada no domínio hoje); margem/rentab. por canal são mock à parte
-// (ver canal-margem-mock.util.ts). Por isso o valor grande aqui segue a
-// cor sólida `var(--color-primary)` pedida na SPEC, não o gradiente
-// rosa→roxo→azul usado no Dashboard CRM/Executivo/Gestor — lá o hero é
-// real (ou parcialmente real); aqui o card inteiro é mock, sinalizado
-// pelo MockBadge.
+// volumeTotalAno/ticketMedioAereo/margemAereo/margemTerrestre` vêm do SST
+// real (agenciaDetalheSstService.obterVendas, ver agencia-detalhe.adapter.ts)
+// quando a agência tem venda detectada — mock por hash só como fallback,
+// mesmo critério do resto do módulo. Isso inclui o NAC/INT do Terrestre
+// (`vendas.terrestre.nacPct/intPct`, agrupado por `nac_int` real do SST).
+// Margem/rentabilidade e NAC/INT não reagem ao filtro "Período" (sempre a
+// janela anual, real ou mock) — só a repartição por dia/ontem/mês do
+// valor grande é mock (ver gerarVolumePorPeriodo), assim como "Atualizado
+// em". Por isso o valor grande aqui segue a cor sólida
+// `var(--color-primary)` pedida na SPEC, não o gradiente rosa→roxo→azul
+// usado no Dashboard CRM/Executivo/Gestor.
 export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotalCardProps) {
   const filtro = useFiltroPeriodoAgenciaStore((estado) => estado.filtro);
   const periodo = resolverPeriodoAgencia(filtro);
+  const { margemAereo, margemTerrestre } = vendas;
 
-  const { margemAereo, margemTerrestre, nacIntTerrestre, volumePorPeriodo, atualizadoEm } =
-    useMemo(() => {
-      const base = hashParaNumero(agenciaId);
-      return {
-        margemAereo: gerarMargemAereo(base),
-        margemTerrestre: gerarMargemTerrestre(base),
-        nacIntTerrestre: gerarNacIntTerrestre(base),
-        volumePorPeriodo: gerarVolumePorPeriodo(base, vendas.volumeTotalAno),
-        atualizadoEm: gerarAtualizadoEm(base),
-      };
-    }, [agenciaId, vendas.volumeTotalAno]);
+  const { volumePorPeriodo, atualizadoEm } = useMemo(() => {
+    const base = hashParaNumero(agenciaId);
+    return {
+      volumePorPeriodo: gerarVolumePorPeriodo(base, vendas.volumeTotalAno),
+      atualizadoEm: gerarAtualizadoEm(base),
+    };
+  }, [agenciaId, vendas.volumeTotalAno]);
 
   const valorDoPeriodo = volumePorPeriodo[periodo].valor;
 
@@ -106,9 +102,11 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
     margemAereo.margemVariacaoPct,
     margemTerrestre.margemVariacaoPct,
   );
-  const rentabTotalLYValor =
-    (volumeAereo * margemAereo.rentabLYPct) / 100 +
-    (volumeTerrestre * margemTerrestre.rentabLYPct) / 100;
+  // Soma direta (não ponderada pelo período selecionado): rentabLYValor
+  // já é o valor absoluto real da janela anual — diferente de
+  // margemTotalPct acima, que é uma taxa (%) e por isso continua sendo
+  // ponderada pelos volumes do período pra dar uma leitura proporcional.
+  const rentabTotalLYValor = margemAereo.rentabLYValor + margemTerrestre.rentabLYValor;
   const rentabTotalLYVariacaoPct = ponderar(
     volumeAereo,
     volumeTerrestre,
@@ -134,7 +132,6 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
           />
         </div>
         <div className="flex flex-col items-end gap-2">
-          <MockBadge />
           <FiltroPeriodoAgenciaPopover />
         </div>
       </div>
@@ -165,8 +162,8 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
           quantidade={servicosTerrestre}
           unidade="serviços"
           ticketMedio={ticketMedioTerrestre}
-          nacPct={nacIntTerrestre.nacPct}
-          intPct={nacIntTerrestre.intPct}
+          nacPct={vendas.terrestre.nacPct}
+          intPct={vendas.terrestre.intPct}
           margem={margemTerrestre}
         />
       </div>

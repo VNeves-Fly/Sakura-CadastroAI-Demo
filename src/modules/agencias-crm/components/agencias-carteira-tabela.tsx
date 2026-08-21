@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,10 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
           <span className="text-center">Executivo</span>
           <span className="text-right">Vendas mês ⇅</span>
           <span className="text-primary text-right">Vendas ano ↓</span>
-          <span className="text-right">Margem</span>
+          <span className="flex items-center justify-end gap-1 text-right">
+            Margem
+            <MockBadge />
+          </span>
         </div>
 
         {agencias.length === 0 ? (
@@ -54,11 +58,12 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
             return (
               <div
                 key={agencia.id}
-                // CNPJ, não `agencia.id` (código SST) — a página de
-                // detalhe resolve o cadastro local por CNPJ, já que a
-                // identidade desta listagem vem do roster do SST, não da
-                // tabela `Agencia` (ver page.tsx de /crm/agencias/[id]).
-                onClick={() => router.push(`/crm/agencias/${agencia.cnpj}`)}
+                // `agencia.id` (= String(codigoEmpresa)), não `cnpj` — a
+                // página de detalhe (/crm/agencias/[id]) resolve pelo
+                // código SICA direto no SST (GET /api/reports/
+                // base-empresa-cadastro?codigoEmpresa=X), que não aceita
+                // filtro por CNPJ (confirmado por curl real, 2026-08-21).
+                onClick={() => router.push(`/crm/agencias/${agencia.id}`)}
                 className={cn(
                   "border-border grid cursor-pointer items-center border-b px-2 py-3.5 text-[13px] text-[#2A2A40] transition-colors hover:bg-[#FCF3F8]",
                   par ? "bg-[#FBFBFE]" : "bg-background",

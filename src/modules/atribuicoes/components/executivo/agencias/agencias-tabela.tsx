@@ -55,9 +55,13 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       sortValue: (a) => a.nome,
       render: (a) => (
         <Link
-          // CNPJ, não `a.id` (código SST) — mesmo motivo de
-          // agencias-carteira-tabela.tsx em /crm/agencias.
-          href={`/crm/agencias/${a.cnpj}`}
+          // `a.id` (= String(codigoEmpresa)), não CNPJ — a página de
+          // detalhe (/crm/agencias/[id]) resolve pelo código SICA direto
+          // no SST (GET /api/reports/base-empresa-cadastro?codigoEmpresa=X),
+          // que não aceita filtro por CNPJ (confirmado por curl real,
+          // 2026-08-21) — mesmo motivo de agencias-carteira-tabela.tsx em
+          // /crm/agencias.
+          href={`/crm/agencias/${a.id}`}
           className="text-primary text-left font-medium hover:underline"
           onClick={(evento) => evento.stopPropagation()}
         >
