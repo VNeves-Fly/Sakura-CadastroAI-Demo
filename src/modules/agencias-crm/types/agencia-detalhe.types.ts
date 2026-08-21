@@ -109,6 +109,40 @@ export interface FaturaAgencia {
   valor: number;
 }
 
+// Não consumidos por AgenciaDetalheVendas hoje (a aba "Vendas" antiga —
+// sub-abas Reservas/Top Rotas — foi removida na reestilização de
+// 2026-08-21), mas ainda produzidos por agencia-detalhe.sst-service.ts
+// (VendasReaisSst.evolucaoMensal/topRotas/reservas) — mantidos pra não
+// derrubar essa integração já validada contra o SST, caso a UI volte a
+// precisar dessas séries.
+export interface VendaMensalAgencia {
+  mes: string;
+  nacional: number;
+  internacional: number;
+  terrestre: number;
+}
+
+export interface TopRotaAgencia {
+  rota: string;
+  bilhetes: number;
+  volume: number;
+  // Real (SST) quando vendasReais existe, mas sempre `false` nesse caso —
+  // /api/resumos/aereo não tem um flag nacional/internacional por trecho
+  // e não há tabela de aeroportos pra derivar isso barato aqui. Mock por
+  // hash (ver gerarTopRotas) continua variando o valor.
+  internacional: boolean;
+}
+
+export interface ReservaAgencia {
+  id: string;
+  tipo: "aereo" | "terrestre";
+  data: string;
+  identificador: string;
+  descricao: string;
+  referencia: string | null;
+  valor: number;
+}
+
 // vendas: real (SST, ver agencia-detalhe.sst-service.ts) quando a
 // agência tem sicaCodigo e a integração está ligada — mock por hash
 // como fallback (sem sicaCodigo, sem venda detectada, ou integração
