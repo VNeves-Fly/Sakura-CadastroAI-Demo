@@ -14,6 +14,7 @@ interface AdminHeaderProps {
 // página nova entra aqui conforme for sendo construída.
 const ROTULOS_PAGINA: Record<string, string> = {
   "/crm/dashboard": "Dashboard CRM",
+  "/crm/tv": "Fast View",
   "/crm/gestores": "Gestores",
   "/crm/executivos": "Executivos",
   "/crm/agencias": "Agências",
