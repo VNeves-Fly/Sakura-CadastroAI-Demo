@@ -138,6 +138,23 @@ interface AgenciaCarteiraResumo {
 }
 ```
 
+### Tipo de destino do Gestor (`KpisSecundariosGestor`)
+
+O tipo de KPIs do Gestor (já existe hoje em `gestor-detalhe.types.ts`) **não é igual** ao `KpisSecundarios` do Executivo acima — `vendendo30d`/`vendendo30dPct` ficam **dentro** do objeto `kpis` (o componente `GestorKpisSecundariosGrid` recebe só `{ kpis }`), enquanto no Executivo eles chegam como **props separadas** vindas de `perfil` (não do agregado real):
+
+```ts
+interface KpisSecundariosGestor {
+  mesAnteriorValor: number;
+  mesAnteriorFaltaValor: number;
+  mesAnteriorPercentualAtingido: number;
+  projecaoFimMes: number;
+  vendendo30d: number;
+  vendendo30dPct: number;
+}
+```
+
+**Importante**: assim como no Executivo (`ExecutivoHeroKpisSecao` recebe `vendendo30d={perfil.vendendoUltimos30d}`, não algo derivado do SST), o `vendendo30d`/`vendendo30dPct` que entra em `KpisSecundariosGestor` vem do `GestorPerfil` **rápido e síncrono** (`montarGestorPerfil`, hoje mock) — **não** é reconstruído a partir do agregado real. O valor real agregado (`miniStats.vendendo30d`/`Pct`, vindo da promise lenta `crossCanalPromise`) só aparece no header via `statsVendendo30dSlot` depois que essa promise resolve — mesma assimetria "grade de KPIs rápida e aproximada vs. header lento e real" que já existe no Executivo. Isso é intencional e não deve ser resolvido "unificando" as duas fontes.
+
 **Confirmado por leitura direta de `executivo-dashboard.sst-service.ts`** (`construirSaudeCarteira`, linhas ~421-482): a classificação ativas/potenciais/ociosas/inativas (e também `faixaRecencia` e os segmentos de `crossCanal`) é feita por **regra absoluta por agência** (presença/ausência de venda em janelas de tempo fixas — 30d/365d), **nunca relativa/percentil ao roster daquele executivo**. Isso é o que torna a agregação (somar quantidades + concatenar listas de agências) matematicamente válida — não é preciso recalcular a classificação do zero sobre o roster consolidado.
 
 Limitação conhecida (já existe hoje, não é introduzida por este plano): `MiniStats.ociosasLimite`/`comCredito` nunca vêm do SST real, mesmo quando o resto é real — permanecem mock mesmo depois da agregação.
@@ -147,6 +164,8 @@ Limitação conhecida (já existe hoje, não é introduzida por este plano): `Mi
 ### 3.1 `src/modules/gestores/utils/agregacoes-gestor.util.ts` (novo — funções puras, sem I/O)
 
 ```ts
+import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+
 // Soma um período do hero (dia/ontem/mes/ano) de N executivos.
 function somarPeriodoHero(periodos: VendasMesHero[]): VendasMesHero {
   let somaValor = 0,
@@ -180,11 +199,18 @@ function somarHeroTodosPeriodos(heroList: Record<PeriodoVendasMesHero, VendasMes
   ) as Record<PeriodoVendasMesHero, VendasMesHero>;
 }
 
-// mesAtualValorAgregado = somarHeroTodosPeriodos(...).mes.valor (já calculado antes)
-function somarKpis(kpisList: KpisSecundarios[], mesAtualValorAgregado: number) {
+// mesAtualValorAgregado = somarHeroTodosPeriodos(...).mes.valor (já calculado antes).
+// vendendo30dRapido/vendendo30dPctRapido = perfil.vendendoUltimos30d/Pct (GestorPerfil,
+// rápido/síncrono/mock) — NÃO vem do agregado real. Ver "Tipo de destino do Gestor" na
+// seção 2 pra entender por que essa mistura é intencional (mesma assimetria do Executivo).
+function somarKpis(
+  kpisList: KpisSecundarios[],
+  mesAtualValorAgregado: number,
+  vendendo30dRapido: number,
+  vendendo30dPctRapido: number,
+): KpisSecundariosGestor {
   const mesAnteriorValor = kpisList.reduce((s, k) => s + k.mesAnteriorValor, 0);
   const projecaoFimMes = kpisList.reduce((s, k) => s + k.projecaoFimMes, 0);
-  const vendendo30d = kpisList.reduce((s, k) => s + k.vendendo30d, 0); // se existir no tipo Gestor
   return {
     mesAnteriorValor,
     mesAnteriorFaltaValor: Math.max(0, mesAnteriorValor - mesAtualValorAgregado),
@@ -194,10 +220,12 @@ function somarKpis(kpisList: KpisSecundarios[], mesAtualValorAgregado: number) {
     mesAnteriorPercentualAtingido:
       mesAnteriorValor > 0 ? Math.round((mesAtualValorAgregado / mesAnteriorValor) * 100) : 0,
     projecaoFimMes,
+    vendendo30d: vendendo30dRapido,
+    vendendo30dPct: vendendo30dPctRapido,
   };
   // Nota: ticketMedio30d/acumuladoAnoValor/acumuladoAnoBilhetes do KpisSecundarios do
-  // Executivo NÃO são necessários aqui — o tipo KpisSecundariosGestor (Gestor) já não
-  // inclui esses campos hoje. Não reconstruir.
+  // Executivo NÃO são necessários aqui — KpisSecundariosGestor já não inclui esses
+  // campos hoje. Não reconstruir (ver seção 2 pro motivo).
 }
 
 function dedupPorCnpj<T extends { cnpj: string }>(itens: T[]): T[] {
@@ -280,8 +308,10 @@ Reaproveita `executivoDashboardController` (módulo `atribuicoes`, sem alterar) 
 
 ```ts
 import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
+import { executivoDashboardMockService } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 import { mapAgencia } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
+import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types";
 import {
   somarHeroTodosPeriodos,
   somarKpis,
@@ -289,53 +319,79 @@ import {
   somarSaudeCarteira,
 } from "@/modules/gestores/utils/agregacoes-gestor.util";
 
-function isFulfilled<T>(r: PromiseSettledResult<T>): r is PromiseFulfilledResult<T> {
-  return r.status === "fulfilled";
+// Cada chamada individual NUNCA rejeita e NUNCA representa esse executivo por um item
+// "ausente" — se o SST real falhar de forma inesperada (não é o caso de "sem sica", que
+// já cai pro mock DENTRO do executivoDashboardController), cai pro mesmo mock
+// determinístico do Executivo pra essa linha não sumir nem da soma nem da tabela da
+// Aba Executivos (ver "Riscos" — Promise.allSettled + filter, que a versão anterior
+// deste plano usava, tinha esse bug: um executivo com erro simplesmente desaparecia
+// de `porExecutivo`, o que é aceitável pra uma SOMA mas errado pra uma TABELA que deve
+// sempre mostrar uma linha por executivo subordinado).
+async function obterHeroKpisDoExecutivo(e: ExecutivoComCarteira) {
+  const agencias = e.agencias.map(mapAgencia);
+  try {
+    const { hero, kpis } = await executivoDashboardController.obterHeroKpis(
+      e.sica,
+      e.id,
+      e.agencias.length,
+      agencias,
+    );
+    return { id: e.id, hero, kpis };
+  } catch {
+    const mock = await executivoDashboardMockService.obterDashboard(
+      e.id,
+      e.agencias.length,
+      agencias,
+    );
+    return { id: e.id, hero: mock.hero, kpis: mock.kpis };
+  }
+}
+
+async function obterCrossCanalDoExecutivo(e: ExecutivoComCarteira) {
+  const agencias = e.agencias.map(mapAgencia);
+  try {
+    const r = await executivoDashboardController.obterCrossCanalEMiniStats(
+      e.sica,
+      e.id,
+      e.agencias.length,
+      agencias,
+    );
+    return { id: e.id, ...r };
+  } catch {
+    const mock = await executivoDashboardMockService.obterDashboard(
+      e.id,
+      e.agencias.length,
+      agencias,
+    );
+    return {
+      id: e.id,
+      crossCanal: mock.crossCanal,
+      miniStats: mock.miniStats,
+      saudeCarteira: mock.saudeCarteira,
+      agenciasCarteira: [], // mesma regra de "sem SICA": sem roster real, não inventa linhas
+    };
+  }
 }
 
 export const gestorDashboardController = {
-  async obterHeroKpisAgregado(executivos: ExecutivoComCarteira[]) {
-    const porExecutivo = (
-      await Promise.allSettled(
-        executivos.map(async (e) => ({
-          id: e.id,
-          ...(await executivoDashboardController.obterHeroKpis(
-            e.sica,
-            e.id,
-            e.agencias.length,
-            e.agencias.map(mapAgencia),
-          )),
-        })),
-      )
-    )
-      .filter(isFulfilled)
-      .map((r) => r.value);
-    // Promise.allSettled: 1 executivo com SST fora do ar não derruba o agregado inteiro.
+  async obterHeroKpisAgregado(executivos: ExecutivoComCarteira[], perfil: GestorPerfil) {
+    // Promise.all (não allSettled): cada item já garante sua própria resolução via
+    // catch interno acima — porExecutivo SEMPRE tem 1 entrada por executivo de entrada,
+    // na mesma ordem, nunca menos.
+    const porExecutivo = await Promise.all(executivos.map(obterHeroKpisDoExecutivo));
 
     const hero = somarHeroTodosPeriodos(porExecutivo.map((p) => p.hero));
     const kpis = somarKpis(
       porExecutivo.map((p) => p.kpis),
       hero.mes.valor,
+      perfil.vendendoUltimos30d,
+      perfil.vendendoUltimos30dPct,
     );
     return { hero, kpis, porExecutivo };
   },
 
   async obterCrossCanalAgregado(executivos: ExecutivoComCarteira[]) {
-    const porExecutivo = (
-      await Promise.allSettled(
-        executivos.map(async (e) => ({
-          id: e.id,
-          ...(await executivoDashboardController.obterCrossCanalEMiniStats(
-            e.sica,
-            e.id,
-            e.agencias.length,
-            e.agencias.map(mapAgencia),
-          )),
-        })),
-      )
-    )
-      .filter(isFulfilled)
-      .map((r) => r.value);
+    const porExecutivo = await Promise.all(executivos.map(obterCrossCanalDoExecutivo));
 
     const crossCanal = somarCrossCanal(porExecutivo.map((p) => p.crossCanal));
     const saudeCarteira = somarSaudeCarteira(porExecutivo.map((p) => p.saudeCarteira));
@@ -354,11 +410,32 @@ export const gestorDashboardController = {
   },
 
   // Helper de conveniência pras abas Executivos/Agências — tabelas renderizam tudo de
-  // uma vez, sem ganho de Suspense parcial (diferente do Dashboard).
-  async obterAgregadoCompleto(executivos: ExecutivoComCarteira[]) {
-    const heroKpis = await gestorDashboardController.obterHeroKpisAgregado(executivos);
+  // uma vez, sem ganho de Suspense parcial (diferente do Dashboard). `perfil` é exigido
+  // porque `obterHeroKpisAgregado` precisa dele pro vendendo30d/Pct "rápido" dos kpis.
+  async obterAgregadoCompleto(executivos: ExecutivoComCarteira[], perfil: GestorPerfil) {
+    const heroKpis = await gestorDashboardController.obterHeroKpisAgregado(executivos, perfil);
     const crossCanal = await gestorDashboardController.obterCrossCanalAgregado(executivos);
-    return { ...heroKpis, ...crossCanal };
+
+    // heroKpis.porExecutivo e crossCanal.porExecutivo têm o MESMO conjunto de ids, na
+    // mesma ordem (nenhum dos dois pode perder item — ver funções acima) — mas
+    // `{...heroKpis, ...crossCanal}` colidiria na chave `porExecutivo` (o de crossCanal
+    // sobrescreveria silenciosamente o de heroKpis, perdendo hero/kpis por executivo).
+    // Fazer o merge por id explicitamente:
+    const crossCanalPorId = new Map(crossCanal.porExecutivo.map((p) => [p.id, p]));
+    const porExecutivo = heroKpis.porExecutivo.map((p) => ({
+      ...p, // id, hero, kpis
+      ...crossCanalPorId.get(p.id)!, // miniStats, agenciasCarteira, crossCanal, saudeCarteira (sempre existe: mesmos ids)
+    }));
+
+    return {
+      hero: heroKpis.hero,
+      kpis: heroKpis.kpis,
+      crossCanal: crossCanal.crossCanal,
+      saudeCarteira: crossCanal.saudeCarteira,
+      agenciasCarteira: crossCanal.agenciasCarteira,
+      miniStats: crossCanal.miniStats,
+      porExecutivo, // 1 item por executivo subordinado, sempre, com hero+kpis+miniStats+agenciasCarteira juntos
+    };
   },
 };
 ```
@@ -374,15 +451,15 @@ Replicar o streaming em 2 fases que já existe no Executivo (`executivo-dashboar
    }
    // duplicar esse helper no módulo gestores — mesma convenção de isolamento por módulo já usada em atribuicoes.
 
-   const heroKpisPromise = gestorDashboardController.obterHeroKpisAgregado(executivos);
+   const heroKpisPromise = gestorDashboardController.obterHeroKpisAgregado(executivos, perfil);
    const crossCanalPromise = depoisDe(heroKpisPromise, () =>
      gestorDashboardController.obterCrossCanalAgregado(executivos),
    );
    ```
-   Os componentes `GestorReceitaTotalCard`/`GestorKpisSecundariosGrid` (já são `"use client"`, funcionam normalmente como filhos de Server Component) ficam num `<Suspense>` resolvendo `heroKpisPromise`. `GestorSaudeCarteiraCard` fica em outro `<Suspense>` resolvendo `crossCanalPromise`. Essa separação rápido/pesado é a mesma que resolveu a lentidão documentada do Executivo em 2026-08-20 — crítica pra não repetir o problema na escala do gestor (N executivos × N agências de chamadas ao SST).
+   Os componentes `GestorReceitaTotalCard`/`GestorKpisSecundariosGrid` (já são `"use client"`, funcionam normalmente como filhos de Server Component) ficam num `<Suspense>` resolvendo `heroKpisPromise` (seção "rápida"). `GestorSaudeCarteiraCard` **e** `GestorTopExecutivosCard`×2 ficam juntos em outro `<Suspense>` resolvendo `crossCanalPromise` (seção "lenta") — os dois dependem de `porExecutivo[].miniStats`, que só existe depois que essa promise resolve (não dá pra colocar o Top Executivos na seção rápida, ele não tem os dados ainda nesse ponto). Essa separação rápido/pesado é a mesma que resolveu a lentidão documentada do Executivo em 2026-08-20 — crítica pra não repetir o problema na escala do gestor (N executivos × N agências de chamadas ao SST).
 2. Props de `GestorDashboardView` mudam de `{ detalhe: GestorDetalheView }` pra `{ perfil: GestorPerfil, executivos: ExecutivoComCarteira[] }` (mesmo formato de `ExecutivoDashboardView({ perfil, agencias })`).
-3. Criar `gestor-hero-kpis-secao.tsx` e `gestor-saude-carteira-secao.tsx` (thin wrappers que resolvem a promise e renderizam os cards), espelhando `executivo-hero-kpis-secao.tsx`/`executivo-saude-carteira-secao.tsx`.
-4. `GestorTopExecutivosCard` (ranking "melhor saúde"/"atenção") passa a usar `porExecutivo[].miniStats.vendendo30d`/`vendendo30dPct` reais em vez do hash mock (`gerarRankingExecutivos`, hoje em `gestor-detalhe.adapter.ts`).
+3. Criar `gestor-hero-kpis-secao.tsx` (resolve `heroKpisPromise`, renderiza `GestorReceitaTotalCard`+`GestorKpisSecundariosGrid`) e `gestor-saude-carteira-secao.tsx` (resolve `crossCanalPromise`, renderiza `GestorSaudeCarteiraCard`+`GestorTopExecutivosCard`×2), espelhando `executivo-hero-kpis-secao.tsx`/`executivo-saude-carteira-secao.tsx`.
+4. `GestorTopExecutivosCard` (ranking "melhor saúde"/"atenção") passa a usar `porExecutivo[].miniStats.vendendo30d`/`vendendo30dPct` reais (do `crossCanalPromise`, ver item 1 acima) em vez do hash mock (`gerarRankingExecutivos`, hoje em `gestor-detalhe.adapter.ts`).
 5. **Ficam como estão (mock), sem mudança** — isso é paridade correta, não uma pendência: `GestorTopAgenciasCard`×3 (Top 10 Agências Geral/Aéreo/Terrestre) e `canalAereo`/`canalTerrestre` (cards de margem/rentabilidade). Mesmo no Executivo essas seções são mock de apresentação por design (`MargemRentabBloco` tem prop `mock?: boolean`; comentário no código cita "SPEC 3.8" pra Top 10 Agências ser mock intencional).
 6. `GestorProfileHeader`: adicionar props opcionais `statsAgenciasSlot`/`statsVendendo30dSlot` (`ReactNode`), espelhando `ExecutivoProfileHeader`. `GestorDetalheShell` (compartilhado pelas 3 abas) repassa esses 2 props opcionais adiante — só a página Dashboard os preenche (via novo `criarGestorHeaderStatsSlots(crossCanalPromise)` em `gestor-header-stats.tsx`, espelhando `executivo-header-stats.tsx`). As abas Executivos/Agências continuam sem passá-los, caindo no fallback síncrono de hoje (`perfil.totalAgencias`/`vendendoUltimos30d`, que seguem mock/local) — mesma assimetria já documentada e usada no Executivo.
 7. `montarGestorDashboard`/`montarGestorDetalheView` (em `gestor-detalhe.adapter.ts`) saem de uso — a página Dashboard não monta mais um objeto mock inteiro. `montarGestorPerfil` continua sendo usado (perfil rápido e síncrono, igual hoje) pelas 3 páginas.
@@ -390,7 +467,7 @@ Replicar o streaming em 2 fases que já existe no Executivo (`executivo-dashboar
 
 ## 5. Aba Executivos (`/crm/gestores/[id]/executivos`)
 
-`gestor-executivos-tab.adapter.ts` deixa de usar `gerarMetricasMock` (hash puro) e passa a consumir `porExecutivo` de `gestorDashboardController.obterAgregadoCompleto(executivos)` (chamado no `page.tsx`, que já tem `executivos` do loader existente).
+`gestor-executivos-tab.adapter.ts` deixa de usar `gerarMetricasMock` (hash puro) e passa a consumir `porExecutivo` de `gestorDashboardController.obterAgregadoCompleto(executivos, perfil)` (chamado no `page.tsx`, que já tem `executivos` do loader existente e `perfil` de `montarGestorPerfil`). Esse `porExecutivo` tem **sempre 1 item por executivo subordinado, na mesma ordem de `executivos`** (nunca falta um item, mesmo se o SST falhar pra algum — ver seção 3.2, `obterHeroKpisDoExecutivo`/`obterCrossCanalDoExecutivo`), então a tabela pode iterar `executivos` e casar por `id` (ou usar `porExecutivo` diretamente na mesma ordem) sem risco de sumir uma linha.
 
 | Campo (`ExecutivoDaGestaoView`) | Fonte nova                                                                                                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -414,13 +491,55 @@ import {
   categoriaPorVendas,
   limiteMock,
 } from "@/modules/atribuicoes/adapters/executivo-agencias.adapter"; // exportar (ver abaixo)
+import type { AgenciaCarteiraResumo } from "@/modules/atribuicoes/types/executivo-detalhe.types";
+import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
+import type { AgenciaDaGestaoView } from "@/modules/gestores/types/gestor-agencias-tab.types";
 
-// Map<cnpjNormalizado, AgenciaCarteiraResumo>, construído a partir de porExecutivo[i].agenciasCarteira
-// unmaskCnpj nos dois lados é seguro/idempotente independente do formato de saída do SST
-// (não confirmado por payload real — ver "Pendência" abaixo).
+// porExecutivo vem de gestorDashboardController.obterAgregadoCompleto(...) — 1 item por
+// executivo, cada um com seu próprio agenciasCarteira (roster real daquele executivo, ou
+// [] se ele não tem SICA/o SST falhou, ver seção 3.2).
+export function montarAgenciasDaGestaoViewListReal(
+  executivos: ExecutivoComCarteira[],
+  porExecutivo: Array<{ id: string; agenciasCarteira: AgenciaCarteiraResumo[] }>,
+): AgenciaDaGestaoView[] {
+  const carteiraPorExecutivoId = new Map(porExecutivo.map((p) => [p.id, p.agenciasCarteira]));
+
+  return executivos.flatMap((executivo) => {
+    // Map local, só com o roster REAL deste executivo específico — o join é por
+    // executivo, não um Map global (uma mesma agência não deveria aparecer em dois
+    // rosters, mas isolar por executivo evita esse risco por construção).
+    const rosterPorCnpj = new Map(
+      (carteiraPorExecutivoId.get(executivo.id) ?? []).map((sst) => [unmaskCnpj(sst.cnpj), sst]),
+    );
+
+    return executivo.agencias.map((agencia): AgenciaDaGestaoView => {
+      const sst = rosterPorCnpj.get(unmaskCnpj(agencia.cnpj));
+      const base = {
+        /* id, nome, cnpj, executivoId, executivoNome, base, status, dadosFaltantes, inativada — como hoje, ver texto abaixo */
+      };
+
+      if (!sst) {
+        // Sem match (executivo sem SICA, ou agência ainda não sincronizada no SST) —
+        // cai no mock determinístico de hoje, mesma filosofia usada em todo o resto do
+        // código em vez de mostrar zero/vazio (ver hashParaNumero(agencia.id) no
+        // adapter atual).
+        return { ...base, ...gerarCamposMockDeHoje(agencia.id) };
+      }
+
+      return {
+        ...base,
+        categoria: categoriaPorVendas(sst.vendasAno),
+        vendasAno: sst.vendasAno,
+        bilhetesAno: sst.bilhetesAno,
+        faixaRecencia: sst.faixaRecencia,
+        limite: limiteMock(sst.codigo),
+      };
+    });
+  });
+}
 ```
 
-- **Se casar** (mesmo CNPJ normalizado): `categoria = categoriaPorVendas(sst.vendasAno)`, `vendasAno`/`bilhetesAno` reais, `faixaRecencia` real — **substitui** o campo `diasSemComprar: number` (mock) no tipo `AgenciaDaGestaoView` por `faixaRecencia: FaixaRecencia`.
+- **Se casar** (mesmo CNPJ normalizado): `categoria = categoriaPorVendas(sst.vendasAno)`, `vendasAno`/`bilhetesAno` reais, `faixaRecencia` real — **substitui** o campo `diasSemComprar: number` (mock) no tipo `AgenciaDaGestaoView` por `faixaRecencia: FaixaRecencia`. **`FaixaRecencia` não existe hoje como tipo nomeado/exportado** — em `executivo-detalhe.types.ts` ele é só um union inline dentro de `AgenciaCarteiraResumo.faixaRecencia` (`"ate30d" | "30a90d" | "90a365d" | "semVenda365d"`). Definir um novo type alias `FaixaRecencia` com esses mesmos 4 valores literais em `gestor-agencias-tab.types.ts` (duplicado, seguindo a mesma convenção de isolamento por módulo já usada em todo o resto do código — não vale a pena promover o union do Executivo a um tipo compartilhado só por causa disso).
 - **Se não casar** (executivo sem SICA, ou agência ainda não sincronizada no SST): cai no mock determinístico de hoje (`hashParaNumero(agencia.id)`) — fallback intencional, mesma filosofia usada em todo o resto do código (`executivoDashboardMockService`) em vez de mostrar zero/vazio.
 - `executivoId`/`executivoNome`/`base`/`status`/`dadosFaltantes`/`inativada` continuam exatamente como hoje (reais, do banco local, sem mudança).
 - **Exportar** `categoriaPorVendas` e `limiteMock` de `src/modules/atribuicoes/adapters/executivo-agencias.adapter.ts` (hoje são `function` sem `export` — checar antes de assumir, mas na leitura mais recente não tinham `export`). Importar essas duas em `gestor-agencias-tab.adapter.ts`.
@@ -469,7 +588,7 @@ O formato exato de saída do campo `cnpj` no roster do SST (`AgenciaCarteiraResu
 
 ## 8. Riscos e mitigação
 
-- **Volume de chamadas ao SST**: um gestor com N executivos multiplica por N as chamadas que hoje um único executivo já faz (~2×agências por executivo no crossCanal, por causa de um loop terrestre por agência já documentado como causa da lentidão de 2026-08-20). Mitigação: reaproveita o cache dual-layer já existente (in-mem + Valkey, TTL 10 min, chave `exec:${codigoExecutivo}:...`) sem precisar de camada de cache nova; `Promise.allSettled` garante que um subordinado lento/com erro não derruba o agregado inteiro; mantém a mesma separação hero-rápido/crossCanal-pesado em `<Suspense>` que já resolveu esse tipo de lentidão no Executivo. **Não** propor limite de concorrência (batching) agora — observar em uso real antes de adicionar essa complexidade.
+- **Volume de chamadas ao SST**: um gestor com N executivos multiplica por N as chamadas que hoje um único executivo já faz (~2×agências por executivo no crossCanal, por causa de um loop terrestre por agência já documentado como causa da lentidão de 2026-08-20). Mitigação: reaproveita o cache dual-layer já existente (in-mem + Valkey, TTL 10 min, chave `exec:${codigoExecutivo}:...`) sem precisar de camada de cache nova; cada chamada individual (`obterHeroKpisDoExecutivo`/`obterCrossCanalDoExecutivo`, seção 3.2) tem seu próprio `catch` com fallback pro mock determinístico, então um subordinado lento/com erro nunca derruba o agregado inteiro nem some da lista; mantém a mesma separação hero-rápido/crossCanal-pesado em `<Suspense>` que já resolveu esse tipo de lentidão no Executivo. **Não** propor limite de concorrência (batching) agora — observar em uso real antes de adicionar essa complexidade.
 - **CNPJ do SST em formato desconhecido**: ver seção 6, "Pendência".
 - **`ativo` do Gestor/Executivo permanece mock**: não existe flag real no schema (`Gestor`/`Promotor` não têm campo de status ativo/inativo) — fora de escopo resolver isso aqui.
 
