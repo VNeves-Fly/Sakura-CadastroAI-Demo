@@ -5,7 +5,7 @@ import {
   formatarPercentual,
 } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import { AgenciaMargemRentabBloco } from "@/modules/agencias-crm/components/detalhe/agencia-margem-rentab-bloco";
-import type { CanalMargemAgencia } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
+import type { CanalMargem } from "@/modules/agencias-crm/types/agencia-detalhe.types";
 import { cn } from "@/lib/utils";
 
 interface AgenciaCanalResumoCardProps {
@@ -18,13 +18,13 @@ interface AgenciaCanalResumoCardProps {
   ticketMedio: number; // real
   nacPct: number; // real
   intPct: number; // real
-  margem: CanalMargemAgencia; // mock
+  margem: CanalMargem; // real via SST (agencia-detalhe.adapter.ts) — mock por hash como fallback
 }
 
 // Sub-card de canal (Aéreo/Terrestre) dentro do card "Volume total" (SPEC
-// 3.5.A) — volume/quantidade/ticket médio/NAC-INT vêm do adapter real
-// (agencia-detalhe.adapter.ts), só margem/rentab. são mock (ver
-// canal-margem-mock.util.ts).
+// 3.5.A) — volume/quantidade/ticket médio/NAC-INT/margem vêm do adapter
+// real (agencia-detalhe.adapter.ts) quando a agência tem venda detectada
+// — mock por hash como fallback, mesmo critério do resto do módulo.
 export function AgenciaCanalResumoCard({
   titulo,
   icon: Icon,
@@ -37,8 +37,6 @@ export function AgenciaCanalResumoCard({
   intPct,
   margem,
 }: AgenciaCanalResumoCardProps) {
-  const rentabLYValor = Math.round((volume * margem.rentabLYPct) / 100);
-
   return (
     <div className="border-border flex-1 rounded-[10px] border p-4" style={{ flexBasis: 260 }}>
       <p
@@ -60,10 +58,9 @@ export function AgenciaCanalResumoCard({
           margemPct={margem.margemPct}
           margemLYPct={margem.margemLYPct}
           margemVariacaoPct={margem.margemVariacaoPct}
-          rentabLYValor={rentabLYValor}
+          rentabLYValor={margem.rentabLYValor}
           rentabLYVariacaoPct={margem.rentabLYVariacaoPct}
           tamanho="pequeno"
-          mock
         />
       </div>
 

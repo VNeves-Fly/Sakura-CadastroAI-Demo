@@ -2,14 +2,20 @@ import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util"
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { tempoDecorrido } from "@/modules/agencias-crm/utils/tempo-decorrido.util";
 import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import {
+  gerarMargemAereo,
+  gerarMargemTerrestre,
+} from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
   CadastroComercialSst,
+  CanalMargemSst,
   VendasReaisSst,
 } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
 import type {
   AgenciaDetalheView,
+  CanalMargem,
   CategoriaPremiacao,
   FaturaAgencia,
   TopCompanhiaAgencia,
@@ -84,6 +90,50 @@ export interface ExecutivoContexto {
   executivoNome?: string | null;
 }
 
+// Margem/rentabilidade de um canal — real (SST) quando `real` existe;
+// mock determinístico como fallback (sem sicaCodigo, sem venda
+// detectada, ou integração desligada). `volumeParaMock` só é usado no
+// fallback, pra converter o `rentabLYPct` do mock (% do canal) num valor
+// absoluto — no caminho real, `rentabilidadeLY` já vem em R$ direto do
+// SST, sem precisar de volume nenhum.
+function construirMargemCanal(
+  real: CanalMargemSst | undefined,
+  base: number,
+  gerarMock: (base: number) => {
+    margemPct: number;
+    margemLYPct: number;
+    margemVariacaoPct: number;
+    rentabLYPct: number;
+    rentabLYVariacaoPct: number;
+  },
+  volumeParaMock: number,
+): CanalMargem {
+  if (real) {
+    const margemVariacaoPct =
+      real.margemLYPct !== 0 ? ((real.margemPct - real.margemLYPct) / real.margemLYPct) * 100 : 0;
+    const rentabLYVariacaoPct =
+      real.rentabilidadeLY !== 0
+        ? ((real.rentabilidade - real.rentabilidadeLY) / real.rentabilidadeLY) * 100
+        : 0;
+    return {
+      margemPct: real.margemPct,
+      margemLYPct: real.margemLYPct,
+      margemVariacaoPct,
+      rentabLYValor: real.rentabilidadeLY,
+      rentabLYVariacaoPct,
+    };
+  }
+
+  const mock = gerarMock(base);
+  return {
+    margemPct: mock.margemPct,
+    margemLYPct: mock.margemLYPct,
+    margemVariacaoPct: mock.margemVariacaoPct,
+    rentabLYValor: Math.round((volumeParaMock * mock.rentabLYPct) / 100),
+    rentabLYVariacaoPct: mock.rentabLYVariacaoPct,
+  };
+}
+
 // Bloco "vendas" + categoria — idêntico pra agência com dossiê local
 // (seed = hash do id local) ou só SST (seed = hash do código SICA, ver
 // montarAgenciaDetalheViewSst) — extraído pra não duplicar o merge com
@@ -129,6 +179,19 @@ function construirBlocoVendas(
   // "sem dado real" e cai no mock, igual a receber null/undefined.
   const dataUltimaCompra = vendasReais?.dataUltimaCompra || dataUltimaCompraMock;
 
+  const margemAereo = construirMargemCanal(
+    vendasReais?.margemAereo,
+    base,
+    gerarMargemAereo,
+    volumeNacional + volumeInternacional,
+  );
+  const margemTerrestre = construirMargemCanal(
+    vendasReais?.margemTerrestre,
+    base,
+    gerarMargemTerrestre,
+    volumeTerrestre,
+  );
+
   return {
     categoria,
     volumeAno,
@@ -156,6 +219,8 @@ function construirBlocoVendas(
         (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0),
       topCompanhias: vendasReais?.topCompanhias ?? gerarTopCompanhias(base),
       faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
+      margemAereo,
+      margemTerrestre,
     },
   };
 }

@@ -143,6 +143,20 @@ export interface ReservaAgencia {
   valor: number;
 }
 
+// Margem/rentabilidade de um canal (Aéreo ou Terrestre) — real (SST,
+// /api/consolidado/air|non-air, ver agencia-detalhe.sst-service.ts)
+// quando a agência tem sicaCodigo e a integração está ligada; mock
+// determinístico como fallback. `rentabLYValor` é o valor absoluto (R$)
+// do mesmo período do ano anterior, direto do SST — não mais derivado de
+// `volume * pct`.
+export interface CanalMargem {
+  margemPct: number;
+  margemLYPct: number;
+  margemVariacaoPct: number;
+  rentabLYValor: number;
+  rentabLYVariacaoPct: number;
+}
+
 // vendas: real (SST, ver agencia-detalhe.sst-service.ts) quando a
 // agência tem sicaCodigo e a integração está ligada — mock por hash
 // como fallback (sem sicaCodigo, sem venda detectada, ou integração
@@ -156,6 +170,8 @@ export interface AgenciaDetalheVendas {
   ticketMedioAereo: number;
   topCompanhias: TopCompanhiaAgencia[];
   faturas: FaturaAgencia[];
+  margemAereo: CanalMargem;
+  margemTerrestre: CanalMargem;
 }
 
 export interface AgenciaDetalheView {

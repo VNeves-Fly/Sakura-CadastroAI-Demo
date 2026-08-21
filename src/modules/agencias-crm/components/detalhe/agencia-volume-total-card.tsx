@@ -7,8 +7,6 @@ import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util"
 import { formatarMoedaCompleta } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import {
   gerarAtualizadoEm,
-  gerarMargemAereo,
-  gerarMargemTerrestre,
   gerarNacIntTerrestre,
   gerarVolumePorPeriodo,
 } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
@@ -41,30 +39,29 @@ function ponderar(
 
 // Card "Volume total" — aba Dashboard do detalhe de Agência (SPEC
 // seção 3.5.A). `vendas.aereoNacional/aereoInternacional/terrestre/
-// volumeTotalAno/ticketMedioAereo` vêm do SST real (agenciaDetalheSstService.
-// obterVendas, ver agencia-detalhe.adapter.ts) quando a agência tem venda
-// detectada — mock por hash só como fallback, mesmo critério do resto do
-// módulo. Só margem/rentab. por canal (`AgenciaMargemRentabBloco mock`,
-// ver canal-margem-mock.util.ts), a repartição por dia/ontem/mês (só
-// "ano" é o total real) e "Atualizado em" continuam sempre mock — por
-// isso o valor grande aqui segue a cor sólida `var(--color-primary)`
-// pedida na SPEC, não o gradiente rosa→roxo→azul usado no Dashboard CRM/
-// Executivo/Gestor.
+// volumeTotalAno/ticketMedioAereo/margemAereo/margemTerrestre` vêm do SST
+// real (agenciaDetalheSstService.obterVendas, ver agencia-detalhe.adapter.ts)
+// quando a agência tem venda detectada — mock por hash só como fallback,
+// mesmo critério do resto do módulo. Margem/rentabilidade não reagem ao
+// filtro "Período" (sempre a janela anual, real ou mock) — só a
+// repartição por dia/ontem/mês do valor grande é mock (ver
+// gerarVolumePorPeriodo), assim como o split NAC/INT do Terrestre e
+// "Atualizado em". Por isso o valor grande aqui segue a cor sólida
+// `var(--color-primary)` pedida na SPEC, não o gradiente rosa→roxo→azul
+// usado no Dashboard CRM/Executivo/Gestor.
 export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotalCardProps) {
   const filtro = useFiltroPeriodoAgenciaStore((estado) => estado.filtro);
   const periodo = resolverPeriodoAgencia(filtro);
+  const { margemAereo, margemTerrestre } = vendas;
 
-  const { margemAereo, margemTerrestre, nacIntTerrestre, volumePorPeriodo, atualizadoEm } =
-    useMemo(() => {
-      const base = hashParaNumero(agenciaId);
-      return {
-        margemAereo: gerarMargemAereo(base),
-        margemTerrestre: gerarMargemTerrestre(base),
-        nacIntTerrestre: gerarNacIntTerrestre(base),
-        volumePorPeriodo: gerarVolumePorPeriodo(base, vendas.volumeTotalAno),
-        atualizadoEm: gerarAtualizadoEm(base),
-      };
-    }, [agenciaId, vendas.volumeTotalAno]);
+  const { nacIntTerrestre, volumePorPeriodo, atualizadoEm } = useMemo(() => {
+    const base = hashParaNumero(agenciaId);
+    return {
+      nacIntTerrestre: gerarNacIntTerrestre(base),
+      volumePorPeriodo: gerarVolumePorPeriodo(base, vendas.volumeTotalAno),
+      atualizadoEm: gerarAtualizadoEm(base),
+    };
+  }, [agenciaId, vendas.volumeTotalAno]);
 
   const valorDoPeriodo = volumePorPeriodo[periodo].valor;
 
@@ -106,9 +103,11 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
     margemAereo.margemVariacaoPct,
     margemTerrestre.margemVariacaoPct,
   );
-  const rentabTotalLYValor =
-    (volumeAereo * margemAereo.rentabLYPct) / 100 +
-    (volumeTerrestre * margemTerrestre.rentabLYPct) / 100;
+  // Soma direta (não ponderada pelo período selecionado): rentabLYValor
+  // já é o valor absoluto real da janela anual — diferente de
+  // margemTotalPct acima, que é uma taxa (%) e por isso continua sendo
+  // ponderada pelos volumes do período pra dar uma leitura proporcional.
+  const rentabTotalLYValor = margemAereo.rentabLYValor + margemTerrestre.rentabLYValor;
   const rentabTotalLYVariacaoPct = ponderar(
     volumeAereo,
     volumeTerrestre,
@@ -131,7 +130,6 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
             rentabLYValor={rentabTotalLYValor}
             rentabLYVariacaoPct={rentabTotalLYVariacaoPct}
             tamanho="grande"
-            mock
           />
         </div>
         <div className="flex flex-col items-end gap-2">

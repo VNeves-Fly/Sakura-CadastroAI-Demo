@@ -131,10 +131,15 @@ export interface CadastroComercialSst {
 //   (poucas páginas, LIMITE_PAGINAS_TOP_ROTAS) — amostra suficiente pra
 //   um ranking de rotas sem custear a paginação inteira do ano.
 
+// `margem`/`rentabilidade` vêm prontos do SST nesses dois endpoints (curl
+// real, 2026-08-21) — não precisam ser derivados; só não eram lidos até
+// agora (só `tarifa`/`tickets`/`ticket_medio` eram usados).
 interface RawConsolidadoPeriodo {
   tarifa: number;
   tickets: number;
   ticket_medio: number;
+  rentabilidade: number;
+  margem: number;
 }
 
 // Cacheadas (10min, mesma infra da Fase 1) — dentro da janela de cache,
@@ -175,7 +180,13 @@ async function buscarNonAir(
   );
 }
 
-const ZERO_PERIODO: RawConsolidadoPeriodo = { tarifa: 0, tickets: 0, ticket_medio: 0 };
+const ZERO_PERIODO: RawConsolidadoPeriodo = {
+  tarifa: 0,
+  tickets: 0,
+  ticket_medio: 0,
+  rentabilidade: 0,
+  margem: 0,
+};
 
 interface RawResumoAereoLinha {
   bilhete: string;
@@ -477,6 +488,16 @@ function formatarIso(data: Date): string {
   }).format(data);
 }
 
+// Margem/rentabilidade real de um canal (Aéreo ou Terrestre) — período
+// atual (365d) e o mesmo período do ano anterior (365-730d atrás), pra
+// dar "LY" e variação real (ver obterVendas).
+export interface CanalMargemSst {
+  margemPct: number;
+  rentabilidade: number;
+  margemLYPct: number;
+  rentabilidadeLY: number;
+}
+
 export interface VendasReaisSst {
   aereoNacional: { volume: number; bilhetes: number };
   aereoInternacional: { volume: number; bilhetes: number };
@@ -490,6 +511,8 @@ export interface VendasReaisSst {
   faturas: FaturaAgencia[];
   diasSemComprar: number | null;
   dataUltimaCompra: string | null;
+  margemAereo: CanalMargemSst;
+  margemTerrestre: CanalMargemSst;
 }
 
 export const agenciaDetalheSstService = {
@@ -515,37 +538,58 @@ export const agenciaDetalheSstService = {
     // entraria nas duas janelas (startDate/endDate são inclusivos no
     // SST) e o dia contaria duas vezes em variacaoMesAnterior.
     const fimMesAnterior = diasAtrasIso(31);
+    // "LY" (mesmo período do ano anterior) pra margem/rentabilidade real
+    // — janela de 365d adjacente à janela "ano" (365-730d atrás), sem
+    // sobreposição, mesmo critério de fimMesAnterior acima.
+    const inicioAnoLY = diasAtrasIso(730);
+    const fimAnoLY = diasAtrasIso(365);
 
-    const [aereoNac, aereoInter, terrestre, mesAtual, mesAnterior, reservasInfo] =
-      await Promise.all([
-        comFallback("aereo-nacional", buscarAir(sicaCodigo, inicioAno, fim, "NAC"), ZERO_PERIODO),
-        comFallback(
-          "aereo-internacional",
-          buscarAir(sicaCodigo, inicioAno, fim, "INTER"),
-          ZERO_PERIODO,
-        ),
-        comFallback("terrestre-total", buscarNonAir(sicaCodigo, inicioAno, fim), ZERO_PERIODO),
-        comFallback(
-          "variacao-mes-atual",
-          Promise.all([
-            buscarAir(sicaCodigo, inicioMesAtual, fim),
-            buscarNonAir(sicaCodigo, inicioMesAtual, fim),
-          ]),
-          [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
-        ),
-        comFallback(
-          "variacao-mes-anterior",
-          Promise.all([
-            buscarAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
-            buscarNonAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
-          ]),
-          [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
-        ),
-        comFallback("reservas", buscarReservasRecentes(sicaCodigo), {
-          reservas: [] as ReservaAgencia[],
-          dataUltimaCompra: null as string | null,
-        }),
-      ]);
+    const [
+      aereoNac,
+      aereoInter,
+      terrestre,
+      mesAtual,
+      mesAnterior,
+      reservasInfo,
+      aereoLY,
+      terrestreLY,
+    ] = await Promise.all([
+      comFallback("aereo-nacional", buscarAir(sicaCodigo, inicioAno, fim, "NAC"), ZERO_PERIODO),
+      comFallback(
+        "aereo-internacional",
+        buscarAir(sicaCodigo, inicioAno, fim, "INTER"),
+        ZERO_PERIODO,
+      ),
+      comFallback("terrestre-total", buscarNonAir(sicaCodigo, inicioAno, fim), ZERO_PERIODO),
+      comFallback(
+        "variacao-mes-atual",
+        Promise.all([
+          buscarAir(sicaCodigo, inicioMesAtual, fim),
+          buscarNonAir(sicaCodigo, inicioMesAtual, fim),
+        ]),
+        [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
+      ),
+      comFallback(
+        "variacao-mes-anterior",
+        Promise.all([
+          buscarAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
+          buscarNonAir(sicaCodigo, inicioMesAnterior, fimMesAnterior),
+        ]),
+        [ZERO_PERIODO, ZERO_PERIODO] as [RawConsolidadoPeriodo, RawConsolidadoPeriodo],
+      ),
+      comFallback("reservas", buscarReservasRecentes(sicaCodigo), {
+        reservas: [] as ReservaAgencia[],
+        dataUltimaCompra: null as string | null,
+      }),
+      // Sem `tipoRota` — combinado NAC+INTER direto do SST (confirmado
+      // por curl real que bate com a soma dos dois filtrados).
+      comFallback("aereo-margem-ly", buscarAir(sicaCodigo, inicioAnoLY, fimAnoLY), ZERO_PERIODO),
+      comFallback(
+        "terrestre-margem-ly",
+        buscarNonAir(sicaCodigo, inicioAnoLY, fimAnoLY),
+        ZERO_PERIODO,
+      ),
+    ]);
 
     const bilhetesAereoAno = aereoNac.tickets + aereoInter.tickets;
     const proporcaoNacional = bilhetesAereoAno > 0 ? aereoNac.tickets / bilhetesAereoAno : 1;
@@ -573,6 +617,23 @@ export const agenciaDetalheSstService = {
       ? Math.max(0, Math.floor((Date.now() - new Date(dataUltimaCompra).getTime()) / 86_400_000))
       : null;
 
+    // Aéreo combinado (NAC+INTER) — soma dos dois já buscados acima, não
+    // precisa de uma 3ª chamada só pra margem/rentabilidade total.
+    const tarifaAereoAno = aereoNac.tarifa + aereoInter.tarifa;
+    const rentabilidadeAereoAno = aereoNac.rentabilidade + aereoInter.rentabilidade;
+    const margemAereo: CanalMargemSst = {
+      margemPct: tarifaAereoAno > 0 ? (rentabilidadeAereoAno / tarifaAereoAno) * 100 : 0,
+      rentabilidade: rentabilidadeAereoAno,
+      margemLYPct: aereoLY.margem,
+      rentabilidadeLY: aereoLY.rentabilidade,
+    };
+    const margemTerrestre: CanalMargemSst = {
+      margemPct: terrestre.margem,
+      rentabilidade: terrestre.rentabilidade,
+      margemLYPct: terrestreLY.margem,
+      rentabilidadeLY: terrestreLY.rentabilidade,
+    };
+
     return {
       aereoNacional: { volume: Math.round(aereoNac.tarifa), bilhetes: aereoNac.tickets },
       aereoInternacional: { volume: Math.round(aereoInter.tarifa), bilhetes: aereoInter.tickets },
@@ -593,6 +654,8 @@ export const agenciaDetalheSstService = {
       faturas,
       diasSemComprar,
       dataUltimaCompra,
+      margemAereo,
+      margemTerrestre,
     };
   },
 };
