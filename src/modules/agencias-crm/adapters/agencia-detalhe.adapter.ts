@@ -1,49 +1,28 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { tempoDecorrido } from "@/modules/agencias-crm/utils/tempo-decorrido.util";
+import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
+import {
+  gerarMargemAereo,
+  gerarMargemTerrestre,
+  gerarNacIntTerrestre,
+} from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
-import type { VendasReaisSst } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
+import type {
+  CadastroComercialSst,
+  CanalMargemSst,
+  VendasReaisSst,
+} from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
 import type {
   AgenciaDetalheView,
+  CanalMargem,
   CategoriaPremiacao,
   FaturaAgencia,
-  ReservaAgencia,
-  ResumoModalidade,
   TopCompanhiaAgencia,
-  TopRotaAgencia,
-  VendaMensalAgencia,
 } from "@/modules/agencias-crm/types/agencia-detalhe.types";
 
 const CATEGORIAS: CategoriaPremiacao[] = ["10K", "100K", "1M", "10M"];
-const MESES_PT = [
-  "Jan",
-  "Fev",
-  "Mar",
-  "Abr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Set",
-  "Out",
-  "Nov",
-  "Dez",
-];
-const AEROPORTOS = [
-  "GRU",
-  "GIG",
-  "BSB",
-  "CNF",
-  "POA",
-  "SSA",
-  "REC",
-  "FOR",
-  "CWB",
-  "MAO",
-  "VVI",
-  "CGB",
-];
 const COMPANHIAS_AEREAS = [
   "Azul",
   "Gol",
@@ -81,71 +60,11 @@ function labelEtapa(status: string): string {
   return "contrato";
 }
 
-function gerarEvolucaoMensal(base: number, volumeAno: number): VendaMensalAgencia[] {
-  const hoje = new Date();
-  const totalMeses = hoje.getMonth() + 1;
-  const anoCurto = String(hoje.getFullYear()).slice(-2);
-  const mediaMes = volumeAno / totalMeses;
-
-  return Array.from({ length: totalMeses }, (_, indice) => {
-    const seed = base + indice * 97;
-    const nacional = Math.round(mediaMes * (0.5 + (seed % 60) / 100) * 0.55);
-    const internacional = Math.round(nacional * (0.3 + ((seed >> 3) % 50) / 100));
-    const terrestre = Math.round(nacional * (0.02 + ((seed >> 5) % 5) / 100));
-    return { mes: `${MESES_PT[indice]}/${anoCurto}`, nacional, internacional, terrestre };
-  });
-}
-
-function gerarTopRotas(base: number): TopRotaAgencia[] {
-  return Array.from({ length: 10 }, (_, indice) => {
-    const seed = base + indice * 53;
-    const trechos = Array.from(
-      { length: 3 + (seed % 3) },
-      (_, i) => AEROPORTOS[(seed >> i) % AEROPORTOS.length]!,
-    );
-    return {
-      rota: trechos.join("/"),
-      bilhetes: 20 + (seed % 300),
-      volume: 5_000 + (seed % 200_000),
-      internacional: seed % 5 === 0,
-    };
-  }).sort((a, b) => b.bilhetes - a.bilhetes);
-}
-
 function gerarTopCompanhias(base: number): TopCompanhiaAgencia[] {
   return COMPANHIAS_AEREAS.map((nome, indice) => ({
     nome,
     volume: 10_000 + (hashParaNumero(`${base}-${nome}`) % ((10 - indice) * 40_000 + 5_000)),
   })).sort((a, b) => b.volume - a.volume);
-}
-
-function gerarReservas(base: number, quantidade: number): ReservaAgencia[] {
-  return Array.from({ length: quantidade }, (_, indice) => {
-    const seed = base + indice * 71;
-    const aereo = seed % 4 !== 0;
-    const hoje = new Date();
-    hoje.setDate(hoje.getDate() - (seed % 365));
-    return {
-      id: `res-${indice}`,
-      tipo: aereo ? "aereo" : "terrestre",
-      data: hoje.toISOString(),
-      identificador: aereo
-        ? String(1_720_000_000_000 + (seed % 90_000_000_000))
-        : `T${String(seed % 100_000).padStart(5, "0")}`,
-      descricao: aereo
-        ? `${AEROPORTOS[seed % AEROPORTOS.length]}/${AEROPORTOS[(seed >> 2) % AEROPORTOS.length]}/${AEROPORTOS[seed % AEROPORTOS.length]}`
-        : "BUS",
-      referencia: aereo ? `Cia ${900 + (seed % 100)}` : null,
-      valor: 200 + (seed % 4_000),
-    };
-  });
-}
-
-// Dias de antecedência entre compra e embarque (mock — ver comentário do
-// tipo AgenciaDetalheAntecedencia), faixa de 5,0 a 60,0 dias com 1 casa
-// decimal.
-function gerarAntecedenciaDias(seed: number): number {
-  return Math.round((5 + (seed % 550) / 10) * 10) / 10;
 }
 
 function gerarFaturas(base: number, quantidade: number): FaturaAgencia[] {
@@ -169,21 +88,65 @@ function gerarFaturas(base: number, quantidade: number): FaturaAgencia[] {
 export interface ExecutivoContexto {
   base: string | null;
   gestorNome: string | null;
+  executivoNome?: string | null;
 }
 
-export function montarAgenciaDetalheView(
-  detalhe: AgenciaDetalhe,
-  dadosReceita: DadosReceita | null,
-  executivoContexto: ExecutivoContexto,
-  // real (SST, agencia-detalhe.sst-service.ts) quando a agência tem
-  // sicaCodigo e a integração está ligada — `null` quando desligada/sem
-  // sicaCodigo, e todo o bloco "vendas" (exceto risco de emissão,
-  // antecedência e participação societária, que continuam mock por
-  // falta de fonte) cai no mock por hash de antes desta integração.
-  vendasReais: VendasReaisSst | null = null,
-): AgenciaDetalheView {
-  const agencia = detalhe.agencia;
-  const base = hashParaNumero(agencia.id);
+// Margem/rentabilidade de um canal — real (SST) quando `real` existe;
+// mock determinístico como fallback (sem sicaCodigo, sem venda
+// detectada, ou integração desligada). `volumeParaMock` só é usado no
+// fallback, pra converter o `rentabLYPct` do mock (% do canal) num valor
+// absoluto — no caminho real, `rentabilidadeLY` já vem em R$ direto do
+// SST, sem precisar de volume nenhum.
+function construirMargemCanal(
+  real: CanalMargemSst | undefined,
+  base: number,
+  gerarMock: (base: number) => {
+    margemPct: number;
+    margemLYPct: number;
+    margemVariacaoPct: number;
+    rentabLYPct: number;
+    rentabLYVariacaoPct: number;
+  },
+  volumeParaMock: number,
+): CanalMargem {
+  if (real) {
+    const margemVariacaoPct =
+      real.margemLYPct !== 0 ? ((real.margemPct - real.margemLYPct) / real.margemLYPct) * 100 : 0;
+    const rentabLYVariacaoPct =
+      real.rentabilidadeLY !== 0
+        ? ((real.rentabilidade - real.rentabilidadeLY) / real.rentabilidadeLY) * 100
+        : 0;
+    return {
+      margemPct: real.margemPct,
+      margemLYPct: real.margemLYPct,
+      margemVariacaoPct,
+      rentabLYValor: real.rentabilidadeLY,
+      rentabLYVariacaoPct,
+    };
+  }
+
+  const mock = gerarMock(base);
+  return {
+    margemPct: mock.margemPct,
+    margemLYPct: mock.margemLYPct,
+    margemVariacaoPct: mock.margemVariacaoPct,
+    rentabLYValor: Math.round((volumeParaMock * mock.rentabLYPct) / 100),
+    rentabLYVariacaoPct: mock.rentabLYVariacaoPct,
+  };
+}
+
+// Bloco "vendas" + categoria — idêntico pra agência com dossiê local
+// (seed = hash do id local) ou só SST (seed = hash do código SICA, ver
+// montarAgenciaDetalheViewSst) — extraído pra não duplicar o merge com
+// vendasReais entre os dois.
+function construirBlocoVendas(
+  base: number,
+  vendasReais: VendasReaisSst | null,
+): Pick<AgenciaDetalheView, "categoria" | "vendas"> & {
+  volumeAno: number;
+  semVenda: boolean;
+  dataUltimaCompra: string | null;
+} {
   const semVenda = base % 12 === 0;
   const categoria = semVenda ? null : CATEGORIAS[base % CATEGORIAS.length]!;
 
@@ -195,7 +158,6 @@ export function montarAgenciaDetalheView(
   const bilhetesNacionalMock = Math.round(bilhetesAnoMock * 0.72);
   const bilhetesInternacionalMock = bilhetesAnoMock - bilhetesNacionalMock;
   const diasSemComprarMock = semVenda ? 90 + (base % 300) : base % 400;
-  const mesesBaseAntecedencia = new Date().getMonth() + 1;
   const dataUltimaCompraMock = semVenda
     ? null
     : new Date(Date.now() - diasSemComprarMock * 86_400_000).toISOString();
@@ -212,12 +174,74 @@ export function montarAgenciaDetalheView(
   const bilhetesAno = bilhetesNacional + bilhetesInternacional;
   const volumeAno = volumeNacional + volumeInternacional + volumeTerrestre;
   const servicosTerrestre = vendasReais?.terrestre.servicos ?? Math.round(bilhetesAno * 0.08);
-  const diasSemComprar = vendasReais?.diasSemComprar ?? diasSemComprarMock;
   // `||`, não `??`: uma data real vinda do SST nunca é string vazia, mas
   // uma agência só-terrestre sem venda detectável pode, em tese, chegar
   // aqui com "" (ver agencia-carteira.sst-service.ts) — trata como
   // "sem dado real" e cai no mock, igual a receber null/undefined.
   const dataUltimaCompra = vendasReais?.dataUltimaCompra || dataUltimaCompraMock;
+
+  const margemAereo = construirMargemCanal(
+    vendasReais?.margemAereo,
+    base,
+    gerarMargemAereo,
+    volumeNacional + volumeInternacional,
+  );
+  const margemTerrestre = construirMargemCanal(
+    vendasReais?.margemTerrestre,
+    base,
+    gerarMargemTerrestre,
+    volumeTerrestre,
+  );
+  const terrestreNacInt = vendasReais?.terrestreNacInt ?? gerarNacIntTerrestre(base);
+
+  return {
+    categoria,
+    volumeAno,
+    semVenda,
+    dataUltimaCompra,
+    vendas: {
+      aereoNacional: {
+        volume: volumeNacional,
+        bilhetes: bilhetesNacional,
+        pctAereo: bilhetesAno > 0 ? Math.round((bilhetesNacional / bilhetesAno) * 100) : 0,
+      },
+      aereoInternacional: {
+        volume: volumeInternacional,
+        bilhetes: bilhetesInternacional,
+        pctAereo: bilhetesAno > 0 ? Math.round((bilhetesInternacional / bilhetesAno) * 100) : 0,
+      },
+      terrestre: {
+        volume: volumeTerrestre,
+        servicos: servicosTerrestre,
+        pctMix: volumeAno > 0 ? Math.round((volumeTerrestre / volumeAno) * 100) : 0,
+        nacPct: terrestreNacInt.nacPct,
+        intPct: terrestreNacInt.intPct,
+      },
+      volumeTotalAno: volumeAno,
+      ticketMedioAereo:
+        vendasReais?.ticketMedioAereo ??
+        (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0),
+      topCompanhias: vendasReais?.topCompanhias ?? gerarTopCompanhias(base),
+      faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
+      margemAereo,
+      margemTerrestre,
+    },
+  };
+}
+
+export function montarAgenciaDetalheView(
+  detalhe: AgenciaDetalhe,
+  dadosReceita: DadosReceita | null,
+  executivoContexto: ExecutivoContexto,
+  // real (SST, agencia-detalhe.sst-service.ts) quando a agência tem
+  // sicaCodigo e a integração está ligada — `null` quando desligada/sem
+  // sicaCodigo, e todo o bloco "vendas" cai no mock por hash de antes
+  // desta integração.
+  vendasReais: VendasReaisSst | null = null,
+): AgenciaDetalheView {
+  const agencia = detalhe.agencia;
+  const base = hashParaNumero(agencia.id);
+  const blocoVendas = construirBlocoVendas(base, vendasReais);
 
   const socios = detalhe.representantesLegais.map((representante) => ({
     id: representante.id,
@@ -227,7 +251,9 @@ export function montarAgenciaDetalheView(
     email: representante.email || null,
     telefone: representante.telefone || null,
     papel: representante.administrativo ? "Sócio-Administrador" : "Sócio",
-    participacaoPct: 10 + (hashParaNumero(representante.id) % 70),
+    // Sem fonte real — Prisma não guarda % de participação societária
+    // hoje (pedido do usuário, 2026-08-21: não mockar, mostrar "—").
+    participacaoPct: null,
     temRg: representante.rg !== null,
     temProcuracao: representante.procuracao !== null,
   }));
@@ -249,24 +275,10 @@ export function montarAgenciaDetalheView(
   return {
     id: agencia.id,
     identificador: gerarIdentificador(agencia.razaoSocial),
-    categoria,
+    categoria: blocoVendas.categoria,
     temRiscoCadastral: (detalhe.analiseIa?.flagsRisco.length ?? 0) > 0,
     ativoSistema: agencia.status === "ativo",
     ativadoEm: agencia.createdAt.toISOString(),
-    kpisTopo: {
-      antecedenciaNacional: {
-        dias: semVenda ? 0 : gerarAntecedenciaDias(base),
-        bilhetes: bilhetesNacional,
-        mesesBase: mesesBaseAntecedencia,
-      },
-      antecedenciaInternacional: {
-        dias: semVenda ? 0 : gerarAntecedenciaDias(base >> 3),
-        bilhetes: bilhetesInternacional,
-        mesesBase: mesesBaseAntecedencia,
-      },
-      diasSemComprar,
-      dataUltimaCompra,
-    },
     dadosDocumentacao: {
       empresa: {
         nomeFantasia: agencia.nomeFantasia,
@@ -316,93 +328,149 @@ export function montarAgenciaDetalheView(
       base: executivoContexto.base,
       gestorNome: executivoContexto.gestorNome,
       executivoNome: detalhe.executivoNome,
-      segmento: semVenda ? null : ["Lazer", "Corporativo", "Misto"][base % 3]!,
-      mediaFaturamento: semVenda ? null : Math.round(volumeAno / 8),
+      // Sem fonte real (segmento comercial, faturamento médio, comissão e
+      // incentivo não existem em nenhum sistema hoje) — não mockar, UI
+      // mostra "—" (pedido do usuário, 2026-08-21).
+      segmento: null,
+      mediaFaturamento: null,
       bancoNome: detalhe.complementar?.bancoNome ?? null,
       bancoCodigo: detalhe.complementar?.bancoCodigo ?? null,
       bancoAgencia: detalhe.complementar?.bancoAgencia ?? null,
       bancoConta: detalhe.complementar?.bancoConta ?? null,
-      limiteFaturado: Math.round(volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
-      limiteCartao: Math.round(volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
-      dataUltimaCompra,
-      comissaoPct: 0.5 + ((base >> 2) % 30) / 10,
-      incentivoPct: (base >> 5) % 10 === 0 ? 1 + ((base >> 7) % 20) / 10 : 0,
+      limiteFaturado: Math.round(blocoVendas.volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
+      limiteCartao: Math.round(blocoVendas.volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
+      dataUltimaCompra: blocoVendas.dataUltimaCompra,
+      comissaoPct: null,
+      incentivoPct: null,
       bloqCred: base % 20 === 0,
     },
-    vendas: {
-      riscoEmissao: {
-        alto30d: base % 5,
-        alto90d: base % 9,
-        medio90d: 2 + (base % 12),
-        valorEmRiscoAlto: (base % 9) * 8_000,
-        scoreMedio90d: 40 + (base % 55),
-        ultimaVendaRiscoAlto:
-          base % 9 > 0 ? new Date(Date.now() - (base % 30) * 86_400_000).toISOString() : null,
+    vendas: blocoVendas.vendas,
+  };
+}
+
+// Página de detalhe (/crm/agencias/[id]) quando o id é um código SICA —
+// 100% SST, sem tocar a tabela `Agencia` deste app (decisão do usuário,
+// 2026-08-21). Sócios, documentos, análise de risco e dados da Receita
+// Federal (CNAE, capital social, situação cadastral) não existem em
+// nenhum endpoint do SST — ficam vazios/null em vez de inventados; a UI
+// já degrada bem pra esses campos ("Nenhum sócio cadastrado.", "—",
+// "Dados bancários não informados"). `null` de retorno = código SICA não
+// existe no SST.
+export function montarAgenciaDetalheViewSst(
+  codigoEmpresa: number,
+  cadastroComercial: CadastroComercialSst,
+  executivoContexto: ExecutivoContexto,
+  vendasReais: VendasReaisSst | null = null,
+): AgenciaDetalheView | null {
+  const { baseEmpresa, cadastro } = cadastroComercial;
+  if (!baseEmpresa) return null;
+
+  const base = hashParaNumero(String(codigoEmpresa));
+  const blocoVendas = construirBlocoVendas(base, vendasReais);
+
+  const razaoSocial = cadastro?.razao_social || baseEmpresa.nome_chave || baseEmpresa.nome_fantasia;
+  const cnpjDigitos = unmaskCnpj(cadastro?.cnpj ?? baseEmpresa.CNPJ);
+  const ativoSistema = baseEmpresa.empresa_ativa === "SIM";
+
+  const endereco = cadastro?.endereco
+    ? {
+        logradouro: cadastro.endereco,
+        numero: cadastro.numero,
+        complemento: cadastro.complemento,
+        bairro: cadastro.bairro,
+        cidade: cadastro.cidade,
+        uf: cadastro.estado,
+        cep: cadastro.cep,
+      }
+    : baseEmpresa.endereco
+      ? {
+          logradouro: baseEmpresa.endereco,
+          numero: baseEmpresa.numero !== null ? String(baseEmpresa.numero) : null,
+          complemento: baseEmpresa.complemento,
+          bairro: baseEmpresa.bairro,
+          cidade: baseEmpresa.cidade,
+          uf: baseEmpresa.uf,
+          cep: baseEmpresa.CEP,
+        }
+      : null;
+
+  return {
+    id: String(codigoEmpresa),
+    identificador: gerarIdentificador(razaoSocial),
+    categoria: blocoVendas.categoria,
+    temRiscoCadastral: false,
+    ativoSistema,
+    ativadoEm: baseEmpresa.data_cadastro,
+    dadosDocumentacao: {
+      empresa: {
+        // `nome_chave` (não `nome_fantasia`) — é o mesmo nome que já
+        // aparece na listagem (roster de /api/agencias/ativas, mesmo
+        // valor). `nome_fantasia` no SST é outra coisa: pra agência de
+        // dono único costuma ser o nome da pessoa física (ex.: "RAFAEL
+        // SILVESTRINI FERREIRA"), não um nome fantasia de verdade —
+        // usar ele aqui deixava o nome em destaque da página diferente
+        // do nome que o usuário viu na linha da tabela.
+        nomeFantasia: baseEmpresa.nome_chave || baseEmpresa.nome_fantasia || null,
+        razaoSocial,
+        cnpj: cnpjDigitos,
+        statusLabel: ativoSistema ? "Ativo" : "Inativo",
+        statusClasses: ativoSistema
+          ? "bg-success-bg text-success-text"
+          : "bg-destructive-bg text-destructive-text",
+        etapaLabel: null,
+        situacaoReceita: null,
+        dataAbertura: null,
+        tempoDeCnpj: null,
+        capitalSocial: null,
+        naturezaJuridica: null,
+        porte: null,
+        optanteSimples: null,
+        emailReceita: null,
+        telefoneReceita: null,
+        cnaePrincipal: null,
+        cnaesSecundarios: [],
       },
-      aereoNacional: {
-        volume: volumeNacional,
-        bilhetes: bilhetesNacional,
-        pctAereo: bilhetesAno > 0 ? Math.round((bilhetesNacional / bilhetesAno) * 100) : 0,
+      datas: {
+        dataCadastroLegado: baseEmpresa.data_cadastro,
+        tempoComoCliente: tempoDecorrido(new Date(baseEmpresa.data_cadastro)),
       },
-      aereoInternacional: {
-        volume: volumeInternacional,
-        bilhetes: bilhetesInternacional,
-        pctAereo: bilhetesAno > 0 ? Math.round((bilhetesInternacional / bilhetesAno) * 100) : 0,
+      contato: {
+        nome: cadastro?.contato ?? null,
+        email: cadastro?.email || baseEmpresa.email_empresa || "",
+        telefone1: cadastro?.telefone || baseEmpresa.telefone_principal || "",
+        telefone1Base: executivoContexto.base,
+        telefone2: null,
+        telefoneComercial: null,
+        emailReceita: null,
+        telefoneReceita: null,
       },
-      terrestre: {
-        volume: volumeTerrestre,
-        servicos: servicosTerrestre,
-        pctMix: volumeAno > 0 ? Math.round((volumeTerrestre / volumeAno) * 100) : 0,
-      },
-      volumeTotalAno: volumeAno,
-      mediaVendasDia: {
-        valor: Math.round(volumeAno / 365),
-        bilhetesDia: Math.round((bilhetesAno / 365) * 10) / 10,
-        dias: 365,
-      },
-      reservasAereo: {
-        total: bilhetesAno,
-        nacional: bilhetesNacional,
-        internacional: bilhetesInternacional,
-      },
-      ticketMedioAereo:
-        vendasReais?.ticketMedioAereo ??
-        (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0),
-      variacaoMesAnterior: vendasReais?.variacaoMesAnterior ?? {
-        pct: ((base % 40) - 15) / 10,
-        valor: Math.round(volumeAno / 12),
-      },
-      evolucaoMensal: vendasReais?.evolucaoMensal ?? gerarEvolucaoMensal(base, volumeAno),
-      topRotas: vendasReais?.topRotas ?? gerarTopRotas(base),
-      topCompanhias: vendasReais?.topCompanhias ?? gerarTopCompanhias(base),
-      mixAereoTerrestre: {
-        aereoPct:
-          volumeAno > 0
-            ? Math.round(((volumeNacional + volumeInternacional) / volumeAno) * 100)
-            : 0,
-        terrestrePct: volumeAno > 0 ? Math.round((volumeTerrestre / volumeAno) * 100) : 0,
-      },
-      resumoComparativo: (
-        [
-          { modalidade: "Aéreo Nacional", volume: volumeNacional, itens: bilhetesNacional },
-          {
-            modalidade: "Aéreo Internacional",
-            volume: volumeInternacional,
-            itens: bilhetesInternacional,
-          },
-          {
-            modalidade: "Terrestre",
-            volume: volumeTerrestre,
-            itens: servicosTerrestre,
-          },
-        ] satisfies { modalidade: string; volume: number; itens: number }[]
-      ).map((linha): ResumoModalidade => ({
-        ...linha,
-        pctMix: volumeAno > 0 ? Math.round((linha.volume / volumeAno) * 100) : 0,
-        mediaMensal: Math.round(linha.volume / 12),
-      })),
-      reservas: vendasReais?.reservas ?? gerarReservas(base, semVenda ? 0 : 30 + (base % 40)),
-      faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
+      endereco,
+      socios: [],
     },
+    perfilComercial: {
+      sica: String(codigoEmpresa),
+      base: executivoContexto.base,
+      gestorNome: executivoContexto.gestorNome,
+      executivoNome: executivoContexto.executivoNome ?? baseEmpresa.nome_executivo,
+      // Sem fonte real (segmento comercial, faturamento médio, comissão e
+      // incentivo não existem em nenhum sistema hoje) — não mockar, UI
+      // mostra "—" (pedido do usuário, 2026-08-21).
+      segmento: null,
+      mediaFaturamento: null,
+      bancoNome: null,
+      bancoCodigo: null,
+      bancoAgencia: null,
+      bancoConta: null,
+      // real (SST, base-empresa-cadastro) — total já soma limite + adicional.
+      limiteFaturado:
+        baseEmpresa.total_limite_cred_faturado || baseEmpresa.limite_cred_faturado || 0,
+      limiteCartao:
+        baseEmpresa.total_limite_cred_cartao_credito || baseEmpresa.limite_cred_cartao_credito || 0,
+      dataUltimaCompra: blocoVendas.dataUltimaCompra,
+      comissaoPct: null,
+      incentivoPct: null,
+      bloqCred: baseEmpresa.bloqueio_credito === "SIM",
+    },
+    vendas: blocoVendas.vendas,
   };
 }

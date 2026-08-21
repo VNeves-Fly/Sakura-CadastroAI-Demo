@@ -77,6 +77,16 @@ export function montarAgenciaCarteiraView(
   // calculado sobre o vendasAno já resolvido (real ou mock).
   const limite = Math.round(vendasAno * (1.1 + ((seed >> 4) % 30) / 100));
 
+  // Margem por agência (coluna "Margem" da SPEC nova) — sem fonte real
+  // (mesma limitação de margem por canal do Executivo/Gestor, ver
+  // canal-resumo-mock.util.ts daqueles módulos); mesmo seed determinístico
+  // do resto deste adapter.
+  const margemPct = Math.round((2 + ((seed >> 6) % 140) / 10) * 100) / 100;
+  const margemNegativa = (seed >> 8) % 4 === 0;
+  const margemVariacaoPct =
+    (margemNegativa ? -1 : 1) * (Math.round((3 + ((seed >> 10) % 300) / 10) * 100) / 100);
+  const margemLYPct = Math.round((margemPct - margemVariacaoPct / 10) * 100) / 100;
+
   return {
     id: sicaCodigo,
     razaoSocial: item.nome,
@@ -102,6 +112,13 @@ export function montarAgenciaCarteiraView(
     vendasAno,
     diasSemComprar,
     limite,
+    // sicaCodigo (variável local) já é String(item.codigoEmpresa) — mesmo
+    // identificador que o SICA usa como codigo_empresa/codigo_cliente,
+    // não um campo separado em AgenciaRosterSst.
+    sica: sicaCodigo,
+    margemPct,
+    margemLYPct,
+    margemVariacaoPct,
   };
 }
 

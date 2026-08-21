@@ -46,10 +46,12 @@ function Campo({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// Aba "Perfil Comercial" (SPEC seção 4.4) — sica/base/gestor/executivo são
-// reais; limites, comissão, incentivo, segmento e média de faturamento são
-// mock determinístico (ver agencia-detalhe.adapter.ts) porque não existe
-// hoje modelagem real de limite de crédito/comissão no domínio de Agência.
+// Aba "Perfil Comercial" (SPEC seção 4.4) — sica/base/gestor/executivo/
+// limite faturado/cartão/bloqueio de crédito são reais (SST,
+// `base-empresa-cadastro`, ver agencia-detalhe.adapter.ts). Segmento,
+// média de faturamento, comissão e incentivo não têm fonte real em
+// nenhum sistema hoje — sem mock, sempre "—" (pedido do usuário,
+// 2026-08-21).
 export function AgenciaPerfilComercialTab({ perfil }: AgenciaPerfilComercialTabProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -91,9 +93,13 @@ export function AgenciaPerfilComercialTab({ perfil }: AgenciaPerfilComercialTabP
             )}
           </Campo>
 
-          <Campo label="Comissão">{formatarPercentual(perfil.comissaoPct)}</Campo>
+          <Campo label="Comissão">
+            {perfil.comissaoPct !== null ? formatarPercentual(perfil.comissaoPct) : "—"}
+          </Campo>
           <Campo label="Incentivo">
-            {perfil.incentivoPct > 0 ? formatarPercentual(perfil.incentivoPct) : "—"}
+            {perfil.incentivoPct !== null && perfil.incentivoPct > 0
+              ? formatarPercentual(perfil.incentivoPct)
+              : "—"}
           </Campo>
           <Campo label="Data Última Compra">
             {perfil.dataUltimaCompra ? formatarData(perfil.dataUltimaCompra) : "—"}

@@ -1,11 +1,12 @@
-// Modal de Detalhe da Agência (SPEC_AGENCIAS_SAKURA.md, seção 4). Campos
+// Página de Detalhe da Agência (SPEC_AGENCIAS_SAKURA.md, seção 4). Campos
 // marcados "real" abaixo vêm de Agencia/DadosReceita/RepresentanteLegal/
 // CadastroComplementar/AnaliseIaAgencia (mesmas fontes do dossiê de
 // /cadastros/:id, via cadastroAdminController.obterDetalhe +
-// obterDadosReceita). O bloco "vendas" inteiro, "limites & comercial" e o
-// "risco de emissões" não têm fonte real hoje (não existe reserva/bilhete/
-// fatura/limite de crédito modelado no domínio — ver exploração prévia) e
-// são mock determinístico, documentado no adapter.
+// obterDadosReceita), ou do SST (bloco "vendas", ver
+// agencia-detalhe.sst-service.ts) quando a agência tem sicaCodigo e a
+// integração está ligada. "Limites & comercial" não tem fonte real hoje
+// (não existe limite de crédito modelado no domínio) e segue mock
+// determinístico, documentado no adapter.
 
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 
@@ -15,7 +16,7 @@ export interface AgenciaDetalheEmpresa {
   cnpj: string; // real
   statusLabel: string; // real
   statusClasses: string; // real
-  etapaLabel: string; // real (derivado do status)
+  etapaLabel: string | null; // real (derivado do status) — null quando a agência não tem cadastro/onboarding neste app (fonte 100% SST, ver adapter)
   situacaoReceita: string | null; // real (DadosReceita.situacaoCadastral) — null = "Não consultado"
   dataAbertura: string | null; // real
   tempoDeCnpj: string | null; // real (calculado)
@@ -63,7 +64,7 @@ export interface AgenciaDetalheSocio {
   email: string | null; // real
   telefone: string | null; // real
   papel: string; // real (aproximação: "Administrador" se administrativo, senão "Sócio")
-  participacaoPct: number | null; // mock — Prisma não guarda % de participação societária hoje
+  participacaoPct: number | null; // sem fonte real — Prisma não guarda % de participação societária hoje; sempre `null`, UI mostra "—"
   temRg: boolean; // real
   temProcuracao: boolean; // real
 }
@@ -76,48 +77,44 @@ export interface AgenciaDetalheDadosDocumentacao {
   socios: AgenciaDetalheSocio[];
 }
 
-export interface AgenciaDetalheAntecedencia {
-  // mock — o SST tem data_emis/data_embarque por bilhete (/api/resumos/aereo),
-  // então essa métrica é tecnicamente viável; não implementada nesta
-  // integração (fora do escopo do plano original), fica como oportunidade.
-  dias: number;
-  bilhetes: number; // real (SST) quando vendasReais existe — mesmo total de vendas.aereoNacional/aereoInternacional.bilhetes
-  mesesBase: number; // mock — nº de meses considerados (ano corrente até o mês atual)
-}
-
-// KPIs de topo do modal (SPEC 4.1, faixa de 4 cards acima das abas).
-// diasSemComprar/dataUltimaCompra vêm do SST real (última reserva
-// aérea/terrestre observada, ver agencia-detalhe.sst-service.ts) quando
-// a agência tem sicaCodigo e a integração está ligada; caem no mesmo
-// mock por hash da listagem (agencia-carteira.adapter.ts) como fallback.
-// "Antecedência" (compra x embarque) continua mock — ver comentário no
-// tipo acima.
-export interface AgenciaDetalheKpisTopo {
-  antecedenciaNacional: AgenciaDetalheAntecedencia;
-  antecedenciaInternacional: AgenciaDetalheAntecedencia;
-  diasSemComprar: number; // real (SST) — mock se sicaCodigo ausente
-  dataUltimaCompra: string | null; // real (SST) — mock se sicaCodigo ausente
-}
-
 export interface AgenciaDetalhePerfilComercial {
   sica: string | null; // real
   base: string | null; // melhor esforço
   gestorNome: string | null; // real
   executivoNome: string | null; // real
-  segmento: string | null; // mock — sem campo real de segmento comercial
-  mediaFaturamento: number | null; // mock
+  segmento: string | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
+  mediaFaturamento: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
   bancoNome: string | null; // real (CadastroComplementar, provavelmente null — roadmap não usado pela UI de cadastro hoje)
   bancoCodigo: string | null; // real
   bancoAgencia: string | null; // real
   bancoConta: string | null; // real
   limiteFaturado: number; // mock
   limiteCartao: number; // mock
-  dataUltimaCompra: string | null; // real (SST) — mesmo valor de kpisTopo.dataUltimaCompra; mock se sicaCodigo ausente
-  comissaoPct: number; // mock
-  incentivoPct: number; // mock
+  dataUltimaCompra: string | null; // real (SST) — mock se sicaCodigo ausente
+  comissaoPct: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
+  incentivoPct: number | null; // sem fonte real hoje — sempre `null`, UI mostra "—"
   bloqCred: boolean; // mock
 }
 
+export interface TopCompanhiaAgencia {
+  nome: string;
+  volume: number;
+}
+
+export interface FaturaAgencia {
+  numero: string;
+  vencimento: string;
+  cias: string;
+  status: "pago" | "a_vencer" | "vencido";
+  valor: number;
+}
+
+// Não consumidos por AgenciaDetalheVendas hoje (a aba "Vendas" antiga —
+// sub-abas Reservas/Top Rotas — foi removida na reestilização de
+// 2026-08-21), mas ainda produzidos por agencia-detalhe.sst-service.ts
+// (VendasReaisSst.evolucaoMensal/topRotas/reservas) — mantidos pra não
+// derrubar essa integração já validada contra o SST, caso a UI volte a
+// precisar dessas séries.
 export interface VendaMensalAgencia {
   mes: string;
   nacional: number;
@@ -136,19 +133,6 @@ export interface TopRotaAgencia {
   internacional: boolean;
 }
 
-export interface TopCompanhiaAgencia {
-  nome: string;
-  volume: number;
-}
-
-export interface ResumoModalidade {
-  modalidade: string;
-  volume: number;
-  pctMix: number;
-  mediaMensal: number;
-  itens: number;
-}
-
 export interface ReservaAgencia {
   id: string;
   tipo: "aereo" | "terrestre";
@@ -159,49 +143,38 @@ export interface ReservaAgencia {
   valor: number;
 }
 
-export interface FaturaAgencia {
-  numero: string;
-  vencimento: string;
-  cias: string;
-  status: "pago" | "a_vencer" | "vencido";
-  valor: number;
+// Margem/rentabilidade de um canal (Aéreo ou Terrestre) — real (SST,
+// /api/consolidado/air|non-air, ver agencia-detalhe.sst-service.ts)
+// quando a agência tem sicaCodigo e a integração está ligada; mock
+// determinístico como fallback. `rentabLYValor` é o valor absoluto (R$)
+// do mesmo período do ano anterior, direto do SST — não mais derivado de
+// `volume * pct`.
+export interface CanalMargem {
+  margemPct: number;
+  margemLYPct: number;
+  margemVariacaoPct: number;
+  rentabLYValor: number;
+  rentabLYVariacaoPct: number;
 }
 
 // vendas: real (SST, ver agencia-detalhe.sst-service.ts) quando a
 // agência tem sicaCodigo e a integração está ligada — mock por hash
 // como fallback (sem sicaCodigo, sem venda detectada, ou integração
-// desligada), EXCETO riscoEmissao (score de risco de emissão não existe
-// no SST hoje — sem endpoint equivalente, continua mock, e nenhum
-// componente da UI consome esse campo hoje). mixAereoTerrestre e
-// resumoComparativo são sempre cálculo local (real ou mock) sobre os
-// volumes já resolvidos, nunca uma chamada própria ao SST. topRotas usa
-// uma amostra de 90 dias (não o ano inteiro) — ver comentário no
-// service. reservas/faturas mostram só os itens mais recentes (mesma
-// ordem de grandeza do mock anterior), não o histórico completo.
+// desligada). topCompanhias/faturas mostram só os itens mais recentes
+// (mesma ordem de grandeza do mock anterior), não o histórico completo.
 export interface AgenciaDetalheVendas {
-  riscoEmissao: {
-    alto30d: number;
-    alto90d: number;
-    medio90d: number;
-    valorEmRiscoAlto: number;
-    scoreMedio90d: number;
-    ultimaVendaRiscoAlto: string | null;
-  };
   aereoNacional: { volume: number; bilhetes: number; pctAereo: number };
   aereoInternacional: { volume: number; bilhetes: number; pctAereo: number };
-  terrestre: { volume: number; servicos: number; pctMix: number };
+  // nacPct/intPct: real (SST, agrupado por `nac_int` em
+  // /api/resumos/terrestre, ver agencia-detalhe.sst-service.ts) quando a
+  // agência tem venda terrestre detectada — mock por hash como fallback.
+  terrestre: { volume: number; servicos: number; pctMix: number; nacPct: number; intPct: number };
   volumeTotalAno: number;
-  mediaVendasDia: { valor: number; bilhetesDia: number; dias: number };
-  reservasAereo: { total: number; nacional: number; internacional: number };
   ticketMedioAereo: number;
-  variacaoMesAnterior: { pct: number; valor: number };
-  evolucaoMensal: VendaMensalAgencia[];
-  topRotas: TopRotaAgencia[];
   topCompanhias: TopCompanhiaAgencia[];
-  mixAereoTerrestre: { aereoPct: number; terrestrePct: number };
-  resumoComparativo: ResumoModalidade[];
-  reservas: ReservaAgencia[];
   faturas: FaturaAgencia[];
+  margemAereo: CanalMargem;
+  margemTerrestre: CanalMargem;
 }
 
 export interface AgenciaDetalheView {
@@ -211,7 +184,6 @@ export interface AgenciaDetalheView {
   temRiscoCadastral: boolean; // real — AnaliseIaAgencia.flagsRisco.length > 0
   ativoSistema: boolean; // real — status === "ativo"
   ativadoEm: string | null; // real — melhor data disponível de ativação (createdAt como aproximação)
-  kpisTopo: AgenciaDetalheKpisTopo;
   dadosDocumentacao: AgenciaDetalheDadosDocumentacao;
   perfilComercial: AgenciaDetalhePerfilComercial;
   vendas: AgenciaDetalheVendas;

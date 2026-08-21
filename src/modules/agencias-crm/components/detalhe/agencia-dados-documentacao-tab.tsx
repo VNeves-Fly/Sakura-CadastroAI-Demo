@@ -77,11 +77,13 @@ export function AgenciaDadosDocumentacaoTab({
               {empresa.statusLabel}
             </span>
           </Campo>
-          <Campo label="Etapa">
-            <Badge variant="outline" className="capitalize">
-              {empresa.etapaLabel}
-            </Badge>
-          </Campo>
+          {empresa.etapaLabel ? (
+            <Campo label="Etapa">
+              <Badge variant="outline" className="capitalize">
+                {empresa.etapaLabel}
+              </Badge>
+            </Campo>
+          ) : null}
           <Campo label="Situação Receita">{empresa.situacaoReceita ?? "Não consultado"}</Campo>
 
           <Campo label="Data Abertura">
@@ -246,7 +248,10 @@ export function AgenciaDadosDocumentacaoTab({
                   <div>
                     <p className="text-foreground text-sm font-semibold">{socioSelecionado.nome}</p>
                     <p className="text-muted-foreground text-xs">
-                      {socioSelecionado.participacaoPct}% {socioSelecionado.papel}
+                      {socioSelecionado.participacaoPct !== null
+                        ? `${socioSelecionado.participacaoPct}%`
+                        : "—"}{" "}
+                      {socioSelecionado.papel}
                     </p>
                   </div>
                 </div>

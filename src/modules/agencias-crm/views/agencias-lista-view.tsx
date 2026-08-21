@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { AgenciasStatusTabs } from "@/modules/agencias-crm/components/agencias-status-tabs";
 import { AgenciasToolbar } from "@/modules/agencias-crm/components/agencias-toolbar";
-import { AgenciasFiltroPanel } from "@/modules/agencias-crm/components/agencias-filtro-panel";
 import { AgenciasCarteiraTabela } from "@/modules/agencias-crm/components/agencias-carteira-tabela";
 import { AgenciasPaginacao } from "@/modules/agencias-crm/components/agencias-paginacao";
-import { AgenciaDetalheModal } from "@/modules/agencias-crm/components/detalhe/agencia-detalhe-modal";
 import { useAgenciasCarteiraViewModel } from "@/modules/agencias-crm/view-models/use-agencias-carteira.view-model";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
@@ -14,20 +12,20 @@ interface AgenciasListaViewProps {
   atualizadoEm: string;
 }
 
+// Página "Agências Sakura" (SPEC_AGENCIAS_SAKURA, pixel, 2026-08-21) —
+// reestilização completa por cima da develop atual. O detalhe da agência
+// deixou de ser modal e virou página própria em /crm/agencias/[id]
+// (mesmo padrão de /crm/executivos/[id] e /crm/gestores/[id]), por isso
+// esta view só cuida da listagem.
 export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewProps) {
-  const [agenciaSelecionadaId, setAgenciaSelecionadaId] = useState<string | null>(null);
   const {
-    filtros,
-    atualizarFiltro,
-    alternarOrdenacao,
-    limparFiltros,
-    quantidadeFiltrosAtivos,
-    painelFiltrosAberto,
-    setPainelFiltrosAberto,
-    opcoesExecutivo,
-    opcoesGestor,
-    opcoesBase,
-    opcoesRegiao,
+    statusTab,
+    mudarStatusTab,
+    contadores,
+    busca,
+    atualizarBusca,
+    topVendas,
+    mudarTopVendas,
     agencias: agenciasDaPagina,
     total,
     pagina,
@@ -44,38 +42,18 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
       </div>
 
       <AgenciasToolbar
-        busca={filtros.busca}
-        onBuscaChange={(valor) => atualizarFiltro("busca", valor)}
-        ordenarPor={filtros.ordenarPor}
-        onTopVendasChange={(valor) => {
-          atualizarFiltro("ordenarPor", valor);
-          atualizarFiltro("ordenarDirecao", "desc");
-        }}
-        quantidadeFiltrosAtivos={quantidadeFiltrosAtivos}
-        painelFiltrosAberto={painelFiltrosAberto}
-        onTogglePainelFiltros={() => setPainelFiltrosAberto((atual) => !atual)}
+        busca={busca}
+        onBuscaChange={atualizarBusca}
+        topVendas={topVendas}
+        onTopVendasChange={mudarTopVendas}
         atualizadoEm={atualizadoEm}
       />
 
-      {painelFiltrosAberto ? (
-        <AgenciasFiltroPanel
-          filtros={filtros}
-          onAtualizarFiltro={atualizarFiltro}
-          onLimpar={limparFiltros}
-          opcoesExecutivo={opcoesExecutivo}
-          opcoesGestor={opcoesGestor}
-          opcoesBase={opcoesBase}
-          opcoesRegiao={opcoesRegiao}
-        />
-      ) : null}
+      <AgenciasStatusTabs statusTab={statusTab} onChange={mudarStatusTab} contadores={contadores} />
 
       <div className="border-border bg-card overflow-hidden rounded-2xl border">
         <AgenciasCarteiraTabela
           agencias={agenciasDaPagina}
-          ordenarPor={filtros.ordenarPor}
-          ordenarDirecao={filtros.ordenarDirecao}
-          onOrdenar={alternarOrdenacao}
-          onAbrirDetalhe={(agenciaId) => setAgenciaSelecionadaId(agenciaId)}
           offsetPagina={(pagina - 1) * tamanhoPagina}
         />
         <AgenciasPaginacao
@@ -87,13 +65,6 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
           onMudarTamanhoPagina={setTamanhoPagina}
         />
       </div>
-
-      <AgenciaDetalheModal
-        agenciaId={agenciaSelecionadaId}
-        onOpenChange={(open) => {
-          if (!open) setAgenciaSelecionadaId(null);
-        }}
-      />
     </div>
   );
 }

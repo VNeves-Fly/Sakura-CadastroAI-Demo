@@ -3,58 +3,28 @@
 import { useMemo, useState } from "react";
 import type {
   AgenciaCarteiraView,
-  AgenciasCarteiraFiltros,
-  OpcaoFiltro,
+  StatusTab,
 } from "@/modules/agencias-crm/types/agencia-carteira.types";
 import { TAMANHO_PAGINA_AGENCIAS_PADRAO } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
-const FILTROS_INICIAIS: AgenciasCarteiraFiltros = {
-  busca: "",
-  regiao: "todas",
-  base: "todas",
-  executivoId: "todos",
-  gestorNome: "todos",
-  situacaoReceita: "todas",
-  dadosFaltantes: "todos",
-  canalVendas: "todos",
-  premiacao: "todas",
-  ultimaCompra: "qualquer",
-  ordenarPor: "vendasAno",
-  ordenarDirecao: "desc",
-  ocultarInativadas: true,
-};
-
-// Atalhos textuais da busca (SPEC seção 3.4) — só "críticos" tem dado mock
-// pra se apoiar hoje (paradas +90d); "baixado"/"inapto"/"cnae" ficam como
-// termo de busca literal normal (não têm fonte real na listagem ainda —
-// ver agencia-carteira.adapter.ts) até a Situação Receita ser resolvida em
-// lote.
+// Atalho textual da busca (SPEC seção 2.3) — só "críticos" tem dado mock
+// pra se apoiar hoje (paradas +90d); o resto do texto é busca literal
+// normal (razão social/CNPJ/executivo).
 const ATALHO_CRITICOS = "críticos";
 
-function valorDeOrdenacao(
-  agencia: AgenciaCarteiraView,
-  ordenarPor: AgenciasCarteiraFiltros["ordenarPor"],
-): number | string {
-  switch (ordenarPor) {
-    case "vendasMes":
-      return agencia.vendasMes;
-    case "razaoSocial":
-      return agencia.razaoSocial;
-    case "ultimaCompra":
-      return agencia.diasSemComprar;
-    case "bilhetes":
-      return agencia.bilhetes;
-    case "limite":
-      return agencia.limite;
-    case "vendasAno":
-    default:
-      return agencia.vendasAno;
-  }
-}
+export type TopVendas = "vendasAno" | "vendasMes";
 
+// View-model simplificado pra SPEC_AGENCIAS_SAKURA (pixel, 2026-08-21) —
+// a SPEC nova não prevê painel de filtros avançados nem ordenação por
+// coluna (headers viram indicadores estáticos, ver agencias-carteira-
+// tabela.tsx), só busca + 2 abas de status + toggle "Top vendas" Ano/Mês.
+// Paginação foi mantida por pedido explícito do usuário (556+ agências
+// reais não cabem numa única renderização), com tamanho de página
+// configurável (AgenciasPaginacao).
 export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
-  const [filtros, setFiltros] = useState<AgenciasCarteiraFiltros>(FILTROS_INICIAIS);
-  const [painelFiltrosAberto, setPainelFiltrosAberto] = useState(false);
+  const [statusTab, setStatusTab] = useState<StatusTab>("ativas");
+  const [busca, setBusca] = useState("");
+  const [topVendas, setTopVendas] = useState<TopVendas>("vendasAno");
   const [pagina, setPagina] = useState(1);
   const [tamanhoPagina, setTamanhoPaginaState] = useState(TAMANHO_PAGINA_AGENCIAS_PADRAO);
 
@@ -66,74 +36,37 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     setPagina(1);
   }
 
-  function atualizarFiltro<K extends keyof AgenciasCarteiraFiltros>(
-    chave: K,
-    valor: AgenciasCarteiraFiltros[K],
-  ) {
-    setFiltros((atual) => ({ ...atual, [chave]: valor }));
+  function mudarStatusTab(valor: StatusTab) {
+    setStatusTab(valor);
     setPagina(1);
   }
 
-  function limparFiltros() {
-    setFiltros(FILTROS_INICIAIS);
+  function atualizarBusca(valor: string) {
+    setBusca(valor);
     setPagina(1);
   }
 
-  const opcoesExecutivo: OpcaoFiltro[] = useMemo(() => {
-    const mapa = new Map<string, string>();
-    for (const agencia of agencias) {
-      if (agencia.executivoId && agencia.executivoNome) {
-        mapa.set(agencia.executivoId, agencia.executivoNome);
-      }
-    }
-    return [...mapa.entries()]
-      .sort((a, b) => a[1].localeCompare(b[1]))
-      .map(([value, label]) => ({ value, label }));
-  }, [agencias]);
+  function mudarTopVendas(valor: TopVendas) {
+    setTopVendas(valor);
+    setPagina(1);
+  }
 
-  const opcoesGestor: OpcaoFiltro[] = useMemo(() => {
-    const nomes = new Set(
-      agencias.map((agencia) => agencia.gestorNome).filter(Boolean) as string[],
-    );
-    return [...nomes]
-      .sort((a, b) => a.localeCompare(b))
-      .map((nome) => ({ value: nome, label: nome }));
-  }, [agencias]);
-
-  const opcoesBase: OpcaoFiltro[] = useMemo(() => {
-    const bases = new Set(agencias.map((agencia) => agencia.base).filter(Boolean) as string[]);
-    return [...bases].sort().map((base) => ({ value: base, label: base }));
-  }, [agencias]);
-
-  const opcoesRegiao: OpcaoFiltro[] = useMemo(() => {
-    const regioes = new Set(agencias.map((agencia) => agencia.regiao).filter(Boolean) as string[]);
-    return [...regioes].sort().map((regiao) => ({ value: regiao, label: regiao }));
-  }, [agencias]);
+  const contadores = useMemo(
+    () => ({
+      ativas: agencias.filter((agencia) => agencia.status === "ativo").length,
+      inativas: agencias.filter((agencia) => agencia.reprovadaOuInativa).length,
+    }),
+    [agencias],
+  );
 
   const agenciasFiltradas = useMemo(() => {
-    const buscaNormalizada = filtros.busca.trim().toLowerCase();
+    const buscaNormalizada = busca.trim().toLowerCase();
     const buscaCriticos = buscaNormalizada === ATALHO_CRITICOS;
     const buscaLiteral = buscaCriticos ? "" : buscaNormalizada;
 
     const filtradas = agencias.filter((agencia) => {
-      if (filtros.ocultarInativadas && agencia.reprovadaOuInativa) return false;
-      if (filtros.regiao !== "todas" && agencia.regiao !== filtros.regiao) return false;
-      if (filtros.base !== "todas" && agencia.base !== filtros.base) return false;
-      if (filtros.executivoId !== "todos" && agencia.executivoId !== filtros.executivoId) {
-        return false;
-      }
-      if (filtros.gestorNome !== "todos" && agencia.gestorNome !== filtros.gestorNome) return false;
-      if (filtros.dadosFaltantes === "pendentes" && !agencia.dadosFaltantes) return false;
-      if (filtros.canalVendas !== "todos" && agencia.canal !== filtros.canalVendas) return false;
-      if (filtros.premiacao !== "todas" && agencia.categoria !== filtros.premiacao) return false;
-      if (filtros.ultimaCompra === "ate30" && agencia.diasSemComprar > 30) return false;
-      if (
-        filtros.ultimaCompra === "30a90" &&
-        (agencia.diasSemComprar <= 30 || agencia.diasSemComprar > 90)
-      ) {
-        return false;
-      }
-      if (filtros.ultimaCompra === "mais90" && agencia.diasSemComprar <= 90) return false;
+      if (statusTab === "ativas" && agencia.status !== "ativo") return false;
+      if (statusTab === "inativas" && !agencia.reprovadaOuInativa) return false;
       if (buscaCriticos && agencia.diasSemComprar <= 90) return false;
       if (
         buscaLiteral &&
@@ -146,27 +79,8 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
       return true;
     });
 
-    const sinal = filtros.ordenarDirecao === "asc" ? 1 : -1;
-    return [...filtradas].sort((a, b) => {
-      const valorA = valorDeOrdenacao(a, filtros.ordenarPor);
-      const valorB = valorDeOrdenacao(b, filtros.ordenarPor);
-      if (typeof valorA === "number" && typeof valorB === "number") {
-        return (valorA - valorB) * sinal;
-      }
-      return String(valorA).localeCompare(String(valorB)) * sinal;
-    });
-  }, [agencias, filtros]);
-
-  // Clique em cabeçalho de coluna (SPEC 3.5) — mesma coluna alterna
-  // asc/desc, coluna nova entra sempre em desc (maior primeiro).
-  function alternarOrdenacao(coluna: AgenciasCarteiraFiltros["ordenarPor"]) {
-    setFiltros((atual) => ({
-      ...atual,
-      ordenarPor: coluna,
-      ordenarDirecao:
-        atual.ordenarPor === coluna && atual.ordenarDirecao === "desc" ? "asc" : "desc",
-    }));
-  }
+    return [...filtradas].sort((a, b) => b[topVendas] - a[topVendas]);
+  }, [agencias, statusTab, busca, topVendas]);
 
   const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / tamanhoPagina));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -175,25 +89,14 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     paginaAtual * tamanhoPagina,
   );
 
-  const quantidadeFiltrosAtivos = Object.entries(filtros).filter(([chave, valor]) => {
-    if (chave === "busca") return false;
-    if (chave === "ordenarPor") return valor !== FILTROS_INICIAIS.ordenarPor;
-    if (chave === "ocultarInativadas") return valor !== FILTROS_INICIAIS.ocultarInativadas;
-    return valor !== "todas" && valor !== "todos" && valor !== "qualquer";
-  }).length;
-
   return {
-    filtros,
-    atualizarFiltro,
-    alternarOrdenacao,
-    limparFiltros,
-    quantidadeFiltrosAtivos,
-    painelFiltrosAberto,
-    setPainelFiltrosAberto,
-    opcoesExecutivo,
-    opcoesGestor,
-    opcoesBase,
-    opcoesRegiao,
+    statusTab,
+    mudarStatusTab,
+    contadores,
+    busca,
+    atualizarBusca,
+    topVendas,
+    mudarTopVendas,
     agencias: agenciasDaPagina,
     total: agenciasFiltradas.length,
     pagina: paginaAtual,

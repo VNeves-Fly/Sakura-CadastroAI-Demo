@@ -2,6 +2,13 @@
 // (módulos não compartilham utilitário de domínio entre si, mesmo
 // princípio de isolamento já documentado em outros módulos deste
 // projeto).
+
+// Formato "cheio" (SPEC_AGENCIAS_SAKURA seção 3.5.A: "número exato... NUNCA
+// abreviar") — usado só no valor total da aba Dashboard do detalhe.
+export function formatarMoedaCompleta(valor: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+}
+
 export function formatarMoedaAbreviada(valor: number): string {
   const abs = Math.abs(valor);
   const sinal = valor < 0 ? "-" : "";
