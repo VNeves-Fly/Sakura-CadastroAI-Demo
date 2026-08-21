@@ -1,252 +1,181 @@
-import type {
-  AgenciaNova,
-  AgenciaParandoDeComprar,
-  NovasAgenciasData,
-  ResponsavelRanking,
-  SituacaoAgencia,
-} from "@/modules/novas-agencias/types/novas-agencias.types";
+import type { NovasAgenciasData } from "@/modules/novas-agencias/types/novas-agencias.types";
 
 // Serviço 100% mock (sem I/O, sem API real) — SPEC "Análise de Novas
-// Agências" pediu reprodução fiel só do front-end; nenhum destes nomes,
-// números ou empresas correspondem a dado real da Sakura. Mesmo padrão
-// dos demais módulos majoritariamente mock deste projeto (ver
-// dashboard-vendas/services/dashboard-vendas.mock-service.ts).
+// Agências" recebida em 2026-08-21 pediu reprodução pixel-perfect: os
+// valores abaixo são literais, copiados da SPEC seção 9 ("Não arredondar,
+// não 'melhorar'"). Nenhum destes nomes, números ou empresas correspondem
+// a dado real da Sakura. Mesmo padrão dos demais módulos majoritariamente
+// mock deste projeto (ver dashboard-vendas/services/dashboard-vendas.mock-service.ts).
 
-const NOMES_AGENCIA = [
-  "BRISA VIAGENS",
-  "CAMINHO REAL TURISMO",
-  "ESTRELA DO SUL VIAGENS",
-  "NOVA ROTA TURISMO",
-  "PONTO CERTO VIAGENS",
-  "MAR AZUL TURISMO",
-  "VIAJE BEM AGENCIA",
-  "TREVO DE OURO VIAGENS",
-  "CONEXAO TOTAL TURISMO",
-  "BOM DESTINO VIAGENS",
-  "SERRA VERDE TURISMO",
-  "ALVORADA VIAGENS",
-  "PASSAGEM LIVRE TURISMO",
-  "HORIZONTE AZUL VIAGENS",
-  "CENTRAL DO TURISMO",
-  "VOA FACIL VIAGENS",
-  "RAIZ TURISMO",
-  "PRIMA VIAGENS E TURISMO",
-  "ATLAS TURISMO",
-  "BUSSOLA VIAGENS",
-  "GIRASSOL TURISMO",
-  "ORLA VIAGENS",
-  "NORTE SUL TURISMO",
-  "COMETA VIAGENS",
-  "FAROL TURISMO",
-  "ANCORA VIAGENS",
-  "PONTA FINA TURISMO",
-  "DESTINO CERTO VIAGENS",
-] as const;
-
-const CIDADES: { cidade: string; uf: string }[] = [
-  { cidade: "São Paulo", uf: "SP" },
-  { cidade: "Rio de Janeiro", uf: "RJ" },
-  { cidade: "Belo Horizonte", uf: "MG" },
-  { cidade: "Curitiba", uf: "PR" },
-  { cidade: "Porto Alegre", uf: "RS" },
-  { cidade: "Salvador", uf: "BA" },
-  { cidade: "Recife", uf: "PE" },
-  { cidade: "Fortaleza", uf: "CE" },
-  { cidade: "Goiânia", uf: "GO" },
-  { cidade: "Campinas", uf: "SP" },
+// [nome, meta, executivo, gerente, entrada, primeiraCompra, volume, situacao]
+// — as colunas dias/ultima/bilhetes/credito/creditoNota/pagamento do
+// array de origem da SPEC (9.2) não são exibidas em lugar nenhum da tela;
+// omitidas aqui de propósito.
+const LINHAS: [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  "nunca" | "logou" | "comprando" | "parou",
+][] = [
+  [
+    "BRISA VIAGENS",
+    "10.000.000/0001-10 · ERP 40000 · São Paulo/SP",
+    "Marina Costa",
+    "Rafael Andrade",
+    "16/08/2026",
+    "—",
+    "R$ 0,00",
+    "nunca",
+  ],
+  [
+    "CAMINHO REAL TURISMO",
+    "10.137.913/0001-11 · ERP 40017 · Rio de Janeiro/RJ",
+    "Diego Almeida",
+    "Rafael Andrade",
+    "13/08/2026",
+    "—",
+    "R$ 0,00",
+    "nunca",
+  ],
+  [
+    "ESTRELA DO SUL VIAGENS",
+    "10.275.826/0001-12 · ERP 40034 · Belo Horizonte/MG",
+    "Juliana Ferreira",
+    "Patrícia Lima",
+    "10/08/2026",
+    "—",
+    "R$ 0,00",
+    "nunca",
+  ],
+  [
+    "NOVA ROTA TURISMO",
+    "10.413.739/0001-13 · ERP 40051 · Curitiba/PR",
+    "Thiago Souza",
+    "Patrícia Lima",
+    "07/08/2026",
+    "12/08/2026",
+    "R$ 15.300,00",
+    "comprando",
+  ],
+  [
+    "PONTO CERTO VIAGENS",
+    "10.551.652/0001-14 · ERP 40068 · Porto Alegre/RS",
+    "Camila Rocha",
+    "Eduardo Martins",
+    "04/08/2026",
+    "—",
+    "R$ 0,00",
+    "logou",
+  ],
+  [
+    "MAR AZUL TURISMO",
+    "10.689.565/0001-15 · ERP 40085 · Salvador/BA",
+    "Bruno Cardoso",
+    "Eduardo Martins",
+    "01/08/2026",
+    "08/08/2026",
+    "R$ 27.300,00",
+    "comprando",
+  ],
+  [
+    "VIAJE BEM AGENCIA",
+    "10.827.478/0001-16 · ERP 40102 · Recife/PE",
+    "Marina Costa",
+    "Rafael Andrade",
+    "29/07/2026",
+    "—",
+    "R$ 0,00",
+    "nunca",
+  ],
+  [
+    "TREVO DE OURO VIAGENS",
+    "10.965.391/0001-17 · ERP 40119 · Fortaleza/CE",
+    "Diego Almeida",
+    "Rafael Andrade",
+    "26/07/2026",
+    "29/07/2026",
+    "R$ 16.200,00",
+    "parou",
+  ],
+  [
+    "CONEXAO TOTAL TURISMO",
+    "11.103.304/0001-18 · ERP 40136 · Goiânia/GO",
+    "Juliana Ferreira",
+    "Patrícia Lima",
+    "23/07/2026",
+    "—",
+    "R$ 0,00",
+    "nunca",
+  ],
+  [
+    "BOM DESTINO VIAGENS",
+    "11.241.217/0001-19 · ERP 40153 · Campinas/SP",
+    "Thiago Souza",
+    "Patrícia Lima",
+    "20/07/2026",
+    "—",
+    "R$ 0,00",
+    "nunca",
+  ],
+  [
+    "SERRA VERDE TURISMO",
+    "11.379.130/0001-20 · ERP 40170 · São Paulo/SP",
+    "Camila Rocha",
+    "Eduardo Martins",
+    "17/07/2026",
+    "—",
+    "R$ 0,00",
+    "nunca",
+  ],
+  [
+    "ALVORADA VIAGENS",
+    "11.517.043/0001-21 · ERP 40187 · Rio de Janeiro/RJ",
+    "Bruno Cardoso",
+    "Eduardo Martins",
+    "14/07/2026",
+    "21/07/2026",
+    "R$ 45.240,00",
+    "comprando",
+  ],
 ];
-
-const RESPONSAVEIS = [
-  { executivo: "Marina Costa", gerente: "Rafael Andrade" },
-  { executivo: "Diego Almeida", gerente: "Rafael Andrade" },
-  { executivo: "Juliana Ferreira", gerente: "Patrícia Lima" },
-  { executivo: "Thiago Souza", gerente: "Patrícia Lima" },
-  { executivo: "Camila Rocha", gerente: "Eduardo Martins" },
-  { executivo: "Bruno Cardoso", gerente: "Eduardo Martins" },
-];
-
-function diaAtras(referencia: Date, dias: number): Date {
-  const data = new Date(referencia);
-  data.setDate(data.getDate() - dias);
-  return data;
-}
-
-function cnpjFicticio(indice: number): string {
-  const base = (10_000_000 + indice * 137_913).toString().padStart(8, "0");
-  return `${base.slice(0, 2)}.${base.slice(2, 5)}.${base.slice(5, 8)}/0001-${(indice % 89) + 10}`;
-}
-
-const SITUACOES_CICLO: SituacaoAgencia[] = [
-  "nunca_comprou",
-  "nunca_comprou",
-  "nunca_comprou",
-  "comprando",
-  "logou_nunca_comprou",
-  "comprando",
-  "nunca_comprou",
-  "parou_comprar",
-];
-
-function construirAgencias(referencia: Date): AgenciaNova[] {
-  return NOMES_AGENCIA.map((nome, indice) => {
-    const { cidade, uf } = CIDADES[indice % CIDADES.length]!;
-    const { executivo, gerente } = RESPONSAVEIS[indice % RESPONSAVEIS.length]!;
-    const situacao = SITUACOES_CICLO[indice % SITUACOES_CICLO.length]!;
-    const entrada = diaAtras(referencia, 5 + indice * 3);
-
-    const comprou = situacao === "comprando" || situacao === "parou_comprar";
-    const primeiraCompra = comprou ? diaAtras(entrada, -(2 + (indice % 6))) : null;
-    const diasAtePrimeiraCompra = comprou ? 2 + (indice % 6) : null;
-    const ultimaCompra = comprou
-      ? diaAtras(referencia, situacao === "parou_comprar" ? 65 + (indice % 20) : indice % 25)
-      : null;
-    const bilhetes = comprou ? 2 + (indice % 18) : 0;
-    const volumeTotal = comprou ? bilhetes * (1_800 + (indice % 7) * 420) : 0;
-    const temCredito = indice % 3 !== 0;
-    const creditoValor = temCredito ? 8_000 + (indice % 9) * 3_500 : 0;
-    const creditoDetalhe = temCredito
-      ? `cartão ${formatarMil(creditoValor * 0.6)}`
-      : "sem faturado";
-
-    return {
-      id: `nova-agencia-${indice + 1}`,
-      nome,
-      cnpj: cnpjFicticio(indice),
-      erp: `${40000 + indice * 17}`,
-      cidade,
-      uf,
-      executivo,
-      gerente,
-      entrada,
-      primeiraCompra,
-      diasAtePrimeiraCompra,
-      ultimaCompra,
-      bilhetes,
-      volumeTotal,
-      creditoValor,
-      creditoDetalhe,
-      formasPagamento: comprou ? (indice % 2 === 0 ? "Cartão agência" : "Faturado") : null,
-      situacao,
-    };
-  });
-}
-
-function formatarMil(valor: number): string {
-  return `R$ ${(valor / 1000).toFixed(1).replace(".", ",")} mil`;
-}
-
-function construirAgenciasParandoDeComprar(referencia: Date): AgenciaParandoDeComprar[] {
-  return NOMES_AGENCIA.slice(0, 14).map((nome, indice) => {
-    const { cidade, uf } = CIDADES[(indice + 3) % CIDADES.length]!;
-    const { executivo, gerente } = RESPONSAVEIS[(indice + 2) % RESPONSAVEIS.length]!;
-    const diasSemComprar = 26 + indice * 3;
-    const pago30d = indice % 4 === 0 ? 0 : (indice % 6) * 1_450;
-    const pago30a60d = 3_200 + (indice % 5) * 980;
-
-    return {
-      id: `parando-${indice + 1}`,
-      nome,
-      cnpj: cnpjFicticio(indice + 100),
-      erp: `${50000 + indice * 11}`,
-      cidade,
-      uf,
-      executivo,
-      gerente,
-      ultimaCompra: diaAtras(referencia, diasSemComprar),
-      diasSemComprar,
-      pago30d,
-      pago30a60d,
-      volumeTotal: pago30d + pago30a60d + (indice % 8) * 2_100,
-    };
-  });
-}
-
-function construirRanking(offset: number, quantidade: number): ResponsavelRanking[] {
-  const base = Array.from({ length: quantidade }, (_, indice) => {
-    const nome =
-      RESPONSAVEIS[(indice + offset) % RESPONSAVEIS.length]!.executivo +
-      (indice >= RESPONSAVEIS.length ? ` ${Math.floor(indice / RESPONSAVEIS.length) + 1}` : "");
-    const novas = 180 - indice * 12;
-    const nuncaComprou = Math.round(novas * 0.62);
-    const comprando = Math.round(novas * 0.22);
-    const logouSemComprar = Math.max(novas - nuncaComprou - comprando, 0);
-
-    return {
-      id: `responsavel-${offset}-${indice + 1}`,
-      nome,
-      novas,
-      nuncaComprou,
-      logouSemComprar,
-      comprando,
-      mais15d: Math.max(4 - indice, 0),
-      mais30d: Math.max(2 - Math.floor(indice / 2), 0),
-      mais60d: indice % 5 === 0 ? 1 : 0,
-      conversaoPct: Math.max(8, 34 - indice * 2.4),
-      mediaAtePrimeiraCompraDias: indice % 6 === 5 ? null : 6 + (indice % 5),
-      volume: comprando * (2_100 + indice * 90),
-    };
-  }).sort((a, b) => b.novas - a.novas);
-
-  return [
-    ...base,
-    {
-      id: `responsavel-${offset}-sem`,
-      nome: "— sem responsável",
-      novas: 6,
-      nuncaComprou: 5,
-      logouSemComprar: 1,
-      comprando: 0,
-      mais15d: 0,
-      mais30d: 0,
-      mais60d: 0,
-      conversaoPct: 0,
-      mediaAtePrimeiraCompraDias: null,
-      volume: 0,
-    },
-  ];
-}
 
 export const novasAgenciasMockService = {
   async obterNovasAgencias(): Promise<NovasAgenciasData> {
-    const referencia = new Date();
-
     return {
-      kpis: {
-        novasAgencias: 1_224,
-        nuncaCompraram: 963,
-        comprando: 261,
-        semComprar15d: 53,
-        semComprar30d: 9,
-        pararam60d: 1,
-        volumeGerado: 26_500_000,
-        pagoUltimos30d: 23_400_000,
-        variacao30dPct: 678.8,
-        tempoMedioPrimeiraCompraDias: 15,
-      },
-      mixPagamento: [
-        { label: "Faturado", valor: 6_300_000, comTooltip: true },
-        { label: "Cartão agência", valor: 17_600_000, comTooltip: true },
-        { label: "CarteiraClick", valor: 746_600, comTooltip: true },
-        { label: "Misto", valor: 68_900, comTooltip: true },
-        { label: "Cash", valor: 94_200, comTooltip: true },
-        { label: "Outros / não classificado", valor: 1_600_000, comTooltip: true },
-      ],
-      totalPago: 26_500_000,
-      credito: {
-        comLimiteFaturado: 555,
-        semLimiteFaturado: 669,
-        limiteFaturadoTotal: 28_600_000,
-      },
       sincronizacao: {
-        ultimaEm: diaAtras(referencia, 7),
-        proximaEm: diaAtras(referencia, -1),
+        ultimaEm: "14/08/2026",
+        distancia: "há 7 dias",
+        proximaEm: "22/08/2026",
       },
-      agencias: construirAgencias(referencia),
-      agenciasParandoDeComprar: construirAgenciasParandoDeComprar(referencia),
-      cobrancaPorResponsavel: {
-        executivos: construirRanking(0, 12),
-        gerentes: construirRanking(3, 6),
+      funil: {
+        novasAgencias: 1_224,
+        novasAgenciasPct: "100% da base",
+        nuncaCompraram: 963,
+        nuncaCompraramPct: "78,7% da base",
+        comprando: 261,
+        comprandoPct: "21,3% da base",
+        baseAprovadas: 1_224,
       },
+      volumeGerado: "R$ 26,5 M",
+      tempoMedioPrimeiraCompraDias: 15,
+      totalAgencias: 28,
+      agencias: LINHAS.map(
+        ([nome, meta, executivo, gerente, entrada, primeiraCompra, volume, situacao], indice) => ({
+          id: `nova-agencia-${indice + 1}`,
+          nome,
+          meta,
+          executivo,
+          gerente,
+          entrada,
+          primeiraCompra,
+          volume,
+          situacao,
+        }),
+      ),
     };
   },
 };

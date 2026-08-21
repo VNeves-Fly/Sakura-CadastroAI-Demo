@@ -1,33 +1,42 @@
-import { Badge } from "@/components/ui/badge";
-import type { SituacaoAgencia } from "@/modules/novas-agencias/types/novas-agencias.types";
+import type {
+  SituacaoAgenciaNova,
+  SituacaoConfig,
+} from "@/modules/novas-agencias/types/novas-agencias.types";
 
-// Mapa situação -> {label, cor} (SPEC 8.4) — "logou_nunca_comprou" e
-// "parou_comprar" usam cores marcadas como estimativa visual na SPEC
-// (a imagem original não deixava a cor exata clara pra essas duas).
-const CONFIG: Record<SituacaoAgencia, { label: string; className: string }> = {
-  nunca_comprou: {
+// Mapa situação -> {label, cor} (SPEC 9.1) — cores exatas em rgba/hex
+// literais da SPEC, por isso `style` inline em vez de classe Tailwind
+// (mesmo padrão de cor dinâmica já usado no projeto, ex. kpi-card.tsx).
+const CONFIG: Record<SituacaoAgenciaNova, SituacaoConfig> = {
+  nunca: {
     label: "Nunca comprou (sem login)",
-    className: "bg-red-50 text-red-600",
+    bg: "rgba(239,68,68,0.10)",
+    cor: "#DC2626",
+  },
+  logou: {
+    label: "Logou, nunca comprou",
+    bg: "rgba(245,158,11,0.12)",
+    cor: "#B45309",
   },
   comprando: {
     label: "Comprando (90d)",
-    className: "bg-green-50 text-green-700",
+    bg: "rgba(16,185,129,0.12)",
+    cor: "#047857",
   },
-  logou_nunca_comprou: {
-    label: "Logou, nunca comprou",
-    className: "bg-orange-50 text-orange-600",
-  },
-  parou_comprar: {
+  parou: {
     label: "Parou de comprar (+90d)",
-    className: "bg-red-100 text-red-700",
+    bg: "rgba(233,30,140,0.10)",
+    cor: "#C2185B",
   },
 };
 
-export function StatusBadge({ situacao }: { situacao: SituacaoAgencia }) {
+export function StatusBadge({ situacao }: { situacao: SituacaoAgenciaNova }) {
   const config = CONFIG[situacao];
   return (
-    <Badge variant="outline" className={`border-transparent ${config.className}`}>
+    <span
+      className="rounded-full px-2.5 py-1 text-[11.5px] font-semibold whitespace-nowrap"
+      style={{ background: config.bg, color: config.cor }}
+    >
       {config.label}
-    </Badge>
+    </span>
   );
 }

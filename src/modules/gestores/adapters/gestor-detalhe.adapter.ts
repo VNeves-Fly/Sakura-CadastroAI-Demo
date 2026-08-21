@@ -2,28 +2,15 @@ import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util"
 import { nivelSeed } from "@/modules/gestores/types/gestor-nivel.types";
 import type { AgenciaResumoPromotor } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type {
-  AcaoPrioritariaAgencia,
   AgenciaSegmentoResumo,
+  CanalResumoGestor,
   GestorDetalheView,
+  PeriodoVendasMesHeroGestor,
+  RankingAgencia,
   RankingExecutivoSaude,
   SegmentoSaude,
-  VendaMensal,
+  VendasMesHeroGestor,
 } from "@/modules/gestores/types/gestor-detalhe.types";
-
-const MESES_PT = [
-  "Jan",
-  "Fev",
-  "Mar",
-  "Abr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Set",
-  "Out",
-  "Nov",
-  "Dez",
-];
 
 export interface GestorRaw {
   id: string;
@@ -75,28 +62,121 @@ function gerarIdentificador(nome: string): string {
   return `GEST-${primeiraPalavra.toUpperCase().slice(0, 12)}`;
 }
 
-function gerarVendasMensais(base: number, valorMesAtual: number): VendaMensal[] {
-  const hoje = new Date();
-  const mesAtual = hoje.getMonth();
-  const anoCurto = String(hoje.getFullYear()).slice(-2);
+// Card hero (SPEC 3.5) com filtro Dia/Ontem/Mês/Ano — mesma lógica de
+// gerarHeroPorPeriodo em executivo-detalhe.adapter.ts: cada período tem
+// seu próprio mock determinístico a partir do valor mensal já calculado.
+function gerarHeroPorPeriodo(
+  base: number,
+  valorMesAtual: number,
+  bilhetesMes: number,
+  variacaoPct: number,
+  vendendoUltimos30d: number,
+  totalAgencias: number,
+): Record<PeriodoVendasMesHeroGestor, VendasMesHeroGestor> {
+  const diasNoMes = 28 + (base % 3);
+  const diaValor = Math.round(valorMesAtual / diasNoMes);
+  const diaBilhetes = Math.max(1, Math.round(bilhetesMes / diasNoMes));
+  const fatorOntem = 0.7 + ((base >> 2) % 60) / 100;
+  const anoMultiplicador = 6 + (base % 6);
 
-  return Array.from({ length: mesAtual + 1 }, (_, indiceMes) => {
-    const seed = base + indiceMes * 97;
-    const ehMesAtual = indiceMes === mesAtual;
-    const nacional = ehMesAtual
-      ? Math.round(valorMesAtual * 0.3)
-      : Math.round(valorMesAtual * (0.25 + (seed % 60) / 100));
-    const internacional = Math.round(nacional * (1.8 + ((seed >> 3) % 60) / 100));
-    const terrestre = Math.round(nacional * (0.01 + ((seed >> 5) % 4) / 100));
-    return { mes: `${MESES_PT[indiceMes]}/${anoCurto}`, nacional, internacional, terrestre };
-  });
+  return {
+    dia: {
+      valor: diaValor,
+      bilhetes: diaBilhetes,
+      agenciasVendendo: Math.max(1, Math.round(vendendoUltimos30d * 0.2)),
+      variacaoPct,
+    },
+    ontem: {
+      valor: Math.round(diaValor * fatorOntem),
+      bilhetes: Math.max(1, Math.round(diaBilhetes * fatorOntem)),
+      agenciasVendendo: Math.max(1, Math.round(vendendoUltimos30d * 0.18)),
+      variacaoPct,
+    },
+    mes: {
+      valor: valorMesAtual,
+      bilhetes: bilhetesMes,
+      agenciasVendendo: vendendoUltimos30d,
+      variacaoPct,
+    },
+    ano: {
+      valor: Math.round(valorMesAtual * anoMultiplicador),
+      bilhetes: bilhetesMes * anoMultiplicador,
+      agenciasVendendo: totalAgencias,
+      variacaoPct,
+    },
+  };
 }
 
-function gerarTendencia30d(base: number, mediaDiaria: number): number[] {
-  return Array.from({ length: 30 }, (_, dia) => {
-    const seed = base + dia * 31;
-    return Math.max(0, Math.round(mediaDiaria * (0.4 + (seed % 120) / 100)));
-  });
+// Resumo dos canais Aéreo/Terrestre do card de receita total (SPEC 3.6) —
+// mesma lógica/valores de gerarCanalAereo/gerarCanalTerrestre em
+// executivo-detalhe.adapter.ts (duplicada por isolamento de módulo).
+function gerarCanalAereo(base: number): CanalResumoGestor {
+  const nacPct = Math.round((28 + (base % 25)) * 10) / 10;
+  const margemPct = Math.round((2.6 + ((base >> 3) % 25) / 10) * 100) / 100;
+  const margemNegativa = (base >> 9) % 5 === 0;
+  return {
+    participacaoPct: Math.round((95 + ((base >> 5) % 45) / 10) * 100) / 100,
+    margemPct,
+    margemLYPct: Math.round((margemPct - (0.2 + ((base >> 7) % 12) / 10)) * 100) / 100,
+    margemVariacaoPct:
+      (margemNegativa ? -1 : 1) * (Math.round((5 + ((base >> 9) % 250) / 10) * 100) / 100),
+    rentabLYPct: Math.round((1.8 + ((base >> 11) % 60) / 10) * 100) / 100,
+    rentabLYVariacaoPct: Math.round((15 + ((base >> 13) % 550) / 10) * 100) / 100,
+    ticketMedio: 1_900 + (base % 1_600),
+    nacPct,
+    intPct: Math.round((100 - nacPct) * 10) / 10,
+  };
+}
+
+function gerarCanalTerrestre(base: number, participacaoAereoPct: number): CanalResumoGestor {
+  const nacPct = Math.round((75 + ((base >> 2) % 20)) * 10) / 10;
+  const margemPct = Math.round((8 + ((base >> 4) % 60) / 10) * 100) / 100;
+  const margemNegativa = base % 2 === 0;
+  return {
+    participacaoPct: Math.round((100 - participacaoAereoPct) * 100) / 100,
+    margemPct,
+    margemLYPct: Math.round((margemPct + (1 + ((base >> 6) % 30) / 10)) * 100) / 100,
+    margemVariacaoPct:
+      (margemNegativa ? -1 : 1) * (Math.round((5 + ((base >> 8) % 220) / 10) * 100) / 100),
+    rentabLYPct: Math.round((6 + ((base >> 10) % 90) / 10) * 100) / 100,
+    rentabLYVariacaoPct: Math.round((2 + ((base >> 12) % 60) / 10) * 100) / 100,
+    ticketMedio: 350 + (base % 500),
+    nacPct,
+    intPct: Math.round((100 - nacPct) * 10) / 10,
+  };
+}
+
+// "Atualizado em DD/MM às HH:mm" (SPEC 3.5) — mesma lógica de
+// gerarAtualizadoEm em executivo-detalhe.adapter.ts.
+function gerarAtualizadoEm(base: number): string {
+  const minutosAtras = 5 + (base % 180);
+  const data = new Date(Date.now() - minutosAtras * 60_000);
+  const doisDigitos = (n: number) => String(n).padStart(2, "0");
+  return `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)} às ${doisDigitos(data.getHours())}:${doisDigitos(data.getMinutes())}`;
+}
+
+// Rankings "Top 10 Agências" (SPEC 3.9) — sempre "hoje", por modalidade.
+// Mesma lógica de gerarRankingHoje em executivo-detalhe.adapter.ts, mas
+// sobre a carteira consolidada de todos os executivos deste gestor.
+function gerarRankingHoje(
+  agencias: AgenciaResumoPromotor[],
+  seedBase: number,
+  valorMaximo: number,
+  ticketMedio: number,
+): RankingAgencia[] {
+  return agencias
+    .map((agencia, indice) => {
+      const seed = hashParaNumero(agencia.id + seedBase + indice);
+      const valor = 500 + (seed % valorMaximo);
+      return {
+        nome: agencia.razaoSocial,
+        valor,
+        quantidade: Math.max(1, Math.round(valor / ticketMedio)),
+      };
+    })
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 10)
+    .map((item, indice) => ({ posicao: indice + 1, ...item }));
 }
 
 const PREFIXOS_AGENCIA_MOCK = [
@@ -149,7 +229,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
     },
     {
       chave: "potenciais",
-      label: "Potenciais (s/ limite)",
+      label: "Agências Carteira Click",
       descricao: "Vendem sem crédito",
       quantidade: potenciais,
       pct: pct(potenciais),
@@ -157,7 +237,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
     },
     {
       chave: "ociosas",
-      label: "Ociosas (limite parado)",
+      label: "Agências ociosas (limite de crédito parado)",
       descricao: "Sem compra há +90d",
       quantidade: ociosas,
       pct: pct(ociosas),
@@ -165,7 +245,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
     },
     {
       chave: "inativas",
-      label: "Inativas",
+      label: "Agências sem venda por 60 dias",
       descricao: "Nunca compraram",
       quantidade: inativas,
       pct: pct(inativas),
@@ -233,9 +313,10 @@ export function montarGestorDashboard(
     executivo.agencias.map((agencia) => ({ agencia, executivo })),
   );
   const totalAgencias = carteira.length;
-  const totalExecutivos = executivos.length;
 
   const vendendoUltimos30d = Math.round(totalAgencias * (0.3 + (base % 50) / 100));
+  const vendendoUltimos30dPct =
+    totalAgencias > 0 ? Math.round((vendendoUltimos30d / totalAgencias) * 100) : 0;
 
   // Escala com o tamanho da carteira (mock) — um gestor com mais agências
   // sob gestão naturalmente movimenta mais volume que um executivo sozinho.
@@ -247,130 +328,45 @@ export function montarGestorDashboard(
   const bilhetesMes = Math.max(1, Math.round(valorMesAtual / (1_800 + (base % 900))));
   const variacaoPct = ((base % 40) - 20) / 10;
 
-  const percentualAtingido = 20 + (base % 55);
-  const metaValor = Math.round(valorMesAtual / (percentualAtingido / 100));
-  const faltaValor = Math.max(0, metaValor - valorMesAtual);
   const projecaoFimMes = Math.round(valorMesAtual * (1.1 + ((base >> 5) % 25) / 100));
-
   const mesAnteriorValor = Math.round(valorMesAtual * (0.85 + ((base >> 3) % 30) / 100));
-  const hoje = new Date();
-  const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-  const mesAnteriorMesReferencia = `${MESES_PT[mesAnterior.getMonth()]!.toLowerCase()}/${String(mesAnterior.getFullYear()).slice(-2)}`;
+  const percentualAtingido =
+    mesAnteriorValor > 0 ? Math.round((valorMesAtual / mesAnteriorValor) * 100) : 0;
 
-  const vendasMensais = gerarVendasMensais(base, valorMesAtual);
-  const totais = vendasMensais.reduce(
-    (acc, mes) => ({
-      nacional: acc.nacional + mes.nacional,
-      internacional: acc.internacional + mes.internacional,
-    }),
-    { nacional: 0, internacional: 0 },
-  );
-  const somaNacIntl = totais.nacional + totais.internacional;
-  const vendasMensaisNacionalPct =
-    somaNacIntl > 0 ? Math.round((totais.nacional / somaNacIntl) * 100) : 0;
-
-  const ativasUltimos12m = Math.round(totalAgencias * (0.4 + ((base >> 7) % 40) / 100));
-  const [soAereoQtd, soTerrestreQtd, ambosQtd] = particionar(ativasUltimos12m, [
-    5 + (base % 10),
-    1 + ((base >> 2) % 3),
-    3 + ((base >> 4) % 6),
-  ]);
-  const pctCanal = (n: number) =>
-    ativasUltimos12m > 0 ? Math.round((n / ativasUltimos12m) * 1000) / 10 : 0;
+  const canalAereo = gerarCanalAereo(base);
+  const canalTerrestre = gerarCanalTerrestre(base, canalAereo.participacaoPct);
+  const agenciasCarteira = carteira.map(({ agencia }) => agencia);
 
   const rankingExecutivos = gerarRankingExecutivos(executivos);
   const melhorSaude = [...rankingExecutivos].sort((a, b) => b.pct - a.pct).slice(0, 5);
   const atencao = [...rankingExecutivos].sort((a, b) => a.pct - b.pct).slice(0, 5);
 
-  function paraAcaoPrioritaria(
-    item: { agencia: AgenciaResumoPromotor; executivo: ExecutivoComCarteira },
-    sufixoSeed: string,
-    indice: number,
-  ): AcaoPrioritariaAgencia {
-    const seed = hashParaNumero(item.agencia.id + sufixoSeed + indice);
-    return {
-      nome: item.agencia.razaoSocial,
-      cnpj: item.agencia.cnpj,
-      base: item.executivo.bases[0] ?? null,
-      volume365d: 20_000 + (seed % 500_000),
-      diasSemComprar: 91 + (seed % 200),
-    };
-  }
-
-  const paradasComHistorico = carteira
-    .filter((_, indice) => (base + indice) % 3 === 0)
-    .map((item, indice) => paraAcaoPrioritaria(item, "parada", indice))
-    .sort((a, b) => b.diasSemComprar - a.diasSemComprar);
-
-  const emQueda = carteira
-    .filter((_, indice) => (base + indice) % 4 === 0)
-    .map((item, indice) => paraAcaoPrioritaria(item, "queda", indice))
-    .sort((a, b) => b.volume365d - a.volume365d);
-
   return {
-    hero: {
-      valor: valorMesAtual,
+    hero: gerarHeroPorPeriodo(
+      base,
+      valorMesAtual,
+      bilhetesMes,
       variacaoPct,
-      bilhetes: bilhetesMes,
-      agenciasVendendo: vendendoUltimos30d,
-      executivosAtivos: totalExecutivos,
-      meta: { valor: metaValor, percentualAtingido, faltaValor, projecaoFimMes },
-    },
+      vendendoUltimos30d,
+      totalAgencias,
+    ),
     kpis: {
       mesAnteriorValor,
-      mesAnteriorMesReferencia,
+      mesAnteriorFaltaValor: Math.max(0, mesAnteriorValor - valorMesAtual),
+      mesAnteriorPercentualAtingido: percentualAtingido,
       projecaoFimMes,
-      acumuladoAnoValor: Math.round(valorMesAtual * (6 + (base % 6))),
-      acumuladoAnoBilhetes: bilhetesMes * (6 + (base % 6)),
-      ticketMedio30d: Math.round(valorMesAtual / bilhetesMes),
+      vendendo30d: vendendoUltimos30d,
+      vendendo30dPct: vendendoUltimos30dPct,
     },
-    vendasMensais,
-    vendasMensaisTotalAno: totais.nacional + totais.internacional,
-    vendasMensaisNacionalPct,
-    vendasMensaisInternacionalPct: 100 - vendasMensaisNacionalPct,
-    tendencia30d: gerarTendencia30d(base, valorMesAtual / 30),
-    tendencia30dTotal: valorMesAtual,
-    crossCanal: {
-      ativasUltimos12m,
-      aprovadas: totalAgencias,
-      volAereo: Math.round(valorMesAtual * 0.92),
-      volTerrestre: Math.round(valorMesAtual * 0.03),
-      soAereo: {
-        quantidade: soAereoQtd,
-        pct: pctCanal(soAereoQtd),
-        agencias: gerarListaAgenciasSegmento(soAereoQtd, base + 501),
-      },
-      soTerrestre: {
-        quantidade: soTerrestreQtd,
-        pct: pctCanal(soTerrestreQtd),
-        agencias: gerarListaAgenciasSegmento(soTerrestreQtd, base + 602),
-      },
-      ambos: {
-        quantidade: ambosQtd,
-        pct: pctCanal(ambosQtd),
-        agencias: gerarListaAgenciasSegmento(ambosQtd, base + 703),
-      },
-    },
+    atualizadoEm: gerarAtualizadoEm(base),
+    canalAereo,
+    canalTerrestre,
     saudeCarteira: gerarSaudeCarteira(totalAgencias, base),
-    topAgenciasMes: carteira
-      .map(({ agencia }, indice) => ({
-        nome: agencia.razaoSocial,
-        valor: 5_000 + (hashParaNumero(agencia.id + indice) % 400_000),
-      }))
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 20)
-      .map((item, indice) => ({ posicao: indice + 1, ...item })),
-    topAgenciasAno: carteira
-      .map(({ agencia }, indice) => ({
-        nome: agencia.razaoSocial,
-        valor: 50_000 + (hashParaNumero(agencia.id + "ano" + indice) % 4_000_000),
-      }))
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 20)
-      .map((item, indice) => ({ posicao: indice + 1, ...item })),
+    topAgenciasHoje: gerarRankingHoje(agenciasCarteira, base + 801, 350_000, 1_200),
+    topAgenciasHojeAereo: gerarRankingHoje(agenciasCarteira, base + 902, 340_000, 2_400),
+    topAgenciasHojeTerrestre: gerarRankingHoje(agenciasCarteira, base + 1_003, 13_000, 500),
     topExecutivosMelhorSaude: melhorSaude,
     topExecutivosAtencao: atencao,
-    acoesPrioritarias: { paradasComHistorico, emQueda },
   };
 }
 

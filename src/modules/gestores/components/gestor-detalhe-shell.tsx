@@ -22,7 +22,9 @@ interface GestorDetalheShellProps {
 export function GestorDetalheShell({ perfil, abaAtiva, children }: GestorDetalheShellProps) {
   return (
     <div className="flex w-full flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* items-end (não items-start): o título "Detalhes do Gestor" fica
+          na mesma altura da base do botão "Exportar" (SPEC 3.2). */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <nav className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <span>Comercial</span>

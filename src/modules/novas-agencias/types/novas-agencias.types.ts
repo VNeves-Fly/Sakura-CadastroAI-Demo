@@ -1,103 +1,50 @@
 // Modelo de dados da página /crm/novas-agencias — módulo isolado e 100%
-// mock (sem I/O real), reproduzindo só a camada visual da SPEC recebida
-// (ver novas-agencias.mock-service.ts). Nenhum destes tipos representa
-// dado real da Sakura.
+// mock (sem I/O real), reproduzindo a camada visual da SPEC recebida em
+// 2026-08-21 (substitui a SPEC anterior de 2026-08-18 — ver
+// novas-agencias.mock-service.ts). Nenhum destes tipos representa dado
+// real da Sakura; os valores são literais, copiados da SPEC.
 
-export type SituacaoAgencia =
-  "nunca_comprou" | "comprando" | "logou_nunca_comprou" | "parou_comprar";
+export type SituacaoAgenciaNova = "nunca" | "logou" | "comprando" | "parou";
 
-export interface AgenciaNova {
-  id: string;
-  nome: string;
-  cnpj: string;
-  erp: string;
-  cidade: string;
-  uf: string;
-  executivo: string;
-  gerente: string;
-  entrada: Date;
-  primeiraCompra: Date | null;
-  diasAtePrimeiraCompra: number | null;
-  ultimaCompra: Date | null;
-  bilhetes: number;
-  volumeTotal: number;
-  creditoValor: number;
-  creditoDetalhe: string;
-  formasPagamento: string | null;
-  situacao: SituacaoAgencia;
-}
-
-export interface AgenciaParandoDeComprar {
-  id: string;
-  nome: string;
-  cnpj: string;
-  erp: string;
-  cidade: string;
-  uf: string;
-  executivo: string;
-  gerente: string;
-  ultimaCompra: Date;
-  diasSemComprar: number;
-  pago30d: number;
-  pago30a60d: number;
-  volumeTotal: number;
-}
-
-export interface ResponsavelRanking {
-  id: string;
-  nome: string;
-  novas: number;
-  nuncaComprou: number;
-  logouSemComprar: number;
-  comprando: number;
-  mais15d: number;
-  mais30d: number;
-  mais60d: number;
-  conversaoPct: number;
-  mediaAtePrimeiraCompraDias: number | null;
-  volume: number;
-}
-
-export interface NovasAgenciasKpis {
-  novasAgencias: number;
-  nuncaCompraram: number;
-  comprando: number;
-  semComprar15d: number;
-  semComprar30d: number;
-  pararam60d: number;
-  volumeGerado: number;
-  pagoUltimos30d: number;
-  variacao30dPct: number;
-  tempoMedioPrimeiraCompraDias: number;
-}
-
-export interface MixPagamentoItem {
+export interface SituacaoConfig {
   label: string;
-  valor: number;
-  comTooltip?: boolean;
+  bg: string;
+  cor: string;
 }
 
-export interface CreditoResumo {
-  comLimiteFaturado: number;
-  semLimiteFaturado: number;
-  limiteFaturadoTotal: number;
+// Linha da tabela "Lista de agências" (SPEC 9.2) — só os campos exibidos
+// (nome, meta, executivo, gerente, entrada, primeira compra, volume,
+// situação) viram tipo; a SPEC lista outros campos no array de origem
+// (dias, ultima, bilhetes, credito, creditoNota, pagamento) que "existem
+// no modelo mas não são renderizados" — omitidos aqui de propósito, sem
+// paridade a manter (nenhum consumidor os lê).
+export interface AgenciaNovaLinha {
+  id: string;
+  nome: string;
+  meta: string; // "10.000.000/0001-10 · ERP 40000 · São Paulo/SP"
+  executivo: string;
+  gerente: string;
+  entrada: string; // já formatado, ex. "16/08/2026"
+  primeiraCompra: string; // já formatado, ou "—"
+  volume: string; // já formatado, ex. "R$ 0,00"
+  situacao: SituacaoAgenciaNova;
 }
 
-export interface SincronizacaoInfo {
-  ultimaEm: Date;
-  proximaEm: Date;
+export interface FunilAtivacaoKpis {
+  novasAgencias: number;
+  novasAgenciasPct: string; // "100% da base"
+  nuncaCompraram: number;
+  nuncaCompraramPct: string; // "78,7% da base"
+  comprando: number;
+  comprandoPct: string; // "21,3% da base"
+  baseAprovadas: number; // 1224 — "base de 1.224 agências aprovadas"
 }
 
 export interface NovasAgenciasData {
-  kpis: NovasAgenciasKpis;
-  mixPagamento: MixPagamentoItem[];
-  totalPago: number;
-  credito: CreditoResumo;
-  sincronizacao: SincronizacaoInfo;
-  agencias: AgenciaNova[];
-  agenciasParandoDeComprar: AgenciaParandoDeComprar[];
-  cobrancaPorResponsavel: {
-    executivos: ResponsavelRanking[];
-    gerentes: ResponsavelRanking[];
-  };
+  sincronizacao: { ultimaEm: string; distancia: string; proximaEm: string };
+  funil: FunilAtivacaoKpis;
+  volumeGerado: string; // "R$ 26,5 M"
+  tempoMedioPrimeiraCompraDias: number;
+  totalAgencias: number; // 28 — total da lista completa
+  agencias: AgenciaNovaLinha[]; // 12 linhas renderizadas (SPEC 9.2)
 }

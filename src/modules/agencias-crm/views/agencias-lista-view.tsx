@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { AgenciasStatusTabs } from "@/modules/agencias-crm/components/agencias-status-tabs";
 import { AgenciasToolbar } from "@/modules/agencias-crm/components/agencias-toolbar";
 import { AgenciasFiltroPanel } from "@/modules/agencias-crm/components/agencias-filtro-panel";
 import { AgenciasCarteiraTabela } from "@/modules/agencias-crm/components/agencias-carteira-tabela";
 import { AgenciasPaginacao } from "@/modules/agencias-crm/components/agencias-paginacao";
 import { AgenciaDetalheModal } from "@/modules/agencias-crm/components/detalhe/agencia-detalhe-modal";
 import { useAgenciasCarteiraViewModel } from "@/modules/agencias-crm/view-models/use-agencias-carteira.view-model";
-import { TAMANHO_PAGINA_AGENCIAS } from "@/modules/agencias-crm/types/agencia-carteira.types";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
 interface AgenciasListaViewProps {
@@ -19,9 +17,6 @@ interface AgenciasListaViewProps {
 export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewProps) {
   const [agenciaSelecionadaId, setAgenciaSelecionadaId] = useState<string | null>(null);
   const {
-    statusTab,
-    mudarStatusTab,
-    contadores,
     filtros,
     atualizarFiltro,
     alternarOrdenacao,
@@ -38,6 +33,8 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
     pagina,
     totalPaginas,
     setPagina,
+    tamanhoPagina,
+    setTamanhoPagina,
   } = useAgenciasCarteiraViewModel(agencias);
 
   return (
@@ -60,8 +57,6 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
         atualizadoEm={atualizadoEm}
       />
 
-      <AgenciasStatusTabs statusTab={statusTab} onChange={mudarStatusTab} contadores={contadores} />
-
       {painelFiltrosAberto ? (
         <AgenciasFiltroPanel
           filtros={filtros}
@@ -77,18 +72,19 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
       <div className="border-border bg-card overflow-hidden rounded-2xl border">
         <AgenciasCarteiraTabela
           agencias={agenciasDaPagina}
-          statusTab={statusTab}
           ordenarPor={filtros.ordenarPor}
           ordenarDirecao={filtros.ordenarDirecao}
           onOrdenar={alternarOrdenacao}
           onAbrirDetalhe={(agenciaId) => setAgenciaSelecionadaId(agenciaId)}
-          offsetPagina={(pagina - 1) * TAMANHO_PAGINA_AGENCIAS}
+          offsetPagina={(pagina - 1) * tamanhoPagina}
         />
         <AgenciasPaginacao
           pagina={pagina}
           totalPaginas={totalPaginas}
           total={total}
           onMudarPagina={setPagina}
+          tamanhoPagina={tamanhoPagina}
+          onMudarTamanhoPagina={setTamanhoPagina}
         />
       </div>
 

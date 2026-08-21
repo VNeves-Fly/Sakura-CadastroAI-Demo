@@ -24,58 +24,53 @@ export interface GestorPerfil {
   vendendoUltimos30dPct: number; // mock
 }
 
-export interface MetaMes {
-  valor: number;
-  percentualAtingido: number;
-  faltaValor: number;
-  projecaoFimMes: number;
-}
+// Filtro Dia/Ontem/Mês/Ano do card de receita total (mesmo padrão do
+// dashboard de Executivo — ver executivo-detalhe.types.ts) — cada período
+// tem seu próprio mock determinístico, ver gerarHeroPorPeriodo em
+// gestor-detalhe.adapter.ts.
+export type PeriodoVendasMesHeroGestor = "dia" | "ontem" | "mes" | "ano";
 
 export interface VendasMesHeroGestor {
   valor: number;
-  variacaoPct: number; // vs mesmo dia do mês anterior
   bilhetes: number;
   agenciasVendendo: number;
-  executivosAtivos: number;
-  meta: MetaMes;
+  variacaoPct: number; // vs mesmo dia do mês anterior
 }
 
+// KPIs Secundários (SPEC seção 3.8) — 3 cards: mês anterior, projeção fim
+// do mês e vendendo 30d (esse último reaproveita os mesmos números do
+// cabeçalho de perfil, GestorPerfil.vendendoUltimos30d/Pct). Mesmo shape
+// de KpisSecundarios em executivo-detalhe.types.ts.
 export interface KpisSecundariosGestor {
   mesAnteriorValor: number;
-  mesAnteriorMesReferencia: string; // "jul/26"
+  mesAnteriorFaltaValor: number;
+  mesAnteriorPercentualAtingido: number;
   projecaoFimMes: number;
-  acumuladoAnoValor: number;
-  acumuladoAnoBilhetes: number;
-  ticketMedio30d: number;
+  vendendo30d: number;
+  vendendo30dPct: number;
 }
 
-export interface VendaMensal {
-  mes: string; // "Jan/26"
-  nacional: number;
-  internacional: number;
-  terrestre: number;
+// Resumo de um canal (Aéreo/Terrestre) dentro do card de receita total
+// (SPEC seção 3.6) — mesmo shape/lógica de CanalResumo em
+// executivo-detalhe.types.ts: guarda só razões/percentuais, o valor
+// absoluto é derivado no componente a partir do valor do hero no período
+// ativo (`valorCanal = heroValor * participacaoPct/100`).
+export interface CanalResumoGestor {
+  participacaoPct: number;
+  margemPct: number;
+  margemLYPct: number;
+  margemVariacaoPct: number;
+  rentabLYPct: number;
+  rentabLYVariacaoPct: number;
+  ticketMedio: number;
+  nacPct: number;
+  intPct: number;
 }
 
 export interface AgenciaSegmentoResumo {
   nome: string;
   cnpj: string;
   valor: number;
-}
-
-export interface SegmentoComLista {
-  quantidade: number;
-  pct: number;
-  agencias: AgenciaSegmentoResumo[];
-}
-
-export interface CrossCanal {
-  ativasUltimos12m: number;
-  aprovadas: number; // real (= totalAgencias)
-  volAereo: number;
-  volTerrestre: number;
-  soAereo: SegmentoComLista;
-  soTerrestre: SegmentoComLista;
-  ambos: SegmentoComLista;
 }
 
 export interface SegmentoSaude {
@@ -91,6 +86,7 @@ export interface RankingAgencia {
   posicao: number;
   nome: string; // real
   valor: number;
+  quantidade?: number; // bilhetes/vendas — só nos rankings "Top 10" (SPEC 3.9)
 }
 
 // Ranking de executivos subordinados por saúde da carteira (% de agências
@@ -104,33 +100,21 @@ export interface RankingExecutivoSaude {
   pct: number;
 }
 
-export interface AcaoPrioritariaAgencia {
-  nome: string; // real
-  cnpj: string; // real
-  base: string | null; // real
-  volume365d: number;
-  diasSemComprar: number;
-}
-
 export interface GestorDashboard {
-  hero: VendasMesHeroGestor;
+  hero: Record<PeriodoVendasMesHeroGestor, VendasMesHeroGestor>;
   kpis: KpisSecundariosGestor;
-  vendasMensais: VendaMensal[];
-  vendasMensaisTotalAno: number;
-  vendasMensaisNacionalPct: number;
-  vendasMensaisInternacionalPct: number;
-  tendencia30d: number[]; // 30 valores
-  tendencia30dTotal: number;
-  crossCanal: CrossCanal;
+  atualizadoEm: string; // "20/08 às 18:22"
+  canalAereo: CanalResumoGestor;
+  canalTerrestre: CanalResumoGestor;
   saudeCarteira: SegmentoSaude[];
-  topAgenciasMes: RankingAgencia[];
-  topAgenciasAno: RankingAgencia[];
+  // Rankings "Top 10 Agências" (SPEC 3.9) — sempre "hoje", por modalidade.
+  topAgenciasHoje: RankingAgencia[];
+  topAgenciasHojeAereo: RankingAgencia[];
+  topAgenciasHojeTerrestre: RankingAgencia[];
+  // "Top 5 executivos" (SPEC 3.7) — seção exclusiva do Gestor, sem
+  // equivalente no dashboard de Executivo.
   topExecutivosMelhorSaude: RankingExecutivoSaude[];
   topExecutivosAtencao: RankingExecutivoSaude[];
-  acoesPrioritarias: {
-    paradasComHistorico: AcaoPrioritariaAgencia[];
-    emQueda: AcaoPrioritariaAgencia[];
-  };
 }
 
 export interface GestorDetalheView {

@@ -15,8 +15,7 @@ interface AgenciaVendasTabProps {
 }
 
 // Aba "Vendas" (SPEC seção 4.4) — dono das 3 sub-abas internas. Badge de
-// contagem só aparece quando há itens (mesmo padrão de badge das
-// AgenciasStatusTabs).
+// contagem só aparece quando há itens.
 export function AgenciaVendasTab({
   vendas,
   identificadorAgencia,
