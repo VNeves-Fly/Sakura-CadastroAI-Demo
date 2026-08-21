@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Plane, Bus, Layers } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { AgenciaSegmentoModal } from "@/modules/atribuicoes/components/executivo/dashboard/agencia-segmento-modal";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
@@ -15,10 +14,10 @@ interface CrossCanalCardProps {
   crossCanal: CrossCanal;
 }
 
-// Card "Cross-canal — agências do executivo" (SPEC 4.7) — todos os valores
-// são mock (ativasUltimos12m, volAereo, volTerrestre, quantidades de canais
-// derivados de hash do promotor ID); apenas "aprovadas" (total de agências)
-// é real. Os nomes/CNPJs das agências nos modais são também mock-gerados.
+// Card "Cross-canal — agências do executivo" (SPEC 4.7) — dados reais, via
+// SST (ver executivoDashboardSstService.obterCrossCanalEMiniStats). Nomes/
+// CNPJs das agências nos modais também vêm do roster real (/api/agencias/
+// ativas), não são mais mock-gerados.
 export function CrossCanalCard({ crossCanal }: CrossCanalCardProps) {
   const [segmentoAberto, setSegmentoAberto] = useState<{
     titulo: string;
@@ -33,7 +32,6 @@ export function CrossCanalCard({ crossCanal }: CrossCanalCardProps) {
             <h3 className="text-foreground text-sm font-semibold">
               Cross-canal — agências do executivo
             </h3>
-            <MockBadge />
           </div>
           <p className="text-muted-foreground text-xs">
             Agências que compraram nos últimos 12 meses ·{" "}

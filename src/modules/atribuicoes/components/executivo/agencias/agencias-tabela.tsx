@@ -20,6 +20,22 @@ interface AgenciasTabelaProps {
   periodo: PeriodoVendas;
 }
 
+// Rank numérico da faixa de recência — só pra ordenação (ver comentário
+// na coluna "Última" abaixo).
+const RANK_RECENCIA: Record<AgenciaCarteiraView["faixaRecencia"], number> = {
+  ate30d: 1,
+  "30a90d": 2,
+  "90a365d": 3,
+  semVenda365d: 4,
+};
+
+const LABEL_RECENCIA: Record<AgenciaCarteiraView["faixaRecencia"], string> = {
+  ate30d: "≤ 30d",
+  "30a90d": "30–90d",
+  "90a365d": "90d–1a",
+  semVenda365d: "sem venda (1a+)",
+};
+
 // SortableDataTable configurada pra carteira de agências do executivo
 // (SPEC 6.2). Sem coluna BASE (ver adapter). Nome da agência abre o
 // mesmo modal de detalhe usado em /crm/agencias (SPEC seção 7) — antes
@@ -102,16 +118,21 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       ),
     },
     {
-      key: "diasSemComprar",
+      // Faixa aproximada (não dias exatos) — o SST não expõe data exata
+      // da última venda por agência num formato barato de buscar, ver
+      // AgenciaCarteiraResumo em executivo-detalhe.types.ts.
+      key: "faixaRecencia",
       label: "Última",
       align: "right",
       sortable: true,
-      sortValue: (a) => a.diasSemComprar,
-      render: (a) => <span className="text-muted-foreground">{a.diasSemComprar}d</span>,
+      sortValue: (a) => RANK_RECENCIA[a.faixaRecencia],
+      render: (a) => (
+        <span className="text-muted-foreground">{LABEL_RECENCIA[a.faixaRecencia]}</span>
+      ),
     },
     {
       key: "limite",
-      label: "Limite",
+      label: "Limite (mock)",
       align: "right",
       sortable: true,
       sortValue: (a) => a.limite,
