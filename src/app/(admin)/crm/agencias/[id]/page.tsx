@@ -1,21 +1,23 @@
+import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
-import { httpError, httpOk } from "@/modules/shared/presentation/http-response";
-import { NotFoundError } from "@/modules/shared/domain/errors";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { montarAgenciaDetalheView } from "@/modules/agencias-crm/adapters/agencia-detalhe.adapter";
+import { AgenciaDetalheView } from "@/modules/agencias-crm/views/agencia-detalhe-view";
+import { NotFoundError } from "@/modules/shared/domain/errors";
 import { usaSstReal } from "@/modules/agencias-crm/infrastructure/agencia-sst-client.util";
 import { agenciaDetalheSstService } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
 import { agenciaCarteiraSstService } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
+import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 const CARGOS_COM_ACESSO = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 
 // obterMetricasCarteira() é cacheada (10min) mas cara em cache frio (a
 // varredura paginada de terrestre da carteira inteira já mediu ~47s numa
-// chamada real) — pra ela nunca travar a abertura do modal, corre em
+// chamada real) — pra ela nunca travar a abertura da página, corre em
 // paralelo com obterVendas() e tem um teto de espera: se não voltar a
-// tempo, o modal segue com o diasSemComprar/dataUltimaCompra que
+// tempo, a página segue com o diasSemComprar/dataUltimaCompra que
 // obterVendas() já calculou por conta própria (mais rápido, janela
 // menor) em vez de esperar a carteira inteira.
 const TIMEOUT_METRICAS_CARTEIRA_MS = 5_000;
@@ -33,15 +35,17 @@ function comTimeout<T>(promessa: Promise<T>, ms: number, valorPadrao: T): Promis
 // que ainda lê direto da tabela `Agencia` e já manda o id certo).
 const REGEX_CNPJ = /^\d{14}$/;
 
-// Detalhe sob demanda pro modal de Agências (SPEC_AGENCIAS_SAKURA.md,
-// seção 4) — chamado client-side quando uma linha da listagem é clicada
-// (ver use-agencia-detalhe.view-model.ts). Reaproveita o mesmo motor real
-// de /cadastros/:id (obterDetalhe/obterDadosReceita), só monta a view
-// comercial (real + mock) por cima.
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+// Página de detalhe da Agência (/crm/agencias/[id]) — mesmo esqueleto de
+// /crm/executivos/[id] e /crm/gestores/[id] (guard → controller → notFound
+// → Promise.all pra dado relacionado → adapter → View). Reaproveita o
+// mesmo motor real de /cadastros/:id (obterDetalhe/obterDadosReceita) que
+// antes alimentava a API /api/agencias-crm/:id do modal — a rota interna
+// foi removida junto com o modal, essa página busca direto via
+// controller, sem round-trip HTTP (mesmo padrão de Executivo/Gestor).
+export default async function AgenciaDetalhePage({ params }: { params: { id: string } }) {
   const session = await getServerSession(nextAuthOptions);
   if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
-    return httpError("Acesso não permitido.", 403);
+    redirect("/cadastros");
   }
 
   let agenciaLocalId = params.id;
@@ -50,27 +54,29 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     if (!porCnpj) {
       // Agência real na carteira comercial (SST), mas nunca passou pelo
       // cadastro/onboarding deste app — não existe dossiê pra montar.
-      return httpError("Esta agência ainda não tem cadastro completo nesta plataforma.", 404);
+      notFound();
     }
     agenciaLocalId = porCnpj.id;
   }
 
-  // ObterDetalheAgenciaUseCase lança NotFoundError (não devolve null) —
-  // captura aqui em vez de um `if (!detalhe)` morto, mesmo padrão de
-  // /api/cadastros/documentos/[id]/arquivo/route.ts.
-  let detalhe;
+  // `obterDetalhe` lança NotFoundError pra id inexistente (não retorna
+  // null — diferente de buscarPromotorPorId/Gestor usado em Executivo/
+  // Gestor); sem este catch, um id inválido (ex.: linha mock em
+  // /crm/agencias) derrubava a página inteira com um erro não tratado em
+  // vez de cair no not-found.tsx normal do Next (bug reportado pelo
+  // usuário, 2026-08-21).
+  let detalhe: AgenciaDetalhe;
   try {
     detalhe = await cadastroAdminController.obterDetalhe(agenciaLocalId);
   } catch (erro) {
-    if (erro instanceof NotFoundError) {
-      return httpError("Agência não encontrada.", 404);
-    }
+    if (erro instanceof NotFoundError) notFound();
     throw erro;
   }
 
-  const [dadosReceita, promotores] = await Promise.all([
+  const [dadosReceita, promotores, gestores] = await Promise.all([
     cadastroAdminController.obterDadosReceita(agenciaLocalId).catch(() => null),
     atribuicoesAdminController.listarPromotores(),
+    atribuicoesAdminController.listarGestores(),
   ]);
 
   const executivo = detalhe.agencia.executivoId
@@ -78,9 +84,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     : null;
 
   const gestorNome = executivo?.gestorId
-    ? ((await atribuicoesAdminController.listarGestores()).find(
-        (gestor) => gestor.id === executivo.gestorId,
-      )?.nome ?? null)
+    ? (gestores.find((gestor) => gestor.id === executivo.gestorId)?.nome ?? null)
     : null;
 
   // Sem SST_API_KEY, ou sem sicaCodigo nesta agência, o bloco "vendas"
@@ -89,18 +93,18 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   const sicaCodigo = detalhe.agencia.sicaCodigo;
   const usaSst = usaSstReal() && Boolean(sicaCodigo);
 
-  // "Última compra"/"dias sem comprar" do modal usam a MESMA fonte da
-  // listagem (janela de 365d via resumo-agrupado, cacheada 10min) em vez
-  // do cálculo de obterVendas (janela mais curta, 14-90d, só pra achar
-  // uma amostra de reservas recentes) — evita o modal mostrar uma data
-  // diferente da que já apareceu na linha da tabela pro mesmo sicaCodigo.
-  // As duas chamadas só dependem de sicaCodigo (não uma da outra), então
-  // correm em paralelo — nunca sequencial.
+  // "Última compra" do detalhe usa a MESMA fonte da listagem (janela de
+  // 365d via resumo-agrupado, cacheada 10min) em vez do cálculo de
+  // obterVendas (janela mais curta, 14-90d, só pra achar uma amostra de
+  // vendas recentes) — evita a página mostrar uma data diferente da que
+  // já apareceu na linha da tabela pro mesmo sicaCodigo. As duas
+  // chamadas só dependem de sicaCodigo (não uma da outra), então correm
+  // em paralelo — nunca sequencial.
   const [vendasReais, metricasCarteira] = await Promise.all([
     usaSst
       ? agenciaDetalheSstService.obterVendas(sicaCodigo!).catch((erro) => {
           console.error(
-            "[agencias-crm] Falha ao buscar vendas reais do SST — modal segue 100% mock.",
+            "[agencias-crm] Falha ao buscar vendas reais do SST — página segue 100% mock.",
             erro,
           );
           return null;
@@ -128,5 +132,5 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     vendasReais,
   );
 
-  return httpOk(view);
+  return <AgenciaDetalheView detalhe={view} />;
 }

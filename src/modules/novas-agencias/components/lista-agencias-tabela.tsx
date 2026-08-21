@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { AgenciaDetalheModal } from "@/modules/agencias-crm/components/detalhe/agencia-detalhe-modal";
+import Link from "next/link";
 import { StatusBadge } from "@/modules/novas-agencias/components/status-badge";
 import type { AgenciaNovaLinha } from "@/modules/novas-agencias/types/novas-agencias.types";
 
@@ -9,17 +8,15 @@ import type { AgenciaNovaLinha } from "@/modules/novas-agencias/types/novas-agen
 const COLS =
   "minmax(0,2.1fr) minmax(0,1.05fr) minmax(0,0.78fr) minmax(0,0.78fr) minmax(0,0.9fr) minmax(190px,1.4fr)";
 
-// Nome da agência abre o mesmo modal de detalhe usado em /crm/agencias,
-// Gestor e Executivo (pedido do usuário, 2026-08-21) — mas as 12 linhas
-// desta tela são 100% mock/fictícias (id, nome e CNPJ inventados pela
-// SPEC, sem registro real no banco). O modal busca dado real via
-// `/api/agencias-crm/:id`, então por enquanto vai mostrar "não foi
-// possível carregar a agência" pra qualquer linha — a ligação já fica
-// pronta pro dia em que esta lista vier de agências reais (ver
-// novas-agencias.mock-service.ts), sem precisar tocar aqui de novo.
+// Nome da agência linka pra página própria da agência (/crm/agencias/[id],
+// mesmo padrão de Executivo/Gestor/listagem de Agências, pedido do
+// usuário, 2026-08-21) — mas as 12 linhas desta tela são 100%
+// mock/fictícias (id, nome e CNPJ inventados pela SPEC, sem registro real
+// no banco), então o link vai cair num "página não encontrada" pra
+// qualquer linha. A ligação já fica pronta pro dia em que esta lista vier
+// de agências reais (ver novas-agencias.mock-service.ts), sem precisar
+// tocar aqui de novo.
 export function ListaAgenciasTabela({ agencias }: { agencias: AgenciaNovaLinha[] }) {
-  const [agenciaSelecionadaId, setAgenciaSelecionadaId] = useState<string | null>(null);
-
   return (
     <div style={{ minWidth: 1020 }}>
       <div
@@ -41,13 +38,12 @@ export function ListaAgenciasTabela({ agencias }: { agencias: AgenciaNovaLinha[]
           style={{ gridTemplateColumns: COLS }}
         >
           <div className="flex flex-col gap-0.5 pr-3">
-            <button
-              type="button"
-              onClick={() => setAgenciaSelecionadaId(agencia.id)}
+            <Link
+              href={`/crm/agencias/${agencia.id}`}
               className="text-primary text-left text-[13px] font-bold tracking-[0.01em] hover:underline"
             >
               {agencia.nome}
-            </button>
+            </Link>
             <span className="text-[11px] text-[#9494AC]">{agencia.meta}</span>
           </div>
           <div className="flex flex-col gap-0.5">
@@ -66,11 +62,6 @@ export function ListaAgenciasTabela({ agencias }: { agencias: AgenciaNovaLinha[]
           </div>
         </div>
       ))}
-
-      <AgenciaDetalheModal
-        agenciaId={agenciaSelecionadaId}
-        onOpenChange={(aberto) => !aberto && setAgenciaSelecionadaId(null)}
-      />
     </div>
   );
 }

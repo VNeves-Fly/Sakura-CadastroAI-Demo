@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { ExternalLink, Heart } from "lucide-react";
 import {
   SortableDataTable,
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
-import { AgenciaDetalheModal } from "@/modules/agencias-crm/components/detalhe/agencia-detalhe-modal";
 import { valorNoPeriodo } from "@/modules/atribuicoes/adapters/executivo-agencias.adapter";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type {
@@ -37,12 +36,11 @@ const LABEL_RECENCIA: Record<AgenciaCarteiraView["faixaRecencia"], string> = {
 };
 
 // SortableDataTable configurada pra carteira de agências do executivo
-// (SPEC 6.2). Sem coluna BASE (ver adapter). Nome da agência abre o
-// mesmo modal de detalhe usado em /crm/agencias (SPEC seção 7) — antes
-// era só texto estático, sem link nenhum (pedido do usuário, 2026-08-20).
+// (SPEC 6.2). Sem coluna BASE (ver adapter). Nome da agência navega pra
+// página própria da agência (/crm/agencias/[id], mesmo padrão de
+// /crm/executivos/[id]/[crm/gestores/[id]) — antes abria um modal, virou
+// link de página de verdade (pedido do usuário, 2026-08-21).
 export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
-  const [agenciaSelecionadaId, setAgenciaSelecionadaId] = useState<string | null>(null);
-
   const colunas: SortableColumn<AgenciaCarteiraView>[] = [
     {
       key: "posicao",
@@ -56,15 +54,15 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       sortable: true,
       sortValue: (a) => a.nome,
       render: (a) => (
-        <button
-          type="button"
+        <Link
           // CNPJ, não `a.id` (código SST) — mesmo motivo de
           // agencias-carteira-tabela.tsx em /crm/agencias.
-          onClick={() => setAgenciaSelecionadaId(a.cnpj)}
+          href={`/crm/agencias/${a.cnpj}`}
           className="text-primary text-left font-medium hover:underline"
+          onClick={(evento) => evento.stopPropagation()}
         >
           {a.nome}
-        </button>
+        </Link>
       ),
     },
     {
@@ -148,19 +146,11 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
   ];
 
   return (
-    <>
-      <SortableDataTable
-        columns={colunas}
-        rows={agencias}
-        rowKey={(a) => a.id}
-        emptyMessage="Nenhuma agência encontrada com esses filtros."
-      />
-      <AgenciaDetalheModal
-        agenciaId={agenciaSelecionadaId}
-        onOpenChange={(open) => {
-          if (!open) setAgenciaSelecionadaId(null);
-        }}
-      />
-    </>
+    <SortableDataTable
+      columns={colunas}
+      rows={agencias}
+      rowKey={(a) => a.id}
+      emptyMessage="Nenhuma agência encontrada com esses filtros."
+    />
   );
 }
