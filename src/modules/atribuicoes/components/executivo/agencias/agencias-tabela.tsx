@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { ExternalLink, Heart } from "lucide-react";
 import {
   SortableDataTable,
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
+import { AgenciaDetalheModal } from "@/modules/agencias-crm/components/detalhe/agencia-detalhe-modal";
 import { valorNoPeriodo } from "@/modules/atribuicoes/adapters/executivo-agencias.adapter";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type {
@@ -19,10 +21,12 @@ interface AgenciasTabelaProps {
 }
 
 // SortableDataTable configurada pra carteira de agências do executivo
-// (SPEC 6.2). Sem coluna BASE (ver adapter) e sem clique-pra-abrir-modal:
-// o "Modal Detalhe da Agência" (SPEC seção 7) é de outro módulo e ficou
-// fora do escopo desta fase.
+// (SPEC 6.2). Sem coluna BASE (ver adapter). Nome da agência abre o
+// mesmo modal de detalhe usado em /crm/agencias (SPEC seção 7) — antes
+// era só texto estático, sem link nenhum (pedido do usuário, 2026-08-20).
 export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
+  const [agenciaSelecionadaId, setAgenciaSelecionadaId] = useState<string | null>(null);
+
   const colunas: SortableColumn<AgenciaCarteiraView>[] = [
     {
       key: "posicao",
@@ -35,7 +39,15 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       label: "Agência",
       sortable: true,
       sortValue: (a) => a.nome,
-      render: (a) => <span className="text-foreground font-medium">{a.nome}</span>,
+      render: (a) => (
+        <button
+          type="button"
+          onClick={() => setAgenciaSelecionadaId(a.id)}
+          className="text-primary text-left font-medium hover:underline"
+        >
+          {a.nome}
+        </button>
+      ),
     },
     {
       key: "categoria",
@@ -113,11 +125,19 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
   ];
 
   return (
-    <SortableDataTable
-      columns={colunas}
-      rows={agencias}
-      rowKey={(a) => a.id}
-      emptyMessage="Nenhuma agência encontrada com esses filtros."
-    />
+    <>
+      <SortableDataTable
+        columns={colunas}
+        rows={agencias}
+        rowKey={(a) => a.id}
+        emptyMessage="Nenhuma agência encontrada com esses filtros."
+      />
+      <AgenciaDetalheModal
+        agenciaId={agenciaSelecionadaId}
+        onOpenChange={(open) => {
+          if (!open) setAgenciaSelecionadaId(null);
+        }}
+      />
+    </>
   );
 }
