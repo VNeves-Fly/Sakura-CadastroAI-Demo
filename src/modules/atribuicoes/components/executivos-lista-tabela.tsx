@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Pencil, Power } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
@@ -9,10 +9,7 @@ import {
   SortableDataTable,
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
-import {
-  formatarMoedaAbreviada,
-  formatarPercentual,
-} from "@/modules/atribuicoes/utils/formatar-moeda.util";
+import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type { PromotorListaView } from "@/modules/atribuicoes/types/promotor-lista.types";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +18,6 @@ interface ExecutivosListaTabelaProps {
   isLoading: boolean;
   error: string | null;
   onEditar: (promotorId: string) => void;
-  onAlternarAtivo: (promotorId: string, ativo: boolean) => void;
 }
 
 export function ExecutivosListaTabela({
@@ -29,7 +25,6 @@ export function ExecutivosListaTabela({
   isLoading,
   error,
   onEditar,
-  onAlternarAtivo,
 }: ExecutivosListaTabelaProps) {
   const router = useRouter();
 
@@ -76,51 +71,6 @@ export function ExecutivosListaTabela({
       render: (linha) => <span className="text-muted-foreground">{linha.gestorNome ?? "—"}</span>,
     },
     {
-      key: "aprovadas",
-      label: "Aprov.",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.aprovadas,
-      render: (linha) => (
-        <SensitiveValue
-          className={linha.semVenda ? "text-muted-foreground" : "text-success font-medium"}
-          value={linha.aprovadas}
-        />
-      ),
-    },
-    {
-      key: "vendendo30d",
-      label: "Vend. 30d",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.vendendo30d,
-      render: (linha) => (
-        <SensitiveValue
-          className={linha.vendendo30d > 0 ? "text-success font-medium" : "text-muted-foreground"}
-          value={linha.vendendo30d}
-        />
-      ),
-    },
-    {
-      key: "paradas90d",
-      label: "Paradas +90d",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.paradas90d,
-      render: (linha) =>
-        linha.paradas90d > 0 ? (
-          <SensitiveValue
-            value={
-              <Badge variant="destructive" className="tabular-nums">
-                {linha.paradas90d}
-              </Badge>
-            }
-          />
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-    },
-    {
       key: "vendasMes",
       label: "Vendas mês",
       align: "right",
@@ -149,45 +99,6 @@ export function ExecutivosListaTabela({
       ),
     },
     {
-      key: "limite",
-      label: "Limite",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.limite,
-      render: (linha) => <SensitiveValue value={formatarMoedaAbreviada(linha.limite)} />,
-    },
-    {
-      key: "saudePercentual",
-      label: "Saúde",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.saudePercentual,
-      render: (linha) => (
-        <SensitiveValue
-          value={
-            <div className="flex items-center justify-end gap-2">
-              <span className="bg-muted h-1.5 w-14 overflow-hidden rounded-full">
-                <span
-                  className={cn(
-                    "block h-full rounded-full",
-                    linha.saudePercentual >= 60
-                      ? "bg-success"
-                      : linha.saudePercentual >= 30
-                        ? "bg-warning"
-                        : "bg-destructive",
-                  )}
-                  style={{ width: `${Math.min(100, linha.saudePercentual)}%` }}
-                />
-              </span>
-              <span className="text-xs tabular-nums">
-                {formatarPercentual(linha.saudePercentual)}
-              </span>
-            </div>
-          }
-        />
-      ),
-    },
-    {
       key: "acoes",
       label: "",
       align: "right",
@@ -204,19 +115,6 @@ export function ExecutivosListaTabela({
           >
             <Pencil className="size-3.5" />
             Editar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={
-              linha.ativo
-                ? undefined
-                : "border-[#16a34a]/50 text-[#16a34a] hover:bg-[#16a34a]/10 hover:text-[#16a34a]"
-            }
-            onClick={() => onAlternarAtivo(linha.id, !linha.ativo)}
-          >
-            <Power className="size-3.5" />
-            {linha.ativo ? "Inativar" : "Ativar"}
           </Button>
         </div>
       ),
@@ -235,8 +133,7 @@ export function ExecutivosListaTabela({
       // acinzentado — misturar os dois deixava parecer que quem só não
       // vendeu no período estava inativo). Opacity só nas células de
       // dado (":not(:last-child)") — a última é a coluna Ações, que
-      // precisa ficar 100% visível pro botão Ativar (verde) não sair
-      // apagado junto.
+      // precisa ficar 100% visível.
       rowClassName={(linha) => (!linha.ativo ? "[&>td:not(:last-child)]:opacity-60" : undefined)}
       emptyMessage="Nenhum executivo encontrado."
     />

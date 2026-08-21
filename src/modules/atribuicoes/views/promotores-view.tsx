@@ -23,7 +23,6 @@ export function PromotoresView({ gestoresOptions, todasBases }: PromotoresViewPr
     error,
     filtros,
     atualizarFiltro,
-    alternarAtivo,
     pagina,
     totalPaginas,
     setPagina,
@@ -43,7 +42,6 @@ export function PromotoresView({ gestoresOptions, todasBases }: PromotoresViewPr
           isLoading={isLoading}
           error={error}
           onEditar={setPromotorEmEdicaoId}
-          onAlternarAtivo={alternarAtivo}
         />
 
         {!isLoading && !error ? (
