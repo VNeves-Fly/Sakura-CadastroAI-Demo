@@ -118,11 +118,7 @@ export function AgenciasCarteiraTabela({
               return (
                 <tr
                   key={agencia.id}
-                  // CNPJ, não `agencia.id` (código SST) — o modal/API de
-                  // detalhe resolvem o cadastro local por CNPJ, já que a
-                  // identidade desta listagem vem do roster do SST, não da
-                  // tabela `Agencia` (ver route.ts de /api/agencias-crm/:id).
-                  onClick={() => onAbrirDetalhe(agencia.cnpj)}
+                  onClick={() => onAbrirDetalhe(agencia.id)}
                   className="border-border hover:bg-muted/30 cursor-pointer border-b last:border-0"
                 >
                   <td className="text-muted-foreground px-3 py-2.5">{offsetPagina + indice + 1}</td>

@@ -1,9 +1,13 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-cadastro.util";
 import { tempoDecorrido } from "@/modules/agencias-crm/utils/tempo-decorrido.util";
+import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
-import type { VendasReaisSst } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
+import type {
+  CadastroComercialSst,
+  VendasReaisSst,
+} from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
 import type {
   AgenciaDetalheView,
   CategoriaPremiacao,
@@ -169,21 +173,21 @@ function gerarFaturas(base: number, quantidade: number): FaturaAgencia[] {
 export interface ExecutivoContexto {
   base: string | null;
   gestorNome: string | null;
+  executivoNome?: string | null;
 }
 
-export function montarAgenciaDetalheView(
-  detalhe: AgenciaDetalhe,
-  dadosReceita: DadosReceita | null,
-  executivoContexto: ExecutivoContexto,
-  // real (SST, agencia-detalhe.sst-service.ts) quando a agência tem
-  // sicaCodigo e a integração está ligada — `null` quando desligada/sem
-  // sicaCodigo, e todo o bloco "vendas" (exceto risco de emissão,
-  // antecedência e participação societária, que continuam mock por
-  // falta de fonte) cai no mock por hash de antes desta integração.
-  vendasReais: VendasReaisSst | null = null,
-): AgenciaDetalheView {
-  const agencia = detalhe.agencia;
-  const base = hashParaNumero(agencia.id);
+// Bloco "vendas" + KPIs de topo + categoria — idêntico pra agência com
+// dossiê local (seed = hash do id local) ou só SST (seed = hash do
+// código SICA, ver montarAgenciaDetalheViewSst) — extraído pra não
+// duplicar as ~150 linhas de mock/merge com vendasReais entre os dois.
+function construirBlocoVendas(
+  base: number,
+  vendasReais: VendasReaisSst | null,
+): Pick<AgenciaDetalheView, "categoria" | "kpisTopo" | "vendas"> & {
+  volumeAno: number;
+  semVenda: boolean;
+  dataUltimaCompra: string | null;
+} {
   const semVenda = base % 12 === 0;
   const categoria = semVenda ? null : CATEGORIAS[base % CATEGORIAS.length]!;
 
@@ -219,40 +223,11 @@ export function montarAgenciaDetalheView(
   // "sem dado real" e cai no mock, igual a receber null/undefined.
   const dataUltimaCompra = vendasReais?.dataUltimaCompra || dataUltimaCompraMock;
 
-  const socios = detalhe.representantesLegais.map((representante) => ({
-    id: representante.id,
-    nome: representante.nome,
-    cpf: representante.cpf || null,
-    rg: representante.rgNumero,
-    email: representante.email || null,
-    telefone: representante.telefone || null,
-    papel: representante.administrativo ? "Sócio-Administrador" : "Sócio",
-    participacaoPct: 10 + (hashParaNumero(representante.id) % 70),
-    temRg: representante.rg !== null,
-    temProcuracao: representante.procuracao !== null,
-  }));
-
-  const enderecoReceita = dadosReceita?.endereco ?? null;
-  const enderecoComplementar = detalhe.complementar?.enderecoAgencia ?? null;
-  const endereco = enderecoComplementar?.logradouro
-    ? {
-        logradouro: enderecoComplementar.logradouro,
-        numero: enderecoComplementar.numero,
-        complemento: enderecoComplementar.complemento,
-        bairro: enderecoComplementar.bairro,
-        cidade: enderecoComplementar.cidade,
-        uf: enderecoComplementar.uf,
-        cep: enderecoComplementar.cep,
-      }
-    : enderecoReceita;
-
   return {
-    id: agencia.id,
-    identificador: gerarIdentificador(agencia.razaoSocial),
     categoria,
-    temRiscoCadastral: (detalhe.analiseIa?.flagsRisco.length ?? 0) > 0,
-    ativoSistema: agencia.status === "ativo",
-    ativadoEm: agencia.createdAt.toISOString(),
+    volumeAno,
+    semVenda,
+    dataUltimaCompra,
     kpisTopo: {
       antecedenciaNacional: {
         dias: semVenda ? 0 : gerarAntecedenciaDias(base),
@@ -266,68 +241,6 @@ export function montarAgenciaDetalheView(
       },
       diasSemComprar,
       dataUltimaCompra,
-    },
-    dadosDocumentacao: {
-      empresa: {
-        nomeFantasia: agencia.nomeFantasia,
-        razaoSocial: agencia.razaoSocial,
-        cnpj: agencia.cnpj,
-        statusLabel: labelStatus(agencia.status),
-        statusClasses: classesBadgeStatus(agencia.status),
-        etapaLabel: labelEtapa(agencia.status),
-        situacaoReceita: dadosReceita?.situacaoCadastral ?? null,
-        dataAbertura: dadosReceita?.dataAbertura?.toISOString() ?? null,
-        tempoDeCnpj: dadosReceita?.dataAbertura ? tempoDecorrido(dadosReceita.dataAbertura) : null,
-        capitalSocial: dadosReceita?.capitalSocial ?? null,
-        naturezaJuridica: dadosReceita?.naturezaJuridica ?? null,
-        porte: dadosReceita?.porte ?? null,
-        optanteSimples: dadosReceita?.optanteSimples ?? null,
-        emailReceita: dadosReceita?.email ?? null,
-        telefoneReceita: dadosReceita?.telefone ?? null,
-        cnaePrincipal: (() => {
-          const principal = dadosReceita?.cnaes.find((cnae) => cnae.principal);
-          return principal?.codigo
-            ? { codigo: principal.codigo, descricao: principal.descricao ?? "" }
-            : null;
-        })(),
-        cnaesSecundarios: (dadosReceita?.cnaes ?? [])
-          .filter((cnae) => !cnae.principal && cnae.codigo)
-          .map((cnae) => ({ codigo: cnae.codigo!, descricao: cnae.descricao ?? "" })),
-      },
-      datas: {
-        dataCadastroLegado: agencia.createdAt.toISOString(),
-        tempoComoCliente: tempoDecorrido(agencia.createdAt),
-      },
-      contato: {
-        nome: agencia.nomeFantasia ?? agencia.razaoSocial,
-        email: agencia.emailContato,
-        telefone1: agencia.telefoneContato,
-        telefone1Base: executivoContexto.base,
-        telefone2: null,
-        telefoneComercial: detalhe.complementar?.telefoneComercial ?? null,
-        emailReceita: dadosReceita?.email ?? null,
-        telefoneReceita: dadosReceita?.telefone ?? null,
-      },
-      endereco,
-      socios,
-    },
-    perfilComercial: {
-      sica: agencia.sicaCodigo,
-      base: executivoContexto.base,
-      gestorNome: executivoContexto.gestorNome,
-      executivoNome: detalhe.executivoNome,
-      segmento: semVenda ? null : ["Lazer", "Corporativo", "Misto"][base % 3]!,
-      mediaFaturamento: semVenda ? null : Math.round(volumeAno / 8),
-      bancoNome: detalhe.complementar?.bancoNome ?? null,
-      bancoCodigo: detalhe.complementar?.bancoCodigo ?? null,
-      bancoAgencia: detalhe.complementar?.bancoAgencia ?? null,
-      bancoConta: detalhe.complementar?.bancoConta ?? null,
-      limiteFaturado: Math.round(volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
-      limiteCartao: Math.round(volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
-      dataUltimaCompra,
-      comissaoPct: 0.5 + ((base >> 2) % 30) / 10,
-      incentivoPct: (base >> 5) % 10 === 0 ? 1 + ((base >> 7) % 20) / 10 : 0,
-      bloqCred: base % 20 === 0,
     },
     vendas: {
       riscoEmissao: {
@@ -404,5 +317,238 @@ export function montarAgenciaDetalheView(
       reservas: vendasReais?.reservas ?? gerarReservas(base, semVenda ? 0 : 30 + (base % 40)),
       faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
     },
+  };
+}
+
+export function montarAgenciaDetalheView(
+  detalhe: AgenciaDetalhe,
+  dadosReceita: DadosReceita | null,
+  executivoContexto: ExecutivoContexto,
+  // real (SST, agencia-detalhe.sst-service.ts) quando a agência tem
+  // sicaCodigo e a integração está ligada — `null` quando desligada/sem
+  // sicaCodigo, e todo o bloco "vendas" (exceto risco de emissão,
+  // antecedência e participação societária, que continuam mock por
+  // falta de fonte) cai no mock por hash de antes desta integração.
+  vendasReais: VendasReaisSst | null = null,
+): AgenciaDetalheView {
+  const agencia = detalhe.agencia;
+  const base = hashParaNumero(agencia.id);
+  const blocoVendas = construirBlocoVendas(base, vendasReais);
+
+  const socios = detalhe.representantesLegais.map((representante) => ({
+    id: representante.id,
+    nome: representante.nome,
+    cpf: representante.cpf || null,
+    rg: representante.rgNumero,
+    email: representante.email || null,
+    telefone: representante.telefone || null,
+    papel: representante.administrativo ? "Sócio-Administrador" : "Sócio",
+    participacaoPct: 10 + (hashParaNumero(representante.id) % 70),
+    temRg: representante.rg !== null,
+    temProcuracao: representante.procuracao !== null,
+  }));
+
+  const enderecoReceita = dadosReceita?.endereco ?? null;
+  const enderecoComplementar = detalhe.complementar?.enderecoAgencia ?? null;
+  const endereco = enderecoComplementar?.logradouro
+    ? {
+        logradouro: enderecoComplementar.logradouro,
+        numero: enderecoComplementar.numero,
+        complemento: enderecoComplementar.complemento,
+        bairro: enderecoComplementar.bairro,
+        cidade: enderecoComplementar.cidade,
+        uf: enderecoComplementar.uf,
+        cep: enderecoComplementar.cep,
+      }
+    : enderecoReceita;
+
+  return {
+    id: agencia.id,
+    identificador: gerarIdentificador(agencia.razaoSocial),
+    categoria: blocoVendas.categoria,
+    temRiscoCadastral: (detalhe.analiseIa?.flagsRisco.length ?? 0) > 0,
+    ativoSistema: agencia.status === "ativo",
+    ativadoEm: agencia.createdAt.toISOString(),
+    kpisTopo: blocoVendas.kpisTopo,
+    dadosDocumentacao: {
+      empresa: {
+        nomeFantasia: agencia.nomeFantasia,
+        razaoSocial: agencia.razaoSocial,
+        cnpj: agencia.cnpj,
+        statusLabel: labelStatus(agencia.status),
+        statusClasses: classesBadgeStatus(agencia.status),
+        etapaLabel: labelEtapa(agencia.status),
+        situacaoReceita: dadosReceita?.situacaoCadastral ?? null,
+        dataAbertura: dadosReceita?.dataAbertura?.toISOString() ?? null,
+        tempoDeCnpj: dadosReceita?.dataAbertura ? tempoDecorrido(dadosReceita.dataAbertura) : null,
+        capitalSocial: dadosReceita?.capitalSocial ?? null,
+        naturezaJuridica: dadosReceita?.naturezaJuridica ?? null,
+        porte: dadosReceita?.porte ?? null,
+        optanteSimples: dadosReceita?.optanteSimples ?? null,
+        emailReceita: dadosReceita?.email ?? null,
+        telefoneReceita: dadosReceita?.telefone ?? null,
+        cnaePrincipal: (() => {
+          const principal = dadosReceita?.cnaes.find((cnae) => cnae.principal);
+          return principal?.codigo
+            ? { codigo: principal.codigo, descricao: principal.descricao ?? "" }
+            : null;
+        })(),
+        cnaesSecundarios: (dadosReceita?.cnaes ?? [])
+          .filter((cnae) => !cnae.principal && cnae.codigo)
+          .map((cnae) => ({ codigo: cnae.codigo!, descricao: cnae.descricao ?? "" })),
+      },
+      datas: {
+        dataCadastroLegado: agencia.createdAt.toISOString(),
+        tempoComoCliente: tempoDecorrido(agencia.createdAt),
+      },
+      contato: {
+        nome: agencia.nomeFantasia ?? agencia.razaoSocial,
+        email: agencia.emailContato,
+        telefone1: agencia.telefoneContato,
+        telefone1Base: executivoContexto.base,
+        telefone2: null,
+        telefoneComercial: detalhe.complementar?.telefoneComercial ?? null,
+        emailReceita: dadosReceita?.email ?? null,
+        telefoneReceita: dadosReceita?.telefone ?? null,
+      },
+      endereco,
+      socios,
+    },
+    perfilComercial: {
+      sica: agencia.sicaCodigo,
+      base: executivoContexto.base,
+      gestorNome: executivoContexto.gestorNome,
+      executivoNome: detalhe.executivoNome,
+      segmento: blocoVendas.semVenda ? null : ["Lazer", "Corporativo", "Misto"][base % 3]!,
+      mediaFaturamento: blocoVendas.semVenda ? null : Math.round(blocoVendas.volumeAno / 8),
+      bancoNome: detalhe.complementar?.bancoNome ?? null,
+      bancoCodigo: detalhe.complementar?.bancoCodigo ?? null,
+      bancoAgencia: detalhe.complementar?.bancoAgencia ?? null,
+      bancoConta: detalhe.complementar?.bancoConta ?? null,
+      limiteFaturado: Math.round(blocoVendas.volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
+      limiteCartao: Math.round(blocoVendas.volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
+      dataUltimaCompra: blocoVendas.dataUltimaCompra,
+      comissaoPct: 0.5 + ((base >> 2) % 30) / 10,
+      incentivoPct: (base >> 5) % 10 === 0 ? 1 + ((base >> 7) % 20) / 10 : 0,
+      bloqCred: base % 20 === 0,
+    },
+    vendas: blocoVendas.vendas,
+  };
+}
+
+// Modal do CRM (/crm/agencias, aba Agências do executivo) — 100% SST, sem
+// tocar a tabela `Agencia` deste app (decisão do usuário, 2026-08-21).
+// Sócios, documentos, análise de risco e dados da Receita Federal (CNAE,
+// capital social, situação cadastral) não existem em nenhum endpoint do
+// SST — ficam vazios/null em vez de inventados; a UI já degrada bem pra
+// esses campos ("Nenhum sócio cadastrado.", "—", "Dados bancários não
+// informados"). `null` de retorno = código SICA não existe no SST.
+export function montarAgenciaDetalheViewSst(
+  codigoEmpresa: number,
+  cadastroComercial: CadastroComercialSst,
+  executivoContexto: ExecutivoContexto,
+  vendasReais: VendasReaisSst | null = null,
+): AgenciaDetalheView | null {
+  const { baseEmpresa, cadastro } = cadastroComercial;
+  if (!baseEmpresa) return null;
+
+  const base = hashParaNumero(String(codigoEmpresa));
+  const blocoVendas = construirBlocoVendas(base, vendasReais);
+
+  const razaoSocial = cadastro?.razao_social || baseEmpresa.nome_chave || baseEmpresa.nome_fantasia;
+  const cnpjDigitos = unmaskCnpj(cadastro?.cnpj ?? baseEmpresa.CNPJ);
+  const ativoSistema = baseEmpresa.empresa_ativa === "SIM";
+
+  const endereco = cadastro?.endereco
+    ? {
+        logradouro: cadastro.endereco,
+        numero: cadastro.numero,
+        complemento: cadastro.complemento,
+        bairro: cadastro.bairro,
+        cidade: cadastro.cidade,
+        uf: cadastro.estado,
+        cep: cadastro.cep,
+      }
+    : baseEmpresa.endereco
+      ? {
+          logradouro: baseEmpresa.endereco,
+          numero: baseEmpresa.numero !== null ? String(baseEmpresa.numero) : null,
+          complemento: baseEmpresa.complemento,
+          bairro: baseEmpresa.bairro,
+          cidade: baseEmpresa.cidade,
+          uf: baseEmpresa.uf,
+          cep: baseEmpresa.CEP,
+        }
+      : null;
+
+  return {
+    id: String(codigoEmpresa),
+    identificador: gerarIdentificador(razaoSocial),
+    categoria: blocoVendas.categoria,
+    temRiscoCadastral: false,
+    ativoSistema,
+    ativadoEm: baseEmpresa.data_cadastro,
+    kpisTopo: blocoVendas.kpisTopo,
+    dadosDocumentacao: {
+      empresa: {
+        nomeFantasia: baseEmpresa.nome_fantasia || null,
+        razaoSocial,
+        cnpj: cnpjDigitos,
+        statusLabel: ativoSistema ? "Ativo" : "Inativo",
+        statusClasses: ativoSistema
+          ? "bg-success-bg text-success-text"
+          : "bg-destructive-bg text-destructive-text",
+        etapaLabel: null,
+        situacaoReceita: null,
+        dataAbertura: null,
+        tempoDeCnpj: null,
+        capitalSocial: null,
+        naturezaJuridica: null,
+        porte: null,
+        optanteSimples: null,
+        emailReceita: null,
+        telefoneReceita: null,
+        cnaePrincipal: null,
+        cnaesSecundarios: [],
+      },
+      datas: {
+        dataCadastroLegado: baseEmpresa.data_cadastro,
+        tempoComoCliente: tempoDecorrido(new Date(baseEmpresa.data_cadastro)),
+      },
+      contato: {
+        nome: cadastro?.contato ?? null,
+        email: cadastro?.email || baseEmpresa.email_empresa || "",
+        telefone1: cadastro?.telefone || baseEmpresa.telefone_principal || "",
+        telefone1Base: executivoContexto.base,
+        telefone2: null,
+        telefoneComercial: null,
+        emailReceita: null,
+        telefoneReceita: null,
+      },
+      endereco,
+      socios: [],
+    },
+    perfilComercial: {
+      sica: String(codigoEmpresa),
+      base: executivoContexto.base,
+      gestorNome: executivoContexto.gestorNome,
+      executivoNome: executivoContexto.executivoNome ?? baseEmpresa.nome_executivo,
+      segmento: blocoVendas.semVenda ? null : ["Lazer", "Corporativo", "Misto"][base % 3]!,
+      mediaFaturamento: blocoVendas.semVenda ? null : Math.round(blocoVendas.volumeAno / 8),
+      bancoNome: null,
+      bancoCodigo: null,
+      bancoAgencia: null,
+      bancoConta: null,
+      // real (SST, base-empresa-cadastro) — total já soma limite + adicional.
+      limiteFaturado:
+        baseEmpresa.total_limite_cred_faturado || baseEmpresa.limite_cred_faturado || 0,
+      limiteCartao:
+        baseEmpresa.total_limite_cred_cartao_credito || baseEmpresa.limite_cred_cartao_credito || 0,
+      dataUltimaCompra: blocoVendas.dataUltimaCompra,
+      comissaoPct: 0.5 + ((base >> 2) % 30) / 10,
+      incentivoPct: (base >> 5) % 10 === 0 ? 1 + ((base >> 7) % 20) / 10 : 0,
+      bloqCred: baseEmpresa.bloqueio_credito === "SIM",
+    },
+    vendas: blocoVendas.vendas,
   };
 }

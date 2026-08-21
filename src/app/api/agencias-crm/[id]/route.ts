@@ -4,9 +4,16 @@ import { httpError, httpOk } from "@/modules/shared/presentation/http-response";
 import { NotFoundError } from "@/modules/shared/domain/errors";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { montarAgenciaDetalheView } from "@/modules/agencias-crm/adapters/agencia-detalhe.adapter";
+import {
+  montarAgenciaDetalheView,
+  montarAgenciaDetalheViewSst,
+} from "@/modules/agencias-crm/adapters/agencia-detalhe.adapter";
 import { usaSstReal } from "@/modules/agencias-crm/infrastructure/agencia-sst-client.util";
-import { agenciaDetalheSstService } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
+import {
+  agenciaDetalheSstService,
+  type CadastroComercialSst,
+  type VendasReaisSst,
+} from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
 import { agenciaCarteiraSstService } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
 
 const CARGOS_COM_ACESSO = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
@@ -27,40 +34,100 @@ function comTimeout<T>(promessa: Promise<T>, ms: number, valorPadrao: T): Promis
   ]);
 }
 
-// CNPJ (14 dígitos) — jeito de distinguir um id vindo do roster do SST
+// "Última compra"/"dias sem comprar" usam a MESMA fonte da listagem
+// (janela de 365d via resumo-agrupado, cacheada 10min) em vez do cálculo
+// de obterVendas (janela mais curta, 14-90d) — evita o modal mostrar uma
+// data diferente da que já apareceu na linha da tabela pro mesmo código.
+async function obterVendasComMetricasDaCarteira(
+  sicaCodigo: string,
+): Promise<VendasReaisSst | null> {
+  const [vendasReais, metricasCarteira] = await Promise.all([
+    agenciaDetalheSstService.obterVendas(sicaCodigo).catch((erro) => {
+      console.error(
+        "[agencias-crm] Falha ao buscar vendas reais do SST — modal segue 100% mock.",
+        erro,
+      );
+      return null;
+    }),
+    comTimeout(
+      agenciaCarteiraSstService.obterMetricasCarteira().catch(() => null),
+      TIMEOUT_METRICAS_CARTEIRA_MS,
+      null,
+    ),
+  ]);
+
+  const metrica = metricasCarteira?.get(sicaCodigo);
+  if (vendasReais && metrica?.dataUltimaCompra) {
+    vendasReais.diasSemComprar = metrica.diasSemComprar;
+    vendasReais.dataUltimaCompra = metrica.dataUltimaCompra;
+  }
+  return vendasReais;
+}
+
+// Código SICA (dígitos puros) — identidade vinda do roster do SST
 // (/crm/agencias, aba Agências do executivo: essas listagens não têm id
-// local, só CNPJ) de um cuid local de verdade (aba Agências do Gestor,
-// que ainda lê direto da tabela `Agencia` e já manda o id certo).
-const REGEX_CNPJ = /^\d{14}$/;
+// local, só código SICA, ver agencia-carteira.loader.ts). Um cuid local
+// (aba Agências do Gestor, que ainda lê direto a tabela `Agencia`) nunca
+// é só dígitos.
+const REGEX_CODIGO_SICA = /^\d+$/;
 
-// Detalhe sob demanda pro modal de Agências (SPEC_AGENCIAS_SAKURA.md,
-// seção 4) — chamado client-side quando uma linha da listagem é clicada
-// (ver use-agencia-detalhe.view-model.ts). Reaproveita o mesmo motor real
-// de /cadastros/:id (obterDetalhe/obterDadosReceita), só monta a view
-// comercial (real + mock) por cima.
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(nextAuthOptions);
-  if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
-    return httpError("Acesso não permitido.", 403);
+// Detalhe do modal do CRM (/crm/agencias, aba Agências do executivo) —
+// 100% SST, sem tocar a tabela `Agencia` deste app (decisão do usuário,
+// 2026-08-21: essa listagem é a carteira comercial do SST, não o funil de
+// onboarding daqui). Sem SST_API_KEY não tem outra fonte pra essa
+// listagem — erro explícito em vez de tentar e estourar em `sstGet`.
+async function responderDetalheSst(codigoEmpresa: number): Promise<Response> {
+  if (!usaSstReal()) {
+    return httpError("Integração com o SST não está configurada.", 503);
   }
 
-  let agenciaLocalId = params.id;
-  if (REGEX_CNPJ.test(params.id)) {
-    const porCnpj = await cadastroAdminController.buscarPorCnpj(params.id);
-    if (!porCnpj) {
-      // Agência real na carteira comercial (SST), mas nunca passou pelo
-      // cadastro/onboarding deste app — não existe dossiê pra montar.
-      return httpError("Esta agência ainda não tem cadastro completo nesta plataforma.", 404);
-    }
-    agenciaLocalId = porCnpj.id;
+  const [cadastroComercial, promotores] = await Promise.all([
+    agenciaDetalheSstService
+      .obterCadastroComercial(codigoEmpresa)
+      .catch((erro): CadastroComercialSst => {
+        console.error("[agencias-crm] Falha ao buscar cadastro comercial do SST.", erro);
+        return { baseEmpresa: null, cadastro: null };
+      }),
+    atribuicoesAdminController.listarPromotores(),
+  ]);
+
+  if (!cadastroComercial.baseEmpresa) {
+    return httpError("Agência não encontrada.", 404);
   }
 
-  // ObterDetalheAgenciaUseCase lança NotFoundError (não devolve null) —
-  // captura aqui em vez de um `if (!detalhe)` morto, mesmo padrão de
-  // /api/cadastros/documentos/[id]/arquivo/route.ts.
+  // Gestor/base/executivo são melhor esforço via Promotor.sica — única
+  // hierarquia Executivo→Gestor que existe, o SST não modela Gestor (ver
+  // agencia-carteira.adapter.ts, mesmo critério já usado na listagem).
+  const promotor = promotores.find((item) => item.sica === codigoEmpresa) ?? null;
+  const gestorNome = promotor?.gestorId
+    ? ((await atribuicoesAdminController.listarGestores()).find(
+        (gestor) => gestor.id === promotor.gestorId,
+      )?.nome ?? null)
+    : null;
+
+  const vendasReais = await obterVendasComMetricasDaCarteira(String(codigoEmpresa));
+
+  const view = montarAgenciaDetalheViewSst(
+    codigoEmpresa,
+    cadastroComercial,
+    { base: promotor?.bases[0] ?? null, gestorNome, executivoNome: promotor?.nome ?? null },
+    vendasReais,
+  );
+  if (!view) {
+    return httpError("Agência não encontrada.", 404);
+  }
+
+  return httpOk(view);
+}
+
+// Detalhe do dossiê local (aba Agências do Gestor, ou qualquer link
+// direto com o id real de uma agência que passou pelo cadastro/
+// onboarding deste app) — inalterado, reaproveita o motor de
+// /cadastros/:id.
+async function responderDetalheLocal(id: string): Promise<Response> {
   let detalhe;
   try {
-    detalhe = await cadastroAdminController.obterDetalhe(agenciaLocalId);
+    detalhe = await cadastroAdminController.obterDetalhe(id);
   } catch (erro) {
     if (erro instanceof NotFoundError) {
       return httpError("Agência não encontrada.", 404);
@@ -69,7 +136,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   }
 
   const [dadosReceita, promotores] = await Promise.all([
-    cadastroAdminController.obterDadosReceita(agenciaLocalId).catch(() => null),
+    cadastroAdminController.obterDadosReceita(id).catch(() => null),
     atribuicoesAdminController.listarPromotores(),
   ]);
 
@@ -87,39 +154,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   // segue 100% mock (comportamento idêntico ao de antes desta
   // integração) — mesmo critério de agencia-carteira.loader.ts.
   const sicaCodigo = detalhe.agencia.sicaCodigo;
-  const usaSst = usaSstReal() && Boolean(sicaCodigo);
-
-  // "Última compra"/"dias sem comprar" do modal usam a MESMA fonte da
-  // listagem (janela de 365d via resumo-agrupado, cacheada 10min) em vez
-  // do cálculo de obterVendas (janela mais curta, 14-90d, só pra achar
-  // uma amostra de reservas recentes) — evita o modal mostrar uma data
-  // diferente da que já apareceu na linha da tabela pro mesmo sicaCodigo.
-  // As duas chamadas só dependem de sicaCodigo (não uma da outra), então
-  // correm em paralelo — nunca sequencial.
-  const [vendasReais, metricasCarteira] = await Promise.all([
-    usaSst
-      ? agenciaDetalheSstService.obterVendas(sicaCodigo!).catch((erro) => {
-          console.error(
-            "[agencias-crm] Falha ao buscar vendas reais do SST — modal segue 100% mock.",
-            erro,
-          );
-          return null;
-        })
-      : Promise.resolve(null),
-    usaSst
-      ? comTimeout(
-          agenciaCarteiraSstService.obterMetricasCarteira().catch(() => null),
-          TIMEOUT_METRICAS_CARTEIRA_MS,
-          null,
-        )
-      : Promise.resolve(null),
-  ]);
-
-  const metrica = sicaCodigo ? metricasCarteira?.get(sicaCodigo) : undefined;
-  if (vendasReais && metrica?.dataUltimaCompra) {
-    vendasReais.diasSemComprar = metrica.diasSemComprar;
-    vendasReais.dataUltimaCompra = metrica.dataUltimaCompra;
-  }
+  const vendasReais =
+    usaSstReal() && sicaCodigo ? await obterVendasComMetricasDaCarteira(sicaCodigo) : null;
 
   const view = montarAgenciaDetalheView(
     detalhe,
@@ -129,4 +165,20 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   );
 
   return httpOk(view);
+}
+
+// Detalhe sob demanda pro modal de Agências (SPEC_AGENCIAS_SAKURA.md,
+// seção 4) — chamado client-side quando uma linha da listagem é clicada
+// (ver use-agencia-detalhe.view-model.ts).
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(nextAuthOptions);
+  if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
+    return httpError("Acesso não permitido.", 403);
+  }
+
+  if (REGEX_CODIGO_SICA.test(params.id)) {
+    return responderDetalheSst(Number(params.id));
+  }
+
+  return responderDetalheLocal(params.id);
 }

@@ -6,6 +6,7 @@ import {
   mapComConcorrenciaLimitada,
   sstGet,
 } from "@/modules/agencias-crm/infrastructure/agencia-sst-client.util";
+import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type {
   FaturaAgencia,
   ReservaAgencia,
@@ -13,6 +14,90 @@ import type {
   TopRotaAgencia,
   VendaMensalAgencia,
 } from "@/modules/agencias-crm/types/agencia-detalhe.types";
+
+// Cadastro comercial (identidade/contato/endereço/limites) pro modal de
+// detalhe — dois endpoints complementares, achados por curl real
+// (2026-08-21), nenhum dos dois pede filtro de executivo:
+// - GET /api/reports/base-empresa-cadastro?codigoEmpresa=X: nome fantasia,
+//   endereço, executivo, limites de crédito REAIS (limite_cred_faturado/
+//   limite_cred_cartao_credito), bloqueio de crédito, data de cadastro,
+//   status ativo/inativo (empresa_ativa) — e já devolve o CNPJ da empresa,
+//   então basta esse código pra encadear a segunda chamada.
+// - GET /api/agencias/cadastro?cnpj=X (com a máscara 00.000.000/0000-00,
+//   não dígitos puros): razão social, contato, endereço mais completo,
+//   IE/IM/IATA/EMBRATUR.
+// Nenhum dos dois tem sócios, documentos, análise de risco ou dados da
+// Receita Federal (CNAE, capital social) — esse bloco fica vazio/null pra
+// agência sem cadastro de onboarding neste app (decisão do usuário,
+// 2026-08-21: o modal do CRM não deve depender do banco local).
+interface RawBaseEmpresaCadastro {
+  codigo_empresa: number;
+  empresa_ativa: "SIM" | "NÃO";
+  nome_chave: string;
+  nome_fantasia: string;
+  CNPJ: string;
+  endereco: string;
+  numero: number | string | null;
+  complemento: string | null;
+  bairro: string;
+  CEP: string;
+  cidade: string;
+  uf: string;
+  telefone_principal: string;
+  email_empresa: string;
+  descricao_tipo_empresa: string;
+  data_cadastro: string;
+  filial_nome: string;
+  codigo_executivo: number;
+  nome_executivo: string;
+  bloqueio_credito: "SIM" | "NÃO";
+  limite_cred_faturado: number;
+  total_limite_cred_faturado: number;
+  limite_cred_cartao_credito: number;
+  total_limite_cred_cartao_credito: number;
+}
+
+interface RawAgenciaCadastro {
+  razao_social: string;
+  cnpj: string;
+  contato: string;
+  telefone: string;
+  email: string;
+  endereco: string;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+}
+
+async function buscarBaseEmpresaCadastro(
+  codigoEmpresa: number,
+): Promise<RawBaseEmpresaCadastro | null> {
+  return comCache(`agencias-crm:base-empresa-cadastro:${codigoEmpresa}`, async () => {
+    const resposta = await sstGet<{ data: RawBaseEmpresaCadastro[] }>(
+      "/api/reports/base-empresa-cadastro",
+      { codigoEmpresa, limit: 1 },
+    );
+    return resposta.data[0] ?? null;
+  });
+}
+
+async function buscarCadastroPorCnpj(cnpjDigitos: string): Promise<RawAgenciaCadastro | null> {
+  return comCache(`agencias-crm:agencia-cadastro:${cnpjDigitos}`, async () => {
+    const resposta = await sstGet<{ data: RawAgenciaCadastro[] }>("/api/agencias/cadastro", {
+      cnpj: maskCnpj(cnpjDigitos),
+      limit: 1,
+    });
+    return resposta.data[0] ?? null;
+  });
+}
+
+export interface CadastroComercialSst {
+  baseEmpresa: RawBaseEmpresaCadastro | null;
+  cadastro: RawAgenciaCadastro | null;
+}
 
 // Integração real com o SST pro bloco "vendas" do modal de detalhe —
 // UMA agência por vez (filtro `codigoEmpresa`, = sicaCodigo), diferente
@@ -408,6 +493,16 @@ export interface VendasReaisSst {
 }
 
 export const agenciaDetalheSstService = {
+  // `base-empresa-cadastro` primeiro (já devolve o CNPJ) pra encadear
+  // `agencias/cadastro` — uma chamada extra, não duas em paralelo, já que
+  // a segunda depende do CNPJ que só a primeira devolve. `null` nos dois
+  // significa "código SICA não existe no SST" (agência não encontrada).
+  async obterCadastroComercial(codigoEmpresa: number): Promise<CadastroComercialSst> {
+    const baseEmpresa = await buscarBaseEmpresaCadastro(codigoEmpresa);
+    const cadastro = baseEmpresa ? await buscarCadastroPorCnpj(baseEmpresa.CNPJ) : null;
+    return { baseEmpresa, cadastro };
+  },
+
   // Uma chamada por abertura do modal (o fetch do detalhe é síncrono
   // hoje, sem streaming — ver route.ts). Cada sub-bloco tem fallback
   // isolado: se um falhar, os outros seguem reais.

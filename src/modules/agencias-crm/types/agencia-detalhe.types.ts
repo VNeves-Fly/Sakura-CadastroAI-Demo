@@ -15,7 +15,7 @@ export interface AgenciaDetalheEmpresa {
   cnpj: string; // real
   statusLabel: string; // real
   statusClasses: string; // real
-  etapaLabel: string; // real (derivado do status)
+  etapaLabel: string | null; // real (derivado do status) — null quando a agência não tem cadastro/onboarding neste app (fonte 100% SST, ver adapter)
   situacaoReceita: string | null; // real (DadosReceita.situacaoCadastral) — null = "Não consultado"
   dataAbertura: string | null; // real
   tempoDeCnpj: string | null; // real (calculado)
