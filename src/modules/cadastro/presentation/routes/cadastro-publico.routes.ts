@@ -6,6 +6,7 @@ import {
   RateLimitError,
 } from "@/modules/shared/domain/errors";
 import { obterIpCliente, verificarRateLimit } from "@/modules/shared/infrastructure/rate-limiter";
+import { obterUrlBase } from "@/modules/shared/utils/url-base.util";
 import { cadastroPublicoController } from "@/modules/cadastro/presentation/controllers/cadastro-publico.controller";
 import { finalizarCadastroMetaSchema } from "@/modules/cadastro/application/dto/finalizar-cadastro.schema";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
@@ -168,9 +169,11 @@ export async function createAgenciaRoute(request: Request) {
     // AnalisarCadastroUseCase já trata suas próprias falhas internamente
     // (sempre converge pra um status final, nunca deixa a Agência presa
     // silenciosamente).
-    void cadastroPublicoController.analisarCadastro(agencia.id).catch((error) => {
-      console.error(`Falha ao disparar análise assíncrona (agenciaId=${agencia.id}):`, error);
-    });
+    void cadastroPublicoController
+      .analisarCadastro(agencia.id, obterUrlBase(request.headers))
+      .catch((error) => {
+        console.error(`Falha ao disparar análise assíncrona (agenciaId=${agencia.id}):`, error);
+      });
 
     return httpCreated(agencia);
   } catch (error) {

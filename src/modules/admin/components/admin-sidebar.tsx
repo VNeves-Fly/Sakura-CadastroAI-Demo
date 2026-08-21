@@ -21,6 +21,7 @@ import {
   FileSignature,
   Sparkles,
   Tv,
+  PenLine,
 } from "lucide-react";
 import {
   Sidebar,
@@ -89,6 +90,13 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         ocultoPara: CARGOS_INTERNOS_APENAS,
       },
       { label: "Arquivo", href: "/arquivo", icon: Archive, ocultoPara: CARGOS_INTERNOS_APENAS },
+      {
+        // Pros signatários fixos da Sakura (gestores) acompanharem o que
+        // falta assinar — visível pra todo cargo, ver docs/legitimuz/.
+        label: "Assinaturas pendentes",
+        href: "/assinaturas-pendentes",
+        icon: PenLine,
+      },
     ],
   },
   {

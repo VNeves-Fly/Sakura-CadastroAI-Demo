@@ -49,6 +49,7 @@ function agenciaFake(cnpj: string): Agencia {
     infoPendente: false,
     infoPendenteRemovidoPor: null,
     infoPendenteRemovidoEm: null,
+    gateBiometriaAtivo: false,
   });
 }
 

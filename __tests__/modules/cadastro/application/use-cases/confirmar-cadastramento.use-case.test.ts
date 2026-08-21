@@ -35,6 +35,7 @@ function agenciaFake(sicaCodigo: string | null): Agencia {
     infoPendente: false,
     infoPendenteRemovidoPor: null,
     infoPendenteRemovidoEm: null,
+    gateBiometriaAtivo: false,
   });
 }
 

@@ -132,6 +132,7 @@ function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): Agenc
           infoPendente: false,
           infoPendenteRemovidoPor: null,
           infoPendenteRemovidoEm: null,
+          gateBiometriaAtivo: false,
         }),
       ),
     ),
@@ -196,6 +197,7 @@ describe("FinalizarCadastroUseCase", () => {
           infoPendente: false,
           infoPendenteRemovidoPor: null,
           infoPendenteRemovidoEm: null,
+          gateBiometriaAtivo: false,
         }),
       ),
     });

@@ -116,6 +116,7 @@ const input: GerarContratoInput = {
     cep: "01310100",
   },
   signatarios: [FULANO],
+  gateBiometriaAtivo: false,
 };
 
 describe("D4SignAdapter", () => {
@@ -192,6 +193,40 @@ describe("D4SignAdapter", () => {
       "https://api.teste.d4sign/documents/doc-uuid-123/sendtosigner?tokenAPI=token-teste&cryptKey=crypt-teste",
     );
     expect(JSON.parse(envioOpts.body)).toEqual({ skip_email: "0", workflow: "1" });
+  });
+
+  // Fluxo paralelo de biometria facial (Legitimuz, ver docs/legitimuz/):
+  // com o gate ligado, o sócio não recebe mais docauthandselfie/videoselfie
+  // (a Legitimuz já verificou identidade antes da assinatura) e o D4Sign
+  // não notifica ninguém sozinho (skip_email:"1") — a entrega dos links
+  // vira responsabilidade da aplicação.
+  it("com gateBiometriaAtivo, omite docauthandselfie/videoselfie do sócio e manda skip_email:1", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(okJson({ uuid: "doc-uuid-123" }))
+      .mockResolvedValueOnce(okJson({}))
+      .mockResolvedValueOnce(okJson({}));
+
+    await new D4SignAdapter(fakeSignatarioPadraoRepository()).gerarEEnviar({
+      ...input,
+      gateBiometriaAtivo: true,
+    });
+
+    const [, listaOpts] = (global.fetch as jest.Mock).mock.calls[1];
+    expect(JSON.parse(listaOpts.body)).toEqual({
+      signers: [
+        {
+          email: "fulano@teste.com",
+          act: "1",
+          foreign: "0",
+          certificadoicpbr: "0",
+          assinatura_presencial: "0",
+          after_position: "0",
+        },
+      ],
+    });
+
+    const [, envioOpts] = (global.fetch as jest.Mock).mock.calls[2];
+    expect(JSON.parse(envioOpts.body)).toEqual({ skip_email: "1", workflow: "1" });
   });
 
   // Regressão real de produção (2026-07-31): uma checagem genérica de erro

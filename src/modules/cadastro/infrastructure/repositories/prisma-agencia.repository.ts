@@ -145,6 +145,7 @@ interface AgenciaRecord {
   infoPendente: boolean;
   infoPendenteRemovidoPor: string | null;
   infoPendenteRemovidoEm: Date | null;
+  gateBiometriaAtivo: boolean;
 }
 
 const ENDERECO_VAZIO: EnderecoData = {
@@ -977,6 +978,14 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return this.toDomain(record);
   }
 
+  async atualizarGateBiometria(id: string, ativo: boolean): Promise<Agencia> {
+    const record = await this.prisma.agencia.update({
+      where: { id },
+      data: { gateBiometriaAtivo: ativo },
+    });
+    return this.toDomain(record);
+  }
+
   private dadosSignatariosCreate(signatarios: ContratoSignatarioData[]) {
     return signatarios.map((signatario) => ({
       nome: signatario.nome,
@@ -1352,6 +1361,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       infoPendente: record.infoPendente,
       infoPendenteRemovidoPor: record.infoPendenteRemovidoPor,
       infoPendenteRemovidoEm: record.infoPendenteRemovidoEm,
+      gateBiometriaAtivo: record.gateBiometriaAtivo,
     });
   }
 }
