@@ -329,7 +329,14 @@ export function montarAgenciaDetalheViewSst(
     ativadoEm: baseEmpresa.data_cadastro,
     dadosDocumentacao: {
       empresa: {
-        nomeFantasia: baseEmpresa.nome_fantasia || null,
+        // `nome_chave` (não `nome_fantasia`) — é o mesmo nome que já
+        // aparece na listagem (roster de /api/agencias/ativas, mesmo
+        // valor). `nome_fantasia` no SST é outra coisa: pra agência de
+        // dono único costuma ser o nome da pessoa física (ex.: "RAFAEL
+        // SILVESTRINI FERREIRA"), não um nome fantasia de verdade —
+        // usar ele aqui deixava o nome em destaque da página diferente
+        // do nome que o usuário viu na linha da tabela.
+        nomeFantasia: baseEmpresa.nome_chave || baseEmpresa.nome_fantasia || null,
         razaoSocial,
         cnpj: cnpjDigitos,
         statusLabel: ativoSistema ? "Ativo" : "Inativo",
