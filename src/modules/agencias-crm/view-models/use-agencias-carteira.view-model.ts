@@ -40,8 +40,6 @@ function valorDeOrdenacao(
       return agencia.vendasMes;
     case "razaoSocial":
       return agencia.razaoSocial;
-    case "createdAt":
-      return agencia.createdAt;
     case "ultimaCompra":
       return agencia.diasSemComprar;
     case "bilhetes":

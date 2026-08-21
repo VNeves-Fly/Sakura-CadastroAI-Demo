@@ -136,6 +136,54 @@ async function buscarTerrestreAgrupadoCarteira(
   });
 }
 
+interface RawAgenciaAtivaCarteira {
+  codigo_empresa: number;
+  nome: string;
+  cnpj: string;
+  empresa_status: string;
+  codigo_executivo: number | null;
+  nome_executivo: string | null;
+}
+
+const LIMITE_PAGINA_ROSTER = 500;
+
+// GET /api/agencias/ativas sem `codigoExecutivo` — mesmo endpoint do
+// roster por executivo (ver executivo-dashboard.sst-service.ts:272), só
+// sem o filtro: devolve o roster comercial inteiro, paginado, já com CNPJ
+// e identidade do executivo (codigo_executivo/nome_executivo) por linha.
+// Identidade/status de agência para /crm/agencias vêm 100% daqui, não da
+// tabela `Agencia` deste app (decisão do usuário, 2026-08-21 — mesmo
+// critério já aplicado à aba Agências do executivo).
+async function buscarRosterCarteira(): Promise<RawAgenciaAtivaCarteira[]> {
+  return comCache("agencias-crm:roster-completo", async () => {
+    const primeira = await sstGet<RawPaginado<RawAgenciaAtivaCarteira>>("/api/agencias/ativas", {
+      page: 1,
+      limit: LIMITE_PAGINA_ROSTER,
+    });
+    const totalPaginas = Math.ceil(primeira.total / LIMITE_PAGINA_ROSTER);
+    const numerosPaginasRestantes = Array.from(
+      { length: Math.max(0, totalPaginas - 1) },
+      (_, indice) => indice + 2,
+    );
+    const paginasRestantes = await mapComConcorrenciaLimitada(numerosPaginasRestantes, (pagina) =>
+      sstGet<RawPaginado<RawAgenciaAtivaCarteira>>("/api/agencias/ativas", {
+        page: pagina,
+        limit: LIMITE_PAGINA_ROSTER,
+      }),
+    );
+    return [primeira, ...paginasRestantes].flatMap((pagina) => pagina.data);
+  });
+}
+
+export interface AgenciaRosterSst {
+  codigoEmpresa: number;
+  nome: string;
+  cnpj: string;
+  status: string;
+  codigoExecutivo: number | null;
+  nomeExecutivo: string | null;
+}
+
 export interface MetricasCarteiraSst {
   canal: CanalVendas;
   bilhetes: number;
@@ -155,6 +203,20 @@ function diasEntre(dataIso: string, hoje: Date): number {
 }
 
 export const agenciaCarteiraSstService = {
+  // Roster comercial completo (cacheado 10min) — fonte real de
+  // identidade/status/executivo da listagem /crm/agencias.
+  async obterRosterCompleto(): Promise<AgenciaRosterSst[]> {
+    const roster = await buscarRosterCarteira();
+    return roster.map((linha) => ({
+      codigoEmpresa: linha.codigo_empresa,
+      nome: linha.nome,
+      cnpj: linha.cnpj,
+      status: linha.empresa_status,
+      codigoExecutivo: linha.codigo_executivo ?? null,
+      nomeExecutivo: linha.nome_executivo ?? null,
+    }));
+  },
+
   // Uma chamada por carregamento de página (cacheada 10min) — devolve o
   // mapa completo, indexado por sicaCodigo (string, = codigo_empresa /
   // codigo_cliente do SST). Agência sem entrada aqui (sem sicaCodigo, sem

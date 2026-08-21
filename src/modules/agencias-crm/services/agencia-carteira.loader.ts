@@ -1,4 +1,3 @@
-import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { basesController } from "@/modules/bases/presentation/controllers/bases.controller";
 import {
@@ -9,6 +8,7 @@ import { regiaoPorUf } from "@/modules/agencias-crm/utils/regiao-por-uf.util";
 import { usaSstReal } from "@/modules/agencias-crm/infrastructure/agencia-sst-client.util";
 import {
   agenciaCarteiraSstService,
+  type AgenciaRosterSst,
   type MetricasCarteiraSst,
 } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
@@ -31,47 +31,58 @@ async function obterMetricasReaisOuNull(): Promise<Map<string, MetricasCarteiraS
   }
 }
 
-// Carrega a carteira inteira de agências (real, via o mesmo motor de
-// /cadastros) e monta a view comercial (real + mock) — server-side.
-//
-// Nota de escala: `todos: true` traz TODAS as agências de uma vez (sem
-// paginação no banco), e o resto do filtro/ordenação/paginação acontece em
-// memória no client (mesmo padrão já usado em atribuicoesAdminController.
-// listarPromotores() nos módulos Executivos/Gestores). Isso é adequado pro
-// volume de dado deste ambiente hoje; se a base crescer pra dezenas de
-// milhares de agências (a SPEC cita ~20 mil), essa listagem precisa migrar
-// pra paginação real no banco, como /cadastros já faz.
+// Sem SST_API_KEY, ou se a chamada ao roster falhar, a listagem fica
+// vazia — não existe fonte alternativa de identidade de agência pra
+// fabricar linhas mock (mesmo critério já usado pra `agenciasCarteira`
+// em executivo-dashboard.sst-service.ts quando o roster falha).
+async function obterRosterOuVazio(): Promise<AgenciaRosterSst[]> {
+  if (!usaSstReal()) return [];
+  try {
+    return await agenciaCarteiraSstService.obterRosterCompleto();
+  } catch (erro) {
+    console.error("[agencias-crm] Falha ao buscar roster completo do SST — listagem vazia.", erro);
+    return [];
+  }
+}
+
+// Carrega a carteira inteira de agências — real, via o roster comercial
+// do SST (identidade/status/executivo), não via a tabela `Agencia` deste
+// app (funil de cadastro/onboarding, conceito diferente — decisão do
+// usuário, 2026-08-21). Gestor/base/executivoId são melhor esforço,
+// resolvidos localmente via Promotor.sica (única hierarquia
+// Executivo→Gestor que existe, o SST não conhece Gestor).
 export async function carregarAgenciasCarteira(): Promise<AgenciaCarteiraView[]> {
-  const [{ items }, promotores, bases, metricasReaisPorSica] = await Promise.all([
-    cadastroAdminController.listarCadastros({ todos: true }),
+  const [roster, promotores, gestores, bases, metricasReaisPorSica] = await Promise.all([
+    obterRosterOuVazio(),
     atribuicoesAdminController.listarPromotores(),
+    atribuicoesAdminController.listarGestores(),
     basesController.list(),
     obterMetricasReaisOuNull(),
   ]);
 
-  const executivoPorId = new Map<string, ExecutivoResumo>(
-    promotores.map((promotor) => [promotor.id, { nome: promotor.nome, bases: promotor.bases }]),
+  const gestorNomePorId = new Map(gestores.map((gestor) => [gestor.id, gestor.nome]));
+
+  const promotorPorSica = new Map<number, ExecutivoResumo>(
+    promotores
+      .filter((promotor) => promotor.sica !== null)
+      .map((promotor) => [
+        promotor.sica as number,
+        {
+          id: promotor.id,
+          nome: promotor.nome,
+          bases: promotor.bases,
+          gestorNome: promotor.gestorId ? (gestorNomePorId.get(promotor.gestorId) ?? null) : null,
+        },
+      ]),
   );
 
   const regiaoPorBase = new Map<string, string | null>(
     bases.map((base) => [base.sigla, regiaoPorUf(base.uf)]),
   );
 
-  const itensBrutos = items.map(({ agencia, executivoNome, executivoGestor }) => ({
-    id: agencia.id,
-    razaoSocial: agencia.razaoSocial,
-    cnpj: agencia.cnpj,
-    status: agencia.status,
-    createdAt: agencia.createdAt,
-    executivoId: agencia.executivoId,
-    executivoNome,
-    executivoGestor,
-    sicaCodigo: agencia.sicaCodigo,
-  }));
-
   return montarAgenciasCarteiraViewList(
-    itensBrutos,
-    executivoPorId,
+    roster,
+    promotorPorSica,
     regiaoPorBase,
     metricasReaisPorSica,
   );

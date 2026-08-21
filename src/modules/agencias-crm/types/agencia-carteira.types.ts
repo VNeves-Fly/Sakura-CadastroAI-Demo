@@ -1,40 +1,38 @@
 // Listagem "Agências Sakura" (/crm/agencias) — SPEC_AGENCIAS_SAKURA.md,
-// seção 3. Real: id, razaoSocial, cnpj, status, executivo/gestor (via
-// ListarCadastrosUseCase, o mesmo motor real de /cadastros), base (melhor
-// esforço — primeira base do executivo, mesma aproximação já usada em
-// executivo-agencias.types.ts/gestor-agencias-tab.types.ts, já que Agencia
-// não guarda a própria base). Dados faltantes deriva do status (mesma
-// regra de gestor-agencias-tab.types.ts). Canal de vendas, bilhetes,
-// ticket médio, vendas mês/ano e última compra vêm do SST Service real
-// (ver agencia-carteira.sst-service.ts) quando a agência tem sicaCodigo
-// e a integração está ligada (SST_API_KEY configurada); caem em
-// mock determinístico via hash como fallback, documentado no adapter.
-// Categoria/premiação, limite e motivo de reprovação não têm fonte real
-// hoje — seguem mock, razão documentada no adapter.
+// seção 3. Identidade/status/executivo vêm do roster comercial do SST
+// (GET /api/agencias/ativas sem `codigoExecutivo`, ver
+// agencia-carteira.sst-service.ts), não da tabela `Agencia` deste app
+// (funil de cadastro/onboarding — conceito diferente, decisão do usuário
+// 2026-08-21, mesmo critério já aplicado em executivo-agencias.types.ts).
+// Gestor/base são melhor esforço via Promotor.sica → Promotor.gestorId/
+// bases (única hierarquia Executivo→Gestor que existe, é local, não do
+// SST). Canal de vendas, bilhetes, ticket médio, vendas mês/ano e última
+// compra vêm do SST Service real quando a agência tem venda detectada;
+// caem em mock determinístico via hash como fallback, documentado no
+// adapter. Categoria/premiação e limite não têm fonte real hoje — seguem
+// mock, razão documentada no adapter.
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 export type CanalVendas = "aereo" | "terrestre" | "ambos";
 
 export interface AgenciaCarteiraView {
-  id: string;
+  id: string; // = String(codigoEmpresa) do SST
   razaoSocial: string;
   cnpj: string;
-  status: string; // real (StatusAgencia)
-  dadosFaltantes: boolean; // real — deriva do status
-  reprovadaOuInativa: boolean; // real — status === "recusado"
-  executivoId: string | null; // real
-  executivoNome: string | null; // real
-  gestorNome: string | null; // real
-  base: string | null; // melhor esforço — primeira base do executivo
+  status: string; // real (empresa_status do SST: "ativo"/"inativo")
+  dadosFaltantes: boolean; // sem fonte real hoje (era ligado ao funil de onboarding) — sempre false
+  reprovadaOuInativa: boolean; // real — status !== "ativo"
+  executivoId: string | null; // real — Promotor.id resolvido via Promotor.sica === codigoExecutivo
+  executivoNome: string | null; // real (SST, ou Promotor.nome quando há match local)
+  gestorNome: string | null; // real — via Promotor.gestorId, só quando há match local
+  base: string | null; // melhor esforço — primeira base do executivo, só quando há match local
   regiao: string | null; // real — derivada de Base.uf (ver regiao-por-uf.util.ts)
-  createdAt: string; // real (ISO)
-  motivo: string | null; // mock — sem fonte real de motivo de reprovação na listagem hoje (ver adapter)
   categoria: CategoriaPremiacao | null; // mock — sem fonte real de faixa de premiação no SST
-  canal: CanalVendas; // real (SST, resumo-agrupado aéreo+terrestre) — mock se sicaCodigo ausente
-  bilhetes: number; // real (SST) — mock se sicaCodigo ausente
-  ticketMedio: number; // real (SST) — mock se sicaCodigo ausente
-  vendasMes: number; // real (SST) — mock se sicaCodigo ausente
-  vendasAno: number; // real (SST) — mock se sicaCodigo ausente
-  diasSemComprar: number; // real (SST, data_ultima_venda) — mock se sicaCodigo ausente
+  canal: CanalVendas; // real (SST, resumo-agrupado aéreo+terrestre) — mock se sem venda detectada
+  bilhetes: number; // real (SST) — mock se sem venda detectada
+  ticketMedio: number; // real (SST) — mock se sem venda detectada
+  vendasMes: number; // real (SST) — mock se sem venda detectada
+  vendasAno: number; // real (SST) — mock se sem venda detectada
+  diasSemComprar: number; // real (SST, data_ultima_venda) — mock se sem venda detectada
   limite: number; // mock — SICA só espelha limite de crédito de fatura, não limite de compra
 }
 
@@ -58,14 +56,7 @@ export interface AgenciasCarteiraFiltros {
   canalVendas: "todos" | CanalVendas;
   premiacao: "todas" | CategoriaPremiacao;
   ultimaCompra: "qualquer" | "ate30" | "30a90" | "mais90";
-  ordenarPor:
-    | "vendasAno"
-    | "vendasMes"
-    | "razaoSocial"
-    | "createdAt"
-    | "ultimaCompra"
-    | "bilhetes"
-    | "limite";
+  ordenarPor: "vendasAno" | "vendasMes" | "razaoSocial" | "ultimaCompra" | "bilhetes" | "limite";
   ordenarDirecao: "asc" | "desc";
   ocultarInativadas: boolean;
 }

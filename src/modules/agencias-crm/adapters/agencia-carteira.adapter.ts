@@ -1,5 +1,8 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
-import type { MetricasCarteiraSst } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
+import type {
+  AgenciaRosterSst,
+  MetricasCarteiraSst,
+} from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
 import type {
   AgenciaCarteiraView,
   CanalVendas,
@@ -8,70 +11,45 @@ import type {
 
 const CATEGORIAS: CategoriaPremiacao[] = ["10K", "100K", "1M", "10M"];
 const CANAIS: CanalVendas[] = ["aereo", "terrestre", "ambos"];
-const STATUS_DADOS_FALTANTES = new Set(["em_analise", "em_complementar"]);
-
-// Sem fonte real de motivo de reprovação na listagem hoje — o dado existe
-// (AnaliseIaAgencia.motivo), mas ListarCadastrosUseCase não resolve essa
-// relação em lote (só usada no dossiê de uma agência por vez, ver
-// obterDetalhe). Mock só pra a coluna "Motivo" da aba Reprovadas não
-// nascer vazia; trocar por dado real é estender a query de listagem, não
-// mudar este adapter.
-const MOTIVOS_MOCK = [
-  "CNPJ com pendência na Receita Federal",
-  "Documentação societária incompleta",
-  "Score de crédito abaixo do mínimo",
-  "Duplicidade de cadastro (CNPJ já ativo)",
-  "Endereço não confirmado",
-  "Contrato social desatualizado",
-];
 
 export interface ExecutivoResumo {
+  id: string;
   nome: string;
   bases: string[];
-}
-
-// Um item já resolvido por ListarCadastrosUseCase (fonte real, mesma de
-// /cadastros) — só os campos que este adapter de fato usa.
-export interface AgenciaCarteiraRaw {
-  id: string;
-  razaoSocial: string;
-  cnpj: string;
-  status: string;
-  createdAt: Date;
-  executivoId: string | null;
-  executivoNome: string | null;
-  executivoGestor: string | null;
-  sicaCodigo: string | null; // real — chave de cruzamento com o SST (= codigo_empresa/codigo_cliente)
+  gestorNome: string | null;
 }
 
 // regiaoPorBase: sigla da Base -> região (derivada de Base.uf, real — ver
 // regiao-por-uf.util.ts), resolvida uma vez pelo loader e repassada aqui.
 //
+// promotorPorSica: Promotor.sica -> resumo do executivo, único jeito de
+// ligar o `codigoExecutivo` do SST à hierarquia local Executivo→Gestor
+// (que não existe no SST). Agência cujo executivo não tem Promotor local
+// correspondente ainda mostra o nome vindo do SST (item.nomeExecutivo),
+// só fica sem gestor/base/executivoId pra filtrar.
+//
 // metricasReaisPorSica: mapa do SST (agenciaCarteiraSstService.
-// obterMetricasCarteira(), indexado por sicaCodigo) ou `null` quando a
+// obterMetricasCarteira(), indexado por codigoEmpresa) ou `null` quando a
 // integração está desligada (sem SST_API_KEY) ou indisponível — nesse
-// caso TUDO cai no mock por hash, igual ao comportamento de antes desta
-// integração. Mesmo com o mapa presente, uma agência sem sicaCodigo ou
-// sem entrada nele (sem venda detectada em nenhum canal) também cai no
-// mock — é o fallback natural, não um caso de erro.
+// caso TUDO cai no mock por hash. Mesmo com o mapa presente, uma agência
+// sem venda detectada em nenhum canal também cai no mock — é o fallback
+// natural, não um caso de erro.
 export function montarAgenciaCarteiraView(
-  item: AgenciaCarteiraRaw,
-  executivoPorId: Map<string, ExecutivoResumo>,
+  item: AgenciaRosterSst,
+  promotorPorSica: Map<number, ExecutivoResumo>,
   regiaoPorBase: Map<string, string | null>,
   metricasReaisPorSica: Map<string, MetricasCarteiraSst> | null,
 ): AgenciaCarteiraView {
-  const seed = hashParaNumero(item.id);
-  const reprovadaOuInativa = item.status === "recusado";
-  const dadosFaltantes = STATUS_DADOS_FALTANTES.has(item.status);
+  const sicaCodigo = String(item.codigoEmpresa);
+  const seed = hashParaNumero(sicaCodigo);
+  const reprovadaOuInativa = item.status !== "ativo";
 
-  // Base "da agência" é melhor esforço, não dado real — mesma aproximação
-  // (primeira base do executivo) já usada em executivo-agencias.adapter.ts
-  // e gestor-agencias-tab.adapter.ts, já que Agencia não guarda a própria
-  // base (ver ListarCadastrosItem.executivoBase, sempre null).
-  const base = item.executivoId ? (executivoPorId.get(item.executivoId)?.bases[0] ?? null) : null;
+  const executivo =
+    item.codigoExecutivo !== null ? promotorPorSica.get(item.codigoExecutivo) : undefined;
+  const base = executivo?.bases[0] ?? null;
   const regiao = base ? (regiaoPorBase.get(base) ?? null) : null;
 
-  const metricasReais = item.sicaCodigo ? metricasReaisPorSica?.get(item.sicaCodigo) : undefined;
+  const metricasReais = metricasReaisPorSica?.get(sicaCodigo);
 
   const semVenda = seed % 10 === 0;
   const bilhetesMock = semVenda ? 0 : 5 + (seed % 400);
@@ -84,7 +62,7 @@ export function montarAgenciaCarteiraView(
 
   // real (SST, resumo-agrupado) quando `metricasReais` existe — ver
   // agencia-carteira.sst-service.ts; mock determinístico por hash como
-  // fallback (agência sem sicaCodigo, sem venda no SST, ou integração
+  // fallback (agência sem venda detectada no SST, ou integração
   // desligada).
   const bilhetes = metricasReais?.bilhetes ?? bilhetesMock;
   const vendasAno = metricasReais?.vendasAno ?? vendasAnoMock;
@@ -100,19 +78,19 @@ export function montarAgenciaCarteiraView(
   const limite = Math.round(vendasAno * (1.1 + ((seed >> 4) % 30) / 100));
 
   return {
-    id: item.id,
-    razaoSocial: item.razaoSocial,
+    id: sicaCodigo,
+    razaoSocial: item.nome,
     cnpj: item.cnpj,
     status: item.status,
-    dadosFaltantes,
+    // Sem fonte real hoje — o funil de onboarding deste app (que tinha
+    // esse conceito) não é mais a origem da listagem.
+    dadosFaltantes: false,
     reprovadaOuInativa,
-    executivoId: item.executivoId,
-    executivoNome: item.executivoNome,
-    gestorNome: item.executivoGestor,
+    executivoId: executivo?.id ?? null,
+    executivoNome: executivo?.nome ?? item.nomeExecutivo,
+    gestorNome: executivo?.gestorNome ?? null,
     base,
     regiao,
-    createdAt: item.createdAt.toISOString(),
-    motivo: reprovadaOuInativa ? (MOTIVOS_MOCK[seed % MOTIVOS_MOCK.length] ?? null) : null,
     // categoria/premiação: sem fonte real no SST (não existe endpoint de
     // faixa de premiação) — critério de negócio ainda não confirmado
     // pra derivar de vendasAno real, mock por hash até essa regra existir.
@@ -128,12 +106,12 @@ export function montarAgenciaCarteiraView(
 }
 
 export function montarAgenciasCarteiraViewList(
-  itens: AgenciaCarteiraRaw[],
-  executivoPorId: Map<string, ExecutivoResumo>,
+  itens: AgenciaRosterSst[],
+  promotorPorSica: Map<number, ExecutivoResumo>,
   regiaoPorBase: Map<string, string | null>,
   metricasReaisPorSica: Map<string, MetricasCarteiraSst> | null,
 ): AgenciaCarteiraView[] {
   return itens.map((item) =>
-    montarAgenciaCarteiraView(item, executivoPorId, regiaoPorBase, metricasReaisPorSica),
+    montarAgenciaCarteiraView(item, promotorPorSica, regiaoPorBase, metricasReaisPorSica),
   );
 }

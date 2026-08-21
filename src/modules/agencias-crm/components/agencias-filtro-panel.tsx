@@ -145,7 +145,6 @@ export function AgenciasFiltroPanel({
               { value: "vendasAno", label: "Vendas Ano (maior → menor)" },
               { value: "vendasMes", label: "Vendas Mês (maior → menor)" },
               { value: "razaoSocial", label: "Razão Social (A-Z)" },
-              { value: "createdAt", label: "Cadastro (mais recente)" },
               { value: "ultimaCompra", label: "Dias sem comprar (maior → menor)" },
             ]}
           />
