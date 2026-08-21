@@ -71,4 +71,8 @@ export interface AgenciasCarteiraFiltros {
   ocultarInativadas: boolean;
 }
 
-export const TAMANHO_PAGINA_AGENCIAS = 250;
+// Configurável pelo usuário no rodapé da tabela (AgenciasPaginacao) —
+// 20 por padrão pra abrir rápido mesmo com a carteira inteira em
+// memória; as opções maiores existem pra quem prefere rolar menos.
+export const TAMANHOS_PAGINA_AGENCIAS_PERMITIDOS = [20, 50, 100, 250] as const;
+export const TAMANHO_PAGINA_AGENCIAS_PADRAO: number = TAMANHOS_PAGINA_AGENCIAS_PERMITIDOS[0];

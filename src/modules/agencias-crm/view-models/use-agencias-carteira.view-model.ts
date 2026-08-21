@@ -7,7 +7,7 @@ import type {
   OpcaoFiltro,
   StatusTab,
 } from "@/modules/agencias-crm/types/agencia-carteira.types";
-import { TAMANHO_PAGINA_AGENCIAS } from "@/modules/agencias-crm/types/agencia-carteira.types";
+import { TAMANHO_PAGINA_AGENCIAS_PADRAO } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
 const FILTROS_INICIAIS: AgenciasCarteiraFiltros = {
   busca: "",
@@ -60,6 +60,15 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
   const [filtros, setFiltros] = useState<AgenciasCarteiraFiltros>(FILTROS_INICIAIS);
   const [painelFiltrosAberto, setPainelFiltrosAberto] = useState(false);
   const [pagina, setPagina] = useState(1);
+  const [tamanhoPagina, setTamanhoPaginaState] = useState(TAMANHO_PAGINA_AGENCIAS_PADRAO);
+
+  // Trocar o tamanho da página sempre volta pra página 1 — a página
+  // atual pode não existir mais no novo tamanho (ex.: pág. 5 de 20 itens
+  // não existe se o tamanho virar 250).
+  function setTamanhoPagina(tamanho: number) {
+    setTamanhoPaginaState(tamanho);
+    setPagina(1);
+  }
 
   function atualizarFiltro<K extends keyof AgenciasCarteiraFiltros>(
     chave: K,
@@ -185,11 +194,11 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     }));
   }
 
-  const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / TAMANHO_PAGINA_AGENCIAS));
+  const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / tamanhoPagina));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const agenciasDaPagina = agenciasFiltradas.slice(
-    (paginaAtual - 1) * TAMANHO_PAGINA_AGENCIAS,
-    paginaAtual * TAMANHO_PAGINA_AGENCIAS,
+    (paginaAtual - 1) * tamanhoPagina,
+    paginaAtual * tamanhoPagina,
   );
 
   const quantidadeFiltrosAtivos = Object.entries(filtros).filter(([chave, valor]) => {
@@ -219,5 +228,7 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     pagina: paginaAtual,
     totalPaginas,
     setPagina,
+    tamanhoPagina,
+    setTamanhoPagina,
   };
 }

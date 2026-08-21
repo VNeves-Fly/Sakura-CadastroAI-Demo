@@ -8,7 +8,6 @@ import { AgenciasCarteiraTabela } from "@/modules/agencias-crm/components/agenci
 import { AgenciasPaginacao } from "@/modules/agencias-crm/components/agencias-paginacao";
 import { AgenciaDetalheModal } from "@/modules/agencias-crm/components/detalhe/agencia-detalhe-modal";
 import { useAgenciasCarteiraViewModel } from "@/modules/agencias-crm/view-models/use-agencias-carteira.view-model";
-import { TAMANHO_PAGINA_AGENCIAS } from "@/modules/agencias-crm/types/agencia-carteira.types";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
 interface AgenciasListaViewProps {
@@ -38,6 +37,8 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
     pagina,
     totalPaginas,
     setPagina,
+    tamanhoPagina,
+    setTamanhoPagina,
   } = useAgenciasCarteiraViewModel(agencias);
 
   return (
@@ -82,13 +83,15 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
           ordenarDirecao={filtros.ordenarDirecao}
           onOrdenar={alternarOrdenacao}
           onAbrirDetalhe={(agenciaId) => setAgenciaSelecionadaId(agenciaId)}
-          offsetPagina={(pagina - 1) * TAMANHO_PAGINA_AGENCIAS}
+          offsetPagina={(pagina - 1) * tamanhoPagina}
         />
         <AgenciasPaginacao
           pagina={pagina}
           totalPaginas={totalPaginas}
           total={total}
           onMudarPagina={setPagina}
+          tamanhoPagina={tamanhoPagina}
+          onMudarTamanhoPagina={setTamanhoPagina}
         />
       </div>
 
