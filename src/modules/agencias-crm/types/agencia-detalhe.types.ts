@@ -77,21 +77,26 @@ export interface AgenciaDetalheDadosDocumentacao {
 }
 
 export interface AgenciaDetalheAntecedencia {
-  dias: number; // mock — não existe data de compra x data de embarque por bilhete no domínio hoje
-  bilhetes: number; // mock — mesmo total de vendas.aereoNacional/aereoInternacional.bilhetes
+  // mock — o SST tem data_emis/data_embarque por bilhete (/api/resumos/aereo),
+  // então essa métrica é tecnicamente viável; não implementada nesta
+  // integração (fora do escopo do plano original), fica como oportunidade.
+  dias: number;
+  bilhetes: number; // real (SST) quando vendasReais existe — mesmo total de vendas.aereoNacional/aereoInternacional.bilhetes
   mesesBase: number; // mock — nº de meses considerados (ano corrente até o mês atual)
 }
 
-// KPIs de topo do modal (SPEC 4.1, faixa de 4 cards acima das abas) — todo
-// mock determinístico: "antecedência" (compra x embarque) e "dias sem
-// comprar" não têm fonte real hoje (sem bilhete/reserva individual no
-// domínio). "dias sem comprar" replica a mesma fórmula da listagem
-// (agencia-carteira.adapter.ts) pra bater com o valor mostrado lá.
+// KPIs de topo do modal (SPEC 4.1, faixa de 4 cards acima das abas).
+// diasSemComprar/dataUltimaCompra vêm do SST real (última reserva
+// aérea/terrestre observada, ver agencia-detalhe.sst-service.ts) quando
+// a agência tem sicaCodigo e a integração está ligada; caem no mesmo
+// mock por hash da listagem (agencia-carteira.adapter.ts) como fallback.
+// "Antecedência" (compra x embarque) continua mock — ver comentário no
+// tipo acima.
 export interface AgenciaDetalheKpisTopo {
   antecedenciaNacional: AgenciaDetalheAntecedencia;
   antecedenciaInternacional: AgenciaDetalheAntecedencia;
-  diasSemComprar: number;
-  dataUltimaCompra: string | null;
+  diasSemComprar: number; // real (SST) — mock se sicaCodigo ausente
+  dataUltimaCompra: string | null; // real (SST) — mock se sicaCodigo ausente
 }
 
 export interface AgenciaDetalhePerfilComercial {
@@ -107,7 +112,7 @@ export interface AgenciaDetalhePerfilComercial {
   bancoConta: string | null; // real
   limiteFaturado: number; // mock
   limiteCartao: number; // mock
-  dataUltimaCompra: string | null; // mock
+  dataUltimaCompra: string | null; // real (SST) — mesmo valor de kpisTopo.dataUltimaCompra; mock se sicaCodigo ausente
   comissaoPct: number; // mock
   incentivoPct: number; // mock
   bloqCred: boolean; // mock
@@ -124,6 +129,10 @@ export interface TopRotaAgencia {
   rota: string;
   bilhetes: number;
   volume: number;
+  // Real (SST) quando vendasReais existe, mas sempre `false` nesse caso —
+  // /api/resumos/aereo não tem um flag nacional/internacional por trecho
+  // e não há tabela de aeroportos pra derivar isso barato aqui. Mock por
+  // hash (ver gerarTopRotas) continua variando o valor.
   internacional: boolean;
 }
 
@@ -158,6 +167,17 @@ export interface FaturaAgencia {
   valor: number;
 }
 
+// vendas: real (SST, ver agencia-detalhe.sst-service.ts) quando a
+// agência tem sicaCodigo e a integração está ligada — mock por hash
+// como fallback (sem sicaCodigo, sem venda detectada, ou integração
+// desligada), EXCETO riscoEmissao (score de risco de emissão não existe
+// no SST hoje — sem endpoint equivalente, continua mock, e nenhum
+// componente da UI consome esse campo hoje). mixAereoTerrestre e
+// resumoComparativo são sempre cálculo local (real ou mock) sobre os
+// volumes já resolvidos, nunca uma chamada própria ao SST. topRotas usa
+// uma amostra de 90 dias (não o ano inteiro) — ver comentário no
+// service. reservas/faturas mostram só os itens mais recentes (mesma
+// ordem de grandeza do mock anterior), não o histórico completo.
 export interface AgenciaDetalheVendas {
   riscoEmissao: {
     alto30d: number;

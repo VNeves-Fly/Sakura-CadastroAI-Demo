@@ -1,4 +1,5 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
+import type { MetricasCarteiraSst } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
 import type {
   AgenciaCarteiraView,
   CanalVendas,
@@ -40,14 +41,24 @@ export interface AgenciaCarteiraRaw {
   executivoId: string | null;
   executivoNome: string | null;
   executivoGestor: string | null;
+  sicaCodigo: string | null; // real — chave de cruzamento com o SST (= codigo_empresa/codigo_cliente)
 }
 
 // regiaoPorBase: sigla da Base -> região (derivada de Base.uf, real — ver
 // regiao-por-uf.util.ts), resolvida uma vez pelo loader e repassada aqui.
+//
+// metricasReaisPorSica: mapa do SST (agenciaCarteiraSstService.
+// obterMetricasCarteira(), indexado por sicaCodigo) ou `null` quando a
+// integração está desligada (sem SST_API_KEY) ou indisponível — nesse
+// caso TUDO cai no mock por hash, igual ao comportamento de antes desta
+// integração. Mesmo com o mapa presente, uma agência sem sicaCodigo ou
+// sem entrada nele (sem venda detectada em nenhum canal) também cai no
+// mock — é o fallback natural, não um caso de erro.
 export function montarAgenciaCarteiraView(
   item: AgenciaCarteiraRaw,
   executivoPorId: Map<string, ExecutivoResumo>,
   regiaoPorBase: Map<string, string | null>,
+  metricasReaisPorSica: Map<string, MetricasCarteiraSst> | null,
 ): AgenciaCarteiraView {
   const seed = hashParaNumero(item.id);
   const reprovadaOuInativa = item.status === "recusado";
@@ -60,13 +71,33 @@ export function montarAgenciaCarteiraView(
   const base = item.executivoId ? (executivoPorId.get(item.executivoId)?.bases[0] ?? null) : null;
   const regiao = base ? (regiaoPorBase.get(base) ?? null) : null;
 
+  const metricasReais = item.sicaCodigo ? metricasReaisPorSica?.get(item.sicaCodigo) : undefined;
+
   const semVenda = seed % 10 === 0;
-  const bilhetes = semVenda ? 0 : 5 + (seed % 400);
-  const vendasAno = semVenda ? 0 : ((seed % 900) + 20) * 10_000;
-  const vendasMes = semVenda ? 0 : Math.round(vendasAno * (0.05 + ((seed >> 2) % 10) / 100));
-  const ticketMedio = bilhetes > 0 ? Math.round(vendasAno / bilhetes) : 0;
+  const bilhetesMock = semVenda ? 0 : 5 + (seed % 400);
+  const vendasAnoMock = semVenda ? 0 : ((seed % 900) + 20) * 10_000;
+  const vendasMesMock = semVenda
+    ? 0
+    : Math.round(vendasAnoMock * (0.05 + ((seed >> 2) % 10) / 100));
+  const ticketMedioMock = bilhetesMock > 0 ? Math.round(vendasAnoMock / bilhetesMock) : 0;
+  const diasSemComprarMock = semVenda ? 90 + (seed % 300) : seed % 400;
+
+  // real (SST, resumo-agrupado) quando `metricasReais` existe — ver
+  // agencia-carteira.sst-service.ts; mock determinístico por hash como
+  // fallback (agência sem sicaCodigo, sem venda no SST, ou integração
+  // desligada).
+  const bilhetes = metricasReais?.bilhetes ?? bilhetesMock;
+  const vendasAno = metricasReais?.vendasAno ?? vendasAnoMock;
+  const vendasMes = metricasReais?.vendasMes ?? vendasMesMock;
+  const ticketMedio = metricasReais?.ticketMedio ?? ticketMedioMock;
+  const diasSemComprar = metricasReais?.diasSemComprar ?? diasSemComprarMock;
+  const canal = metricasReais?.canal ?? CANAIS[(seed >> 3) % CANAIS.length]!;
+
+  // limite: sem fonte real no SST (o único campo espelhado do SICA é
+  // limite de crédito de fatura, não limite de compra — mesmo achado
+  // documentado em executivo-dashboard.sst-service.ts) — mock sempre,
+  // calculado sobre o vendasAno já resolvido (real ou mock).
   const limite = Math.round(vendasAno * (1.1 + ((seed >> 4) % 30) / 100));
-  const diasSemComprar = semVenda ? 90 + (seed % 300) : seed % 400;
 
   return {
     id: item.id,
@@ -82,8 +113,11 @@ export function montarAgenciaCarteiraView(
     regiao,
     createdAt: item.createdAt.toISOString(),
     motivo: reprovadaOuInativa ? (MOTIVOS_MOCK[seed % MOTIVOS_MOCK.length] ?? null) : null,
+    // categoria/premiação: sem fonte real no SST (não existe endpoint de
+    // faixa de premiação) — critério de negócio ainda não confirmado
+    // pra derivar de vendasAno real, mock por hash até essa regra existir.
     categoria: semVenda ? null : CATEGORIAS[seed % CATEGORIAS.length]!,
-    canal: CANAIS[(seed >> 3) % CANAIS.length]!,
+    canal,
     bilhetes,
     ticketMedio,
     vendasMes,
@@ -97,6 +131,9 @@ export function montarAgenciasCarteiraViewList(
   itens: AgenciaCarteiraRaw[],
   executivoPorId: Map<string, ExecutivoResumo>,
   regiaoPorBase: Map<string, string | null>,
+  metricasReaisPorSica: Map<string, MetricasCarteiraSst> | null,
 ): AgenciaCarteiraView[] {
-  return itens.map((item) => montarAgenciaCarteiraView(item, executivoPorId, regiaoPorBase));
+  return itens.map((item) =>
+    montarAgenciaCarteiraView(item, executivoPorId, regiaoPorBase, metricasReaisPorSica),
+  );
 }

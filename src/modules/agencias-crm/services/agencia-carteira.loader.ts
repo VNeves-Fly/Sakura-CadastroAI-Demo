@@ -6,7 +6,30 @@ import {
   type ExecutivoResumo,
 } from "@/modules/agencias-crm/adapters/agencia-carteira.adapter";
 import { regiaoPorUf } from "@/modules/agencias-crm/utils/regiao-por-uf.util";
+import { usaSstReal } from "@/modules/agencias-crm/infrastructure/agencia-sst-client.util";
+import {
+  agenciaCarteiraSstService,
+  type MetricasCarteiraSst,
+} from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
+
+// Sem SST_API_KEY, ou se a chamada falhar, a listagem inteira segue
+// 100% mock (comportamento idêntico ao de antes desta integração) — não
+// derruba a página por causa do SST, mesmo padrão de comFallback usado
+// dentro de agencia-carteira.sst-service.ts, só que numa granularidade
+// maior (a seção inteira "métricas reais", não sub-seções).
+async function obterMetricasReaisOuNull(): Promise<Map<string, MetricasCarteiraSst> | null> {
+  if (!usaSstReal()) return null;
+  try {
+    return await agenciaCarteiraSstService.obterMetricasCarteira();
+  } catch (erro) {
+    console.error(
+      "[agencias-crm] Falha ao buscar métricas reais do SST — listagem segue 100% mock.",
+      erro,
+    );
+    return null;
+  }
+}
 
 // Carrega a carteira inteira de agências (real, via o mesmo motor de
 // /cadastros) e monta a view comercial (real + mock) — server-side.
@@ -19,10 +42,11 @@ import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-c
 // milhares de agências (a SPEC cita ~20 mil), essa listagem precisa migrar
 // pra paginação real no banco, como /cadastros já faz.
 export async function carregarAgenciasCarteira(): Promise<AgenciaCarteiraView[]> {
-  const [{ items }, promotores, bases] = await Promise.all([
+  const [{ items }, promotores, bases, metricasReaisPorSica] = await Promise.all([
     cadastroAdminController.listarCadastros({ todos: true }),
     atribuicoesAdminController.listarPromotores(),
     basesController.list(),
+    obterMetricasReaisOuNull(),
   ]);
 
   const executivoPorId = new Map<string, ExecutivoResumo>(
@@ -42,7 +66,13 @@ export async function carregarAgenciasCarteira(): Promise<AgenciaCarteiraView[]>
     executivoId: agencia.executivoId,
     executivoNome,
     executivoGestor,
+    sicaCodigo: agencia.sicaCodigo,
   }));
 
-  return montarAgenciasCarteiraViewList(itensBrutos, executivoPorId, regiaoPorBase);
+  return montarAgenciasCarteiraViewList(
+    itensBrutos,
+    executivoPorId,
+    regiaoPorBase,
+    metricasReaisPorSica,
+  );
 }

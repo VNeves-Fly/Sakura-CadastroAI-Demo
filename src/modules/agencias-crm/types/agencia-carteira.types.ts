@@ -4,10 +4,13 @@
 // esforço — primeira base do executivo, mesma aproximação já usada em
 // executivo-agencias.types.ts/gestor-agencias-tab.types.ts, já que Agencia
 // não guarda a própria base). Dados faltantes deriva do status (mesma
-// regra de gestor-agencias-tab.types.ts). O resto (categoria/premiação,
-// canal de vendas, bilhetes, ticket médio, vendas mês/ano, última compra,
-// limite, motivo de reprovação) não tem fonte real hoje — mock
-// determinístico via hash, documentado no adapter.
+// regra de gestor-agencias-tab.types.ts). Canal de vendas, bilhetes,
+// ticket médio, vendas mês/ano e última compra vêm do SST Service real
+// (ver agencia-carteira.sst-service.ts) quando a agência tem sicaCodigo
+// e a integração está ligada (SST_API_KEY configurada); caem em
+// mock determinístico via hash como fallback, documentado no adapter.
+// Categoria/premiação, limite e motivo de reprovação não têm fonte real
+// hoje — seguem mock, razão documentada no adapter.
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 export type CanalVendas = "aereo" | "terrestre" | "ambos";
 export type StatusTab = "todas" | "aprovadas" | "reprovadas_inativas";
@@ -26,14 +29,14 @@ export interface AgenciaCarteiraView {
   regiao: string | null; // real — derivada de Base.uf (ver regiao-por-uf.util.ts)
   createdAt: string; // real (ISO)
   motivo: string | null; // mock — sem fonte real de motivo de reprovação na listagem hoje (ver adapter)
-  categoria: CategoriaPremiacao | null; // mock
-  canal: CanalVendas; // mock
-  bilhetes: number; // mock
-  ticketMedio: number; // mock
-  vendasMes: number; // mock
-  vendasAno: number; // mock
-  diasSemComprar: number; // mock
-  limite: number; // mock
+  categoria: CategoriaPremiacao | null; // mock — sem fonte real de faixa de premiação no SST
+  canal: CanalVendas; // real (SST, resumo-agrupado aéreo+terrestre) — mock se sicaCodigo ausente
+  bilhetes: number; // real (SST) — mock se sicaCodigo ausente
+  ticketMedio: number; // real (SST) — mock se sicaCodigo ausente
+  vendasMes: number; // real (SST) — mock se sicaCodigo ausente
+  vendasAno: number; // real (SST) — mock se sicaCodigo ausente
+  diasSemComprar: number; // real (SST, data_ultima_venda) — mock se sicaCodigo ausente
+  limite: number; // mock — SICA só espelha limite de crédito de fatura, não limite de compra
 }
 
 export interface OpcaoFiltro {
