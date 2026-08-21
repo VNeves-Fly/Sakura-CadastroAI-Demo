@@ -239,6 +239,14 @@ export const cadastroAdminController = {
     return useCase.execute(id);
   },
 
+  // Resolve o cadastro local a partir do CNPJ — usado por listagens cuja
+  // identidade vem de fora deste app (roster do SST em /crm/agencias e na
+  // aba Agências do executivo), que não têm o id local diretamente (ver
+  // /api/agencias-crm/[id]/route.ts).
+  buscarPorCnpj(cnpj: string) {
+    return agenciaRepository.findByCnpj(cnpj);
+  },
+
   // Log de eventos "cliente enviou algo novo" (mensagem/documento — ver
   // ReceberMensagemWhatsAppUseCase e ReenviarDocumentoUseCase) — dossiê lê
   // isso pra saber o que mudou desde a última vez que quem atendia viu a

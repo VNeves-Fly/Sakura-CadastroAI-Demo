@@ -5,7 +5,7 @@ import type {
   AgenciaCarteiraView,
   StatusTab,
 } from "@/modules/agencias-crm/types/agencia-carteira.types";
-import { TAMANHO_PAGINA_AGENCIAS } from "@/modules/agencias-crm/types/agencia-carteira.types";
+import { TAMANHO_PAGINA_AGENCIAS_PADRAO } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
 // Atalho textual da busca (SPEC seção 2.3) — só "críticos" tem dado mock
 // pra se apoiar hoje (paradas +90d); o resto do texto é busca literal
@@ -19,12 +19,22 @@ export type TopVendas = "vendasAno" | "vendasMes";
 // coluna (headers viram indicadores estáticos, ver agencias-carteira-
 // tabela.tsx), só busca + 2 abas de status + toggle "Top vendas" Ano/Mês.
 // Paginação foi mantida por pedido explícito do usuário (556+ agências
-// reais não cabem numa única renderização).
+// reais não cabem numa única renderização), com tamanho de página
+// configurável (AgenciasPaginacao).
 export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
   const [statusTab, setStatusTab] = useState<StatusTab>("ativas");
   const [busca, setBusca] = useState("");
   const [topVendas, setTopVendas] = useState<TopVendas>("vendasAno");
   const [pagina, setPagina] = useState(1);
+  const [tamanhoPagina, setTamanhoPaginaState] = useState(TAMANHO_PAGINA_AGENCIAS_PADRAO);
+
+  // Trocar o tamanho da página sempre volta pra página 1 — a página
+  // atual pode não existir mais no novo tamanho (ex.: pág. 5 de 20 itens
+  // não existe se o tamanho virar 250).
+  function setTamanhoPagina(tamanho: number) {
+    setTamanhoPaginaState(tamanho);
+    setPagina(1);
+  }
 
   function mudarStatusTab(valor: StatusTab) {
     setStatusTab(valor);
@@ -72,11 +82,11 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     return [...filtradas].sort((a, b) => b[topVendas] - a[topVendas]);
   }, [agencias, statusTab, busca, topVendas]);
 
-  const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / TAMANHO_PAGINA_AGENCIAS));
+  const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / tamanhoPagina));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const agenciasDaPagina = agenciasFiltradas.slice(
-    (paginaAtual - 1) * TAMANHO_PAGINA_AGENCIAS,
-    paginaAtual * TAMANHO_PAGINA_AGENCIAS,
+    (paginaAtual - 1) * tamanhoPagina,
+    paginaAtual * tamanhoPagina,
   );
 
   return {
@@ -92,5 +102,7 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     pagina: paginaAtual,
     totalPaginas,
     setPagina,
+    tamanhoPagina,
+    setTamanhoPagina,
   };
 }

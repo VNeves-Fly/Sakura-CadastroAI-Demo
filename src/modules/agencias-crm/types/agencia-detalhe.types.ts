@@ -1,11 +1,12 @@
-// Modal de Detalhe da Agência (SPEC_AGENCIAS_SAKURA.md, seção 4). Campos
+// Página de Detalhe da Agência (SPEC_AGENCIAS_SAKURA.md, seção 4). Campos
 // marcados "real" abaixo vêm de Agencia/DadosReceita/RepresentanteLegal/
 // CadastroComplementar/AnaliseIaAgencia (mesmas fontes do dossiê de
 // /cadastros/:id, via cadastroAdminController.obterDetalhe +
-// obterDadosReceita). O bloco "vendas" inteiro, "limites & comercial" e o
-// "risco de emissões" não têm fonte real hoje (não existe reserva/bilhete/
-// fatura/limite de crédito modelado no domínio — ver exploração prévia) e
-// são mock determinístico, documentado no adapter.
+// obterDadosReceita), ou do SST (bloco "vendas", ver
+// agencia-detalhe.sst-service.ts) quando a agência tem sicaCodigo e a
+// integração está ligada. "Limites & comercial" não tem fonte real hoje
+// (não existe limite de crédito modelado no domínio) e segue mock
+// determinístico, documentado no adapter.
 
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 
@@ -89,7 +90,7 @@ export interface AgenciaDetalhePerfilComercial {
   bancoConta: string | null; // real
   limiteFaturado: number; // mock
   limiteCartao: number; // mock
-  dataUltimaCompra: string | null; // mock
+  dataUltimaCompra: string | null; // real (SST) — mock se sicaCodigo ausente
   comissaoPct: number; // mock
   incentivoPct: number; // mock
   bloqCred: boolean; // mock
@@ -108,6 +109,11 @@ export interface FaturaAgencia {
   valor: number;
 }
 
+// vendas: real (SST, ver agencia-detalhe.sst-service.ts) quando a
+// agência tem sicaCodigo e a integração está ligada — mock por hash
+// como fallback (sem sicaCodigo, sem venda detectada, ou integração
+// desligada). topCompanhias/faturas mostram só os itens mais recentes
+// (mesma ordem de grandeza do mock anterior), não o histórico completo.
 export interface AgenciaDetalheVendas {
   aereoNacional: { volume: number; bilhetes: number; pctAereo: number };
   aereoInternacional: { volume: number; bilhetes: number; pctAereo: number };

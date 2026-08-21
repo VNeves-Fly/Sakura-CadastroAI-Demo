@@ -3,6 +3,7 @@ import { labelStatus, classesBadgeStatus } from "@/modules/admin/utils/status-ca
 import { tempoDecorrido } from "@/modules/agencias-crm/utils/tempo-decorrido.util";
 import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
+import type { VendasReaisSst } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
 import type {
   AgenciaDetalheView,
   CategoriaPremiacao,
@@ -82,23 +83,46 @@ export function montarAgenciaDetalheView(
   detalhe: AgenciaDetalhe,
   dadosReceita: DadosReceita | null,
   executivoContexto: ExecutivoContexto,
+  // real (SST, agencia-detalhe.sst-service.ts) quando a agência tem
+  // sicaCodigo e a integração está ligada — `null` quando desligada/sem
+  // sicaCodigo, e todo o bloco "vendas" cai no mock por hash de antes
+  // desta integração.
+  vendasReais: VendasReaisSst | null = null,
 ): AgenciaDetalheView {
   const agencia = detalhe.agencia;
   const base = hashParaNumero(agencia.id);
   const semVenda = base % 12 === 0;
   const categoria = semVenda ? null : CATEGORIAS[base % CATEGORIAS.length]!;
 
-  const volumeAno = semVenda ? 0 : ((base % 900) + 30) * 15_000;
-  const bilhetesAno = semVenda ? 0 : 30 + (base % 600);
-  const volumeNacional = Math.round(volumeAno * 0.55);
-  const volumeInternacional = Math.round(volumeAno * 0.4);
-  const volumeTerrestre = volumeAno - volumeNacional - volumeInternacional;
-  const bilhetesNacional = Math.round(bilhetesAno * 0.72);
-  const bilhetesInternacional = bilhetesAno - bilhetesNacional;
-  const diasSemComprar = semVenda ? 90 + (base % 300) : base % 400;
+  const volumeAnoMock = semVenda ? 0 : ((base % 900) + 30) * 15_000;
+  const bilhetesAnoMock = semVenda ? 0 : 30 + (base % 600);
+  const volumeNacionalMock = Math.round(volumeAnoMock * 0.55);
+  const volumeInternacionalMock = Math.round(volumeAnoMock * 0.4);
+  const volumeTerrestreMock = volumeAnoMock - volumeNacionalMock - volumeInternacionalMock;
+  const bilhetesNacionalMock = Math.round(bilhetesAnoMock * 0.72);
+  const bilhetesInternacionalMock = bilhetesAnoMock - bilhetesNacionalMock;
+  const diasSemComprarMock = semVenda ? 90 + (base % 300) : base % 400;
   const dataUltimaCompraMock = semVenda
     ? null
-    : new Date(Date.now() - diasSemComprar * 86_400_000).toISOString();
+    : new Date(Date.now() - diasSemComprarMock * 86_400_000).toISOString();
+
+  // real (SST, agencia-detalhe.sst-service.ts) quando vendasReais existe;
+  // mock determinístico por hash como fallback (sem sicaCodigo, sem
+  // venda detectada, ou integração desligada).
+  const volumeNacional = vendasReais?.aereoNacional.volume ?? volumeNacionalMock;
+  const volumeInternacional = vendasReais?.aereoInternacional.volume ?? volumeInternacionalMock;
+  const volumeTerrestre = vendasReais?.terrestre.volume ?? volumeTerrestreMock;
+  const bilhetesNacional = vendasReais?.aereoNacional.bilhetes ?? bilhetesNacionalMock;
+  const bilhetesInternacional =
+    vendasReais?.aereoInternacional.bilhetes ?? bilhetesInternacionalMock;
+  const bilhetesAno = bilhetesNacional + bilhetesInternacional;
+  const volumeAno = volumeNacional + volumeInternacional + volumeTerrestre;
+  const servicosTerrestre = vendasReais?.terrestre.servicos ?? Math.round(bilhetesAno * 0.08);
+  // `||`, não `??`: uma data real vinda do SST nunca é string vazia, mas
+  // uma agência só-terrestre sem venda detectável pode, em tese, chegar
+  // aqui com "" (ver agencia-carteira.sst-service.ts) — trata como
+  // "sem dado real" e cai no mock, igual a receber null/undefined.
+  const dataUltimaCompra = vendasReais?.dataUltimaCompra || dataUltimaCompraMock;
 
   const socios = detalhe.representantesLegais.map((representante) => ({
     id: representante.id,
@@ -191,7 +215,7 @@ export function montarAgenciaDetalheView(
       bancoConta: detalhe.complementar?.bancoConta ?? null,
       limiteFaturado: Math.round(volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
       limiteCartao: Math.round(volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
-      dataUltimaCompra: dataUltimaCompraMock,
+      dataUltimaCompra,
       comissaoPct: 0.5 + ((base >> 2) % 30) / 10,
       incentivoPct: (base >> 5) % 10 === 0 ? 1 + ((base >> 7) % 20) / 10 : 0,
       bloqCred: base % 20 === 0,
@@ -209,14 +233,15 @@ export function montarAgenciaDetalheView(
       },
       terrestre: {
         volume: volumeTerrestre,
-        servicos: Math.round(bilhetesAno * 0.08),
+        servicos: servicosTerrestre,
         pctMix: volumeAno > 0 ? Math.round((volumeTerrestre / volumeAno) * 100) : 0,
       },
       volumeTotalAno: volumeAno,
       ticketMedioAereo:
-        bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0,
-      topCompanhias: gerarTopCompanhias(base),
-      faturas: gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
+        vendasReais?.ticketMedioAereo ??
+        (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0),
+      topCompanhias: vendasReais?.topCompanhias ?? gerarTopCompanhias(base),
+      faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
     },
   };
 }

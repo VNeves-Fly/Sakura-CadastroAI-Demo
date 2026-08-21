@@ -55,7 +55,9 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       sortValue: (a) => a.nome,
       render: (a) => (
         <Link
-          href={`/crm/agencias/${a.id}`}
+          // CNPJ, não `a.id` (código SST) — mesmo motivo de
+          // agencias-carteira-tabela.tsx em /crm/agencias.
+          href={`/crm/agencias/${a.cnpj}`}
           className="text-primary text-left font-medium hover:underline"
           onClick={(evento) => evento.stopPropagation()}
         >

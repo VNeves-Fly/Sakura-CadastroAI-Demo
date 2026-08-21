@@ -5,7 +5,6 @@ import { AgenciasToolbar } from "@/modules/agencias-crm/components/agencias-tool
 import { AgenciasCarteiraTabela } from "@/modules/agencias-crm/components/agencias-carteira-tabela";
 import { AgenciasPaginacao } from "@/modules/agencias-crm/components/agencias-paginacao";
 import { useAgenciasCarteiraViewModel } from "@/modules/agencias-crm/view-models/use-agencias-carteira.view-model";
-import { TAMANHO_PAGINA_AGENCIAS } from "@/modules/agencias-crm/types/agencia-carteira.types";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
 interface AgenciasListaViewProps {
@@ -32,6 +31,8 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
     pagina,
     totalPaginas,
     setPagina,
+    tamanhoPagina,
+    setTamanhoPagina,
   } = useAgenciasCarteiraViewModel(agencias);
 
   return (
@@ -53,13 +54,15 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
       <div className="border-border bg-card overflow-hidden rounded-2xl border">
         <AgenciasCarteiraTabela
           agencias={agenciasDaPagina}
-          offsetPagina={(pagina - 1) * TAMANHO_PAGINA_AGENCIAS}
+          offsetPagina={(pagina - 1) * tamanhoPagina}
         />
         <AgenciasPaginacao
           pagina={pagina}
           totalPaginas={totalPaginas}
           total={total}
           onMudarPagina={setPagina}
+          tamanhoPagina={tamanhoPagina}
+          onMudarTamanhoPagina={setTamanhoPagina}
         />
       </div>
     </div>

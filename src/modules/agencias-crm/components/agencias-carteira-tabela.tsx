@@ -54,7 +54,11 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
             return (
               <div
                 key={agencia.id}
-                onClick={() => router.push(`/crm/agencias/${agencia.id}`)}
+                // CNPJ, não `agencia.id` (código SST) — a página de
+                // detalhe resolve o cadastro local por CNPJ, já que a
+                // identidade desta listagem vem do roster do SST, não da
+                // tabela `Agencia` (ver page.tsx de /crm/agencias/[id]).
+                onClick={() => router.push(`/crm/agencias/${agencia.cnpj}`)}
                 className={cn(
                   "border-border grid cursor-pointer items-center border-b px-2 py-3.5 text-[13px] text-[#2A2A40] transition-colors hover:bg-[#FCF3F8]",
                   par ? "bg-[#FBFBFE]" : "bg-background",
