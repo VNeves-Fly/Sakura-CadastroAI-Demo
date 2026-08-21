@@ -18,21 +18,14 @@ const CORES: Record<SegmentoSaude["chave"], string> = {
   inativas: "text-destructive bg-destructive/5 border-destructive/20 hover:bg-destructive/10",
 };
 
-const COR_BARRA: Record<SegmentoSaude["chave"], string> = {
-  ativas: "bg-success",
-  potenciais: "bg-info",
-  ociosas: "bg-warning",
-  inativas: "bg-muted-foreground/40",
-};
-
-// Card "Saúde da carteira" — todos os valores são mock-gerados (segmentação,
-// quantidades, percentuais derivados de hash do gestor ID); nomes/CNPJs das
-// agências nos modais são também mock. Mesmo componente do dashboard de
-// Executivo, com uma barra segmentada acima dos 4 cards mostrando a proporção
-// de cada grupo de uma vez só (SPEC pedida pelo usuário, 2026-08-17).
+// Card "Saúde da carteira" (SPEC 3.10) — todos os valores são mock-gerados
+// (segmentação, quantidades, percentuais derivados de hash do gestor ID);
+// nomes/CNPJs das agências nos modais são também mock. Pixel-idêntico ao
+// mesmo card do dashboard de Executivo — a barra segmentada que existia
+// aqui antes foi removida (não faz parte do layout aprovado, pedido do
+// usuário, 2026-08-21).
 export function GestorSaudeCarteiraCard({ segmentos }: GestorSaudeCarteiraCardProps) {
   const [segmentoAberto, setSegmentoAberto] = useState<SegmentoSaude | null>(null);
-  const totalAprovadas = segmentos.reduce((total, segmento) => total + segmento.quantidade, 0);
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
@@ -40,21 +33,10 @@ export function GestorSaudeCarteiraCard({ segmentos }: GestorSaudeCarteiraCardPr
         <div>
           <h3 className="text-foreground text-sm font-semibold">Saúde da carteira</h3>
           <p className="text-muted-foreground text-xs">
-            <SensitiveValue value={totalAprovadas} /> agências aprovadas segmentadas em 4 grupos
-            para priorizar ação
+            Segmenta as agências aprovadas em 4 grupos para priorizar ações.
           </p>
         </div>
         <MockBadge />
-      </div>
-
-      <div className="bg-muted mt-4 flex h-2 w-full overflow-hidden rounded-full">
-        {segmentos.map((segmento) => (
-          <span
-            key={segmento.chave}
-            className={COR_BARRA[segmento.chave]}
-            style={{ width: `${segmento.pct}%` }}
-          />
-        ))}
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -63,7 +45,10 @@ export function GestorSaudeCarteiraCard({ segmentos }: GestorSaudeCarteiraCardPr
             key={segmento.chave}
             type="button"
             onClick={() => setSegmentoAberto(segmento)}
-            className={cn("rounded-xl border p-4 text-left transition", CORES[segmento.chave])}
+            className={cn(
+              "rounded-xl border p-4 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-md",
+              CORES[segmento.chave],
+            )}
           >
             <span className="text-[11px] font-semibold tracking-wide uppercase">
               {segmento.label}

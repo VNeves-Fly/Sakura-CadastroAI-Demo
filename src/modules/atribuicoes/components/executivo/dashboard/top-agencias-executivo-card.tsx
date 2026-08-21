@@ -1,27 +1,27 @@
 import type { LucideIcon } from "lucide-react";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
-import { formatarMoedaAbreviada } from "@/modules/gestores/utils/formatar-moeda.util";
+import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
-import type { RankingAgencia } from "@/modules/gestores/types/gestor-detalhe.types";
+import type { RankingAgenciaHoje } from "@/modules/atribuicoes/utils/canal-resumo-mock.util";
 
-interface GestorTopAgenciasCardProps {
+interface TopAgenciasExecutivoCardProps {
   icon: LucideIcon;
   titulo: string;
   subtitulo: string;
-  itens: RankingAgencia[];
+  itens: RankingAgenciaHoje[];
   iconLinhaTema: "rosa" | "azul";
 }
 
-// Ranking "Top 10 Agências" (SPEC 3.9) — 3 instâncias na tela (Hoje/Aéreo/
-// Terrestre), mesmo componente/lógica de TopAgenciasExecutivoCard do
-// dashboard de Executivo (duplicado por isolamento de módulo).
-export function GestorTopAgenciasCard({
+// Ranking "Top 10 Agências" (SPEC 3.8) — 3 instâncias na tela (Hoje/Aéreo/
+// Terrestre). Mock de apresentação (ver canal-resumo-mock.util.ts) — o
+// nome da agência é real, valor/quantidade não têm fonte no SST hoje.
+export function TopAgenciasExecutivoCard({
   icon: Icon,
   titulo,
   subtitulo,
   itens,
   iconLinhaTema,
-}: GestorTopAgenciasCardProps) {
+}: TopAgenciasExecutivoCardProps) {
   return (
     <div className="border-border bg-card flex flex-col rounded-2xl border p-4.5">
       <div className="flex items-start gap-2.5">
@@ -59,11 +59,9 @@ export function GestorTopAgenciasCard({
                 <span className="text-foreground block text-[13.5px] font-bold">
                   <SensitiveValue value={formatarMoedaAbreviada(item.valor)} />
                 </span>
-                {item.quantidade !== undefined ? (
-                  <span className="text-muted-foreground block text-xs">
-                    <SensitiveValue value={item.quantidade} />
-                  </span>
-                ) : null}
+                <span className="text-muted-foreground block text-xs">
+                  <SensitiveValue value={item.quantidade} />
+                </span>
               </span>
             </li>
           ))}

@@ -26,12 +26,13 @@ const PERIODOS: { chave: PeriodoVendas; label: string }[] = [
   { chave: "ano", label: "Ano" },
 ];
 
-// MultiFilterToolbar (SPEC seção 6.1) — 4 selects na primeira linha,
+// MultiFilterToolbar (SPEC seção 6.1) — 3 selects na primeira linha,
 // busca + contador + período em pills na segunda. "Dados Faltantes" e
-// "Inativadas Sakura" foram removidos (2026-08-20): eram sobre o funil de
-// cadastro/onboarding deste app (`Agencia.status`), que não existe mais
-// nesta aba — a lista agora vem do roster do SST (ver
-// executivo-agencias.adapter.ts).
+// "Inativadas Sakura" foram removidos em 2026-08-20 (eram sobre o funil de
+// cadastro/onboarding deste app, que não existe mais nesta aba — a lista
+// agora vem do roster do SST, ver executivo-agencias.adapter.ts);
+// "Premiação" removido em 2026-08-21 (pedido do usuário) — a coluna
+// "Categoria" continua na tabela, só não filtra mais por ela.
 export function AgenciasFiltrosToolbar({
   filtros,
   onAtualizarFiltro,
@@ -39,7 +40,7 @@ export function AgenciasFiltrosToolbar({
 }: AgenciasFiltrosToolbarProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Campo label="Canal de Vendas">
           <SelectField
             value={filtros.canalVendas}
@@ -51,21 +52,6 @@ export function AgenciasFiltrosToolbar({
               { value: "aereo", label: "Só aéreo" },
               { value: "terrestre", label: "Só terrestre" },
               { value: "ambos", label: "Ambos os canais" },
-            ]}
-          />
-        </Campo>
-        <Campo label="Premiação">
-          <SelectField
-            value={filtros.premiacao}
-            onValueChange={(v) =>
-              onAtualizarFiltro("premiacao", (v as typeof filtros.premiacao) ?? "todas")
-            }
-            options={[
-              { value: "todas", label: "Todas as faixas" },
-              { value: "10K", label: "10K" },
-              { value: "100K", label: "100K" },
-              { value: "1M", label: "1M" },
-              { value: "10M", label: "10M" },
             ]}
           />
         </Campo>
