@@ -1,6 +1,9 @@
 import type { PrismaClient, ContratoAssinatura as ContratoAssinaturaRecord } from "@prisma/client";
 import { ContratoAssinatura } from "@/modules/cadastro/domain/entities/contrato-assinatura.entity";
-import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import type {
+  ContratoAssinaturaRepository,
+  ContratoPendenteGestor,
+} from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 
 export class PrismaContratoAssinaturaRepository implements ContratoAssinaturaRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -52,6 +55,23 @@ export class PrismaContratoAssinaturaRepository implements ContratoAssinaturaRep
       where: { contratoId, email },
       data: { removidoDoDocumentoEm: removido ? new Date() : null },
     });
+  }
+
+  async findPendentesPorEmail(email: string): Promise<ContratoPendenteGestor[]> {
+    const records = await this.prisma.contratoAssinatura.findMany({
+      where: {
+        email: { equals: email, mode: "insensitive" },
+        assinadoEm: null,
+        removidoDoDocumentoEm: null,
+      },
+      include: { contrato: { include: { agencia: true } } },
+    });
+
+    return records.map((record) => ({
+      contratoId: record.contratoId,
+      agenciaId: record.contrato.agenciaId,
+      razaoSocial: record.contrato.agencia.razaoSocial,
+    }));
   }
 
   private toDomain(record: ContratoAssinaturaRecord): ContratoAssinatura {

@@ -46,6 +46,7 @@ function criarMocks(documento: Documento) {
     criarContrato: jest.fn(),
     criarContratoEAvancarStatus: jest.fn(),
     atualizarStatusContrato: jest.fn(),
+    atualizarGateBiometria: jest.fn(),
     marcarAtualizacaoComoVista: jest.fn(),
     marcarInfoPendente: jest.fn(),
     desmarcarInfoPendente: jest.fn(),

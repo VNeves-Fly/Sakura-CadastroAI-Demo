@@ -193,9 +193,16 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       };
     }
 
+    // Fluxo paralelo de biometria facial (Legitimuz, ver docs/legitimuz/):
+    // não existe mais "aprovação do time de cadastro" pra validar — não há
+    // evidência de assinatura pra validar (docauthandselfie/videoselfie
+    // nem são pedidos nesse fluxo), então pula aguardando_validacao
+    // inteira e vai direto pra análise de crédito (SICA/TravelLink).
     await this.agenciaRepository.atualizarStatus(
       referencia.agenciaId,
-      STATUS_AGUARDANDO_VALIDACAO,
+      agencia?.agencia.gateBiometriaAtivo
+        ? STATUS_AGUARDANDO_CADASTRAMENTO
+        : STATUS_AGUARDANDO_VALIDACAO,
       {
         usuarioEmail: input.email ?? null,
         origem: "sistema - d4sign",
@@ -238,9 +245,15 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
     // não tiver avançado sozinha via os "4" individuais.
     const contextoWebhook = { usuarioEmail: null, origem: "sistema - d4sign" };
     if (statusAtual === STATUS_AGUARDANDO_ASSINATURA) {
+      // Mesmo pulo de aguardando_validacao explicado em
+      // processarAssinaturaIndividual — aqui é só o caminho de "alcançar"
+      // quando o '4' individual do último sócio se perdeu e só o '1' final
+      // chegou.
       await this.agenciaRepository.atualizarStatus(
         referencia.agenciaId,
-        STATUS_AGUARDANDO_VALIDACAO,
+        agencia?.agencia.gateBiometriaAtivo
+          ? STATUS_AGUARDANDO_CADASTRAMENTO
+          : STATUS_AGUARDANDO_VALIDACAO,
         contextoWebhook,
       );
     } else if (statusAtual === STATUS_AGUARDANDO_VALIDACAO) {

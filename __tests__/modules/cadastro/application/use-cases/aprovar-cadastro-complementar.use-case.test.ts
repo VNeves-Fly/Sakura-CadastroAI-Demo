@@ -16,6 +16,7 @@ import type { StatusDocumento } from "@/modules/cadastro/domain/enums";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { DecisaoHumanaRepository } from "@/modules/cadastro/domain/repositories/decisao-humana-repository";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -53,6 +54,7 @@ function agenciaFake(status: string): Agencia {
     infoPendente: false,
     infoPendenteRemovidoPor: null,
     infoPendenteRemovidoEm: null,
+    gateBiometriaAtivo: false,
   });
 }
 
@@ -185,6 +187,7 @@ function criarContratoAssinaturaRepositoryFake(
     registrarDestinatario: jest.fn(),
     findByContratoId: jest.fn().mockResolvedValue([]),
     marcarRemocaoDoDocumento: jest.fn(),
+    findPendentesPorEmail: jest.fn(),
     ...overrides,
   };
 }
@@ -194,6 +197,11 @@ interface Deps {
   contratoAssinaturaService: ContratoAssinaturaService;
   decisaoHumanaRepository: DecisaoHumanaRepository;
   contratoAssinaturaRepository: ContratoAssinaturaRepository;
+  iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase;
+}
+
+function criarIniciarVerificacaoBiometricaFake(): IniciarVerificacaoBiometricaUseCase {
+  return { execute: jest.fn() } as unknown as IniciarVerificacaoBiometricaUseCase;
 }
 
 function criarUseCase(overrides: Partial<Deps> = {}) {
@@ -202,6 +210,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     contratoAssinaturaService: criarContratoAssinaturaFake(),
     decisaoHumanaRepository: criarDecisaoHumanaFake(),
     contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake(),
+    iniciarVerificacaoBiometricaUseCase: criarIniciarVerificacaoBiometricaFake(),
     ...overrides,
   };
 
@@ -210,6 +219,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.contratoAssinaturaService,
     deps.decisaoHumanaRepository,
     deps.contratoAssinaturaRepository,
+    deps.iniciarVerificacaoBiometricaUseCase,
   );
 
   return { useCase, ...deps };
@@ -218,6 +228,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
 const INPUT: AprovarCadastroComplementarInput = {
   id: "agencia-1",
   analistaEmail: "analista@example.com",
+  baseUrl: "https://example.com",
 };
 
 describe("AprovarCadastroComplementarUseCase", () => {

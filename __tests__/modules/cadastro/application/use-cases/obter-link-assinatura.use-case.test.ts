@@ -29,6 +29,7 @@ function fakeContratoAssinaturaRepository(
     registrarDestinatario: jest.fn(),
     findByContratoId: jest.fn().mockResolvedValue([]),
     marcarRemocaoDoDocumento: jest.fn(),
+    findPendentesPorEmail: jest.fn(),
     ...overrides,
   };
 }

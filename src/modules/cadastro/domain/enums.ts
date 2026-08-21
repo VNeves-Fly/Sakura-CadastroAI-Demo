@@ -15,6 +15,8 @@ export type StatusAgencia =
 export type StatusContrato =
   "aguardando_assinatura" | "assinado_agencia" | "assinado" | "cancelado";
 
+export type StatusBiometriaVerificacao = "pendente" | "aprovado" | "reprovado" | "analise_manual";
+
 export type OrigemGeracaoContrato = "ia" | "humano" | "externo";
 
 export type TipoDocumento =

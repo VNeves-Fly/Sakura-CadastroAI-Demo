@@ -23,6 +23,7 @@ import type { DadosReceitaRepository } from "@/modules/cadastro/domain/repositor
 import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories/documento-repository";
 import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -50,7 +51,7 @@ const ANALISE_VAZIA: DocumentAnalysisResultado = {
   comparacaoOficial: null,
 };
 
-function agenciaFake(status: string): Agencia {
+function agenciaFake(status: string, gateBiometriaAtivo = false): Agencia {
   return Agencia.create({
     id: "agencia-1",
     razaoSocial: "Empresa Teste Ltda",
@@ -76,6 +77,7 @@ function agenciaFake(status: string): Agencia {
     infoPendente: false,
     infoPendenteRemovidoPor: null,
     infoPendenteRemovidoEm: null,
+    gateBiometriaAtivo,
   });
 }
 
@@ -242,6 +244,11 @@ interface Deps {
   documentoRepository: DocumentoRepository;
   sstService: SstService;
   contratoAssinaturaRepository: ContratoAssinaturaRepository;
+  iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase;
+}
+
+function criarIniciarVerificacaoBiometricaFake(): IniciarVerificacaoBiometricaUseCase {
+  return { execute: jest.fn() } as unknown as IniciarVerificacaoBiometricaUseCase;
 }
 
 function criarContratoAssinaturaRepositoryFake(
@@ -252,6 +259,7 @@ function criarContratoAssinaturaRepositoryFake(
     registrarDestinatario: jest.fn(),
     findByContratoId: jest.fn().mockResolvedValue([]),
     marcarRemocaoDoDocumento: jest.fn(),
+    findPendentesPorEmail: jest.fn(),
     ...overrides,
   };
 }
@@ -287,6 +295,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     documentoRepository: criarDocumentoRepositoryFake(),
     sstService: criarSstServiceFake(),
     contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake(),
+    iniciarVerificacaoBiometricaUseCase: criarIniciarVerificacaoBiometricaFake(),
     ...overrides,
   };
 
@@ -299,6 +308,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.documentoRepository,
     deps.sstService,
     deps.contratoAssinaturaRepository,
+    deps.iniciarVerificacaoBiometricaUseCase,
   );
 
   return { useCase, ...deps };
@@ -310,7 +320,9 @@ describe("AnalisarCadastroUseCase", () => {
       agenciaRepository: criarRepositorioFake({ obterDetalhe: jest.fn().mockResolvedValue(null) }),
     });
 
-    await expect(useCase.execute({ agenciaId: "inexistente" })).resolves.toBeUndefined();
+    await expect(
+      useCase.execute({ agenciaId: "inexistente", baseUrl: "https://example.com" }),
+    ).resolves.toBeUndefined();
     expect(documentAnalysisService.analisar).not.toHaveBeenCalled();
   });
 
@@ -321,7 +333,9 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await expect(useCase.execute({ agenciaId: "agencia-1" })).resolves.toBeUndefined();
+    await expect(
+      useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" }),
+    ).resolves.toBeUndefined();
     expect(documentAnalysisService.analisar).not.toHaveBeenCalled();
   });
 
@@ -343,7 +357,9 @@ describe("AnalisarCadastroUseCase", () => {
           }),
         });
 
-      await expect(useCase.execute({ agenciaId: "agencia-1" })).rejects.toThrow(ConflictError);
+      await expect(
+        useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" }),
+      ).rejects.toThrow(ConflictError);
       expect(documentAnalysisService.analisar).not.toHaveBeenCalled();
       expect(analiseIaService.avaliar).not.toHaveBeenCalled();
       expect(agenciaRepository.registrarAnaliseFinal).not.toHaveBeenCalled();
@@ -359,7 +375,7 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-      await useCase.execute({ agenciaId: "agencia-1" });
+      await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
       expect(analiseIaService.avaliar).toHaveBeenCalled();
     },
@@ -368,7 +384,7 @@ describe("AnalisarCadastroUseCase", () => {
   it("analisa o contrato social e o RG de cada sócio, registrando cada um pelo id do documento certo", async () => {
     const { useCase, documentAnalysisService, agenciaRepository } = criarUseCase();
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(documentAnalysisService.analisar).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -401,7 +417,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(documentAnalysisService.analisar).toHaveBeenCalledTimes(1); // só o contrato social
     expect(agenciaRepository.registrarAnaliseDocumento).toHaveBeenCalledTimes(1); // idem
@@ -413,7 +429,7 @@ describe("AnalisarCadastroUseCase", () => {
       analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockRejectedValue(erro) }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
       "agencia-1",
@@ -435,7 +451,7 @@ describe("AnalisarCadastroUseCase", () => {
       analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     const signatarioEsperado = {
       nome: "Fulano de Tal",
@@ -485,7 +501,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(contratoAssinaturaRepository.registrarDestinatario).toHaveBeenCalledWith(
       "contrato-1",
@@ -504,7 +520,7 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
     expect(agenciaRepository.criarContrato).not.toHaveBeenCalled();
@@ -535,7 +551,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(documentoRepository.atualizarStatus).toHaveBeenCalledWith(
       "doc-contrato-1",
@@ -553,7 +569,7 @@ describe("AnalisarCadastroUseCase", () => {
       analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(documentoRepository.atualizarStatus).toHaveBeenCalledWith(
       "doc-contrato-1",
@@ -586,7 +602,7 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(agenciaRepository.registrarAnaliseDocumento).toHaveBeenCalledWith(
       "doc-contrato-1",
@@ -619,7 +635,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
   });
@@ -648,7 +664,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     const [{ signatarios }] = (contratoAssinaturaService.gerarEEnviar as jest.Mock).mock.calls[0];
     expect(signatarios.map((s: { nome: string }) => s.nome)).toEqual([
@@ -664,7 +680,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(contratoAssinaturaService.gerarEEnviar).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -691,7 +707,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(agenciaRepository.criarContrato).not.toHaveBeenCalled();
     expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalledWith(
@@ -718,7 +734,7 @@ describe("AnalisarCadastroUseCase", () => {
       }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     const chamada = (agenciaRepository.registrarAnaliseFinal as jest.Mock).mock.calls[0];
     expect(chamada[1].motivo).toContain("timeout");
@@ -731,7 +747,7 @@ describe("AnalisarCadastroUseCase", () => {
       analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
     });
 
-    await useCase.execute({ agenciaId: "agencia-1" });
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
     expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
     expect(agenciaRepository.criarContrato).not.toHaveBeenCalled();
@@ -748,7 +764,7 @@ describe("AnalisarCadastroUseCase", () => {
     it("não grava nada quando não há situação cadastral, capital social nem endereço extraídos", async () => {
       const { useCase, dadosReceitaRepository } = criarUseCase();
 
-      await useCase.execute({ agenciaId: "agencia-1" });
+      await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
       expect(dadosReceitaRepository.create).not.toHaveBeenCalled();
       expect(dadosReceitaRepository.update).not.toHaveBeenCalled();
@@ -770,7 +786,7 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-      await useCase.execute({ agenciaId: "agencia-1" });
+      await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
       expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ agenciaId: "agencia-1", capitalSocial: 100000 }),
@@ -791,7 +807,7 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-      await useCase.execute({ agenciaId: "agencia-1" });
+      await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
       expect(dadosReceitaRepository.update).toHaveBeenCalledWith(
         "agencia-1",
@@ -834,7 +850,7 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-      await useCase.execute({ agenciaId: "agencia-1" });
+      await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
       expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -896,7 +912,7 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-      await useCase.execute({ agenciaId: "agencia-1" });
+      await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
 
       expect(dadosReceitaRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -933,7 +949,9 @@ describe("AnalisarCadastroUseCase", () => {
         }),
       });
 
-      await expect(useCase.execute({ agenciaId: "agencia-1" })).resolves.toBeUndefined();
+      await expect(
+        useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" }),
+      ).resolves.toBeUndefined();
       // O resultado da IA ainda foi registrado normalmente, apesar da falha no best-effort.
       expect(agenciaRepository.registrarAnaliseFinal).toHaveBeenCalled();
     });

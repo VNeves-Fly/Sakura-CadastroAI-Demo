@@ -33,6 +33,9 @@ export interface AgenciaProps {
   // mão, ou depois que ligou de novo (marcarInfoPendente zera os dois).
   infoPendenteRemovidoPor: string | null;
   infoPendenteRemovidoEm: Date | null;
+  // Fluxo paralelo de biometria facial (Legitimuz) antes da assinatura
+  // D4Sign — ver docs/legitimuz/. false preserva o fluxo atual.
+  gateBiometriaAtivo: boolean;
 }
 
 export class Agencia {
@@ -134,6 +137,10 @@ export class Agencia {
     return this.props.infoPendenteRemovidoEm;
   }
 
+  get gateBiometriaAtivo(): boolean {
+    return this.props.gateBiometriaAtivo;
+  }
+
   toJSON(): Omit<
     AgenciaProps,
     | "createdAt"
@@ -175,6 +182,7 @@ export class Agencia {
       infoPendente: this.props.infoPendente,
       infoPendenteRemovidoPor: this.props.infoPendenteRemovidoPor,
       infoPendenteRemovidoEm: this.props.infoPendenteRemovidoEm?.toISOString() ?? null,
+      gateBiometriaAtivo: this.props.gateBiometriaAtivo,
     };
   }
 }

@@ -180,6 +180,11 @@ model Agencia {
   cnpj               String        @unique
   etapaAtual         Int           @default(1)
   status             StatusAgencia @default(em_analise)
+  // Liga o fluxo paralelo de biometria facial (Legitimuz) antes da
+  // assinatura D4Sign, por agência — default false preserva o fluxo atual
+  // (D4Sign manda e-mail direto, sem gate) pra toda agência existente e
+  // nova, até alguém ligar explicitamente. Ver docs/legitimuz/.
+  gateBiometriaAtivo Boolean       @default(false)
   contratoSocialPath String
   emailContato       String
   telefoneContato    String
@@ -807,9 +812,10 @@ model Contrato {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  signatarios        ContratoSignatario[]
-  emailsFalhaEntrega ContratoEmailFalhaEntrega[]
-  assinaturas        ContratoAssinatura[]
+  signatarios          ContratoSignatario[]
+  emailsFalhaEntrega   ContratoEmailFalhaEntrega[]
+  assinaturas          ContratoAssinatura[]
+  biometriaVerificacoes BiometriaVerificacao[]
 
   @@index([agenciaId])
   @@map("contratos")
@@ -849,6 +855,55 @@ model ContratoAssinatura {
 
   @@unique([contratoId, email])
   @@map("contrato_assinaturas")
+}
+
+enum StatusBiometriaVerificacao {
+  pendente
+  aprovado
+  reprovado
+  analise_manual
+}
+
+// Verificação de biometria facial (Legitimuz, flow kyc-faceindex) — só
+// existe pra sócios de contratos em agências com gateBiometriaAtivo=true
+// (fluxo paralelo, ver docs/legitimuz/). Token opaco (crypto.randomBytes),
+// não reaproveita nenhum id existente — protege a página pública
+// /cadastro/biometria/[token], que ainda exige confirmação de CPF/CNPJ
+// antes de mostrar qualquer coisa. @@unique([contratoId, email]) permite
+// upsert idempotente (reenvio de lembrete gera um token novo pro mesmo
+// sócio em vez de duplicar linha).
+model BiometriaVerificacao {
+  id         String                     @id @default(cuid())
+  contratoId String
+  contrato   Contrato                   @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  // Denormalizado (também dá pra chegar em Contrato.agencia) — evita um
+  // join só pra reaproveitar ObterLinkAssinaturaUseCase, que já é
+  // indexado por agenciaId (não por contratoId).
+  agenciaId  String
+  email      String
+  cpf        String
+  token      String                     @unique
+  status     StatusBiometriaVerificacao @default(pendente)
+
+  // session_id/personId/url retornados pelo POST /public/kyc/get-sdk-url
+  // da Legitimuz. url é persistida (não recalculada a cada visita à
+  // página pública) pra não abrir uma sessão nova na Legitimuz toda vez
+  // que o sócio recarrega /cadastro/biometria/[token] antes de terminar.
+  sessionId String?
+  personId  String?
+  legitimuzUrl       String?
+  legitimuzUrlQrCode String?
+
+  tentativasLembrete Int @default(0)
+
+  linkEnviadoEm DateTime?
+  resolvidoEm   DateTime?
+  expiraEm      DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([contratoId, email])
+  @@map("biometria_verificacoes")
 }
 
 // Registro de "e-mail não entregue" (D4Sign webhook, type_post=2) — por

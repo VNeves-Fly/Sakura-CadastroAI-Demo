@@ -30,6 +30,7 @@ function agenciaFake(): Agencia {
     infoPendente: false,
     infoPendenteRemovidoPor: null,
     infoPendenteRemovidoEm: null,
+    gateBiometriaAtivo: false,
   });
 }
 

@@ -4,6 +4,7 @@ import { PrismaDocumentoRepository } from "@/modules/cadastro/infrastructure/rep
 import { PrismaDadosReceitaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-dados-receita.repository";
 import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-signatario-padrao.repository";
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
+import { PrismaBiometriaVerificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-biometria-verificacao.repository";
 import { PrismaExecutivoResolver } from "@/modules/cadastro/infrastructure/repositories/prisma-executivo-resolver";
 import { PrismaNotificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-notificacao.repository";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
@@ -17,8 +18,17 @@ import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/a
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
 import { MockSstService } from "@/modules/cadastro/infrastructure/adapters/mock-sst.adapter";
 import { FlysakuraSstAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst.adapter";
+import { LegitimuzAdapter } from "@/modules/cadastro/infrastructure/adapters/legitimuz.adapter";
+import { MockLegitimuzService } from "@/modules/cadastro/infrastructure/adapters/mock-legitimuz.adapter";
+import { createEmailSender } from "@/modules/users/infrastructure/factories/email-sender.factory";
 import { FinalizarCadastroUseCase } from "@/modules/cadastro/application/use-cases/finalizar-cadastro.use-case";
 import { AnalisarCadastroUseCase } from "@/modules/cadastro/application/use-cases/analisar-cadastro.use-case";
+import { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import {
+  ObterStatusBiometriaUseCase,
+  type ObterStatusBiometriaInput,
+} from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
+import { ObterLinkAssinaturaUseCase } from "@/modules/cadastro/application/use-cases/obter-link-assinatura.use-case";
 import { VerificarCnpjCadastradoUseCase } from "@/modules/cadastro/application/use-cases/verificar-cnpj-cadastrado.use-case";
 import { AnalisarContratoSocialUseCase } from "@/modules/cadastro/application/use-cases/analisar-contrato-social.use-case";
 import { AnalisarDocumentoIdentificacaoUseCase } from "@/modules/cadastro/application/use-cases/analisar-documento-identificacao.use-case";
@@ -46,6 +56,7 @@ const documentoRepository = new PrismaDocumentoRepository(prisma);
 const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
+const biometriaVerificacaoRepository = new PrismaBiometriaVerificacaoRepository(prisma);
 const executivoResolver = new PrismaExecutivoResolver(prisma);
 const notificacaoRepository = new PrismaNotificacaoRepository(prisma);
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
@@ -65,6 +76,11 @@ const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
 // Domínio/credencial separados de agents.flysakura.com — verifica se a
 // empresa já está no SICA (ver AnalisarCadastroUseCase).
 const sstService = process.env.SST_API_KEY ? new FlysakuraSstAdapter() : new MockSstService();
+// Fluxo paralelo de biometria facial (Legitimuz) — ver docs/legitimuz/.
+const biometriaVerificacaoService = process.env.LEGITIMUZ_TOKEN
+  ? new LegitimuzAdapter()
+  : new MockLegitimuzService();
+const emailSender = createEmailSender();
 
 export const cadastroPublicoController = {
   finalizarCadastro(input: FinalizarCadastroInput) {
@@ -75,7 +91,12 @@ export const cadastroPublicoController = {
   // Disparada (sem await) pela rota logo após finalizarCadastro persistir
   // a Agência — roda a análise de IA e a geração do contrato em
   // background, atualizando o registro já existente.
-  analisarCadastro(agenciaId: string) {
+  analisarCadastro(agenciaId: string, baseUrl: string) {
+    const iniciarVerificacaoBiometricaUseCase = new IniciarVerificacaoBiometricaUseCase(
+      biometriaVerificacaoService,
+      biometriaVerificacaoRepository,
+      emailSender,
+    );
     const useCase = new AnalisarCadastroUseCase(
       agenciaRepository,
       contratoAssinaturaService,
@@ -85,8 +106,25 @@ export const cadastroPublicoController = {
       documentoRepository,
       sstService,
       contratoAssinaturaRepository,
+      iniciarVerificacaoBiometricaUseCase,
     );
-    return useCase.execute({ agenciaId });
+    return useCase.execute({ agenciaId, baseUrl });
+  },
+
+  // Página pública /cadastro/biometria/[token] — confirma o CPF do sócio
+  // e devolve o status atual + o link (Legitimuz ou D4Sign, conforme a
+  // etapa) pra continuar o fluxo.
+  obterStatusBiometria(input: ObterStatusBiometriaInput) {
+    const obterLinkAssinaturaUseCase = new ObterLinkAssinaturaUseCase(
+      agenciaRepository,
+      contratoAssinaturaRepository,
+      contratoAssinaturaService,
+    );
+    const useCase = new ObterStatusBiometriaUseCase(
+      biometriaVerificacaoRepository,
+      obterLinkAssinaturaUseCase,
+    );
+    return useCase.execute(input);
   },
 
   // Aviso antecipado no wizard (não substitui a checagem real do submit

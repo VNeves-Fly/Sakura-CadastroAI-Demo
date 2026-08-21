@@ -26,6 +26,11 @@ import { MockSstService } from "@/modules/cadastro/infrastructure/adapters/mock-
 import { FlysakuraSstAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst.adapter";
 import { MockDocumentAnalysisService } from "@/modules/cadastro/infrastructure/adapters/mock-document-analysis.adapter";
 import { FlysakuraDocumentAnalysisAdapter } from "@/modules/cadastro/infrastructure/adapters/flysakura-document-analysis.adapter";
+import { LegitimuzAdapter } from "@/modules/cadastro/infrastructure/adapters/legitimuz.adapter";
+import { MockLegitimuzService } from "@/modules/cadastro/infrastructure/adapters/mock-legitimuz.adapter";
+import { PrismaBiometriaVerificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-biometria-verificacao.repository";
+import { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import { DefinirGateBiometriaUseCase } from "@/modules/cadastro/application/use-cases/definir-gate-biometria.use-case";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
 // Cross-módulo só aqui na composition root (nunca no domain/application):
@@ -156,6 +161,8 @@ import {
   ObterLinkAssinaturaUseCase,
   type ObterLinkAssinaturaInput,
 } from "@/modules/cadastro/application/use-cases/obter-link-assinatura.use-case";
+import { ListarContratosPendentesGestorUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos-pendentes-gestor.use-case";
+import { EnviarLembretesAssinaturaUseCase } from "@/modules/cadastro/application/use-cases/enviar-lembretes-assinatura.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
 import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
 import { ObterSignatarioPadraoUseCase } from "@/modules/cadastro/application/use-cases/obter-signatario-padrao.use-case";
@@ -227,6 +234,11 @@ const sstService = process.env.SST_API_KEY ? new FlysakuraSstAdapter() : new Moc
 const documentAnalysisService = process.env.AGENCY_ANALYSIS_API_KEY
   ? new FlysakuraDocumentAnalysisAdapter()
   : new MockDocumentAnalysisService();
+// Fluxo paralelo de biometria facial (Legitimuz) — ver docs/legitimuz/.
+const biometriaVerificacaoRepository = new PrismaBiometriaVerificacaoRepository(prisma);
+const biometriaVerificacaoService = process.env.LEGITIMUZ_TOKEN
+  ? new LegitimuzAdapter()
+  : new MockLegitimuzService();
 
 export const cadastroAdminController = {
   listarCadastros(filtros: ListarCadastrosFiltros) {
@@ -294,13 +306,26 @@ export const cadastroAdminController = {
   },
 
   aprovarComplementar(input: AprovarCadastroComplementarInput) {
+    const iniciarVerificacaoBiometricaUseCase = new IniciarVerificacaoBiometricaUseCase(
+      biometriaVerificacaoService,
+      biometriaVerificacaoRepository,
+      emailSender,
+    );
     const useCase = new AprovarCadastroComplementarUseCase(
       agenciaRepository,
       contratoAssinaturaService,
       decisaoHumanaRepository,
       contratoAssinaturaRepository,
+      iniciarVerificacaoBiometricaUseCase,
     );
     return useCase.execute(input);
+  },
+
+  // Toggle admin/diretor na ficha do cadastro — precisa ser decidido antes
+  // da aprovação (ver DefinirGateBiometriaUseCase).
+  definirGateBiometria(agenciaId: string, ativo: boolean) {
+    const useCase = new DefinirGateBiometriaUseCase(agenciaRepository);
+    return useCase.execute({ agenciaId, ativo });
   },
 
   // Auditoria das decisões manuais (ver AprovarCadastroComplementarUseCase)
@@ -313,7 +338,12 @@ export const cadastroAdminController = {
   // (ex.: o processo caiu no meio da análise assíncrona, ou a chamada à
   // IA falhou tecnicamente) — reentrante, roda o mesmo pipeline do envio
   // automático (ver AnalisarCadastroUseCase).
-  reprocessarAnalise(id: string) {
+  reprocessarAnalise(id: string, baseUrl: string) {
+    const iniciarVerificacaoBiometricaUseCase = new IniciarVerificacaoBiometricaUseCase(
+      biometriaVerificacaoService,
+      biometriaVerificacaoRepository,
+      emailSender,
+    );
     const useCase = new AnalisarCadastroUseCase(
       agenciaRepository,
       contratoAssinaturaService,
@@ -323,8 +353,9 @@ export const cadastroAdminController = {
       documentoRepository,
       sstService,
       contratoAssinaturaRepository,
+      iniciarVerificacaoBiometricaUseCase,
     );
-    return useCase.execute({ agenciaId: id });
+    return useCase.execute({ agenciaId: id, baseUrl });
   },
 
   // Reconsulta isolada de AMAT ou SOFIA (ver ConsultaAmatCard/
@@ -594,6 +625,37 @@ export const cadastroAdminController = {
       contratoAssinaturaService,
     );
     return useCase.execute(input);
+  },
+
+  // Tela "Contratos pendentes de assinatura" dos gestores da Sakura — ver
+  // docs/legitimuz/.
+  listarContratosPendentesGestor(email: string) {
+    const useCase = new ListarContratosPendentesGestorUseCase(contratoAssinaturaRepository);
+    return useCase.execute({ email });
+  },
+
+  // Cron diário (src/app/api/cron/lembrete-assinatura) — ver
+  // EnviarLembretesAssinaturaUseCase/docs/legitimuz/.
+  enviarLembretesAssinatura(baseUrl: string) {
+    const iniciarVerificacaoBiometricaUseCase = new IniciarVerificacaoBiometricaUseCase(
+      biometriaVerificacaoService,
+      biometriaVerificacaoRepository,
+      emailSender,
+    );
+    const obterLinkAssinaturaUseCase = new ObterLinkAssinaturaUseCase(
+      agenciaRepository,
+      contratoAssinaturaRepository,
+      contratoAssinaturaService,
+    );
+    const useCase = new EnviarLembretesAssinaturaUseCase(
+      agenciaRepository,
+      biometriaVerificacaoRepository,
+      contratoAssinaturaRepository,
+      iniciarVerificacaoBiometricaUseCase,
+      obterLinkAssinaturaUseCase,
+      emailSender,
+    );
+    return useCase.execute({ baseUrl });
   },
 
   async registrarContratoExterno(input: {

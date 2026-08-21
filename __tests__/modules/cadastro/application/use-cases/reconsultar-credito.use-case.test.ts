@@ -51,6 +51,7 @@ function agenciaFake(): Agencia {
     infoPendente: false,
     infoPendenteRemovidoPor: null,
     infoPendenteRemovidoEm: null,
+    gateBiometriaAtivo: false,
   });
 }
 
@@ -136,6 +137,7 @@ function repositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRep
     criarContrato: jest.fn(),
     criarContratoEAvancarStatus: jest.fn(),
     atualizarStatusContrato: jest.fn(),
+    atualizarGateBiometria: jest.fn(),
     marcarAtualizacaoComoVista: jest.fn(),
     marcarInfoPendente: jest.fn(),
     desmarcarInfoPendente: jest.fn(),
