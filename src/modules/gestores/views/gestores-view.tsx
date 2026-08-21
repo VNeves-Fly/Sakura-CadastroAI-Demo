@@ -17,7 +17,7 @@ interface GestoresViewProps {
 export function GestoresView({ basesOptions, executivosPorGestor }: GestoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
   const [gestorEmEdicaoId, setGestorEmEdicaoId] = useState<string | null>(null);
-  const { gestores, total, isLoading, error, busca, atualizarBusca, alternarAtivo } =
+  const { gestores, total, isLoading, error, busca, atualizarBusca } =
     useGestoresListaViewModel(executivosPorGestor);
 
   const gestorEmEdicao = gestores.find((gestor) => gestor.id === gestorEmEdicaoId);
@@ -38,7 +38,6 @@ export function GestoresView({ basesOptions, executivosPorGestor }: GestoresView
         isLoading={isLoading}
         error={error}
         onEditar={setGestorEmEdicaoId}
-        onAlternarAtivo={alternarAtivo}
       />
 
       <GestorCadastroModal

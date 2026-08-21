@@ -39,9 +39,5 @@ export function useGestoresListaViewModel(executivosPorGestor: Record<string, nu
     error,
     busca: filtros.busca,
     atualizarBusca: (valor: string) => setFiltros({ busca: valor }),
-    // Botão Inativar/Ativar da lista — grava só no override local (ver
-    // gestor-status.store.ts), sem chamada à API.
-    alternarAtivo: (gestorId: string, ativo: boolean) =>
-      useGestorStatusStore.getState().definirAtivo(gestorId, ativo),
   };
 }
