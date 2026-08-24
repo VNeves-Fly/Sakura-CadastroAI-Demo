@@ -9,8 +9,6 @@ import type {
 // Faixas redondas batendo com os labels da UI (10K/100K/1M/10M) — sem
 // spec formal de limiar, mas agora é uma regra de negócio real sobre
 // `vendasAno` (SST), não mais um hash aleatório por agência.
-// Exportada: reaproveitada pelo dashboard agregado do Gestor (soma dos
-// executivos), ver gestor-agencias-tab.adapter.ts.
 export function categoriaPorVendas(vendasAno: number): CategoriaPremiacao {
   if (vendasAno >= 10_000_000) return "10M";
   if (vendasAno >= 1_000_000) return "1M";

@@ -1,5 +1,4 @@
 import { TrendingUp } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { GestorKpiCard } from "@/modules/gestores/components/dashboard/gestor-kpi-card";
 import { formatarMoedaAbreviada } from "@/modules/gestores/utils/formatar-moeda.util";
@@ -10,16 +9,15 @@ interface GestorKpisSecundariosProps {
 }
 
 // Linha de 3 cards de KPI secundários (SPEC 3.8) — mesmo layout do
-// dashboard de Executivo: Mês anterior, Projeção fim do mês e Vendendo
-// 30d (esse último reaproveita os mesmos números do cabeçalho de perfil,
-// GestorPerfil.vendendoUltimos30d/Pct).
+// dashboard de Executivo: "Mês anterior" e "Projeção fim do mês" são
+// reais (via SST, agregados por gestorDashboardController); "Vendendo
+// 30d" reaproveita GestorPerfil.vendendoUltimos30d/Pct (mock, mesma
+// convenção do Executivo — ver comentário da prop `mock` abaixo), por
+// isso só esse card leva o badge "MK", não a seção inteira.
 export function GestorKpisSecundariosGrid({ kpis }: GestorKpisSecundariosProps) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <h3 className="text-muted-foreground text-xs font-semibold">KPIs Secundários</h3>
-        <MockBadge />
-      </div>
+      <h3 className="text-muted-foreground text-xs font-semibold">KPIs Secundários</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <GestorKpiCard
           label="Mês anterior (realizado)"
@@ -54,6 +52,7 @@ export function GestorKpisSecundariosGrid({ kpis }: GestorKpisSecundariosProps) 
             </span>
           }
           subtext={<SensitiveValue value={`${kpis.vendendo30dPct}%`} />}
+          mock
         />
       </div>
     </div>

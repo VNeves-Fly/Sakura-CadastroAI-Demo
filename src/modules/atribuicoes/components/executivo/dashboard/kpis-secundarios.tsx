@@ -1,27 +1,61 @@
+import { Suspense } from "react";
 import { TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { KpiCard } from "@/modules/atribuicoes/components/executivo/dashboard/kpi-card";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
+import type { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 import type { KpisSecundarios } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 interface KpisSecundariosProps {
   kpis: KpisSecundarios;
-  // "Vendendo 30D" reaproveita os mesmos números do cabeçalho de perfil
-  // (ExecutivoPerfil.vendendoUltimos30d/Pct, local-DB/mock) em vez do
-  // `crossCanalPromise` (SST) — de propósito: essa seção só espera
-  // `heroKpisPromise` (rápida), e puxar o número real aqui obrigaria a
-  // esperar também o loop pesado de crossCanal, anulando o ganho de
-  // performance do streaming em duas velocidades (ver
+  // "Vendendo 30d" lê o mesmo `miniStats` (SST, via `crossCanalPromise`)
+  // já usado no "Venderam últimos 30d" do cabeçalho — antes reaproveitava
+  // ExecutivoPerfil.vendendoUltimos30d/Pct (local/mock), o que fazia esse
+  // card divergir do número real mostrado mais acima na mesma página
+  // (pedido do usuário, 2026-08-24: replicar o dado real aqui). Fica no
+  // seu próprio Suspense, sem atrasar "Mês anterior"/"Projeção fim do
+  // mês" (que já vêm prontos de `heroKpisPromise`) — mesma promise já
+  // disparada pro cabeçalho, sem custo adicional (ver
   // executivo-dashboard-view.tsx).
-  vendendo30d: number;
-  vendendo30dPct: number;
+  crossCanalPromise: ReturnType<typeof executivoDashboardController.obterCrossCanalEMiniStats>;
 }
 
-// Linha de 3 cards de KPI secundários (SPEC 3.7) — "Mês anterior" e
-// "Projeção fim do mês" vêm de `heroKpisPromise` (mês anterior é real via
-// SST, projeção continua mock — ver `mock` no card abaixo);
-// "Vendendo 30d" é mock (ver comentário da prop acima).
-export function KpisSecundariosGrid({ kpis, vendendo30d, vendendo30dPct }: KpisSecundariosProps) {
+async function Vendendo30dKpiCard({
+  crossCanalPromise,
+}: Pick<KpisSecundariosProps, "crossCanalPromise">) {
+  const { miniStats } = await crossCanalPromise;
+  return (
+    <KpiCard
+      label="Vendendo 30d"
+      tooltip="Agências com pelo menos uma venda nos últimos 30 dias."
+      value={
+        <span className="text-success inline-flex items-center gap-1.5">
+          <TrendingUp className="size-4.5" />
+          <SensitiveValue value={miniStats.vendendo30d} />
+        </span>
+      }
+      subtext={<SensitiveValue value={`${miniStats.vendendo30dPct}%`} />}
+    />
+  );
+}
+
+function Vendendo30dKpiCardSkeleton() {
+  return (
+    <div className="border-border bg-card rounded-xl border p-4">
+      <Skeleton className="h-3 w-24" />
+      <Skeleton className="mt-2 h-6 w-16" />
+      <Skeleton className="mt-1.5 h-3 w-10" />
+    </div>
+  );
+}
+
+// Linha de 3 cards de KPI secundários (SPEC 3.7) — os 3 são reais via
+// SST: "Mês anterior" e "Projeção fim do mês" vêm de `heroKpisPromise`
+// (projeção = ritmo do mês até hoje extrapolado pros dias restantes, ver
+// construirHeroEKpis em executivo-dashboard.sst-service.ts); "Vendendo
+// 30d" vem de `crossCanalPromise` (ver comentário da prop acima).
+export function KpisSecundariosGrid({ kpis, crossCanalPromise }: KpisSecundariosProps) {
   return (
     <div className="space-y-2">
       <h3 className="text-muted-foreground text-xs font-semibold">KPIs Secundários</h3>
@@ -48,20 +82,10 @@ export function KpisSecundariosGrid({ kpis, vendendo30d, vendendo30dPct }: KpisS
           tooltip="Projeção linear com base no ritmo de vendas do mês corrente."
           value={<SensitiveValue value={formatarMoedaAbreviada(kpis.projecaoFimMes)} />}
           subtext="ritmo atual"
-          mock
         />
-        <KpiCard
-          label="Vendendo 30d"
-          tooltip="Agências com pelo menos uma venda nos últimos 30 dias."
-          value={
-            <span className="text-success inline-flex items-center gap-1.5">
-              <TrendingUp className="size-4.5" />
-              <SensitiveValue value={vendendo30d} />
-            </span>
-          }
-          subtext={<SensitiveValue value={`${vendendo30dPct}%`} />}
-          mock
-        />
+        <Suspense fallback={<Vendendo30dKpiCardSkeleton />}>
+          <Vendendo30dKpiCard crossCanalPromise={crossCanalPromise} />
+        </Suspense>
       </div>
     </div>
   );

@@ -106,8 +106,7 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
         <ExecutivoHeroKpisSecao
           heroKpisPromise={heroKpisPromise}
           perfilId={perfil.id}
-          vendendo30d={perfil.vendendoUltimos30d}
-          vendendo30dPct={perfil.vendendoUltimos30dPct}
+          crossCanalPromise={crossCanalPromise}
         />
       </Suspense>
 

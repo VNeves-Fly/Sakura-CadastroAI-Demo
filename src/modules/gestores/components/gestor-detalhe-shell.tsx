@@ -9,9 +9,10 @@ import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types
 
 interface GestorDetalheShellProps {
   perfil: GestorPerfil;
-  // "agenda" removida (pedido do usuário, 2026-08-20) — aba e rota
-  // apagadas, ver gestor-tabs-nav.tsx.
-  abaAtiva: "dashboard" | "executivos" | "agencias";
+  // "agenda" removida (pedido do usuário, 2026-08-20) e "agencias"
+  // removida (pedido do usuário, 2026-08-24) — abas e rotas apagadas, ver
+  // gestor-tabs-nav.tsx.
+  abaAtiva: "dashboard" | "executivos";
   children: ReactNode;
   // Repassados pra GestorProfileHeader — só a aba Dashboard os preenche
   // (via criarGestorHeaderStatsSlots), as demais abas caem no fallback
