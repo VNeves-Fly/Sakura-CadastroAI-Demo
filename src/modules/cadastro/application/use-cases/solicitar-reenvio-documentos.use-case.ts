@@ -112,6 +112,7 @@ export class SolicitarReenvioDocumentosUseCase implements UseCase<
         to: detalhe.agencia.emailContato,
         subject: "Documentos pendentes — Cadastro Sakura",
         html,
+        meta: { origem: "documentos-pendentes", disparo: "manual", agenciaId: input.agenciaId },
       });
     } catch (error) {
       console.error(

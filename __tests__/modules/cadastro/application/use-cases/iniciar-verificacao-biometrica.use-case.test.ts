@@ -63,6 +63,7 @@ describe("IniciarVerificacaoBiometricaUseCase", () => {
       cpf: "39053344705",
       nome: "Fulano de Tal",
       baseUrl: "https://painel.sakuraclick.com.br",
+      disparo: "manual",
     });
 
     expect(service.iniciarVerificacao).toHaveBeenCalledWith(

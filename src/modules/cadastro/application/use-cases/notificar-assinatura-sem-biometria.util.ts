@@ -1,4 +1,5 @@
 import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+import type { DisparoEmail } from "@/modules/shared/domain/enums";
 import type { ContratoSignatario } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import {
   montarEmailSakura,
@@ -21,6 +22,8 @@ export async function notificarAssinaturaSemBiometria(
   emailSender: EmailSender,
   signatarios: ContratoSignatario[],
   baseUrl: string,
+  agenciaId: string,
+  disparo: DisparoEmail,
 ): Promise<void> {
   const html = montarEmailSakura({
     baseUrl,
@@ -56,6 +59,7 @@ export async function notificarAssinaturaSemBiometria(
         to: signatario.email,
         subject: "O contrato está no seu e-mail! — Sakura Consolidadora",
         html,
+        meta: { origem: "assinatura-contrato", disparo, agenciaId },
       });
     } catch (error) {
       console.warn(

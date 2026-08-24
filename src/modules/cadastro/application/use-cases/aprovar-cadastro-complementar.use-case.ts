@@ -165,9 +165,10 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
           id,
           signatarios,
           baseUrl,
+          "manual",
         );
       } else {
-        await notificarAssinaturaSemBiometria(this.emailSender, signatarios, baseUrl);
+        await notificarAssinaturaSemBiometria(this.emailSender, signatarios, baseUrl, id, "manual");
       }
     } else {
       const resultado = await this.agenciaRepository.criarContratoEAvancarStatus(
