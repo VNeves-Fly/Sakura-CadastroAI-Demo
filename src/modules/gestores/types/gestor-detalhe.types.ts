@@ -99,25 +99,3 @@ export interface RankingExecutivoSaude {
   total: number;
   pct: number;
 }
-
-export interface GestorDashboard {
-  hero: Record<PeriodoVendasMesHeroGestor, VendasMesHeroGestor>;
-  kpis: KpisSecundariosGestor;
-  atualizadoEm: string; // "20/08 às 18:22"
-  canalAereo: CanalResumoGestor;
-  canalTerrestre: CanalResumoGestor;
-  saudeCarteira: SegmentoSaude[];
-  // Rankings "Top 10 Agências" (SPEC 3.9) — sempre "hoje", por modalidade.
-  topAgenciasHoje: RankingAgencia[];
-  topAgenciasHojeAereo: RankingAgencia[];
-  topAgenciasHojeTerrestre: RankingAgencia[];
-  // "Top 5 executivos" (SPEC 3.7) — seção exclusiva do Gestor, sem
-  // equivalente no dashboard de Executivo.
-  topExecutivosMelhorSaude: RankingExecutivoSaude[];
-  topExecutivosAtencao: RankingExecutivoSaude[];
-}
-
-export interface GestorDetalheView {
-  perfil: GestorPerfil;
-  dashboard: GestorDashboard;
-}

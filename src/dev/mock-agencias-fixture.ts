@@ -190,7 +190,7 @@ export const MOCK_AGENCIAS_GESTOR: AgenciaDaGestaoView[] = SUBCONJUNTO_COMPARTIL
   categoria: a.vendasAno >= 1_000_000 ? "1M" : a.vendasAno >= 100_000 ? "100K" : "10K",
   vendasAno: a.vendasAno,
   bilhetesAno: Math.round(a.vendasAno / 4_500),
-  diasSemComprar: a.vendasAno === 0 ? 180 : 5,
+  faixaRecencia: a.vendasAno === 0 ? "semVenda365d" : "ate30d",
   limite: Math.round(a.vendasAno * 1.2),
 }));
 
