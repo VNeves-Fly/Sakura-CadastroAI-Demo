@@ -1,18 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Power } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
-import {
-  SortableDataTable,
-  type SortableColumn,
-} from "@/modules/shared/components/sortable-data-table";
-import {
-  formatarMoedaAbreviada,
-  formatarPercentual,
-} from "@/modules/atribuicoes/utils/formatar-moeda.util";
+import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type { PromotorListaView } from "@/modules/atribuicoes/types/promotor-lista.types";
 import { cn } from "@/lib/utils";
 
@@ -21,224 +11,149 @@ interface ExecutivosListaTabelaProps {
   isLoading: boolean;
   error: string | null;
   onEditar: (promotorId: string) => void;
-  onAlternarAtivo: (promotorId: string, ativo: boolean) => void;
 }
 
+// Grid de colunas idêntico no header e nas linhas (mockup Claude Design,
+// 2026-08-24, "Executivos").
+const COLS = "minmax(200px,1.6fr) minmax(180px,1.3fr) minmax(130px,1fr) minmax(130px,1fr) 90px";
+
+type ColunaChave = "nome" | "gestorNome" | "vendasMes" | "vendasAno";
+type Direcao = "asc" | "desc";
+
+const COLUNAS: { chave: ColunaChave; label: string; centralizada?: boolean }[] = [
+  { chave: "nome", label: "Executivo" },
+  { chave: "gestorNome", label: "Gestor" },
+  { chave: "vendasMes", label: "Vendas mês", centralizada: true },
+  { chave: "vendasAno", label: "Vendas ano", centralizada: true },
+];
+
+function valorOrdenavel(linha: PromotorListaView, chave: ColunaChave): string | number {
+  if (chave === "gestorNome") return linha.gestorNome ?? "";
+  return linha[chave];
+}
+
+// Tabela pixel-perfect (mockup Claude Design, 2026-08-24, "Executivos") —
+// grid de divs (mesmo padrão de agencias-carteira-tabela.tsx), não
+// SortableDataTable/<Table> genérica, pra bater exatamente com o arquivo:
+// header cinza-lilás #FBFBFE, linhas brancas com hover #FAFAFC, "Vendas
+// ano" em cinza-escuro (não rosa/primary) e "Editar" como texto puro sem
+// borda. Colunas reduzidas ao que o mockup mostra — Aprov./Vend.30d/
+// Paradas+90d/Limite/Saúde e o botão Inativar/Ativar saíram da lista (o
+// Inativar/Ativar continua no modal de edição, ver
+// executivo-edicao-modal.tsx — nenhuma funcionalidade foi perdida, só saiu
+// da linha). Máscara de dados sensíveis (SensitiveValue) também saiu — o
+// mockup não tem o botão de olho na toolbar. Pedido do usuário, 2026-08-24:
+// restilizar /crm/executivos "pixel perfect" com o modelo fornecido.
 export function ExecutivosListaTabela({
   executivos,
   isLoading,
   error,
   onEditar,
-  onAlternarAtivo,
 }: ExecutivosListaTabelaProps) {
   const router = useRouter();
+  const [sort, setSort] = useState<{ chave: ColunaChave; direcao: Direcao }>({
+    chave: "vendasAno",
+    direcao: "desc",
+  });
+
+  const linhasOrdenadas = useMemo(() => {
+    const sinal = sort.direcao === "asc" ? 1 : -1;
+    return [...executivos].sort((a, b) => {
+      const valorA = valorOrdenavel(a, sort.chave);
+      const valorB = valorOrdenavel(b, sort.chave);
+      if (typeof valorA === "number" && typeof valorB === "number") {
+        return (valorA - valorB) * sinal;
+      }
+      return String(valorA).localeCompare(String(valorB)) * sinal;
+    });
+  }, [executivos, sort]);
+
+  function alternarOrdenacao(chave: ColunaChave) {
+    setSort((atual) => {
+      if (atual.chave !== chave) return { chave, direcao: "desc" };
+      return { chave, direcao: atual.direcao === "desc" ? "asc" : "desc" };
+    });
+  }
 
   if (isLoading) {
-    return <p className="text-muted-foreground text-sm">Carregando executivos...</p>;
+    return <p className="text-sm text-[#6B6B85]">Carregando executivos...</p>;
   }
 
   if (error) {
     return <p className="text-destructive text-sm">{error}</p>;
   }
 
-  const colunas: SortableColumn<PromotorListaView>[] = [
-    {
-      key: "nome",
-      label: "Executivo",
-      sortable: true,
-      sortValue: (linha) => linha.nome,
-      render: (linha) => (
-        <span className="flex items-center gap-2">
-          {/* Cor do nome reflete só o status Inativo — "sem venda" já tem
-              seu próprio badge (Vendas mês) e não devia deixar o nome com a
-              mesma aparência "apagada" de quem tá inativo. */}
-          <span
-            className={cn(
-              "font-medium uppercase",
-              !linha.ativo ? "text-muted-foreground" : "text-foreground",
-            )}
-          >
-            {linha.nome}
-          </span>
-          {!linha.ativo ? (
-            <Badge variant="outline" className="text-muted-foreground text-[10px] normal-case">
-              Inativo
-            </Badge>
-          ) : null}
-        </span>
-      ),
-    },
-    {
-      key: "gestorNome",
-      label: "Gestor",
-      sortable: true,
-      sortValue: (linha) => linha.gestorNome ?? "",
-      render: (linha) => <span className="text-muted-foreground">{linha.gestorNome ?? "—"}</span>,
-    },
-    {
-      key: "aprovadas",
-      label: "Aprov.",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.aprovadas,
-      render: (linha) => (
-        <SensitiveValue
-          className={linha.semVenda ? "text-muted-foreground" : "text-success font-medium"}
-          value={linha.aprovadas}
-        />
-      ),
-    },
-    {
-      key: "vendendo30d",
-      label: "Vend. 30d",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.vendendo30d,
-      render: (linha) => (
-        <SensitiveValue
-          className={linha.vendendo30d > 0 ? "text-success font-medium" : "text-muted-foreground"}
-          value={linha.vendendo30d}
-        />
-      ),
-    },
-    {
-      key: "paradas90d",
-      label: "Paradas +90d",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.paradas90d,
-      render: (linha) =>
-        linha.paradas90d > 0 ? (
-          <SensitiveValue
-            value={
-              <Badge variant="destructive" className="tabular-nums">
-                {linha.paradas90d}
-              </Badge>
-            }
-          />
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-    },
-    {
-      key: "vendasMes",
-      label: "Vendas mês",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.vendasMes,
-      render: (linha) =>
-        linha.semVenda ? (
-          <Badge variant="outline" className="text-muted-foreground">
-            Sem venda
-          </Badge>
-        ) : (
-          <SensitiveValue value={formatarMoedaAbreviada(linha.vendasMes)} />
-        ),
-    },
-    {
-      key: "vendasAno",
-      label: "Vendas ano",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.vendasAno,
-      render: (linha) => (
-        <SensitiveValue
-          className="text-primary font-semibold"
-          value={formatarMoedaAbreviada(linha.vendasAno)}
-        />
-      ),
-    },
-    {
-      key: "limite",
-      label: "Limite",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.limite,
-      render: (linha) => <SensitiveValue value={formatarMoedaAbreviada(linha.limite)} />,
-    },
-    {
-      key: "saudePercentual",
-      label: "Saúde",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.saudePercentual,
-      render: (linha) => (
-        <SensitiveValue
-          value={
-            <div className="flex items-center justify-end gap-2">
-              <span className="bg-muted h-1.5 w-14 overflow-hidden rounded-full">
-                <span
-                  className={cn(
-                    "block h-full rounded-full",
-                    linha.saudePercentual >= 60
-                      ? "bg-success"
-                      : linha.saudePercentual >= 30
-                        ? "bg-warning"
-                        : "bg-destructive",
-                  )}
-                  style={{ width: `${Math.min(100, linha.saudePercentual)}%` }}
-                />
-              </span>
-              <span className="text-xs tabular-nums">
-                {formatarPercentual(linha.saudePercentual)}
-              </span>
-            </div>
-          }
-        />
-      ),
-    },
-    {
-      key: "acoes",
-      label: "",
-      align: "right",
-      render: (linha) => (
-        <div
-          className="flex items-center justify-end gap-2"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-primary border-primary/30 hover:bg-primary/5 hover:text-primary"
-            onClick={() => onEditar(linha.id)}
-          >
-            <Pencil className="size-3.5" />
-            Editar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={
-              linha.ativo
-                ? undefined
-                : "border-[#16a34a]/50 text-[#16a34a] hover:bg-[#16a34a]/10 hover:text-[#16a34a]"
-            }
-            onClick={() => onAlternarAtivo(linha.id, !linha.ativo)}
-          >
-            <Power className="size-3.5" />
-            {linha.ativo ? "Inativar" : "Ativar"}
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
   return (
-    <SortableDataTable
-      columns={colunas}
-      rows={executivos}
-      rowKey={(linha) => linha.id}
-      defaultSort={{ key: "vendasAno", direction: "desc" }}
-      onRowClick={(linha) => router.push(`/crm/executivos/${linha.id}`)}
-      // Opacity só por status inativo, não por "sem venda" (semVenda já
-      // tem seu próprio indicador — badge na coluna Vendas mês + nome
-      // acinzentado — misturar os dois deixava parecer que quem só não
-      // vendeu no período estava inativo). Opacity só nas células de
-      // dado (":not(:last-child)") — a última é a coluna Ações, que
-      // precisa ficar 100% visível pro botão Ativar (verde) não sair
-      // apagado junto.
-      rowClassName={(linha) => (!linha.ativo ? "[&>td:not(:last-child)]:opacity-60" : undefined)}
-      emptyMessage="Nenhum executivo encontrado."
-    />
+    <div className="overflow-x-auto">
+      <div style={{ minWidth: 860 }}>
+        <div
+          className="grid items-center gap-4 rounded-t-lg border-t border-b border-[#F7DCEB] bg-[#FBFBFE] px-4 py-3.5"
+          style={{ gridTemplateColumns: COLS }}
+        >
+          {COLUNAS.map((coluna) => (
+            <button
+              key={coluna.chave}
+              type="button"
+              onClick={() => alternarOrdenacao(coluna.chave)}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-[11.5px] font-semibold tracking-[0.06em] text-[#6B6B85] uppercase",
+                coluna.centralizada && "justify-center",
+              )}
+            >
+              {coluna.label}
+              <span className="text-[10px]">
+                {sort.chave === coluna.chave ? (sort.direcao === "asc" ? "↑" : "↓") : "⇅"}
+              </span>
+            </button>
+          ))}
+          <span />
+        </div>
+
+        {linhasOrdenadas.length === 0 ? (
+          <p className="py-10 text-center text-sm text-[#6B6B85]">Nenhum executivo encontrado.</p>
+        ) : (
+          linhasOrdenadas.map((linha) => (
+            <div
+              key={linha.id}
+              onClick={() => router.push(`/crm/executivos/${linha.id}`)}
+              className="grid cursor-pointer items-center gap-4 border-b border-[#F7DCEB] bg-white px-4 py-3.5 text-[13px] text-[#2A2A40] hover:bg-[#FAFAFC]"
+              style={{ gridTemplateColumns: COLS }}
+            >
+              <div className="flex min-w-0 items-center gap-2.5 pr-1">
+                <span className="truncate text-[13px] font-medium tracking-[0.01em] text-[#1A1A2E]">
+                  {linha.nome}
+                </span>
+                {linha.semVenda ? (
+                  <span className="shrink-0 rounded-full bg-[#F2F2F8] px-2 py-0.5 text-[10.5px] font-semibold text-[#6B6B85]">
+                    Sem venda
+                  </span>
+                ) : null}
+              </div>
+              <span className="truncate text-[12.5px] tracking-[0.02em] text-[#6B6B85]">
+                {linha.gestorNome ?? "—"}
+              </span>
+              <span className="text-center tabular-nums">
+                {formatarMoedaAbreviada(linha.vendasMes)}
+              </span>
+              <span className="text-center font-semibold text-[#2A2A40] tabular-nums">
+                {formatarMoedaAbreviada(linha.vendasAno)}
+              </span>
+              <div
+                className="flex items-center justify-end"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => onEditar(linha.id)}
+                  className="text-[12.5px] font-semibold text-[#C2185B] hover:text-[#E91E8C]"
+                >
+                  Editar
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   );
 }

@@ -31,6 +31,11 @@ export interface GestorListaFiltros {
   busca: string;
 }
 
+// Paginação client-side da lista (mockup Claude Design, 2026-08-24,
+// "Gestores" — a lista antes rolava inteira, sem paginador) — mesmo
+// tamanho de página de TAMANHO_PAGINA_EXECUTIVOS, em promotor-lista.types.ts.
+export const TAMANHO_PAGINA_GESTORES = 25;
+
 export type GestorListaColunaOrdenavel =
   | "nome"
   | "executivos"
