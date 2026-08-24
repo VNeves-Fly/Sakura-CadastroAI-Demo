@@ -143,6 +143,28 @@ const LINHAS: [
   ],
 ];
 
+// Ids reais das 12 primeiras agências do Postgres local (tabela `agencias`,
+// cuid do Prisma) — usados só como destino do link de cada linha mock,
+// pra clicar não cair em 404 (antes: ids inventados `nova-agencia-N`, que
+// nunca existem em banco nenhum). Nome/CNPJ/dados da linha continuam 100%
+// mock da SPEC; o id não aparece em lugar nenhum da UI, só decide pra onde
+// o link `/crm/agencias/[id]` aponta. Pontual pro ambiente local — ids vão
+// mudar se o banco for resetado (rodar `bun db:seed` de novo).
+const IDS_REAIS_LOCAIS = [
+  "cmrp2jpyk000kmd9l6ec4nvyc",
+  "cmrp2kize000smd9lpli94wto",
+  "cmrp390b20016md9l8cmii00g",
+  "cmrrzzoe20001ggsul90q088e",
+  "cmrs1iuzh0001t5zl4z320j47",
+  "cmrs7nwss000ct5zl3flwvusm",
+  "cmrs7rrj9000kt5zl6b3qcdt2",
+  "cmrs8elkz000vt5zlvw5oqf5e",
+  "cmruovdqt0000z6djgbpnoihk",
+  "cmrxwdnrl0002tndjbd532i44",
+  "cmrxwdnqs0000tndjjsmadgbq",
+  "cmrxwdnri0001tndjeioohptq",
+];
+
 export const novasAgenciasMockService = {
   async obterNovasAgencias(): Promise<NovasAgenciasData> {
     return {
@@ -165,7 +187,7 @@ export const novasAgenciasMockService = {
       totalAgencias: 28,
       agencias: LINHAS.map(
         ([nome, meta, executivo, gerente, entrada, primeiraCompra, volume, situacao], indice) => ({
-          id: `nova-agencia-${indice + 1}`,
+          id: IDS_REAIS_LOCAIS[indice] ?? `nova-agencia-${indice + 1}`,
           nome,
           meta,
           executivo,
