@@ -20,13 +20,16 @@ export default async function GestorAgenciasPage({ params }: { params: { id: str
   }
 
   const perfil = montarGestorPerfil(dados.gestor, dados.executivos);
-  const agregado = await gestorDashboardController.obterAgregadoCompleto(dados.executivos, perfil);
+  // Não awaita aqui: dispara a busca pesada (SST por executivo) e repassa
+  // a promise pendente pra view, que a resolve dentro de um Suspense — a
+  // tela (shell + tabs) abre na hora do clique, a tabela chega depois.
+  const agregadoPromise = gestorDashboardController.obterAgregadoCompleto(dados.executivos, perfil);
 
   return (
     <GestorAgenciasView
       perfil={perfil}
       executivos={dados.executivos}
-      porExecutivo={agregado.porExecutivo}
+      agregadoPromise={agregadoPromise}
     />
   );
 }

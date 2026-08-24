@@ -1,35 +1,30 @@
-"use client";
-
+import { Suspense } from "react";
 import { GestorDetalheShell } from "@/modules/gestores/components/gestor-detalhe-shell";
-import { GestorAgenciasFiltrosToolbar } from "@/modules/gestores/components/gestor-agencias-filtros-toolbar";
-import { GestorAgenciasTabela } from "@/modules/gestores/components/gestor-agencias-tabela";
-import { useGestorAgenciasTabViewModel } from "@/modules/gestores/view-models/use-gestor-agencias-tab.view-model";
-import type { AgenciaCarteiraResumo } from "@/modules/atribuicoes/types/executivo-detalhe.types";
+import { GestorAgenciasSecao } from "@/modules/gestores/components/gestor-agencias-secao";
+import { SecaoSkeleton } from "@/modules/gestores/components/dashboard/secao-skeleton";
+import type { gestorDashboardController } from "@/modules/gestores/presentation/controllers/gestor-dashboard.controller";
 import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
 
 interface GestorAgenciasViewProps {
   perfil: GestorPerfil;
   executivos: ExecutivoComCarteira[];
-  porExecutivo: Array<{ id: string; agenciasCarteira: AgenciaCarteiraResumo[] }>;
+  agregadoPromise: ReturnType<typeof gestorDashboardController.obterAgregadoCompleto>;
 }
 
-export function GestorAgenciasView({ perfil, executivos, porExecutivo }: GestorAgenciasViewProps) {
-  const { filtros, atualizarFiltro, agencias, total, opcoesExecutivo } =
-    useGestorAgenciasTabViewModel(executivos, porExecutivo);
-
+// A página abre com o shell (header/tabs) na hora do clique — a tabela,
+// que depende do agregado pesado (SST por executivo), só chega depois via
+// Suspense. Mesmo padrão de gestor-dashboard-view.tsx.
+export function GestorAgenciasView({
+  perfil,
+  executivos,
+  agregadoPromise,
+}: GestorAgenciasViewProps) {
   return (
     <GestorDetalheShell perfil={perfil} abaAtiva="agencias">
-      <GestorAgenciasFiltrosToolbar
-        filtros={filtros}
-        onAtualizarFiltro={atualizarFiltro}
-        total={total}
-        opcoesExecutivo={opcoesExecutivo}
-      />
-
-      <div className="border-border bg-card rounded-2xl border">
-        <GestorAgenciasTabela agencias={agencias} periodo={filtros.periodo} />
-      </div>
+      <Suspense fallback={<SecaoSkeleton altura="h-96" />}>
+        <GestorAgenciasSecao executivos={executivos} agregadoPromise={agregadoPromise} />
+      </Suspense>
     </GestorDetalheShell>
   );
 }
