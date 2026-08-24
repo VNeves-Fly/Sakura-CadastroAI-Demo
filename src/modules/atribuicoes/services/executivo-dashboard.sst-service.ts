@@ -263,6 +263,21 @@ async function buscarOverview(data: string, codigoExecutivo: number): Promise<Ra
   );
 }
 
+// Versão enxuta de `buscarOverview` pra listagens (`/crm/executivos`,
+// `/crm/gestores`) — só `vendasMes`/`vendasAno`, 1 chamada agregada por
+// executivo (mesmo cache de `buscarOverview`, reaproveita se o dashboard
+// individual desse executivo já foi aberto hoje). Não usa o hero completo
+// (7 chamadas) porque a listagem não precisa de dia/ontem/variação/margem.
+async function obterVendasResumo(
+  codigoExecutivo: number,
+): Promise<{ vendasMes: number; vendasAno: number }> {
+  const overview = await buscarOverview(hojeIso(), codigoExecutivo);
+  return {
+    vendasMes: overview.filial.total.mes.tarifa,
+    vendasAno: overview.filial.total.ano.tarifa,
+  };
+}
+
 async function buscarAir(
   inicio: string,
   fim: string,
@@ -849,4 +864,5 @@ async function obterCrossCanalEMiniStats(
 export const executivoDashboardSstService = {
   obterHeroKpis,
   obterCrossCanalEMiniStats,
+  obterVendasResumo,
 };

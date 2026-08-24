@@ -32,6 +32,8 @@ export const promotoresCrudAdapter = {
       gestorId: raw.gestorId,
       bases: raw.bases,
       temAcesso: raw.userId !== null,
+      vendasMes: raw.vendasMes,
+      vendasAno: raw.vendasAno,
     };
   },
 

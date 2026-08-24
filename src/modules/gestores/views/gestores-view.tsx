@@ -12,13 +12,21 @@ interface GestoresViewProps {
   basesOptions: BaseView[];
   // Real: contagem de Promotor.gestorId por gestor, calculada em page.tsx.
   executivosPorGestor: Record<string, number>;
+  // Real: soma das vendas SST dos executivos subordinados, ver page.tsx.
+  vendasPorGestor: Record<string, { vendasMes: number; vendasAno: number }>;
 }
 
-export function GestoresView({ basesOptions, executivosPorGestor }: GestoresViewProps) {
+export function GestoresView({
+  basesOptions,
+  executivosPorGestor,
+  vendasPorGestor,
+}: GestoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
   const [gestorEmEdicaoId, setGestorEmEdicaoId] = useState<string | null>(null);
-  const { gestores, total, isLoading, error, busca, atualizarBusca } =
-    useGestoresListaViewModel(executivosPorGestor);
+  const { gestores, total, isLoading, error, busca, atualizarBusca } = useGestoresListaViewModel(
+    executivosPorGestor,
+    vendasPorGestor,
+  );
 
   const gestorEmEdicao = gestores.find((gestor) => gestor.id === gestorEmEdicaoId);
 
