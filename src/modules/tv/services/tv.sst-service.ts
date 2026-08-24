@@ -171,9 +171,12 @@ interface RawPeriodoOverview {
   clientes: number;
   tickets: number;
   ticket_medio: number;
+  // `percentual` existe na resposta real, mas é fatia por ticket, não
+  // por valor — omitido do tipo de propósito, pra não ser usado por
+  // engano de novo (ver comentário em `paraCanalTv`).
   nacInter: {
-    nacional: { tarifa: number; percentual: number };
-    internacional: { tarifa: number; percentual: number };
+    nacional: { tarifa: number };
+    internacional: { tarifa: number };
   };
 }
 interface RawCanalOverview {
@@ -199,14 +202,25 @@ async function buscarOverview(data: string): Promise<RawOverviewResponse> {
   );
 }
 
+// `nacInter.*.percentual` do SST é a fatia por QUANTIDADE DE TICKETS,
+// não por valor (confirmado ao vivo, 2026-08-24: nacional.tickets=942,
+// internacional.tickets=248, 942/1190=79,16% = exatamente o
+// "percentual" devolvido — enquanto a fatia por tarifa dava ~45%).
+// nacPct/intlPct aqui precisam ser fatia por VALOR (é o que a barra do
+// card mostra) — por isso calculado a partir de `.tarifa`, nunca de
+// `.percentual`. Mesmo critério já usado (e comentado) em
+// dashboard-vendas.sst-service.ts (paraNacIntDoOverview).
 function paraCanalTv(periodo: RawPeriodoOverview): CanalTv {
+  const nacional = periodo.nacInter.nacional.tarifa;
+  const internacional = periodo.nacInter.internacional.tarifa;
+  const totalNacInt = nacional + internacional;
   return {
     valorTotal: periodo.tarifa,
     bilhetes: periodo.tickets,
     agencias: periodo.clientes,
     ticketMedio: periodo.ticket_medio,
-    nacPct: periodo.nacInter.nacional.percentual,
-    intlPct: periodo.nacInter.internacional.percentual,
+    nacPct: totalNacInt > 0 ? (nacional / totalNacInt) * 100 : 0,
+    intlPct: totalNacInt > 0 ? (internacional / totalNacInt) * 100 : 0,
   };
 }
 
