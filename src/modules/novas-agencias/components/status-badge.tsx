@@ -33,7 +33,7 @@ export function StatusBadge({ situacao }: { situacao: SituacaoAgenciaNova }) {
   const config = CONFIG[situacao];
   return (
     <span
-      className="rounded-full px-2.5 py-1 text-[11.5px] font-semibold whitespace-nowrap"
+      className="inline-block w-[196px] rounded-full px-2.5 py-1 text-center text-[11.5px] font-semibold whitespace-nowrap"
       style={{ background: config.bg, color: config.cor }}
     >
       {config.label}

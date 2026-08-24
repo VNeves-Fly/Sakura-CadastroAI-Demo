@@ -176,7 +176,7 @@ export async function cancelarContratoAction(agenciaId: string, formData: FormDa
 
 export async function ativarClienteAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.ativarCliente(id, await analistaLogado());
+  await cadastroAdminController.ativarCliente(id, await analistaLogado(), obterUrlBase(headers()));
   revalidatePath(`/cadastros/${id}`);
 }
 
@@ -186,6 +186,7 @@ export async function recusarCadastroAction(id: string, formData: FormData) {
     agenciaId: id,
     motivo: String(formData.get("motivo") ?? ""),
     recusadoPor: await analistaLogado(),
+    baseUrl: obterUrlBase(headers()),
   });
   revalidatePath(`/cadastros/${id}`);
 }

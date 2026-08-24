@@ -32,6 +32,10 @@ import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/rep
 import { persistirKeySigners } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 import { iniciarVerificacoesBiometricas } from "@/modules/cadastro/application/use-cases/iniciar-verificacoes-biometricas.util";
 import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import { notificarAssinaturaSemBiometria } from "@/modules/cadastro/application/use-cases/notificar-assinatura-sem-biometria.util";
+import { notificarCadastroPendente } from "@/modules/cadastro/application/use-cases/notificar-cadastro-pendente.util";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+import type { DisparoEmail } from "@/modules/shared/domain/enums";
 
 // Mesma convenção de "quem" usada em AuditoriaDocumento (dossie-campos.tsx)
 // pra distinguir aprovação humana de automática — quem consultou tem
@@ -46,6 +50,10 @@ export interface AnalisarCadastroInput {
   // a agência tem gateBiometriaAtivo, pro link de biometria mandado ao
   // sócio.
   baseUrl: string;
+  // EmailLog: "automatico" quando disparado logo após o cliente finalizar
+  // o cadastro (cadastroPublicoController.analisarCadastro), "manual"
+  // quando é reprocessamento por um analista (reprocessarAnalise).
+  disparo: DisparoEmail;
 }
 
 const ENDERECO_VAZIO: GerarContratoEndereco = {
@@ -258,6 +266,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     private readonly sstService: SstService,
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
     private readonly iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase,
+    private readonly emailSender: EmailSender,
   ) {}
 
   // A IA aprovando um documento (contrato social ou RG de um sócio) não
@@ -286,7 +295,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     );
   }
 
-  async execute({ agenciaId, baseUrl }: AnalisarCadastroInput): Promise<void> {
+  async execute({ agenciaId, baseUrl, disparo }: AnalisarCadastroInput): Promise<void> {
     const detalhe = await this.agenciaRepository.obterDetalhe(agenciaId);
 
     if (!detalhe || !detalhe.contratoSocial) {
@@ -464,6 +473,15 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
             agenciaId,
             signatarios,
             baseUrl,
+            disparo,
+          );
+        } else {
+          await notificarAssinaturaSemBiometria(
+            this.emailSender,
+            signatarios,
+            baseUrl,
+            agenciaId,
+            disparo,
           );
         }
         await this.agenciaRepository.registrarAnaliseFinal(
@@ -506,6 +524,13 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
         agencia.status,
         STATUS_EM_COMPLEMENTAR,
         "REPROVADO",
+      );
+      await notificarCadastroPendente(
+        this.emailSender,
+        agencia.emailContato,
+        baseUrl,
+        agenciaId,
+        disparo,
       );
     }
 

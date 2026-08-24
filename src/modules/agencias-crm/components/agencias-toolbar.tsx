@@ -27,13 +27,11 @@ export function AgenciasToolbar({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-muted-foreground text-xs">
-          Financial Adapter — Atualizado em {atualizadoEm}
-        </p>
+        <p className="text-xs text-[#8888AA]">Financial Adapter — Atualizado em {atualizadoEm}</p>
 
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-xs font-medium">Top vendas:</span>
-          <div className="bg-muted inline-flex rounded-full p-1 text-xs font-semibold">
+          <span className="text-[13px] font-medium text-[#8888AA]">Top vendas:</span>
+          <div className="inline-flex rounded-full bg-[#F6F4FA] p-1 text-[13px] font-semibold">
             <button
               type="button"
               onClick={() => onTopVendasChange("vendasAno")}
@@ -41,7 +39,7 @@ export function AgenciasToolbar({
                 "rounded-full px-4 py-1.5 transition",
                 topVendas === "vendasAno"
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-[#8888AA] hover:text-[#3A3A55]",
               )}
             >
               Ano
@@ -53,7 +51,7 @@ export function AgenciasToolbar({
                 "rounded-full px-4 py-1.5 transition",
                 topVendas === "vendasMes"
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-[#8888AA] hover:text-[#3A3A55]",
               )}
             >
               Mês

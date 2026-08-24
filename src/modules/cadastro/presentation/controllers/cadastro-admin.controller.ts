@@ -146,8 +146,12 @@ import {
   SolicitarReenvioDocumentosUseCase,
   type SolicitarReenvioDocumentosInput,
 } from "@/modules/cadastro/application/use-cases/solicitar-reenvio-documentos.use-case";
-import { SmtpEmailAdapter } from "@/modules/shared/infrastructure/adapters/smtp-email.adapter";
-import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
+import { createEmailSender } from "@/modules/users/infrastructure/factories/email-sender.factory";
+import { PrismaEmailLogRepository } from "@/modules/shared/infrastructure/repositories/prisma-email-log.repository";
+import {
+  ListarEmailLogsUseCase,
+  type ListarEmailLogsFiltros,
+} from "@/modules/cadastro/application/use-cases/listar-email-logs.use-case";
 import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos.use-case";
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
 import { ObterArquivoContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-contrato.use-case";
@@ -162,6 +166,7 @@ import {
   type ObterLinkAssinaturaInput,
 } from "@/modules/cadastro/application/use-cases/obter-link-assinatura.use-case";
 import { ListarContratosPendentesGestorUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos-pendentes-gestor.use-case";
+import { PrismaPromotorRepository } from "@/modules/atribuicoes/infrastructure/repositories/prisma-promotor.repository";
 import { EnviarLembretesAssinaturaUseCase } from "@/modules/cadastro/application/use-cases/enviar-lembretes-assinatura.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
 import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
@@ -185,6 +190,7 @@ import type { ListarCadastrosFiltros } from "@/modules/cadastro/domain/repositor
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const usuarioMasterRepository = new PrismaUsuarioMasterRepository(prisma);
+const promotorRepository = new PrismaPromotorRepository(prisma);
 const cadastroComplementarRepository = new PrismaCadastroComplementarRepository(prisma);
 const representanteLegalRepository = new PrismaRepresentanteLegalRepository(prisma);
 const enderecoRepository = new PrismaEnderecoRepository(prisma);
@@ -206,9 +212,11 @@ const documentoArquivoService = process.env.GCS_BUCKET_NAME
   : new LocalDocumentoArquivoAdapter();
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 const midiaOrigemRepository = new PrismaMensagemRepository(prisma);
-// Mesmo critério dos outros adapters externos: SMTP real quando SMTP_HOST
-// está configurada, senão só loga (ver ConsoleEmailAdapter).
-const emailSender = process.env.SMTP_HOST ? new SmtpEmailAdapter() : new ConsoleEmailAdapter();
+// Fábrica única (ver email-sender.factory.ts) — Smtp real quando
+// SMTP_HOST está configurada, senão só loga (ConsoleEmailAdapter), sempre
+// envolvido em LoggingEmailSender (EmailLog).
+const emailSender = createEmailSender();
+const emailLogRepository = new PrismaEmailLogRepository(prisma);
 // Mesma regra do controller público: D4Sign real quando D4SIGN_TOKEN_API
 // está configurada, senão mock — antes ficava sempre no mock aqui, então
 // aprovarComplementar nunca mandava contrato de verdade em produção.
@@ -309,6 +317,7 @@ export const cadastroAdminController = {
       decisaoHumanaRepository,
       contratoAssinaturaRepository,
       iniciarVerificacaoBiometricaUseCase,
+      emailSender,
     );
     return useCase.execute(input);
   },
@@ -346,8 +355,9 @@ export const cadastroAdminController = {
       sstService,
       contratoAssinaturaRepository,
       iniciarVerificacaoBiometricaUseCase,
+      emailSender,
     );
-    return useCase.execute({ agenciaId: id, baseUrl });
+    return useCase.execute({ agenciaId: id, baseUrl, disparo: "manual" });
   },
 
   // Reconsulta isolada de AMAT ou SOFIA (ver ConsultaAmatCard/
@@ -368,7 +378,12 @@ export const cadastroAdminController = {
   },
 
   atualizarStatus(input: AtualizarStatusCadastroInput) {
-    const useCase = new AtualizarStatusCadastroUseCase(agenciaRepository);
+    const useCase = new AtualizarStatusCadastroUseCase(
+      agenciaRepository,
+      usuarioMasterRepository,
+      promotorRepository,
+      emailSender,
+    );
     return useCase.execute(input);
   },
 
@@ -429,8 +444,8 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  ativarCliente(id: string, usuarioEmail: string) {
-    return this.atualizarStatus({ id, status: STATUS_ATIVO, usuarioEmail });
+  ativarCliente(id: string, usuarioEmail: string, baseUrl: string) {
+    return this.atualizarStatus({ id, status: STATUS_ATIVO, usuarioEmail, baseUrl });
   },
 
   // Exige motivo (ver RecusarCadastroUseCase) — grava tanto no histórico
@@ -440,6 +455,7 @@ export const cadastroAdminController = {
     const useCase = new RecusarCadastroUseCase(
       agenciaRepository,
       historicoEdicaoCadastroRepository,
+      emailSender,
     );
     return useCase.execute(input);
   },
@@ -765,5 +781,17 @@ export const cadastroAdminController = {
       historicoEdicaoCadastroRepository,
     );
     return useCase.execute(input);
+  },
+
+  // Auditoria de todo e-mail enviado pelo sistema (ver EmailLog/
+  // LoggingEmailSender) — inclui os de solicitação de documento
+  // (SolicitarReenvioDocumentosUseCase), pedido do usuário (2026-08-24).
+  listarEmailLogs(filtros: ListarEmailLogsFiltros) {
+    const useCase = new ListarEmailLogsUseCase(emailLogRepository);
+    return useCase.execute(filtros);
+  },
+
+  obterEmailLog(id: string) {
+    return emailLogRepository.findById(id);
   },
 };

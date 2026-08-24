@@ -1,70 +1,34 @@
 "use client";
 
-import { Switch } from "@/components/ui/switch";
-import { ToggleVisibilidadeButton } from "@/modules/shared/components/toggle-visibilidade-button";
+import { Search } from "lucide-react";
 import { BotaoNovoCadastro } from "@/modules/shared/components/botao-novo-cadastro";
-import { BuscaListaInput } from "@/modules/shared/components/busca-lista-input";
-import type { PromotorListaFiltros } from "@/modules/atribuicoes/types/promotor-lista.types";
 
 interface ExecutivosListaToolbarProps {
-  filtros: PromotorListaFiltros;
-  onAtualizarFiltro: <K extends keyof PromotorListaFiltros>(
-    chave: K,
-    valor: PromotorListaFiltros[K],
-  ) => void;
-  total: number;
+  busca: string;
+  onBuscaChange: (valor: string) => void;
 }
 
-export function ExecutivosListaToolbar({
-  filtros,
-  onAtualizarFiltro,
-  total,
-}: ExecutivosListaToolbarProps) {
+// Toolbar pixel-perfect (mockup Claude Design, 2026-08-24, "Executivos") —
+// só busca + Novo cadastro. Os toggles "Esconder INATIVO"/"Ocultar sem
+// vendas" e o contador "N promotor(es)" saíram da UI (não existem no
+// mockup); o ToggleVisibilidadeButton também saiu — o mockup não mascara
+// valor nenhum nesta lista. O filtro de busca continua vivo no
+// view-model (useExecutivosListaViewModel), só a apresentação mudou.
+// Pedido do usuário, 2026-08-24: restilizar "pixel perfect".
+export function ExecutivosListaToolbar({ busca, onBuscaChange }: ExecutivosListaToolbarProps) {
   return (
-    <div className="border-border flex flex-wrap items-center gap-4 border-b pb-4">
-      <BuscaListaInput
-        value={filtros.busca}
-        onChange={(valor) => onAtualizarFiltro("busca", valor)}
-        placeholder="Buscar executivo..."
-      />
-
-      <ToggleFiltro
-        label="Esconder INATIVO"
-        checked={filtros.esconderInativo}
-        onCheckedChange={(valor) => onAtualizarFiltro("esconderInativo", valor)}
-      />
-      <ToggleFiltro
-        label="Ocultar sem vendas"
-        checked={filtros.ocultarSemVendas}
-        onCheckedChange={(valor) => onAtualizarFiltro("ocultarSemVendas", valor)}
-      />
-
-      <div className="ml-auto flex items-center gap-3">
-        <span className="text-muted-foreground text-sm whitespace-nowrap">
-          <span className="text-foreground font-semibold">{total}</span> promotor(es)
-        </span>
-
-        <ToggleVisibilidadeButton />
-
-        <BotaoNovoCadastro href="/crm/executivos/novo" />
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex h-[38px] min-w-[250px] items-center gap-2.5 rounded-full border border-[#F5D6E7] bg-white px-4">
+        <Search className="size-[15px] shrink-0 text-[#6B6B85]" strokeWidth={1.8} />
+        <input
+          value={busca}
+          onChange={(event) => onBuscaChange(event.target.value)}
+          placeholder="Buscar executivo..."
+          className="w-full bg-transparent text-sm text-[#1A1A2E] placeholder:text-[#6B6B85] focus:outline-none"
+        />
       </div>
-    </div>
-  );
-}
 
-function ToggleFiltro({
-  label,
-  checked,
-  onCheckedChange,
-}: {
-  label: string;
-  checked: boolean;
-  onCheckedChange: (valor: boolean) => void;
-}) {
-  return (
-    <label className="text-muted-foreground flex items-center gap-2 text-sm whitespace-nowrap">
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-      {label}
-    </label>
+      <BotaoNovoCadastro href="/crm/executivos/novo" variant="solid" />
+    </div>
   );
 }

@@ -107,8 +107,9 @@ export const cadastroPublicoController = {
       sstService,
       contratoAssinaturaRepository,
       iniciarVerificacaoBiometricaUseCase,
+      emailSender,
     );
-    return useCase.execute({ agenciaId, baseUrl });
+    return useCase.execute({ agenciaId, baseUrl, disparo: "automatico" });
   },
 
   // Página pública /cadastro/biometria/[token] — confirma o CPF do sócio
