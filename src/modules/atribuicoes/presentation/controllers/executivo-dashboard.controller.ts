@@ -5,6 +5,7 @@ import type {
   ExecutivoAgenciaResumo,
   ExecutivoDashboard,
   KpisSecundarios,
+  MargemRentabExecutivo,
   MiniStats,
   SegmentoSaude,
 } from "@/modules/atribuicoes/types/executivo-detalhe.types";
@@ -34,7 +35,11 @@ export const executivoDashboardController = {
     promotorId: string,
     totalAgencias: number,
     agencias: ExecutivoAgenciaResumo[],
-  ): Promise<{ hero: ExecutivoDashboard["hero"]; kpis: KpisSecundarios }> {
+  ): Promise<{
+    hero: ExecutivoDashboard["hero"];
+    kpis: KpisSecundarios;
+    margemRentab: MargemRentabExecutivo;
+  }> {
     if (usaSstReal(sica)) {
       return executivoDashboardSstService.obterHeroKpis(sica, promotorId, totalAgencias, agencias);
     }
@@ -43,7 +48,7 @@ export const executivoDashboardController = {
       totalAgencias,
       agencias,
     );
-    return { hero: mock.hero, kpis: mock.kpis };
+    return { hero: mock.hero, kpis: mock.kpis, margemRentab: mock.margemRentab };
   },
 
   // `saudeCarteira` vem junto (mesma chamada/loop por agência de

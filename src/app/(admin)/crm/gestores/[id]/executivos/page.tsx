@@ -23,7 +23,7 @@ export default async function GestorExecutivosPage({ params }: { params: { id: s
   // Não awaita aqui: dispara a busca pesada (SST por executivo) e repassa
   // a promise pendente pra view, que a resolve dentro de um Suspense — a
   // tela (shell + tabs) abre na hora do clique, a tabela chega depois.
-  const agregadoPromise = gestorDashboardController.obterAgregadoCompleto(dados.executivos, perfil);
+  const agregadoPromise = gestorDashboardController.obterAgregadoCompleto(dados.executivos);
 
   return (
     <GestorExecutivosView

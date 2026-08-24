@@ -14,6 +14,7 @@ export async function notificarCadastroRecusado(
   emailSender: EmailSender,
   emailContato: string,
   baseUrl: string,
+  agenciaId: string,
 ): Promise<void> {
   const html = montarEmailSakura({
     baseUrl,
@@ -34,6 +35,7 @@ export async function notificarCadastroRecusado(
       to: emailContato,
       subject: "Sobre o seu cadastro na Sakura Consolidadora",
       html,
+      meta: { origem: "cadastro-recusado", disparo: "manual", agenciaId },
     });
   } catch (error) {
     console.warn(

@@ -1,33 +1,28 @@
 import { GestorReceitaTotalCard } from "@/modules/gestores/components/dashboard/gestor-receita-total-card";
 import { GestorKpisSecundariosGrid } from "@/modules/gestores/components/dashboard/gestor-kpis-secundarios";
 import type { gestorDashboardController } from "@/modules/gestores/presentation/controllers/gestor-dashboard.controller";
-import type { CanalResumoGestor } from "@/modules/gestores/types/gestor-detalhe.types";
 
 interface GestorHeroKpisSecaoProps {
   heroKpisPromise: ReturnType<typeof gestorDashboardController.obterHeroKpisAgregado>;
-  canalAereo: CanalResumoGestor;
-  canalTerrestre: CanalResumoGestor;
+  crossCanalPromise: ReturnType<typeof gestorDashboardController.obterCrossCanalAgregado>;
   atualizadoEm: string;
 }
 
-// Recebe a busca já disparada pelo pai (GestorDashboardView), não a
-// dispara aqui — mesmo padrão de executivo-hero-kpis-secao.tsx.
+// Recebe as buscas já disparadas pelo pai (GestorDashboardView), não as
+// dispara aqui — mesmo padrão de executivo-hero-kpis-secao.tsx. Só
+// `heroKpisPromise` é aguardada aqui; `crossCanalPromise` é só repassada
+// pra `GestorKpisSecundariosGrid`, que a resolve no seu próprio Suspense
+// interno (card "Vendendo 30d") sem atrasar esta seção.
 export async function GestorHeroKpisSecao({
   heroKpisPromise,
-  canalAereo,
-  canalTerrestre,
+  crossCanalPromise,
   atualizadoEm,
 }: GestorHeroKpisSecaoProps) {
-  const { hero, kpis } = await heroKpisPromise;
+  const { hero, kpis, margemRentab } = await heroKpisPromise;
   return (
     <>
-      <GestorReceitaTotalCard
-        hero={hero}
-        canalAereo={canalAereo}
-        canalTerrestre={canalTerrestre}
-        atualizadoEm={atualizadoEm}
-      />
-      <GestorKpisSecundariosGrid kpis={kpis} />
+      <GestorReceitaTotalCard hero={hero} margemRentab={margemRentab} atualizadoEm={atualizadoEm} />
+      <GestorKpisSecundariosGrid kpis={kpis} crossCanalPromise={crossCanalPromise} />
     </>
   );
 }

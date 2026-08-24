@@ -53,6 +53,7 @@ export class SolicitarLinkExecutivoUseCase implements UseCase<
         to: promotor.email,
         subject: "Seu link de cadastro — Sakura Consolidadora",
         html: buildHtml(promotor.nome, link),
+        meta: { origem: "link-executivo", disparo: "manual" },
       });
     } catch (error) {
       console.error("Falha ao enviar e-mail de link do executivo:", error);

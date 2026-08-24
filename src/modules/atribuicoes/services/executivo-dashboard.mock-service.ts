@@ -1,9 +1,12 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import type {
   AgenciaSegmentoResumo,
+  CanalMargemPeriodo,
+  CanalMargemResumo,
   ExecutivoAgenciaResumo,
   ExecutivoDashboard,
   LoyaltyChip,
+  MargemRentabExecutivo,
   PeriodoVendasMesHero,
   SegmentoSaude,
   VendaMensal,
@@ -117,6 +120,85 @@ function gerarHeroPorPeriodo(
       agenciasVendendo: totalAgencias,
       variacaoPct,
     },
+  };
+}
+
+// Fallback-only (nunca mostrado com badge "MK" — ver comFallback em
+// executivo-dashboard.sst-service.ts, `margemRentab` some junto com
+// hero/kpis se o SST falhar). Mesma matemática de hash que existia em
+// gerarCanalAereo/gerarCanalTerrestre (canal-resumo-mock.util.ts, removidas
+// de lá — eram mock só por falta de leitura do campo, não por falta de
+// dado real), só reestruturada por período em vez de única/estática.
+function gerarCanalMargemPeriodo(
+  base: number,
+  valor: number,
+  quantidade: number,
+  deslocamento: number,
+): CanalMargemPeriodo {
+  const seed = base + deslocamento;
+  const margemPct = Math.round((2.6 + ((seed >> 3) % 100) / 10) * 100) / 100;
+  const margemLYPct = Math.round((margemPct - (0.2 + ((seed >> 7) % 12) / 10)) * 100) / 100;
+  const margemNegativa = (seed >> 9) % 5 === 0;
+  const rentabLYPct = Math.round((1.8 + ((seed >> 11) % 60) / 10) * 100) / 100;
+  const nacPct = Math.min(100, Math.round((28 + (seed % 60)) * 10) / 10);
+  const valorLY = Math.round(valor * (0.7 + ((seed >> 5) % 50) / 100));
+  const nacionalValor = Math.round(valor * (nacPct / 100));
+
+  return {
+    valor,
+    quantidade,
+    margemPct,
+    margemLYPct,
+    margemVariacaoPct:
+      (margemNegativa ? -1 : 1) * (Math.round((5 + ((seed >> 9) % 250) / 10) * 100) / 100),
+    rentabValor: Math.round(valor * (margemPct / 100)),
+    rentabLYValor: Math.round(valorLY * (rentabLYPct / 100)),
+    rentabLYVariacaoPct: Math.round((15 + ((seed >> 13) % 550) / 10) * 100) / 100,
+    ticketMedio: quantidade > 0 ? Math.round(valor / quantidade) : 0,
+    nacPct,
+    intPct: Math.round((100 - nacPct) * 10) / 10,
+    valorLY,
+    nacionalValor,
+    internacionalValor: valor - nacionalValor,
+  };
+}
+
+// Divide o valor/bilhetes de cada período (já mockados em `hero`) entre
+// Aéreo/Terrestre por uma participação determinística — mesmo papel de
+// `canal.participacaoPct` que existia em gerarCanalAereo/gerarCanalTerrestre.
+function gerarMargemRentabPorPeriodo(
+  base: number,
+  hero: Record<PeriodoVendasMesHero, VendasMesHero>,
+): MargemRentabExecutivo {
+  const participacaoAereoPct = Math.round((70 + (base % 25)) * 10) / 10;
+
+  const paraPeriodo = (chave: PeriodoVendasMesHero, deslocamento: number): CanalMargemResumo => {
+    const { valor, bilhetes } = hero[chave];
+    const valorAereo = Math.round((valor * participacaoAereoPct) / 100);
+    const valorTerrestre = valor - valorAereo;
+    const bilhetesAereo = Math.round((bilhetes * participacaoAereoPct) / 100);
+    const bilhetesTerrestre = Math.max(0, bilhetes - bilhetesAereo);
+
+    return {
+      total: gerarCanalMargemPeriodo(base, valor, bilhetes, deslocamento),
+      aereo: gerarCanalMargemPeriodo(base, valorAereo, bilhetesAereo, deslocamento + 1_013),
+      terrestre: gerarCanalMargemPeriodo(
+        base,
+        valorTerrestre,
+        bilhetesTerrestre,
+        deslocamento + 2_027,
+      ),
+    };
+  };
+
+  // Deslocamentos bem espaçados (não múltiplos pequenos de 10) — os campos
+  // de `gerarCanalMargemPeriodo` usam `seed >> 3`/`>> 9`/`>> 13`; gaps
+  // pequenos (ex. +10/+20/+30) colapsam pro mesmo valor depois do shift.
+  return {
+    dia: paraPeriodo("dia", 101),
+    ontem: paraPeriodo("ontem", 4_051),
+    mes: paraPeriodo("mes", 8_009),
+    ano: paraPeriodo("ano", 16_007),
   };
 }
 
@@ -265,15 +347,18 @@ async function obterDashboard(
   const paradasCandidatas = agencias.filter((_, indice) => (base + indice) % 3 === 0).slice(0, 20);
   const emQuedaCandidatas = agencias.filter((_, indice) => (base + indice) % 4 === 0).slice(0, 20);
 
+  const hero = gerarHeroPorPeriodo(
+    base,
+    valorMesAtual,
+    bilhetesMes,
+    variacaoPct,
+    vendendoUltimos30d,
+    totalAgencias,
+  );
+
   return {
-    hero: gerarHeroPorPeriodo(
-      base,
-      valorMesAtual,
-      bilhetesMes,
-      variacaoPct,
-      vendendoUltimos30d,
-      totalAgencias,
-    ),
+    hero,
+    margemRentab: gerarMargemRentabPorPeriodo(base, hero),
     kpis: {
       mesAnteriorValor,
       mesAnteriorFaltaValor: Math.max(0, mesAnteriorValor - valorMesAtual),

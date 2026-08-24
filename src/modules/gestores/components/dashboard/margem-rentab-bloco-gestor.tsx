@@ -1,5 +1,4 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   formatarMoedaCompleta,
@@ -15,11 +14,6 @@ interface MargemRentabBlocoGestorProps {
   rentabLYValor: number;
   rentabLYVariacaoPct: number;
   tamanho?: "grande" | "pequeno";
-  // Mostra "MK" ao lado do rótulo — mesma convenção de margem-rentab-bloco.tsx
-  // (Executivo): o valor principal do card (hero/canal) já é real, mas
-  // margem/rentab. por canal continuam mock (SST não expõe isso, ver
-  // canal-resumo-mock equivalente em gestor-detalhe.adapter.ts).
-  mock?: boolean;
 }
 
 // Bloco "MARGEM.../RENTAB. LY" do card de receita total e dos cartões de
@@ -36,7 +30,6 @@ export function MargemRentabBlocoGestor({
   rentabLYValor,
   rentabLYVariacaoPct,
   tamanho = "grande",
-  mock,
 }: MargemRentabBlocoGestorProps) {
   const margemNegativa = margemVariacaoPct < 0;
   const grande = tamanho === "grande";
@@ -51,7 +44,6 @@ export function MargemRentabBlocoGestor({
       >
         <span className="flex items-center gap-1.5">
           <span className="text-muted-foreground/70 font-bold tracking-wide">{margemLabel}</span>
-          {mock ? <MockBadge /> : null}
           <span className="text-foreground/80 font-bold">{formatarPercentual(margemPct)}</span>
         </span>
         <span className="flex items-center gap-1.5">

@@ -18,10 +18,10 @@ export async function ExecutivoHeroKpisSecao({
   perfilId,
   crossCanalPromise,
 }: ExecutivoHeroKpisSecaoProps) {
-  const { hero, kpis } = await heroKpisPromise;
+  const { hero, kpis, margemRentab } = await heroKpisPromise;
   return (
     <>
-      <ReceitaTotalCard hero={hero} perfilId={perfilId} />
+      <ReceitaTotalCard hero={hero} margemRentab={margemRentab} perfilId={perfilId} />
       <KpisSecundariosGrid kpis={kpis} crossCanalPromise={crossCanalPromise} />
     </>
   );

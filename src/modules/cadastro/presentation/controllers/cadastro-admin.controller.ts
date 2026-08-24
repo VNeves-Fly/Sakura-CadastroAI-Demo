@@ -146,8 +146,12 @@ import {
   SolicitarReenvioDocumentosUseCase,
   type SolicitarReenvioDocumentosInput,
 } from "@/modules/cadastro/application/use-cases/solicitar-reenvio-documentos.use-case";
-import { SmtpEmailAdapter } from "@/modules/shared/infrastructure/adapters/smtp-email.adapter";
-import { ConsoleEmailAdapter } from "@/modules/shared/infrastructure/adapters/console-email.adapter";
+import { createEmailSender } from "@/modules/users/infrastructure/factories/email-sender.factory";
+import { PrismaEmailLogRepository } from "@/modules/shared/infrastructure/repositories/prisma-email-log.repository";
+import {
+  ListarEmailLogsUseCase,
+  type ListarEmailLogsFiltros,
+} from "@/modules/cadastro/application/use-cases/listar-email-logs.use-case";
 import { ListarContratosUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos.use-case";
 import { ObterContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-contrato.use-case";
 import { ObterArquivoContratoUseCase } from "@/modules/cadastro/application/use-cases/obter-arquivo-contrato.use-case";
@@ -208,9 +212,11 @@ const documentoArquivoService = process.env.GCS_BUCKET_NAME
   : new LocalDocumentoArquivoAdapter();
 const fileStorage = process.env.GCS_BUCKET_NAME ? new GcsFileStorage() : new LocalFileStorage();
 const midiaOrigemRepository = new PrismaMensagemRepository(prisma);
-// Mesmo critério dos outros adapters externos: SMTP real quando SMTP_HOST
-// está configurada, senão só loga (ver ConsoleEmailAdapter).
-const emailSender = process.env.SMTP_HOST ? new SmtpEmailAdapter() : new ConsoleEmailAdapter();
+// Fábrica única (ver email-sender.factory.ts) — Smtp real quando
+// SMTP_HOST está configurada, senão só loga (ConsoleEmailAdapter), sempre
+// envolvido em LoggingEmailSender (EmailLog).
+const emailSender = createEmailSender();
+const emailLogRepository = new PrismaEmailLogRepository(prisma);
 // Mesma regra do controller público: D4Sign real quando D4SIGN_TOKEN_API
 // está configurada, senão mock — antes ficava sempre no mock aqui, então
 // aprovarComplementar nunca mandava contrato de verdade em produção.
@@ -351,7 +357,7 @@ export const cadastroAdminController = {
       iniciarVerificacaoBiometricaUseCase,
       emailSender,
     );
-    return useCase.execute({ agenciaId: id, baseUrl });
+    return useCase.execute({ agenciaId: id, baseUrl, disparo: "manual" });
   },
 
   // Reconsulta isolada de AMAT ou SOFIA (ver ConsultaAmatCard/
@@ -775,5 +781,17 @@ export const cadastroAdminController = {
       historicoEdicaoCadastroRepository,
     );
     return useCase.execute(input);
+  },
+
+  // Auditoria de todo e-mail enviado pelo sistema (ver EmailLog/
+  // LoggingEmailSender) — inclui os de solicitação de documento
+  // (SolicitarReenvioDocumentosUseCase), pedido do usuário (2026-08-24).
+  listarEmailLogs(filtros: ListarEmailLogsFiltros) {
+    const useCase = new ListarEmailLogsUseCase(emailLogRepository);
+    return useCase.execute(filtros);
+  },
+
+  obterEmailLog(id: string) {
+    return emailLogRepository.findById(id);
   },
 };

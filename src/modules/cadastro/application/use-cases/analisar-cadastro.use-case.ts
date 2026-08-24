@@ -35,6 +35,7 @@ import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/app
 import { notificarAssinaturaSemBiometria } from "@/modules/cadastro/application/use-cases/notificar-assinatura-sem-biometria.util";
 import { notificarCadastroPendente } from "@/modules/cadastro/application/use-cases/notificar-cadastro-pendente.util";
 import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+import type { DisparoEmail } from "@/modules/shared/domain/enums";
 
 // Mesma convenção de "quem" usada em AuditoriaDocumento (dossie-campos.tsx)
 // pra distinguir aprovação humana de automática — quem consultou tem
@@ -49,6 +50,10 @@ export interface AnalisarCadastroInput {
   // a agência tem gateBiometriaAtivo, pro link de biometria mandado ao
   // sócio.
   baseUrl: string;
+  // EmailLog: "automatico" quando disparado logo após o cliente finalizar
+  // o cadastro (cadastroPublicoController.analisarCadastro), "manual"
+  // quando é reprocessamento por um analista (reprocessarAnalise).
+  disparo: DisparoEmail;
 }
 
 const ENDERECO_VAZIO: GerarContratoEndereco = {
@@ -290,7 +295,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     );
   }
 
-  async execute({ agenciaId, baseUrl }: AnalisarCadastroInput): Promise<void> {
+  async execute({ agenciaId, baseUrl, disparo }: AnalisarCadastroInput): Promise<void> {
     const detalhe = await this.agenciaRepository.obterDetalhe(agenciaId);
 
     if (!detalhe || !detalhe.contratoSocial) {
@@ -468,9 +473,16 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
             agenciaId,
             signatarios,
             baseUrl,
+            disparo,
           );
         } else {
-          await notificarAssinaturaSemBiometria(this.emailSender, signatarios, baseUrl);
+          await notificarAssinaturaSemBiometria(
+            this.emailSender,
+            signatarios,
+            baseUrl,
+            agenciaId,
+            disparo,
+          );
         }
         await this.agenciaRepository.registrarAnaliseFinal(
           agenciaId,
@@ -513,7 +525,13 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
         STATUS_EM_COMPLEMENTAR,
         "REPROVADO",
       );
-      await notificarCadastroPendente(this.emailSender, agencia.emailContato, baseUrl);
+      await notificarCadastroPendente(
+        this.emailSender,
+        agencia.emailContato,
+        baseUrl,
+        agenciaId,
+        disparo,
+      );
     }
 
     // Cache normalizado pro dossiê do painel admin ("Dados da Receita") —

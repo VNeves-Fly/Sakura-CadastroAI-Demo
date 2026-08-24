@@ -35,7 +35,7 @@ function depoisDe<T>(gate: Promise<unknown>, tarefa: () => Promise<T>): Promise<
 // Executivo, ver docs/plano-gestores-backend.md §4.5) e não depende do
 // SST — por isso renderiza direto aqui, sem Suspense.
 export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewProps) {
-  const heroKpisPromise = gestorDashboardController.obterHeroKpisAgregado(executivos, perfil);
+  const heroKpisPromise = gestorDashboardController.obterHeroKpisAgregado(executivos);
   const crossCanalPromise = depoisDe(heroKpisPromise, () =>
     gestorDashboardController.obterCrossCanalAgregado(executivos),
   );
@@ -43,14 +43,8 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
     criarGestorHeaderStatsSlots(crossCanalPromise);
 
   const agenciasCarteira = executivos.flatMap((executivo) => executivo.agencias);
-  const {
-    canalAereo,
-    canalTerrestre,
-    atualizadoEm,
-    topAgenciasHoje,
-    topAgenciasHojeAereo,
-    topAgenciasHojeTerrestre,
-  } = montarGestorApresentacaoMock(perfil.id, agenciasCarteira);
+  const { atualizadoEm, topAgenciasHoje, topAgenciasHojeAereo, topAgenciasHojeTerrestre } =
+    montarGestorApresentacaoMock(perfil.id, agenciasCarteira);
 
   return (
     <GestorDetalheShell
@@ -62,8 +56,7 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
       <Suspense fallback={<SecaoSkeleton altura="h-40" />}>
         <GestorHeroKpisSecao
           heroKpisPromise={heroKpisPromise}
-          canalAereo={canalAereo}
-          canalTerrestre={canalTerrestre}
+          crossCanalPromise={crossCanalPromise}
           atualizadoEm={atualizadoEm}
         />
       </Suspense>
