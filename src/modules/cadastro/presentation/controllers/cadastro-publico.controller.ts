@@ -107,6 +107,7 @@ export const cadastroPublicoController = {
       sstService,
       contratoAssinaturaRepository,
       iniciarVerificacaoBiometricaUseCase,
+      emailSender,
     );
     return useCase.execute({ agenciaId, baseUrl });
   },
