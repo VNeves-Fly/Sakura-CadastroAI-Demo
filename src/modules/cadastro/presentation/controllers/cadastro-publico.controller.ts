@@ -109,7 +109,7 @@ export const cadastroPublicoController = {
       iniciarVerificacaoBiometricaUseCase,
       emailSender,
     );
-    return useCase.execute({ agenciaId, baseUrl });
+    return useCase.execute({ agenciaId, baseUrl, disparo: "automatico" });
   },
 
   // Página pública /cadastro/biometria/[token] — confirma o CPF do sócio

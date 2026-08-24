@@ -22,6 +22,7 @@ import {
   Sparkles,
   Tv,
   PenLine,
+  Mail,
 } from "lucide-react";
 import {
   Sidebar,
@@ -190,6 +191,15 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         // Quem assina o contrato pela Sakura é restrito a Admin/Diretor
         // (decisão do usuário, 2026-07-31) — mesmo guard checado de novo
         // nas próprias pages/actions (ver actions.ts do módulo).
+        ocultoPara: CARGOS_NAO_ADMIN,
+      },
+      {
+        // Auditoria de todo e-mail enviado (EmailLog, 2026-08-24) — corpo
+        // pode conter dado sensível de sócio, mesmo guard de Admin/Diretor
+        // que Signatários do Contrato (checado de novo na própria page).
+        label: "Logs de e-mail",
+        href: "/cadastros/logs-email",
+        icon: Mail,
         ocultoPara: CARGOS_NAO_ADMIN,
       },
     ],

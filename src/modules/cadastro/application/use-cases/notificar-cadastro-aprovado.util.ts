@@ -86,6 +86,7 @@ export async function notificarCadastroAprovado(
       to: destinatario,
       subject: "Cadastro aprovado! — Sakura Consolidadora",
       html,
+      meta: { origem: "cadastro-aprovado", disparo: "manual", agenciaId: agencia.id },
     });
   } catch (error) {
     console.warn(

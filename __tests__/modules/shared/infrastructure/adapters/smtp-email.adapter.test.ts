@@ -25,6 +25,7 @@ describe("SmtpEmailAdapter", () => {
       to: "destinatario@empresa.com",
       subject: "Reenvio de documentos",
       html: "<p>Segue o link para reenvio.</p>",
+      meta: { origem: "teste", disparo: "manual" },
     });
 
     expect(sendMail).toHaveBeenCalledWith({
@@ -40,7 +41,12 @@ describe("SmtpEmailAdapter", () => {
     const adapter = new SmtpEmailAdapter();
 
     await expect(
-      adapter.send({ to: "destinatario@empresa.com", subject: "Assunto", html: "<p>Oi</p>" }),
+      adapter.send({
+        to: "destinatario@empresa.com",
+        subject: "Assunto",
+        html: "<p>Oi</p>",
+        meta: { origem: "teste", disparo: "manual" },
+      }),
     ).rejects.toThrow("conexão SMTP recusada");
   });
 });

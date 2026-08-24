@@ -1,4 +1,5 @@
 import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+import type { DisparoEmail } from "@/modules/shared/domain/enums";
 import {
   montarEmailSakura,
   paragrafoEmail,
@@ -18,6 +19,8 @@ export async function notificarCadastroPendente(
   emailSender: EmailSender,
   emailContato: string,
   baseUrl: string,
+  agenciaId: string,
+  disparo: DisparoEmail,
 ): Promise<void> {
   const html = montarEmailSakura({
     baseUrl,
@@ -41,6 +44,7 @@ export async function notificarCadastroPendente(
       to: emailContato,
       subject: "Seu cadastro está quase pronto! — Sakura Consolidadora",
       html,
+      meta: { origem: "cadastro-pendente", disparo, agenciaId },
     });
   } catch (error) {
     console.warn(

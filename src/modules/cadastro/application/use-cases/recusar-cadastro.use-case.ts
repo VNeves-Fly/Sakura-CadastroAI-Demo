@@ -53,7 +53,12 @@ export class RecusarCadastroUseCase implements UseCase<RecusarCadastroInput, Age
       editadoPor: input.recusadoPor,
     });
 
-    await notificarCadastroRecusado(this.emailSender, detalhe.agencia.emailContato, input.baseUrl);
+    await notificarCadastroRecusado(
+      this.emailSender,
+      detalhe.agencia.emailContato,
+      input.baseUrl,
+      input.agenciaId,
+    );
 
     return agencia;
   }

@@ -264,6 +264,7 @@ model Agencia {
   atendimentosAgencia       AtendimentoAgencia[]
   solicitacoesAtendimento   SolicitacaoAtendimentoAgencia[]
   observacoes               ObservacaoCadastro[]
+  emailLogs                 EmailLog[]
 
   @@map("agencias")
 }
@@ -921,6 +922,43 @@ model ContratoEmailFalhaEntrega {
 
   @@unique([contratoId, email])
   @@map("contrato_email_falha_entrega")
+}
+
+enum DisparoEmail {
+  manual
+  automatico
+}
+
+// Log de todo e-mail que passa por EmailSender (ver
+// LoggingEmailSender/createEmailSender) — pedido do usuário (2026-08-24):
+// auditoria de destinatário/corpo/data/gatilho pra qualquer e-mail do
+// sistema, incluindo os de solicitação de documento
+// (SolicitarReenvioDocumentosUseCase). `agenciaId` é nulo pros e-mails que
+// não são de uma agência (recuperação de senha, link de executivo).
+// `sucesso: false` registra o log mesmo quando o envio falhou (SMTP fora
+// do ar etc.) — o erro em si já não derruba o fluxo de negócio (cada
+// call-site continua best-effort), mas passa a ficar visível aqui em vez
+// de só no console.
+model EmailLog {
+  id           String       @id @default(cuid())
+  destinatario String
+  assunto      String
+  corpo        String       @db.Text
+  // Identificador curto de qual notificação disparou (ex.:
+  // "cadastro-aprovado", "biometria-verificacao") — string livre, mesmo
+  // racional de EntidadeHistoricoEdicao: novo e-mail não deve exigir
+  // mudança de tipo aqui.
+  origem       String
+  disparo      DisparoEmail
+  agenciaId    String?
+  agencia      Agencia?     @relation(fields: [agenciaId], references: [id], onDelete: SetNull)
+  sucesso      Boolean
+  erro         String?
+  enviadoEm    DateTime     @default(now())
+
+  @@index([agenciaId])
+  @@index([enviadoEm])
+  @@map("email_logs")
 }
 
 // Snapshot imutável do signatário no momento em que o contrato foi
