@@ -1,4 +1,5 @@
 import type { ContratoSignatario } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
+import type { DisparoEmail } from "@/modules/shared/domain/enums";
 import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
 
 // Dispara a verificação de biometria (Legitimuz) pra cada sócio — best-
@@ -14,6 +15,7 @@ export async function iniciarVerificacoesBiometricas(
   agenciaId: string,
   signatarios: ContratoSignatario[],
   baseUrl: string,
+  disparo: DisparoEmail,
 ): Promise<void> {
   for (const signatario of signatarios) {
     try {
@@ -24,6 +26,7 @@ export async function iniciarVerificacoesBiometricas(
         cpf: signatario.cpf,
         nome: signatario.nome,
         baseUrl,
+        disparo,
       });
     } catch (error) {
       console.warn(

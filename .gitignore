@@ -52,6 +52,7 @@ dev-files
 # scripts de teste manual temporários (ex.: Playwright ad-hoc) — nunca
 # devem ser commitados, só existem durante uma verificação pontual
 *.tmp.js
+/scratchpad
 
 .swc
 docs/db

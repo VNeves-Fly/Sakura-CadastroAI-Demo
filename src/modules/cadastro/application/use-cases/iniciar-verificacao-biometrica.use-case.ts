@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { UseCase } from "@/modules/shared/application/use-case";
 import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+import type { DisparoEmail } from "@/modules/shared/domain/enums";
 import type { BiometriaVerificacaoService } from "@/modules/cadastro/domain/services/biometria-verificacao-service";
 import type { BiometriaVerificacaoRepository } from "@/modules/cadastro/domain/repositories/biometria-verificacao-repository";
 
@@ -11,6 +12,10 @@ export interface IniciarVerificacaoBiometricaInput {
   cpf: string;
   nome: string;
   baseUrl: string;
+  // EmailLog: automático quando vem do cron de lembrete, manual quando
+  // vem de AnalisarCadastroUseCase/AprovarCadastroComplementarUseCase
+  // (ver iniciarVerificacoesBiometricas).
+  disparo: DisparoEmail;
 }
 
 const DIAS_EXPIRACAO_TOKEN = 7;
@@ -60,6 +65,11 @@ export class IniciarVerificacaoBiometricaUseCase implements UseCase<
     await this.emailSender.send({
       to: input.email,
       subject: "Verificação de biometria facial — Cadastro Sakura",
+      meta: {
+        origem: "biometria-verificacao",
+        disparo: input.disparo,
+        agenciaId: input.agenciaId,
+      },
       html: `
         <div style="font-family: sans-serif; font-size: 15px; color: #1f2937;">
           <p>Olá, ${input.nome}!</p>

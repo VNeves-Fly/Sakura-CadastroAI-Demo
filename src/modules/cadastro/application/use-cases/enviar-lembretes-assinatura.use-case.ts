@@ -111,6 +111,7 @@ export class EnviarLembretesAssinaturaUseCase implements UseCase<
         cpf,
         nome,
         baseUrl,
+        disparo: "automatico",
       });
     } catch (error) {
       console.warn(
@@ -139,6 +140,7 @@ export class EnviarLembretesAssinaturaUseCase implements UseCase<
             <p><a href="${resultado.link}">${resultado.link}</a></p>
           </div>
         `,
+        meta: { origem: "lembrete-assinatura", disparo: "automatico", agenciaId },
       });
     } catch (error) {
       console.warn(

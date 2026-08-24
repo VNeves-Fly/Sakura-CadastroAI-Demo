@@ -63,6 +63,7 @@ export class RequestPasswordResetUseCase implements UseCase<RequestPasswordReset
         to: user.email,
         subject: "Recuperação de senha — Cadastro IA Sakura",
         html: buildHtml(user.firstName, codigo, link),
+        meta: { origem: "reset-senha", disparo: "manual" },
       });
     } catch (error) {
       console.error("Falha ao enviar e-mail de recuperação de senha:", error);
