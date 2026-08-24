@@ -33,6 +33,18 @@ export class LegitimuzAdapter implements BiometriaVerificacaoService {
     // faria captura de documento de novo — redundante com o que a própria
     // Legitimuz já cobre aqui, decisão do usuário 2026-08-21).
     formData.append("flow", "kyc-faceindex");
+    // ⚠️ Não confirmado ao vivo — o painel da Legitimuz (aba "Editar
+    // domínio", 2026-08-21) avisa "Certifique-se de que a opção
+    // 'enableRedirect' está habilitada" junto do campo "URL de
+    // redirecionamento", mas não existe nenhum toggle nessa tela: é um link
+    // pra doc externa deles, o que sugere ser um parâmetro passado na
+    // integração (aqui, ou só no SDK Web — não usado neste adapter). Mandado
+    // como precaução, formato ("1"/"0", como os outros campos booleanos
+    // dessa API) especulativo. Se o redirect não disparar de volta pra
+    // /cadastro/biometria/[token] no teste ao vivo, o "URL de
+    // redirecionamento" padrão configurado no domínio (mesmo valor com
+    // {token}) é o fallback.
+    formData.append("enableRedirect", "1");
 
     const response = await fetch(`${baseUrl()}/public/kyc/get-sdk-url`, {
       method: "POST",
