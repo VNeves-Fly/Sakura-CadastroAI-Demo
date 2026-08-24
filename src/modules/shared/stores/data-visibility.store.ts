@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -26,5 +27,18 @@ export const useDataVisibilityStore = create<DataVisibilityState>()(
 export function useDataVisibility() {
   const dadosVisiveis = useDataVisibilityStore((state) => state.dadosVisiveis);
   const alternarVisibilidade = useDataVisibilityStore((state) => state.alternarVisibilidade);
-  return { dadosVisiveis, alternarVisibilidade };
+
+  // Evita erro de hydration em todo consumidor (SensitiveValue,
+  // ToggleVisibilidadeButton, etc): o middleware `persist` do Zustand
+  // reidrata o `localStorage` de forma síncrona no client, antes do
+  // primeiro paint — numa visita em que o usuário já tinha ligado a
+  // visibilidade, `dadosVisiveis` nasce `true` no client enquanto o
+  // servidor (sem acesso a localStorage) sempre renderizou `false`. Força
+  // `false` até o primeiro efeito rodar, garantindo que o primeiro render
+  // do client bata com o do servidor; o valor real aparece um instante
+  // depois, já com React montado (sem novo mismatch).
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+
+  return { dadosVisiveis: hasMounted && dadosVisiveis, alternarVisibilidade };
 }
