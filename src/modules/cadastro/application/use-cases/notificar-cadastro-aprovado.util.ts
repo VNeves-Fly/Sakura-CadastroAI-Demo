@@ -5,6 +5,7 @@ import {
   montarEmailSakura,
   paragrafoEmail,
   botaoEmail,
+  iconeEmailUrl,
 } from "@/modules/shared/utils/email-template.util";
 
 const SAKURACLICK_URL = "https://www.sakuraclick.com.br";
@@ -61,7 +62,7 @@ export async function notificarCadastroAprovado(
     const html = montarEmailSakura({
       baseUrl,
       banner: {
-        iconeUrl: `${baseUrl}/icons/cadastro-aprovado.svg`,
+        iconeUrl: iconeEmailUrl(baseUrl, "cadastro-aprovado"),
         tituloLinhas: ["CADASTRO", "APROVADO!"],
       },
       corpoHtml: `
