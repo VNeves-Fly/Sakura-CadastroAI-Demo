@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { cadastroAdminController } from "@/modules/cadastro/presentation/controllers/cadastro-admin.controller";
 import { DomainError } from "@/modules/shared/domain/errors";
 import { validarArquivoUpload } from "@/modules/cadastro/utils/arquivo-upload.util";
+import { obterUrlBase } from "@/modules/shared/utils/url-base.util";
 import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 
 // Única transição de status permitida a partir do arquivo: Reprovada ->
@@ -14,7 +16,7 @@ import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
 export async function reativarClienteAction(agenciaId: string) {
   const session = await getServerSession(nextAuthOptions);
   const usuarioEmail = session?.user?.email ?? session?.user?.name ?? "analista não identificado";
-  await cadastroAdminController.ativarCliente(agenciaId, usuarioEmail);
+  await cadastroAdminController.ativarCliente(agenciaId, usuarioEmail, obterUrlBase(headers()));
   revalidatePath(`/arquivo/${agenciaId}`);
   revalidatePath("/arquivo");
 }

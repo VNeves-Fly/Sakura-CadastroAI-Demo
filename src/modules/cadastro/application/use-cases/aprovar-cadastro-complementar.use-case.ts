@@ -15,6 +15,8 @@ import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/rep
 import { persistirKeySigners } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 import { iniciarVerificacoesBiometricas } from "@/modules/cadastro/application/use-cases/iniciar-verificacoes-biometricas.util";
 import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import { notificarAssinaturaSemBiometria } from "@/modules/cadastro/application/use-cases/notificar-assinatura-sem-biometria.util";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
 
 export interface AprovarCadastroComplementarInput {
   id: string;
@@ -73,6 +75,7 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
     private readonly decisaoHumanaRepository: DecisaoHumanaRepository,
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
     private readonly iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase,
+    private readonly emailSender: EmailSender,
   ) {}
 
   async execute({
@@ -163,6 +166,8 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
           signatarios,
           baseUrl,
         );
+      } else {
+        await notificarAssinaturaSemBiometria(this.emailSender, signatarios, baseUrl);
       }
     } else {
       const resultado = await this.agenciaRepository.criarContratoEAvancarStatus(

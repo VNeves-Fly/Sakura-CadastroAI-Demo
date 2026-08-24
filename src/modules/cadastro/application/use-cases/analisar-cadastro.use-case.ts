@@ -32,6 +32,9 @@ import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/rep
 import { persistirKeySigners } from "@/modules/cadastro/domain/services/assinatura-socios.util";
 import { iniciarVerificacoesBiometricas } from "@/modules/cadastro/application/use-cases/iniciar-verificacoes-biometricas.util";
 import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import { notificarAssinaturaSemBiometria } from "@/modules/cadastro/application/use-cases/notificar-assinatura-sem-biometria.util";
+import { notificarCadastroPendente } from "@/modules/cadastro/application/use-cases/notificar-cadastro-pendente.util";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
 
 // Mesma convenção de "quem" usada em AuditoriaDocumento (dossie-campos.tsx)
 // pra distinguir aprovação humana de automática — quem consultou tem
@@ -258,6 +261,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
     private readonly sstService: SstService,
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
     private readonly iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase,
+    private readonly emailSender: EmailSender,
   ) {}
 
   // A IA aprovando um documento (contrato social ou RG de um sócio) não
@@ -465,6 +469,8 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
             signatarios,
             baseUrl,
           );
+        } else {
+          await notificarAssinaturaSemBiometria(this.emailSender, signatarios, baseUrl);
         }
         await this.agenciaRepository.registrarAnaliseFinal(
           agenciaId,
@@ -507,6 +513,7 @@ export class AnalisarCadastroUseCase implements UseCase<AnalisarCadastroInput, v
         STATUS_EM_COMPLEMENTAR,
         "REPROVADO",
       );
+      await notificarCadastroPendente(this.emailSender, agencia.emailContato, baseUrl);
     }
 
     // Cache normalizado pro dossiê do painel admin ("Dados da Receita") —

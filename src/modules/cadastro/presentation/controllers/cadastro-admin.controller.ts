@@ -162,6 +162,7 @@ import {
   type ObterLinkAssinaturaInput,
 } from "@/modules/cadastro/application/use-cases/obter-link-assinatura.use-case";
 import { ListarContratosPendentesGestorUseCase } from "@/modules/cadastro/application/use-cases/listar-contratos-pendentes-gestor.use-case";
+import { PrismaPromotorRepository } from "@/modules/atribuicoes/infrastructure/repositories/prisma-promotor.repository";
 import { EnviarLembretesAssinaturaUseCase } from "@/modules/cadastro/application/use-cases/enviar-lembretes-assinatura.use-case";
 import { ListarSignatariosPadraoAtivosUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao-ativos.use-case";
 import { ListarSignatariosPadraoUseCase } from "@/modules/cadastro/application/use-cases/listar-signatarios-padrao.use-case";
@@ -185,6 +186,7 @@ import type { ListarCadastrosFiltros } from "@/modules/cadastro/domain/repositor
 const agenciaRepository = new PrismaAgenciaRepository(prisma);
 const dadosReceitaRepository = new PrismaDadosReceitaRepository(prisma);
 const usuarioMasterRepository = new PrismaUsuarioMasterRepository(prisma);
+const promotorRepository = new PrismaPromotorRepository(prisma);
 const cadastroComplementarRepository = new PrismaCadastroComplementarRepository(prisma);
 const representanteLegalRepository = new PrismaRepresentanteLegalRepository(prisma);
 const enderecoRepository = new PrismaEnderecoRepository(prisma);
@@ -309,6 +311,7 @@ export const cadastroAdminController = {
       decisaoHumanaRepository,
       contratoAssinaturaRepository,
       iniciarVerificacaoBiometricaUseCase,
+      emailSender,
     );
     return useCase.execute(input);
   },
@@ -346,6 +349,7 @@ export const cadastroAdminController = {
       sstService,
       contratoAssinaturaRepository,
       iniciarVerificacaoBiometricaUseCase,
+      emailSender,
     );
     return useCase.execute({ agenciaId: id, baseUrl });
   },
@@ -368,7 +372,12 @@ export const cadastroAdminController = {
   },
 
   atualizarStatus(input: AtualizarStatusCadastroInput) {
-    const useCase = new AtualizarStatusCadastroUseCase(agenciaRepository);
+    const useCase = new AtualizarStatusCadastroUseCase(
+      agenciaRepository,
+      usuarioMasterRepository,
+      promotorRepository,
+      emailSender,
+    );
     return useCase.execute(input);
   },
 
@@ -429,8 +438,8 @@ export const cadastroAdminController = {
     return useCase.execute(input);
   },
 
-  ativarCliente(id: string, usuarioEmail: string) {
-    return this.atualizarStatus({ id, status: STATUS_ATIVO, usuarioEmail });
+  ativarCliente(id: string, usuarioEmail: string, baseUrl: string) {
+    return this.atualizarStatus({ id, status: STATUS_ATIVO, usuarioEmail, baseUrl });
   },
 
   // Exige motivo (ver RecusarCadastroUseCase) — grava tanto no histórico
@@ -440,6 +449,7 @@ export const cadastroAdminController = {
     const useCase = new RecusarCadastroUseCase(
       agenciaRepository,
       historicoEdicaoCadastroRepository,
+      emailSender,
     );
     return useCase.execute(input);
   },

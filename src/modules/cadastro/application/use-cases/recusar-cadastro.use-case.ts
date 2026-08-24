@@ -6,11 +6,14 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { HistoricoEdicaoCadastroRepository } from "@/modules/cadastro/domain/repositories/historico-edicao-cadastro-repository";
 import type { Agencia } from "@/modules/cadastro/domain/entities/agencia.entity";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+import { notificarCadastroRecusado } from "@/modules/cadastro/application/use-cases/notificar-cadastro-recusado.util";
 
 export interface RecusarCadastroInput {
   agenciaId: string;
   motivo: string;
   recusadoPor: string;
+  baseUrl: string;
 }
 
 // Mesmo padrão de "quem/quando/por quê" de CancelarContratoUseCase/
@@ -20,6 +23,7 @@ export class RecusarCadastroUseCase implements UseCase<RecusarCadastroInput, Age
   constructor(
     private readonly agenciaRepository: AgenciaRepository,
     private readonly historicoEdicaoCadastroRepository: HistoricoEdicaoCadastroRepository,
+    private readonly emailSender: EmailSender,
   ) {}
 
   async execute(input: RecusarCadastroInput): Promise<Agencia> {
@@ -48,6 +52,8 @@ export class RecusarCadastroUseCase implements UseCase<RecusarCadastroInput, Age
       justificativa: motivo,
       editadoPor: input.recusadoPor,
     });
+
+    await notificarCadastroRecusado(this.emailSender, detalhe.agencia.emailContato, input.baseUrl);
 
     return agencia;
   }

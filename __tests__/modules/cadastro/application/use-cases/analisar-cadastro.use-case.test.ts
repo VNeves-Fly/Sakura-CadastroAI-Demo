@@ -24,6 +24,7 @@ import type { DocumentoRepository } from "@/modules/cadastro/domain/repositories
 import type { SstService } from "@/modules/cadastro/domain/services/sst-service";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -245,10 +246,15 @@ interface Deps {
   sstService: SstService;
   contratoAssinaturaRepository: ContratoAssinaturaRepository;
   iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase;
+  emailSender: EmailSender;
 }
 
 function criarIniciarVerificacaoBiometricaFake(): IniciarVerificacaoBiometricaUseCase {
   return { execute: jest.fn() } as unknown as IniciarVerificacaoBiometricaUseCase;
+}
+
+function criarEmailSenderFake(overrides: Partial<EmailSender> = {}): EmailSender {
+  return { send: jest.fn(), ...overrides };
 }
 
 function criarContratoAssinaturaRepositoryFake(
@@ -296,6 +302,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     sstService: criarSstServiceFake(),
     contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake(),
     iniciarVerificacaoBiometricaUseCase: criarIniciarVerificacaoBiometricaFake(),
+    emailSender: criarEmailSenderFake(),
     ...overrides,
   };
 
@@ -309,6 +316,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.sstService,
     deps.contratoAssinaturaRepository,
     deps.iniciarVerificacaoBiometricaUseCase,
+    deps.emailSender,
   );
 
   return { useCase, ...deps };
@@ -425,7 +433,7 @@ describe("AnalisarCadastroUseCase", () => {
 
   it("quando a avaliação da IA lança exceção, registra FALHA_ANALISE em em_complementar e não mexe em contrato", async () => {
     const erro = new Error("agents-service indisponível");
-    const { useCase, agenciaRepository, contratoAssinaturaService } = criarUseCase({
+    const { useCase, agenciaRepository, contratoAssinaturaService, emailSender } = criarUseCase({
       analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockRejectedValue(erro) }),
     });
 
@@ -443,6 +451,9 @@ describe("AnalisarCadastroUseCase", () => {
     );
     expect(contratoAssinaturaService.gerarEEnviar).not.toHaveBeenCalled();
     expect(agenciaRepository.criarContrato).not.toHaveBeenCalled();
+    // Falha técnica nossa, não do cliente — não manda a Arte 3 (ver
+    // notificar-cadastro-pendente.util.ts).
+    expect(emailSender.send).not.toHaveBeenCalled();
   });
 
   it("quando a IA aprova e o contrato é gerado com sucesso, cria o contrato e registra APROVADO em aguardando_assinatura", async () => {
@@ -486,6 +497,37 @@ describe("AnalisarCadastroUseCase", () => {
       STATUS_AGUARDANDO_ASSINATURA,
       "APROVADO",
     );
+  });
+
+  it("sem gateBiometriaAtivo, manda a Arte 1 (aviso de assinatura) pro sócio em vez de iniciar biometria", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, emailSender, iniciarVerificacaoBiometricaUseCase } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
+
+    expect(iniciarVerificacaoBiometricaUseCase.execute).not.toHaveBeenCalled();
+    expect(emailSender.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "fulano@example.com" }),
+    );
+  });
+
+  it("com gateBiometriaAtivo, NÃO manda a Arte 1 (usa o fluxo de biometria em vez disso)", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
+    const { useCase, emailSender, iniciarVerificacaoBiometricaUseCase } = criarUseCase({
+      agenciaRepository: criarRepositorioFake({
+        obterDetalhe: jest
+          .fn()
+          .mockResolvedValue(detalheFake({ agencia: agenciaFake(STATUS_EM_ANALISE, true) })),
+      }),
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
+
+    expect(iniciarVerificacaoBiometricaUseCase.execute).toHaveBeenCalled();
+    expect(emailSender.send).not.toHaveBeenCalled();
   });
 
   it("persiste o keySigner de cada signatário capturado na resposta do createlist", async () => {
@@ -700,7 +742,7 @@ describe("AnalisarCadastroUseCase", () => {
   it("quando a IA aprova mas o D4Sign falha, preserva o veredito da IA e registra FALHA_CONTRATO em em_complementar, sem criar contrato", async () => {
     const analiseIa: AnaliseIaResultado = { aprovado: true, motivo: null, parecer: "APROVADO" };
     const erroD4Sign = new Error("D4Sign fora do ar");
-    const { useCase, agenciaRepository } = criarUseCase({
+    const { useCase, agenciaRepository, emailSender } = criarUseCase({
       analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
       contratoAssinaturaService: criarContratoAssinaturaFake({
         gerarEEnviar: jest.fn().mockRejectedValue(erroD4Sign),
@@ -720,6 +762,9 @@ describe("AnalisarCadastroUseCase", () => {
       STATUS_EM_COMPLEMENTAR,
       "FALHA_CONTRATO",
     );
+    // Falha técnica nossa (D4Sign fora do ar), não do cliente — não manda
+    // a Arte 3 (ver notificar-cadastro-pendente.util.ts).
+    expect(emailSender.send).not.toHaveBeenCalled();
   });
 
   it("preserva o motivo original da IA junto do erro técnico quando o contrato falha e a IA já tinha um motivo", async () => {
@@ -757,6 +802,19 @@ describe("AnalisarCadastroUseCase", () => {
       STATUS_EM_ANALISE,
       STATUS_EM_COMPLEMENTAR,
       "REPROVADO",
+    );
+  });
+
+  it("quando a IA reprova, manda a Arte 3 (cadastro pendente) pro e-mail de contato da agência", async () => {
+    const analiseIa: AnaliseIaResultado = { aprovado: false, motivo: "CNPJ inválido" };
+    const { useCase, emailSender } = criarUseCase({
+      analiseIaService: criarAnaliseIaFake({ avaliar: jest.fn().mockResolvedValue(analiseIa) }),
+    });
+
+    await useCase.execute({ agenciaId: "agencia-1", baseUrl: "https://example.com" });
+
+    expect(emailSender.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "operacional@example.com" }),
     );
   });
 
