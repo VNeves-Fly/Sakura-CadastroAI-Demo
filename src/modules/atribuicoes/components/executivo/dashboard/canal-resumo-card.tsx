@@ -74,24 +74,26 @@ export function CanalResumoCard({
         </div>
       </div>
 
-      <div className="mt-3.5 flex flex-col gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="text-primary text-[11px] font-bold">NAC</span>
-          <span className="flex h-[5px] flex-1 overflow-hidden rounded-full">
-            <span className="bg-primary block h-full" style={{ width: `${canal.nacPct}%` }} />
-            <span className="bg-info block h-full" style={{ width: `${canal.intPct}%` }} />
-          </span>
-          <span className="text-info text-[11px] font-bold">INT</span>
+      {canal.valor > 0 ? (
+        <div className="mt-3.5 flex flex-col gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="text-primary text-[11px] font-bold">NAC</span>
+            <span className="flex h-[5px] flex-1 overflow-hidden rounded-full">
+              <span className="bg-primary block h-full" style={{ width: `${canal.nacPct}%` }} />
+              <span className="bg-info block h-full" style={{ width: `${canal.intPct}%` }} />
+            </span>
+            <span className="text-info text-[11px] font-bold">INT</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="bg-primary/10 text-primary rounded-md px-2.5 py-1 text-[11.5px] font-bold">
+              {formatarPercentual(canal.nacPct)}
+            </span>
+            <span className="bg-info/10 text-info rounded-md px-2.5 py-1 text-[11.5px] font-bold">
+              {formatarPercentual(canal.intPct)}
+            </span>
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span className="bg-primary/10 text-primary rounded-md px-2.5 py-1 text-[11.5px] font-bold">
-            {formatarPercentual(canal.nacPct)}
-          </span>
-          <span className="bg-info/10 text-info rounded-md px-2.5 py-1 text-[11.5px] font-bold">
-            {formatarPercentual(canal.intPct)}
-          </span>
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }
