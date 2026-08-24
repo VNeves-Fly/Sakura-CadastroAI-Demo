@@ -110,6 +110,10 @@ export interface CrossCanal {
 // o SST não expõe data exata da última venda por agência num formato
 // barato de buscar (só presença/ausência dentro de janelas de 30/90/365
 // dias) — por isso é uma faixa, não uma contagem de dias.
+// `vendasHojeAereo`/`vendasHojeTerrestre` alimentam o ranking "Top 10
+// Agências (Hoje)" (real desde 2026-08-24 — ver construirRankingsHojeAgencias
+// em canal-resumo-mock.util.ts); separados por canal porque o SST não tem
+// um único endpoint que já some os dois por agência.
 export type CanalAgenciaCarteira = "aereo" | "terrestre" | "ambos" | "nenhum";
 export type FaixaRecenciaAgencia = "ate30d" | "30a90d" | "90a365d" | "semVenda365d";
 
@@ -126,6 +130,10 @@ export interface AgenciaCarteiraResumo {
   bilhetes90d: number;
   vendas30d: number;
   bilhetes30d: number;
+  vendasHojeAereo: number;
+  bilhetesHojeAereo: number;
+  vendasHojeTerrestre: number;
+  bilhetesHojeTerrestre: number;
 }
 
 export interface SegmentoSaude {

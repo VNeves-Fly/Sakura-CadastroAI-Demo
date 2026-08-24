@@ -46,6 +46,11 @@ interface SortableDataTableProps<T> {
   // envolve esta tabela com <StickyHorizontalScrollbar> (ver
   // gestores-lista-tabela.tsx / executivos-lista-tabela.tsx).
   containerRef?: Ref<HTMLDivElement>;
+  // Repassado pro <table> em si (ex.: "table-fixed" + larguras % por coluna
+  // via headerClassName, pra distribuir o espaço entre colunas de forma
+  // previsível em vez de deixar uma coluna sem largura absorver toda a
+  // sobra — ver gestor-executivos-tab.tsx).
+  tableClassName?: string;
 }
 
 // Tabela genérica com header ordenável por clique (asc/desc), coluna ativa
@@ -61,6 +66,7 @@ export function SortableDataTable<T>({
   emptyMessage = "Nenhum registro encontrado.",
   footerCells,
   containerRef,
+  tableClassName,
 }: SortableDataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; direction: SortDirection } | null>(
     defaultSort ?? null,
@@ -91,7 +97,7 @@ export function SortableDataTable<T>({
   }
 
   return (
-    <Table containerRef={containerRef}>
+    <Table containerRef={containerRef} className={tableClassName}>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           {columns.map((coluna) => {

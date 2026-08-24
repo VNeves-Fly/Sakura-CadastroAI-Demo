@@ -5,6 +5,7 @@ import { obterSessaoUsuario } from "@/modules/auth/presentation/utils/sessao.uti
 import { prisma } from "@/modules/shared/infrastructure/prisma/client";
 import { PrismaGestorRepository } from "@/modules/gestores/infrastructure/repositories/prisma-gestor.repository";
 import { promotoresController } from "@/modules/atribuicoes/presentation/controllers/promotores.controller";
+import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 import { createPromotorSchema } from "@/modules/atribuicoes/application/dto/create-promotor.schema";
 import { updatePromotorSchema } from "@/modules/atribuicoes/application/dto/update-promotor.schema";
 
@@ -42,6 +43,21 @@ function mapErrorToResponse(error: unknown) {
   return httpError("Erro interno do servidor.", 500);
 }
 
+// "Vendas mês"/"Vendas ano" reais (SPEC seção 2.2) — 1 chamada ao SST por
+// promotor com SICA, em paralelo (~86 promotores locais, mesma ordem de
+// grandeza que o fan-out já usado por gestor-dashboard.controller.ts).
+// Cada chamada individual nunca rejeita (ver
+// executivoDashboardController.obterVendasResumo) — sem SICA ou SST fora do
+// ar vira 0 honesto, não número inventado.
+async function comVendasReais<T extends { id: string; sica: number | null }>(
+  promotores: T[],
+): Promise<(T & { vendasMes: number; vendasAno: number })[]> {
+  const vendas = await Promise.all(
+    promotores.map((promotor) => executivoDashboardController.obterVendasResumo(promotor.sica)),
+  );
+  return promotores.map((promotor, indice) => ({ ...promotor, ...vendas[indice]! }));
+}
+
 export async function listPromotoresRoute() {
   const acesso = await resolverAcessoPromotores();
   if (acesso.tipo === "negado") return httpError("Acesso não permitido.", 403);
@@ -52,7 +68,7 @@ export async function listPromotoresRoute() {
       acesso.tipo === "escopado"
         ? promotores.filter((promotor) => promotor.gestorId === acesso.gestorId)
         : promotores;
-    return httpOk(visiveis);
+    return httpOk(await comVendasReais(visiveis));
   } catch (error) {
     return mapErrorToResponse(error);
   }
