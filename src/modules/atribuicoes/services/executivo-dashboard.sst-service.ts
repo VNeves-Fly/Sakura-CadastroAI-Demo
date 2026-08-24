@@ -514,16 +514,21 @@ function paraAgenciaSegmento(
 }
 
 // `saudeCarteira` original da SPEC cruza venda com "limite de crédito
-// comercial" (labels "Ativas c/ crédito"/"Potenciais s/ limite"/"Ociosas
-// limite parado") — bloqueado, esse conceito não existe no schema
-// espelhado do SICA (só existe `histcred`, que é limite de *pagamento*,
-// não de compra; ver docs/mock-exec-resp.md). Decisão do usuário
-// (2026-08-20): reinterpretar os 4 grupos usando só recência de venda +
-// `empresa_status` do roster (mesma fonte de dado de
-// `construirCrossCanalEVendendo30d`, sem nenhuma chamada nova ao SST) —
-// mesma estratégia que `dashboard-vendas.sst-service.ts` já usa pra
-// `recencia`/`cruzamentoCanais` (ver docs/faltante.md), que também nunca
-// teve acesso a limite de crédito.
+// comercial" — bloqueado, esse conceito não existe no schema espelhado
+// do SICA (só existe `histcred`, que é limite de *pagamento*, não de
+// compra; ver docs/mock-exec-resp.md). Em 2026-08-20 os 4 grupos foram
+// reinterpretados usando só recência de venda + `empresa_status` do
+// roster (mesma fonte de dado de `construirCrossCanalEVendendo30d`, sem
+// nenhuma chamada nova ao SST) — mesma estratégia que
+// `dashboard-vendas.sst-service.ts` já usa pra `recencia`/
+// `cruzamentoCanais` (ver docs/faltante.md), que também nunca teve
+// acesso a limite de crédito. Os RÓTULOS (não a lógica de segmentação
+// acima) voltaram a mencionar "crédito"/"Carteira Click" por pedido
+// explícito do usuário em 2026-08-24 — os `chave`/critério de corte
+// continuam os mesmos (recência de venda + status cadastral), só o
+// texto exibido mudou; o rótulo não corresponde literalmente ao dado
+// real de limite de crédito (que continua indisponível), é só o nome
+// que o usuário quer ver na tela.
 function construirSaudeCarteira(
   codigosEmpresa: number[],
   rosterPorCodigo: Map<number, RawAgenciaAtiva>,
@@ -568,18 +573,24 @@ function construirSaudeCarteira(
   });
 
   return [
-    grupo("ativas", "Ativas", "Vendeu nos últimos 30 dias", ativasCodigos, true),
+    grupo("ativas", "Ativas c/ credito", "Vendeu nos últimos 30 dias", ativasCodigos, true),
     grupo(
       "potenciais",
-      "Potenciais",
+      "Agencias Carteira Click",
       "Vendeu nos últimos 12 meses, mas não nos últimos 30 dias",
       potenciaisCodigos,
       true,
     ),
-    grupo("ociosas", "Ociosas", "Aprovada, sem venda nos últimos 12 meses", ociosasCodigos, false),
+    grupo(
+      "ociosas",
+      "Agencias com Limite de credito parado",
+      "Aprovada, sem venda nos últimos 12 meses",
+      ociosasCodigos,
+      false,
+    ),
     grupo(
       "inativas",
-      "Inativas",
+      "agencias sem vendas por 60 dias",
       "Status inativo no SICA, sem venda nos últimos 12 meses",
       inativasCodigos,
       false,
