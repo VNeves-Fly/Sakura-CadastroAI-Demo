@@ -75,9 +75,5 @@ export function useExecutivosListaViewModel(gestoresOptions: GestorOpcao[] | nul
     pagina: paginaAtual,
     totalPaginas,
     setPagina,
-    // Botão Inativar/Ativar da lista — grava só no override local (ver
-    // promotor-status.store.ts), sem chamada à API.
-    alternarAtivo: (promotorId: string, ativo: boolean) =>
-      usePromotorStatusStore.getState().definirAtivo(promotorId, ativo),
   };
 }
