@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bus, Calendar, CalendarDays, CalendarRange, Plane } from "lucide-react";
 import { TvHeader } from "@/modules/tv/components/tv-header";
 import { TvVendasCard } from "@/modules/tv/components/tv-vendas-card";
@@ -27,12 +27,56 @@ interface TvViewProps {
 // página toda; seguimos essa versão (mesmo espírito do "filtro por
 // tempo" do Dashboard CRM). Os 3 cards "Vendas Hoje/Mês/Ano" são fixos,
 // sempre mostrados juntos, sem toggle (spec seção 6).
-export function TvView({ dados }: TvViewProps) {
+// Intervalo do polling (seção 9 do SPEC_TV.md original é pensada pra
+// stack Supabase, com Realtime/Web Worker nativos; aqui usamos uma
+// versão proporcional ao que o projeto já tem — polling simples +
+// refetch ao focar a aba, cobrindo o mesmo objetivo: TV que fica dias
+// ligada nunca mostra dado velho, ver docs/plano-fastview-backend.md
+// seção 5).
+const INTERVALO_POLLING_MS = 30_000;
+
+export function TvView({ dados: dadosIniciais }: TvViewProps) {
   const [periodo, setPeriodo] = useState<PeriodoTv>("hoje");
+  const [dados, setDados] = useState<TvData>(dadosIniciais);
+  const [syncOk, setSyncOk] = useState(true);
+  // Evita sobrepor 2 fetches em voo (o de intervalo e o de
+  // visibilitychange disparando quase juntos).
+  const buscandoRef = useRef(false);
+
+  useEffect(() => {
+    async function atualizar() {
+      if (buscandoRef.current) return;
+      buscandoRef.current = true;
+      try {
+        const resposta = await fetch("/api/tv/dados", { cache: "no-store" });
+        if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+        const novoDados = (await resposta.json()) as TvData;
+        setDados(novoDados);
+        setSyncOk(true);
+      } catch (erro) {
+        console.error("[tv] Falha ao atualizar dados do Fast View.", erro);
+        setSyncOk(false);
+      } finally {
+        buscandoRef.current = false;
+      }
+    }
+
+    const intervalo = setInterval(atualizar, INTERVALO_POLLING_MS);
+
+    function aoFicarVisivel() {
+      if (document.visibilityState === "visible") void atualizar();
+    }
+    document.addEventListener("visibilitychange", aoFicarVisivel);
+
+    return () => {
+      clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", aoFicarVisivel);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
-      <TvHeader />
+      <TvHeader syncOk={syncOk} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <TvVendasCard

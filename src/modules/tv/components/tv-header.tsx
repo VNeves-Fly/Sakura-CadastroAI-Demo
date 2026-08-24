@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleCheck } from "lucide-react";
+import { CircleAlert, CircleCheck } from "lucide-react";
+
+interface TvHeaderProps {
+  // Reflete se o último polling (ver tv-view.tsx) conseguiu buscar dado
+  // novo com sucesso — não distingue "real" de "mock" (o fallback por
+  // bloco do tv.sst-service.ts é silencioso de propósito, mesmo padrão
+  // do resto do projeto); só sinaliza problema de conectividade/API.
+  syncOk: boolean;
+}
 
 function formatarRelogio(data: Date): string {
   return data.toLocaleTimeString("pt-BR", {
@@ -29,7 +37,7 @@ function formatarDataExtenso(data: Date): string {
 // `useEffect`/`useState` (nunca no corpo do componente) pra não gerar
 // hydration mismatch entre o render do servidor e o primeiro render do
 // cliente.
-export function TvHeader() {
+export function TvHeader({ syncOk }: TvHeaderProps) {
   const [agora, setAgora] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -52,9 +60,15 @@ export function TvHeader() {
         <div className="text-muted-foreground mt-1 text-[0.7rem] font-medium tracking-widest uppercase sm:text-xs">
           {agora ? formatarDataExtenso(agora) : ""}
         </div>
-        <div className="text-success mt-1 flex items-center justify-end gap-1 text-xs font-semibold">
-          <CircleCheck className="size-3.5" />
-          <span>sync ok</span>
+        <div
+          className={
+            syncOk
+              ? "text-success mt-1 flex items-center justify-end gap-1 text-xs font-semibold"
+              : "text-destructive mt-1 flex animate-pulse items-center justify-end gap-1 text-xs font-semibold"
+          }
+        >
+          {syncOk ? <CircleCheck className="size-3.5" /> : <CircleAlert className="size-3.5" />}
+          <span>{syncOk ? "sync ok" : "sync falha"}</span>
         </div>
       </div>
     </div>
