@@ -1,10 +1,7 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { nivelSeed } from "@/modules/gestores/types/gestor-nivel.types";
 import type { AgenciaResumoPromotor } from "@/modules/cadastro/domain/repositories/agencia-repository";
-import type {
-  CanalResumoGestor,
-  RankingAgencia,
-} from "@/modules/gestores/types/gestor-detalhe.types";
+import type { RankingAgencia } from "@/modules/gestores/types/gestor-detalhe.types";
 
 export interface GestorRaw {
   id: string;
@@ -40,49 +37,6 @@ function gerarIdentificador(nome: string): string {
       .split(/\s+/)
       .filter(Boolean)[0] ?? "GESTOR";
   return `GEST-${primeiraPalavra.toUpperCase().slice(0, 12)}`;
-}
-
-// Resumo dos canais Aéreo/Terrestre do card de receita total (SPEC 3.6) —
-// mesma lógica/valores de gerarCanalAereo/gerarCanalTerrestre em
-// executivo-detalhe.adapter.ts (duplicada por isolamento de módulo).
-// Permanece mock (paridade correta com o Executivo, ver
-// docs/plano-gestores-backend.md §4.5): o Gestor não tem canalAereo/
-// canalTerrestre próprios, só a soma de hero/kpis/saúde da carteira vira
-// real com este plano.
-function gerarCanalAereo(base: number): CanalResumoGestor {
-  const nacPct = Math.round((28 + (base % 25)) * 10) / 10;
-  const margemPct = Math.round((2.6 + ((base >> 3) % 25) / 10) * 100) / 100;
-  const margemNegativa = (base >> 9) % 5 === 0;
-  return {
-    participacaoPct: Math.round((95 + ((base >> 5) % 45) / 10) * 100) / 100,
-    margemPct,
-    margemLYPct: Math.round((margemPct - (0.2 + ((base >> 7) % 12) / 10)) * 100) / 100,
-    margemVariacaoPct:
-      (margemNegativa ? -1 : 1) * (Math.round((5 + ((base >> 9) % 250) / 10) * 100) / 100),
-    rentabLYPct: Math.round((1.8 + ((base >> 11) % 60) / 10) * 100) / 100,
-    rentabLYVariacaoPct: Math.round((15 + ((base >> 13) % 550) / 10) * 100) / 100,
-    ticketMedio: 1_900 + (base % 1_600),
-    nacPct,
-    intPct: Math.round((100 - nacPct) * 10) / 10,
-  };
-}
-
-function gerarCanalTerrestre(base: number, participacaoAereoPct: number): CanalResumoGestor {
-  const nacPct = Math.round((75 + ((base >> 2) % 20)) * 10) / 10;
-  const margemPct = Math.round((8 + ((base >> 4) % 60) / 10) * 100) / 100;
-  const margemNegativa = base % 2 === 0;
-  return {
-    participacaoPct: Math.round((100 - participacaoAereoPct) * 100) / 100,
-    margemPct,
-    margemLYPct: Math.round((margemPct + (1 + ((base >> 6) % 30) / 10)) * 100) / 100,
-    margemVariacaoPct:
-      (margemNegativa ? -1 : 1) * (Math.round((5 + ((base >> 8) % 220) / 10) * 100) / 100),
-    rentabLYPct: Math.round((6 + ((base >> 10) % 90) / 10) * 100) / 100,
-    rentabLYVariacaoPct: Math.round((2 + ((base >> 12) % 60) / 10) * 100) / 100,
-    ticketMedio: 350 + (base % 500),
-    nacPct,
-    intPct: Math.round((100 - nacPct) * 10) / 10,
-  };
 }
 
 // "Atualizado em DD/MM às HH:mm" (SPEC 3.5) — mesma lógica de
@@ -156,23 +110,21 @@ export function montarGestorPerfil(gestor: GestorRaw, executivos: ExecutivoComCa
   };
 }
 
-// Parte do dashboard do Gestor que permanece mock de apresentação mesmo
-// depois da agregação real (docs/plano-gestores-backend.md §4.5): canais
-// Aéreo/Terrestre (margem/rentabilidade) e os 3 rankings "Top 10 Agências
-// (Hoje)". `hero`/`kpis`/`saudeCarteira`/ranking de executivos por saúde
-// vêm agora de gestorDashboardController (dados reais agregados).
+// Parte do dashboard do Gestor que permanece mock de apresentação — os 3
+// rankings "Top 10 Agências (Hoje)" (SST não expõe venda "de hoje" por
+// agência) e o timestamp de "Atualizado em" (sem campo de sincronização
+// exposto). Margem/rentabilidade por canal (Aéreo/Terrestre) deixaram de
+// ser mock aqui em 2026-08-24 — ver somarMargemRentab em
+// agregacoes-gestor.util.ts (agregação real da carteira dos executivos
+// subordinados, mesma fonte real de hero/kpis/saudeCarteira).
 export function montarGestorApresentacaoMock(
   gestorId: string,
   agenciasCarteira: AgenciaResumoPromotor[],
 ) {
   const base = hashParaNumero(gestorId);
-  const canalAereo = gerarCanalAereo(base);
-  const canalTerrestre = gerarCanalTerrestre(base, canalAereo.participacaoPct);
 
   return {
     atualizadoEm: gerarAtualizadoEm(base),
-    canalAereo,
-    canalTerrestre,
     topAgenciasHoje: gerarRankingHoje(agenciasCarteira, base + 801, 350_000, 1_200),
     topAgenciasHojeAereo: gerarRankingHoje(agenciasCarteira, base + 902, 340_000, 2_400),
     topAgenciasHojeTerrestre: gerarRankingHoje(agenciasCarteira, base + 1_003, 13_000, 500),

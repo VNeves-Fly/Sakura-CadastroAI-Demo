@@ -6,11 +6,10 @@ import {
 } from "@/modules/gestores/utils/formatar-moeda.util";
 import { MargemRentabBlocoGestor } from "@/modules/gestores/components/dashboard/margem-rentab-bloco-gestor";
 import { cn } from "@/lib/utils";
-import type { CanalResumoGestor } from "@/modules/gestores/types/gestor-detalhe.types";
+import type { CanalMargemPeriodoGestor } from "@/modules/gestores/types/gestor-detalhe.types";
 
 interface GestorCanalResumoCardProps {
-  canal: CanalResumoGestor;
-  heroValor: number;
+  canal: CanalMargemPeriodoGestor;
   titulo: string;
   unidade: string;
   icon: LucideIcon;
@@ -20,21 +19,16 @@ interface GestorCanalResumoCardProps {
 // Cartão de canal (Aéreo/Terrestre) dentro do card de receita total (SPEC
 // 3.6) — mesmo componente/lógica de CanalResumoCard em
 // atribuicoes/components/executivo/dashboard (duplicado por isolamento de
-// módulo). O valor absoluto do canal deriva do valor do hero no período
-// ativo (`canal.participacaoPct`) — por isso reage ao filtro de período
-// junto com o número grande do card pai.
+// módulo). `canal.valor`/`canal.quantidade` já vêm reais (soma agregada
+// dos executivos subordinados — ver somarMargemRentab em
+// agregacoes-gestor.util.ts), sem derivação de participação/ticket médio.
 export function GestorCanalResumoCard({
   canal,
-  heroValor,
   titulo,
   unidade,
   icon: Icon,
   tema,
 }: GestorCanalResumoCardProps) {
-  const valor = Math.round((heroValor * canal.participacaoPct) / 100);
-  const quantidade = Math.max(1, Math.round(valor / canal.ticketMedio));
-  const rentabLYValor = Math.round((valor * canal.rentabLYPct) / 100);
-
   return (
     <div className="border-border rounded-xl border p-4">
       <div className="flex gap-4">
@@ -59,7 +53,7 @@ export function GestorCanalResumoCard({
 
           <div className="flex flex-wrap items-center gap-3.5">
             <p className="text-foreground text-[22px] leading-tight font-extrabold tracking-tight">
-              <SensitiveValue value={formatarMoedaCompleta(valor)} />
+              <SensitiveValue value={formatarMoedaCompleta(canal.valor)} />
             </p>
 
             <MargemRentabBlocoGestor
@@ -67,15 +61,14 @@ export function GestorCanalResumoCard({
               margemPct={canal.margemPct}
               margemLYPct={canal.margemLYPct}
               margemVariacaoPct={canal.margemVariacaoPct}
-              rentabLYValor={rentabLYValor}
+              rentabLYValor={canal.rentabLYValor}
               rentabLYVariacaoPct={canal.rentabLYVariacaoPct}
               tamanho="pequeno"
-              mock
             />
           </div>
 
           <p className="text-muted-foreground mt-0.5 text-[13px]">
-            <SensitiveValue value={quantidade} /> {unidade}
+            <SensitiveValue value={canal.quantidade} /> {unidade}
           </p>
           <p className="text-muted-foreground text-[13px]">
             Ticket médio: <SensitiveValue value={formatarMoedaCompleta(canal.ticketMedio)} />

@@ -11,10 +11,10 @@ import {
   somarCrossCanal,
   somarHeroTodosPeriodos,
   somarKpis,
+  somarMargemRentab,
   somarSaudeCarteira,
 } from "@/modules/gestores/utils/agregacoes-gestor.util";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
-import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types";
 
 // Cada chamada individual NUNCA rejeita e NUNCA representa esse executivo
 // por um item "ausente" — se o SST real falhar de forma inesperada (não é
@@ -25,20 +25,20 @@ import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types
 async function obterHeroKpisDoExecutivo(executivo: ExecutivoComCarteira) {
   const agencias = executivo.agencias.map(mapAgencia);
   try {
-    const { hero, kpis } = await executivoDashboardController.obterHeroKpis(
+    const { hero, kpis, margemRentab } = await executivoDashboardController.obterHeroKpis(
       executivo.sica,
       executivo.id,
       executivo.agencias.length,
       agencias,
     );
-    return { id: executivo.id, hero, kpis };
+    return { id: executivo.id, hero, kpis, margemRentab };
   } catch {
     const mock = await executivoDashboardMockService.obterDashboard(
       executivo.id,
       executivo.agencias.length,
       agencias,
     );
-    return { id: executivo.id, hero: mock.hero, kpis: mock.kpis };
+    return { id: executivo.id, hero: mock.hero, kpis: mock.kpis, margemRentab: mock.margemRentab };
   }
 }
 
@@ -71,7 +71,7 @@ async function obterCrossCanalDoExecutivo(executivo: ExecutivoComCarteira) {
 }
 
 export const gestorDashboardController = {
-  async obterHeroKpisAgregado(executivos: ExecutivoComCarteira[], perfil: GestorPerfil) {
+  async obterHeroKpisAgregado(executivos: ExecutivoComCarteira[]) {
     // Promise.all (não allSettled): cada item já garante sua própria
     // resolução via catch interno acima — porExecutivo SEMPRE tem 1 entrada
     // por executivo de entrada, na mesma ordem, nunca menos.
@@ -81,10 +81,9 @@ export const gestorDashboardController = {
     const kpis = somarKpis(
       porExecutivo.map((p) => p.kpis),
       hero.mes.valor,
-      perfil.vendendoUltimos30d,
-      perfil.vendendoUltimos30dPct,
     );
-    return { hero, kpis, porExecutivo };
+    const margemRentab = somarMargemRentab(porExecutivo.map((p) => p.margemRentab));
+    return { hero, kpis, margemRentab, porExecutivo };
   },
 
   async obterCrossCanalAgregado(executivos: ExecutivoComCarteira[]) {
@@ -110,8 +109,8 @@ export const gestorDashboardController = {
   // Helper de conveniência pras abas Executivos/Agências — tabelas
   // renderizam tudo de uma vez, sem ganho de Suspense parcial (diferente do
   // Dashboard).
-  async obterAgregadoCompleto(executivos: ExecutivoComCarteira[], perfil: GestorPerfil) {
-    const heroKpis = await gestorDashboardController.obterHeroKpisAgregado(executivos, perfil);
+  async obterAgregadoCompleto(executivos: ExecutivoComCarteira[]) {
+    const heroKpis = await gestorDashboardController.obterHeroKpisAgregado(executivos);
     const crossCanal = await gestorDashboardController.obterCrossCanalAgregado(executivos);
 
     // heroKpis.porExecutivo e crossCanal.porExecutivo têm o MESMO conjunto
