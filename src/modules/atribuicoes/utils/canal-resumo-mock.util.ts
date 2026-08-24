@@ -1,71 +1,22 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import type { ExecutivoAgenciaResumo } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
-// Mock puro de apresentação pro card "Receita total" (SPEC 3.5+3.6) — NÃO
-// faz parte do pipeline mock↔real do dashboard (controller/mock-service/
-// sst-service, ver executivo-dashboard.controller.ts). Margem/rentab. por
-// canal e os rankings "Top 10 (Hoje)" não têm fonte real hoje (o SST não
-// expõe margem nem venda "de hoje" por agência); ficam mock aqui, isolados
-// dos arquivos que o time de integração real mantém, até o backend expor
-// esse dado — só então isso deveria virar uma chamada de serviço de
-// verdade.
-
-export interface CanalResumo {
-  participacaoPct: number; // % do valor total do período
-  margemPct: number;
-  margemLYPct: number;
-  margemVariacaoPct: number;
-  rentabLYPct: number; // RENTAB. LY como % do valor do canal no período
-  rentabLYVariacaoPct: number;
-  ticketMedio: number; // valor médio por bilhete/venda — estável entre períodos
-  nacPct: number;
-  intPct: number;
-}
+// Mock puro de apresentação — hoje só cobre o que genuinamente não tem
+// fonte real no SST: os rankings "Top 10 Agências (Hoje)" (SST não expõe
+// venda "de hoje" por agência) e o timestamp de "Atualizado em" (sem campo
+// de sincronização exposto). Margem/rentabilidade por canal deixaram de
+// ser mock aqui em 2026-08-24 — o SST já expunha esses dados reais
+// (`margem`/`rentabilidade`/`ticket_medio`/`nacInter` em
+// GET /api/consolidado/overview, filtrado por codigoExecutivo), só não
+// eram lidos; ver `CanalResumo`/`gerarCanalAereo`/`gerarCanalTerrestre`
+// removidos daqui e substituídos por `margemRentab` em
+// executivo-dashboard.sst-service.ts.
 
 export interface RankingAgenciaHoje {
   posicao: number;
   nome: string;
   valor: number;
   quantidade: number;
-}
-
-// Aéreo concentra quase todo o volume com margem mais baixa; Terrestre é
-// o inverso (pouco volume, margem maior) — mesma relação do exemplo
-// aprovado na SPEC.
-export function gerarCanalAereo(base: number): CanalResumo {
-  const nacPct = Math.round((28 + (base % 25)) * 10) / 10;
-  const margemPct = Math.round((2.6 + ((base >> 3) % 25) / 10) * 100) / 100;
-  const margemNegativa = (base >> 9) % 5 === 0;
-  return {
-    participacaoPct: Math.round((95 + ((base >> 5) % 45) / 10) * 100) / 100,
-    margemPct,
-    margemLYPct: Math.round((margemPct - (0.2 + ((base >> 7) % 12) / 10)) * 100) / 100,
-    margemVariacaoPct:
-      (margemNegativa ? -1 : 1) * (Math.round((5 + ((base >> 9) % 250) / 10) * 100) / 100),
-    rentabLYPct: Math.round((1.8 + ((base >> 11) % 60) / 10) * 100) / 100,
-    rentabLYVariacaoPct: Math.round((15 + ((base >> 13) % 550) / 10) * 100) / 100,
-    ticketMedio: 1_900 + (base % 1_600),
-    nacPct,
-    intPct: Math.round((100 - nacPct) * 10) / 10,
-  };
-}
-
-export function gerarCanalTerrestre(base: number, participacaoAereoPct: number): CanalResumo {
-  const nacPct = Math.round((75 + ((base >> 2) % 20)) * 10) / 10;
-  const margemPct = Math.round((8 + ((base >> 4) % 60) / 10) * 100) / 100;
-  const margemNegativa = base % 2 === 0;
-  return {
-    participacaoPct: Math.round((100 - participacaoAereoPct) * 100) / 100,
-    margemPct,
-    margemLYPct: Math.round((margemPct + (1 + ((base >> 6) % 30) / 10)) * 100) / 100,
-    margemVariacaoPct:
-      (margemNegativa ? -1 : 1) * (Math.round((5 + ((base >> 8) % 220) / 10) * 100) / 100),
-    rentabLYPct: Math.round((6 + ((base >> 10) % 90) / 10) * 100) / 100,
-    rentabLYVariacaoPct: Math.round((2 + ((base >> 12) % 60) / 10) * 100) / 100,
-    ticketMedio: 350 + (base % 500),
-    nacPct,
-    intPct: Math.round((100 - nacPct) * 10) / 10,
-  };
 }
 
 // "Atualizado em DD/MM às HH:mm" (SPEC 3.5) — deslocamento determinístico

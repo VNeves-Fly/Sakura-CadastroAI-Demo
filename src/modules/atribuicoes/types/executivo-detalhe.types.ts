@@ -157,9 +157,37 @@ export interface AgenciaEmQueda {
   quedaPct: number;
 }
 
+// Margem/rentabilidade real por canal (SPEC 3.5+3.6) — real via SST desde
+// 2026-08-24 (GET /api/consolidado/overview já retorna margem/
+// rentabilidade/ticket_medio/nacInter por canal e período, filtrado por
+// codigoExecutivo; só não era lido, ver executivo-dashboard.sst-service.ts).
+// `LY` = mesmo período, 1 ano atrás.
+export interface CanalMargemPeriodo {
+  valor: number; // tarifa real do canal no período
+  quantidade: number; // tickets reais do canal no período
+  margemPct: number;
+  margemLYPct: number;
+  margemVariacaoPct: number;
+  rentabValor: number;
+  rentabLYValor: number;
+  rentabLYVariacaoPct: number;
+  ticketMedio: number;
+  nacPct: number;
+  intPct: number;
+}
+
+export interface CanalMargemResumo {
+  total: CanalMargemPeriodo;
+  aereo: CanalMargemPeriodo;
+  terrestre: CanalMargemPeriodo;
+}
+
+export type MargemRentabExecutivo = Record<PeriodoVendasMesHero, CanalMargemResumo>;
+
 export interface ExecutivoDashboard {
   hero: Record<PeriodoVendasMesHero, VendasMesHero>;
   kpis: KpisSecundarios;
+  margemRentab: MargemRentabExecutivo;
   miniStats: MiniStats;
   fidelidadePorCompanhia: LoyaltyChip[];
   vendasMensais: VendaMensal[];

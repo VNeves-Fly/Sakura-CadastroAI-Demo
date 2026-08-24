@@ -8,10 +8,13 @@ import type {
   AgenciaCarteiraResumo,
   AgenciaSegmentoResumo,
   CanalAgenciaCarteira,
+  CanalMargemPeriodo,
+  CanalMargemResumo,
   ExecutivoAgenciaResumo,
   ExecutivoDashboard,
   FaixaRecenciaAgencia,
   KpisSecundarios,
+  MargemRentabExecutivo,
   MiniStats,
   SegmentoSaude,
   VendasMesHero,
@@ -150,6 +153,17 @@ function diasAtrasIso(dias: number): string {
   return formatarDataIsoBrasilia(data);
 }
 
+// Mesma data de calendário, exatamente 1 ano atrás — usado só pro ponto de
+// comparação LY (last-year) de margem/rentabilidade real (ver
+// construirHeroEKpis). Não trata 29/fev especialmente (cai em 1/mar no ano
+// seguinte, comportamento nativo do Date) — irrelevante na prática pra
+// comparação de margem.
+function mesmoDiaAnoAnteriorIso(): string {
+  const data = new Date();
+  data.setFullYear(data.getFullYear() - 1);
+  return formatarDataIsoBrasilia(data);
+}
+
 function partesHoje(): { ano: number; mes: number; dia: number } {
   const [ano, mes, dia] = hojeIso().split("-").map(Number) as [number, number, number];
   return { ano, mes, dia };
@@ -181,10 +195,24 @@ function calcularVariacaoPct(atual: number, anterior: number): number {
   return anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
 }
 
+// Shape bruto de GET /api/consolidado/overview, confirmado ao vivo contra o
+// SST filtrado por codigoExecutivo (2026-08-24) — `margem`/`rentabilidade`/
+// `ticket_medio`/`nacInter` por período (dia/mes/ano), por canal (total/
+// aereo/terrestre), IGUAL ao mesmo endpoint já provado em
+// dashboard-vendas.sst-service.ts (lá sem filtro de executivo). Antes só se
+// lia tarifa/clientes/tickets daqui — o resto do payload já vinha, só não
+// era parseado (ver construirHeroEKpis, margemRentab).
 interface RawPeriodoOverview {
   tarifa: number;
+  margem: number;
+  rentabilidade: number;
   clientes: number;
   tickets: number;
+  ticket_medio: number;
+  nacInter: {
+    nacional: { tickets: number; tarifa: number; percentual: number };
+    internacional: { tickets: number; tarifa: number; percentual: number };
+  };
 }
 interface RawCanalOverview {
   dia: RawPeriodoOverview;
@@ -192,7 +220,11 @@ interface RawCanalOverview {
   ano: RawPeriodoOverview;
 }
 interface RawOverviewResponse {
-  filial: { total: RawCanalOverview };
+  filial: {
+    total: RawCanalOverview;
+    aereo: RawCanalOverview;
+    terrestre: RawCanalOverview;
+  };
 }
 
 interface RawConsolidadoPeriodo {
@@ -335,23 +367,76 @@ async function buscarTerrestrePorAgencia(
   return resultado;
 }
 
+// Margem/rentabilidade real por canal, já filtrada por codigoExecutivo —
+// `overview` traz o período atual, `overviewLY` o mesmo bucket 1 ano atrás
+// (ponto de comparação "LY"). `rentabilidade` vem pronta do SST (não
+// deriva de tarifa×margem — evita drift de arredondamento vs. o valor que
+// o próprio SST calculou).
+function paraCanalMargemPeriodo(
+  atual: RawPeriodoOverview,
+  ly: RawPeriodoOverview,
+): CanalMargemPeriodo {
+  const nacPct = atual.nacInter.nacional.percentual;
+  return {
+    valor: atual.tarifa,
+    quantidade: atual.tickets,
+    margemPct: atual.margem,
+    margemLYPct: ly.margem,
+    margemVariacaoPct: calcularVariacaoPct(atual.margem, ly.margem),
+    rentabValor: atual.rentabilidade,
+    rentabLYValor: ly.rentabilidade,
+    rentabLYVariacaoPct: calcularVariacaoPct(atual.rentabilidade, ly.rentabilidade),
+    ticketMedio: atual.ticket_medio,
+    nacPct,
+    intPct: 100 - nacPct,
+  };
+}
+
+function margemResumoDoPeriodo(
+  overview: RawOverviewResponse,
+  overviewLY: RawOverviewResponse,
+  chave: "dia" | "mes" | "ano",
+): CanalMargemResumo {
+  return {
+    total: paraCanalMargemPeriodo(overview.filial.total[chave], overviewLY.filial.total[chave]),
+    aereo: paraCanalMargemPeriodo(overview.filial.aereo[chave], overviewLY.filial.aereo[chave]),
+    terrestre: paraCanalMargemPeriodo(
+      overview.filial.terrestre[chave],
+      overviewLY.filial.terrestre[chave],
+    ),
+  };
+}
+
 async function construirHeroEKpis(
   codigoExecutivo: number,
-): Promise<{ hero: ExecutivoDashboard["hero"]; kpis: KpisSecundarios }> {
+): Promise<{
+  hero: ExecutivoDashboard["hero"];
+  kpis: KpisSecundarios;
+  margemRentab: MargemRentabExecutivo;
+}> {
   const hoje = hojeIso();
   const ontem = ontemIso();
+  const anoAnterior = mesmoDiaAnoAnteriorIso();
   const janela = janelaMesAnterior();
   const trintaDiasAtras = diasAtrasIso(30);
 
-  const [overviewHoje, overviewOntem, airMesAnterior, nonAirMesAnterior, air30d, nonAir30d] =
-    await Promise.all([
-      buscarOverview(hoje, codigoExecutivo),
-      buscarOverview(ontem, codigoExecutivo),
-      buscarAir(janela.inicio, janela.fim, codigoExecutivo),
-      buscarNonAir(janela.inicio, janela.fim, codigoExecutivo),
-      buscarAir(trintaDiasAtras, hoje, codigoExecutivo),
-      buscarNonAir(trintaDiasAtras, hoje, codigoExecutivo),
-    ]);
+  const [
+    overviewHoje,
+    overviewOntem,
+    overviewAnoAnterior,
+    airMesAnterior,
+    nonAirMesAnterior,
+    air30d,
+    nonAir30d,
+  ] = await Promise.all([
+    buscarOverview(hoje, codigoExecutivo),
+    buscarOverview(ontem, codigoExecutivo),
+    buscarOverview(anoAnterior, codigoExecutivo),
+    buscarAir(janela.inicio, janela.fim, codigoExecutivo),
+    buscarNonAir(janela.inicio, janela.fim, codigoExecutivo),
+    buscarAir(trintaDiasAtras, hoje, codigoExecutivo),
+    buscarNonAir(trintaDiasAtras, hoje, codigoExecutivo),
+  ]);
 
   const { dia, mes, ano } = overviewHoje.filial.total;
   const diaOntem = overviewOntem.filial.total.dia;
@@ -405,6 +490,15 @@ async function construirHeroEKpis(
       acumuladoAnoValor: ano.tarifa,
       acumuladoAnoBilhetes: ano.tickets,
       ticketMedio30d: tickets30d > 0 ? Math.round(valor30d / tickets30d) : 0,
+    },
+    margemRentab: {
+      dia: margemResumoDoPeriodo(overviewHoje, overviewAnoAnterior, "dia"),
+      // "ontem" reaproveita o mesmo ponto de comparação LY do "dia" — não
+      // existe um "mesmo dia 1 ano atrás, menos 1 dia" barato de buscar, e
+      // o mock anterior também nunca distinguiu isso.
+      ontem: margemResumoDoPeriodo(overviewOntem, overviewAnoAnterior, "dia"),
+      mes: margemResumoDoPeriodo(overviewHoje, overviewAnoAnterior, "mes"),
+      ano: margemResumoDoPeriodo(overviewHoje, overviewAnoAnterior, "ano"),
     },
   };
 }
@@ -670,16 +764,21 @@ async function obterHeroKpis(
   promotorId: string,
   totalAgencias: number,
   agencias: ExecutivoAgenciaResumo[],
-): Promise<{ hero: ExecutivoDashboard["hero"]; kpis: KpisSecundarios }> {
+): Promise<{
+  hero: ExecutivoDashboard["hero"];
+  kpis: KpisSecundarios;
+  margemRentab: MargemRentabExecutivo;
+}> {
   const mock = await executivoDashboardMockService.obterDashboard(
     promotorId,
     totalAgencias,
     agencias,
   );
-  const resultado = await comFallback("hero+kpis", construirHeroEKpis(codigoExecutivo), {
-    hero: mock.hero,
-    kpis: mock.kpis,
-  });
+  const resultado = await comFallback(
+    "hero+kpis+margemRentab",
+    construirHeroEKpis(codigoExecutivo),
+    { hero: mock.hero, kpis: mock.kpis, margemRentab: mock.margemRentab },
+  );
   return resultado;
 }
 

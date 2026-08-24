@@ -6,11 +6,10 @@ import {
 } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import { MargemRentabBloco } from "@/modules/atribuicoes/components/executivo/dashboard/margem-rentab-bloco";
 import { cn } from "@/lib/utils";
-import type { CanalResumo } from "@/modules/atribuicoes/utils/canal-resumo-mock.util";
+import type { CanalMargemPeriodo } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 interface CanalResumoCardProps {
-  canal: CanalResumo;
-  heroValor: number;
+  canal: CanalMargemPeriodo;
   titulo: string;
   unidade: string;
   icon: LucideIcon;
@@ -18,22 +17,16 @@ interface CanalResumoCardProps {
 }
 
 // Cartão de canal (Aéreo/Terrestre) dentro do card de receita total (SPEC
-// 3.6). O valor absoluto do canal deriva do valor do hero no período ativo
-// (`canal.participacaoPct`) — mock de apresentação, ver
-// canal-resumo-mock.util.ts — por isso reage ao filtro de período junto
-// com o número grande do card pai.
+// 3.6). `canal.valor`/`canal.quantidade` já vêm reais do SST (ver
+// executivo-dashboard.sst-service.ts, margemRentab) — sem derivação de
+// participação/ticket médio, ao contrário do mock anterior.
 export function CanalResumoCard({
   canal,
-  heroValor,
   titulo,
   unidade,
   icon: Icon,
   tema,
 }: CanalResumoCardProps) {
-  const valor = Math.round((heroValor * canal.participacaoPct) / 100);
-  const quantidade = Math.max(1, Math.round(valor / canal.ticketMedio));
-  const rentabLYValor = Math.round((valor * canal.rentabLYPct) / 100);
-
   return (
     <div className="border-border rounded-xl border p-4">
       <div className="flex gap-4">
@@ -58,7 +51,7 @@ export function CanalResumoCard({
 
           <div className="flex flex-wrap items-center gap-3.5">
             <p className="text-foreground text-[22px] leading-tight font-extrabold tracking-tight">
-              <SensitiveValue value={formatarMoedaCompleta(valor)} />
+              <SensitiveValue value={formatarMoedaCompleta(canal.valor)} />
             </p>
 
             <MargemRentabBloco
@@ -66,15 +59,14 @@ export function CanalResumoCard({
               margemPct={canal.margemPct}
               margemLYPct={canal.margemLYPct}
               margemVariacaoPct={canal.margemVariacaoPct}
-              rentabLYValor={rentabLYValor}
+              rentabLYValor={canal.rentabLYValor}
               rentabLYVariacaoPct={canal.rentabLYVariacaoPct}
               tamanho="pequeno"
-              mock
             />
           </div>
 
           <p className="text-muted-foreground mt-0.5 text-[13px]">
-            <SensitiveValue value={quantidade} /> {unidade}
+            <SensitiveValue value={canal.quantidade} /> {unidade}
           </p>
           <p className="text-muted-foreground text-[13px]">
             Ticket médio: <SensitiveValue value={formatarMoedaCompleta(canal.ticketMedio)} />
