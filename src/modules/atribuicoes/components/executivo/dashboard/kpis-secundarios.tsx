@@ -18,8 +18,9 @@ interface KpisSecundariosProps {
 }
 
 // Linha de 3 cards de KPI secundários (SPEC 3.7) — "Mês anterior" e
-// "Projeção fim do mês" vêm de `heroKpisPromise` (mês anterior é real via
-// SST, projeção continua mock — ver `mock` no card abaixo);
+// "Projeção fim do mês" vêm de `heroKpisPromise`, ambos reais via SST
+// (projeção = ritmo do mês até hoje extrapolado pros dias restantes, ver
+// construirHeroEKpis em executivo-dashboard.sst-service.ts);
 // "Vendendo 30d" é mock (ver comentário da prop acima).
 export function KpisSecundariosGrid({ kpis, vendendo30d, vendendo30dPct }: KpisSecundariosProps) {
   return (
@@ -48,7 +49,6 @@ export function KpisSecundariosGrid({ kpis, vendendo30d, vendendo30dPct }: KpisS
           tooltip="Projeção linear com base no ritmo de vendas do mês corrente."
           value={<SensitiveValue value={formatarMoedaAbreviada(kpis.projecaoFimMes)} />}
           subtext="ritmo atual"
-          mock
         />
         <KpiCard
           label="Vendendo 30d"

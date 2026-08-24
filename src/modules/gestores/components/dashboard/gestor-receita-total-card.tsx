@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight, Bus, Clock, Plane } from "lucide-react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { FiltroPeriodoGestorPopover } from "@/modules/gestores/components/dashboard/filtro-periodo-gestor-popover";
 import { GestorCanalResumoCard } from "@/modules/gestores/components/dashboard/gestor-canal-resumo-card";
@@ -43,7 +42,11 @@ function ponderar(
 // Card "Receita total" (SPEC 3.5+3.6) — mesmo componente/lógica de
 // ReceitaTotalCard do dashboard de Executivo (duplicado por isolamento de
 // módulo), com o filtro de período próprio do Gestor (ver
-// filtro-periodo-gestor.store.ts) e os dois cartões de canal.
+// filtro-periodo-gestor.store.ts) e os dois cartões de canal. O valor
+// grande e a variação % são reais (via SST); só margem/rentab. total (e
+// os dois cards de canal abaixo) continuam mock — por isso o badge "MK"
+// fica só no bloco MARGEM TOTAL, não no card inteiro (mesma convenção do
+// Executivo, ver margem-rentab-bloco.tsx).
 export function GestorReceitaTotalCard({
   hero,
   canalAereo,
@@ -110,6 +113,7 @@ export function GestorReceitaTotalCard({
               rentabLYValor={rentabTotalLYValor}
               rentabLYVariacaoPct={rentabTotalLYVariacaoPct}
               tamanho="grande"
+              mock
             />
           </div>
 
@@ -120,7 +124,6 @@ export function GestorReceitaTotalCard({
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <MockBadge />
           <FiltroPeriodoGestorPopover />
           <span
             className={
