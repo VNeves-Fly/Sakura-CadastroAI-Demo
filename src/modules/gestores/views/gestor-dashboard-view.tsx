@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import { Bus, Plane, Trophy } from "lucide-react";
 import { GestorDetalheShell } from "@/modules/gestores/components/gestor-detalhe-shell";
-import { GestorTopAgenciasCard } from "@/modules/gestores/components/dashboard/gestor-top-agencias-card";
 import { GestorHeroKpisSecao } from "@/modules/gestores/components/dashboard/gestor-hero-kpis-secao";
 import { GestorSaudeCarteiraSecao } from "@/modules/gestores/components/dashboard/gestor-saude-carteira-secao";
+import { GestorTopAgenciasSecao } from "@/modules/gestores/components/dashboard/gestor-top-agencias-secao";
 import { criarGestorHeaderStatsSlots } from "@/modules/gestores/components/dashboard/gestor-header-stats";
 import { SecaoSkeleton } from "@/modules/gestores/components/dashboard/secao-skeleton";
 import { gestorDashboardController } from "@/modules/gestores/presentation/controllers/gestor-dashboard.controller";
@@ -29,11 +28,14 @@ function depoisDe<T>(gate: Promise<unknown>, tarefa: () => Promise<T>): Promise<
 // pendentes pros componentes de seção, cada um no seu próprio Suspense —
 // a página abre com o header/perfil (já real, sem SST) na hora, hero/kpis
 // logo em seguida, e só a seção de saúde da carteira + ranking de
-// executivos (a mais cara) fica em skeleton por mais tempo.
+// executivos + Top 10 Agências (as mais caras, dependem de `crossCanal`)
+// ficam em skeleton por mais tempo.
 //
-// "Top 10 Agências" continua mock de apresentação (paridade com o
-// Executivo, ver docs/plano-gestores-backend.md §4.5) e não depende do
-// SST — por isso renderiza direto aqui, sem Suspense.
+// "Top 10 Agências" é real desde 2026-08-24 (ver GestorTopAgenciasSecao) —
+// depende de `agenciasCarteira` (soma real dos executivos subordinados),
+// que só sai depois de `crossCanalPromise` resolver, por isso entrou no
+// mesmo Suspense da seção pesada (antes renderizava mock, instantâneo,
+// sem Suspense).
 export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewProps) {
   const heroKpisPromise = gestorDashboardController.obterHeroKpisAgregado(executivos);
   const crossCanalPromise = depoisDe(heroKpisPromise, () =>
@@ -42,9 +44,7 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
   const { statsAgenciasSlot, statsVendendo30dSlot } =
     criarGestorHeaderStatsSlots(crossCanalPromise);
 
-  const agenciasCarteira = executivos.flatMap((executivo) => executivo.agencias);
-  const { atualizadoEm, topAgenciasHoje, topAgenciasHojeAereo, topAgenciasHojeTerrestre } =
-    montarGestorApresentacaoMock(perfil.id, agenciasCarteira);
+  const { atualizadoEm } = montarGestorApresentacaoMock(perfil.id);
 
   return (
     <GestorDetalheShell
@@ -61,29 +61,17 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
         />
       </Suspense>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <GestorTopAgenciasCard
-          icon={Trophy}
-          titulo="Top 10 Agências (Hoje)"
-          subtitulo="Modalidade: Aéreo + Terrestre"
-          itens={topAgenciasHoje}
-          iconLinhaTema="rosa"
-        />
-        <GestorTopAgenciasCard
-          icon={Plane}
-          titulo="Top 10 Agências Aéreo"
-          subtitulo="Modalidade: Aéreo"
-          itens={topAgenciasHojeAereo}
-          iconLinhaTema="rosa"
-        />
-        <GestorTopAgenciasCard
-          icon={Bus}
-          titulo="Top 10 Agências Terrestre"
-          subtitulo="Modalidade: Terrestre"
-          itens={topAgenciasHojeTerrestre}
-          iconLinhaTema="azul"
-        />
-      </div>
+      <Suspense
+        fallback={
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <SecaoSkeleton altura="h-48" />
+            <SecaoSkeleton altura="h-48" />
+            <SecaoSkeleton altura="h-48" />
+          </div>
+        }
+      >
+        <GestorTopAgenciasSecao crossCanalPromise={crossCanalPromise} />
+      </Suspense>
 
       <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
         <GestorSaudeCarteiraSecao crossCanalPromise={crossCanalPromise} executivos={executivos} />

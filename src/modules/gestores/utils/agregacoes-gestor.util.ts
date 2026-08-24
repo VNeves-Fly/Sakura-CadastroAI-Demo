@@ -6,6 +6,7 @@
 // dele (docs/plano-gestores-backend.md §1).
 import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type {
+  AgenciaCarteiraResumo,
   CanalMargemPeriodo,
   CanalMargemResumo,
   CrossCanal,
@@ -23,6 +24,7 @@ import type {
   KpisSecundariosGestor,
   MargemRentabGestor,
   PeriodoVendasMesHeroGestor,
+  RankingAgencia,
   RankingExecutivoSaude,
   VendasMesHeroGestor,
 } from "@/modules/gestores/types/gestor-detalhe.types";
@@ -234,4 +236,50 @@ export function construirRankingExecutivos(
       pct: stats?.vendendo30dPct ?? 0,
     };
   });
+}
+
+function construirRankingHojeAgencia(
+  agencias: AgenciaCarteiraResumo[],
+  valorDe: (a: AgenciaCarteiraResumo) => number,
+  quantidadeDe: (a: AgenciaCarteiraResumo) => number,
+): RankingAgencia[] {
+  return agencias
+    .map((a) => ({ nome: a.nome, valor: valorDe(a), quantidade: quantidadeDe(a) }))
+    .filter((item) => item.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 10)
+    .map((item, indice) => ({ posicao: indice + 1, ...item }));
+}
+
+export interface RankingsHojeGestor {
+  topAgenciasHoje: RankingAgencia[];
+  topAgenciasHojeAereo: RankingAgencia[];
+  topAgenciasHojeTerrestre: RankingAgencia[];
+}
+
+// Rankings "Top 10 Agências (Hoje)" reais do Gestor — `agenciasCarteira`
+// aqui já é a soma dos executivos subordinados (flatMap real, ver
+// gestor-dashboard.controller.ts/obterCrossCanalAgregado), então não
+// precisa de nenhuma chamada nova ao SST nem lógica de agregação extra:
+// só ordenar+filtrar+slice(10) sobre a lista que já existe.
+export function construirRankingsHojeAgenciasGestor(
+  agenciasCarteira: AgenciaCarteiraResumo[],
+): RankingsHojeGestor {
+  return {
+    topAgenciasHoje: construirRankingHojeAgencia(
+      agenciasCarteira,
+      (a) => a.vendasHojeAereo + a.vendasHojeTerrestre,
+      (a) => a.bilhetesHojeAereo + a.bilhetesHojeTerrestre,
+    ),
+    topAgenciasHojeAereo: construirRankingHojeAgencia(
+      agenciasCarteira,
+      (a) => a.vendasHojeAereo,
+      (a) => a.bilhetesHojeAereo,
+    ),
+    topAgenciasHojeTerrestre: construirRankingHojeAgencia(
+      agenciasCarteira,
+      (a) => a.vendasHojeTerrestre,
+      (a) => a.bilhetesHojeTerrestre,
+    ),
+  };
 }

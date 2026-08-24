@@ -602,6 +602,8 @@ function construirAgenciasCarteira(
   terrestre90: Map<number, { tarifa: number; qtd: number }>,
   aereo30: Map<number, { tarifa: number; qtd: number }>,
   terrestre30: Map<number, { tarifa: number; qtd: number }>,
+  aereoHoje: Map<number, { tarifa: number; qtd: number }>,
+  terrestreHoje: Map<number, { tarifa: number; qtd: number }>,
   vendendo30dSet: Set<number>,
 ): AgenciaCarteiraResumo[] {
   return codigosEmpresa.map((codigo): AgenciaCarteiraResumo => {
@@ -638,6 +640,10 @@ function construirAgenciasCarteira(
       bilhetes90d: (aereo90.get(codigo)?.qtd ?? 0) + (terrestre90.get(codigo)?.qtd ?? 0),
       vendas30d: (aereo30.get(codigo)?.tarifa ?? 0) + (terrestre30.get(codigo)?.tarifa ?? 0),
       bilhetes30d: (aereo30.get(codigo)?.qtd ?? 0) + (terrestre30.get(codigo)?.qtd ?? 0),
+      vendasHojeAereo: aereoHoje.get(codigo)?.tarifa ?? 0,
+      bilhetesHojeAereo: aereoHoje.get(codigo)?.qtd ?? 0,
+      vendasHojeTerrestre: terrestreHoje.get(codigo)?.tarifa ?? 0,
+      bilhetesHojeTerrestre: terrestreHoje.get(codigo)?.qtd ?? 0,
     };
   });
 }
@@ -679,13 +685,19 @@ async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise
   // Janela de 90d é usada só pra `faixaRecencia` da aba "Agências" (ver
   // construirAgenciasCarteira) — mais um par de chamadas (1 agregada pro
   // aéreo, N pro terrestre) além do 30d/365d que crossCanal já precisava.
-  const [terrestre365, aereo30, terrestre30, aereo90, terrestre90] = await Promise.all([
-    buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(365), hoje),
-    buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(30), hoje),
-    buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(30), hoje),
-    buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(90), hoje),
-    buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(90), hoje),
-  ]);
+  // Janela "hoje" (aereoHoje/terrestreHoje) alimenta o ranking real "Top 10
+  // Agências (Hoje)" — mesmas funções, só mais uma janela de data (4ª sobre
+  // as 3 já pagas no loop de terrestre por agência).
+  const [terrestre365, aereo30, terrestre30, aereo90, terrestre90, aereoHoje, terrestreHoje] =
+    await Promise.all([
+      buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(365), hoje),
+      buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(30), hoje),
+      buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(30), hoje),
+      buscarAereoAgrupado(codigoExecutivo, diasAtrasIso(90), hoje),
+      buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, diasAtrasIso(90), hoje),
+      buscarAereoAgrupado(codigoExecutivo, hoje, hoje),
+      buscarTerrestrePorAgencia(codigoExecutivo, codigosEmpresa, hoje, hoje),
+    ]);
 
   const vendendo30dSet = new Set([...aereo30.keys(), ...terrestre30.keys()]);
   const vendendo30d = vendendo30dSet.size;
@@ -722,6 +734,8 @@ async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise
       terrestre90,
       aereo30,
       terrestre30,
+      aereoHoje,
+      terrestreHoje,
       vendendo30dSet,
     ),
     crossCanal: {

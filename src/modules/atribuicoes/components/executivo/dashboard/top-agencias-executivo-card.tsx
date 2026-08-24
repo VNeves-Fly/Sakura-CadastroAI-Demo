@@ -13,8 +13,8 @@ interface TopAgenciasExecutivoCardProps {
 }
 
 // Ranking "Top 10 Agências" (SPEC 3.8) — 3 instâncias na tela (Hoje/Aéreo/
-// Terrestre). Mock de apresentação (ver canal-resumo-mock.util.ts) — o
-// nome da agência é real, valor/quantidade não têm fonte no SST hoje.
+// Terrestre). Real desde 2026-08-24 (ver construirRankingsHojeAgencias em
+// canal-resumo-mock.util.ts).
 export function TopAgenciasExecutivoCard({
   icon: Icon,
   titulo,
