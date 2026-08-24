@@ -15,7 +15,6 @@ import {
   somarSaudeCarteira,
 } from "@/modules/gestores/utils/agregacoes-gestor.util";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
-import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types";
 
 // Cada chamada individual NUNCA rejeita e NUNCA representa esse executivo
 // por um item "ausente" — se o SST real falhar de forma inesperada (não é
@@ -72,7 +71,7 @@ async function obterCrossCanalDoExecutivo(executivo: ExecutivoComCarteira) {
 }
 
 export const gestorDashboardController = {
-  async obterHeroKpisAgregado(executivos: ExecutivoComCarteira[], perfil: GestorPerfil) {
+  async obterHeroKpisAgregado(executivos: ExecutivoComCarteira[]) {
     // Promise.all (não allSettled): cada item já garante sua própria
     // resolução via catch interno acima — porExecutivo SEMPRE tem 1 entrada
     // por executivo de entrada, na mesma ordem, nunca menos.
@@ -82,8 +81,6 @@ export const gestorDashboardController = {
     const kpis = somarKpis(
       porExecutivo.map((p) => p.kpis),
       hero.mes.valor,
-      perfil.vendendoUltimos30d,
-      perfil.vendendoUltimos30dPct,
     );
     const margemRentab = somarMargemRentab(porExecutivo.map((p) => p.margemRentab));
     return { hero, kpis, margemRentab, porExecutivo };
@@ -112,8 +109,8 @@ export const gestorDashboardController = {
   // Helper de conveniência pras abas Executivos/Agências — tabelas
   // renderizam tudo de uma vez, sem ganho de Suspense parcial (diferente do
   // Dashboard).
-  async obterAgregadoCompleto(executivos: ExecutivoComCarteira[], perfil: GestorPerfil) {
-    const heroKpis = await gestorDashboardController.obterHeroKpisAgregado(executivos, perfil);
+  async obterAgregadoCompleto(executivos: ExecutivoComCarteira[]) {
+    const heroKpis = await gestorDashboardController.obterHeroKpisAgregado(executivos);
     const crossCanal = await gestorDashboardController.obterCrossCanalAgregado(executivos);
 
     // heroKpis.porExecutivo e crossCanal.porExecutivo têm o MESMO conjunto

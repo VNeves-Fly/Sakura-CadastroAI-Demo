@@ -37,17 +37,16 @@ export interface VendasMesHeroGestor {
   variacaoPct: number; // vs mesmo dia do mês anterior
 }
 
-// KPIs Secundários (SPEC seção 3.8) — 3 cards: mês anterior, projeção fim
-// do mês e vendendo 30d (esse último reaproveita os mesmos números do
-// cabeçalho de perfil, GestorPerfil.vendendoUltimos30d/Pct). Mesmo shape
-// de KpisSecundarios em executivo-detalhe.types.ts.
+// KPIs Secundários (SPEC seção 3.8) — mês anterior e projeção fim do mês.
+// "Vendendo 30d" (3º card da grid) não faz parte deste tipo — lê
+// `miniStats.vendendo30d/Pct` (agregado real, via crossCanalPromise)
+// direto no componente, mesmo padrão de KpisSecundarios em
+// executivo-detalhe.types.ts.
 export interface KpisSecundariosGestor {
   mesAnteriorValor: number;
   mesAnteriorFaltaValor: number;
   mesAnteriorPercentualAtingido: number;
   projecaoFimMes: number;
-  vendendo30d: number;
-  vendendo30dPct: number;
 }
 
 // Margem/rentabilidade real por canal (SPEC seção 3.6) — agregação real

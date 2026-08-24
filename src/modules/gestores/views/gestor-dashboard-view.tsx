@@ -35,7 +35,7 @@ function depoisDe<T>(gate: Promise<unknown>, tarefa: () => Promise<T>): Promise<
 // Executivo, ver docs/plano-gestores-backend.md §4.5) e não depende do
 // SST — por isso renderiza direto aqui, sem Suspense.
 export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewProps) {
-  const heroKpisPromise = gestorDashboardController.obterHeroKpisAgregado(executivos, perfil);
+  const heroKpisPromise = gestorDashboardController.obterHeroKpisAgregado(executivos);
   const crossCanalPromise = depoisDe(heroKpisPromise, () =>
     gestorDashboardController.obterCrossCanalAgregado(executivos),
   );
@@ -54,7 +54,11 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
       statsVendendo30dSlot={statsVendendo30dSlot}
     >
       <Suspense fallback={<SecaoSkeleton altura="h-40" />}>
-        <GestorHeroKpisSecao heroKpisPromise={heroKpisPromise} atualizadoEm={atualizadoEm} />
+        <GestorHeroKpisSecao
+          heroKpisPromise={heroKpisPromise}
+          crossCanalPromise={crossCanalPromise}
+          atualizadoEm={atualizadoEm}
+        />
       </Suspense>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

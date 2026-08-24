@@ -123,16 +123,9 @@ export function somarMargemRentab(list: MargemRentabExecutivo[]): MargemRentabGe
   ) as MargemRentabGestor;
 }
 
-// vendendo30dRapido/vendendo30dPctRapido = perfil.vendendoUltimos30d/Pct
-// (GestorPerfil, rápido/síncrono/mock) — NÃO vem do agregado real. O valor
-// real agregado (miniStats.vendendo30d/Pct) só aparece no header via
-// statsVendendo30dSlot depois que a promise pesada resolve — mesma
-// assimetria já usada no dashboard do Executivo (intencional).
 export function somarKpis(
   kpisList: KpisSecundarios[],
   mesAtualValorAgregado: number,
-  vendendo30dRapido: number,
-  vendendo30dPctRapido: number,
 ): KpisSecundariosGestor {
   const mesAnteriorValor = kpisList.reduce((s, k) => s + k.mesAnteriorValor, 0);
   const projecaoFimMes = kpisList.reduce((s, k) => s + k.projecaoFimMes, 0);
@@ -145,8 +138,6 @@ export function somarKpis(
     mesAnteriorPercentualAtingido:
       mesAnteriorValor > 0 ? Math.round((mesAtualValorAgregado / mesAnteriorValor) * 100) : 0,
     projecaoFimMes,
-    vendendo30d: vendendo30dRapido,
-    vendendo30dPct: vendendo30dPctRapido,
   };
 }
 
