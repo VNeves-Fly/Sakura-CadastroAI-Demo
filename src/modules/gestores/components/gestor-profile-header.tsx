@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Mail, MapPin, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
@@ -13,6 +13,14 @@ import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types
 
 interface GestorProfileHeaderProps {
   perfil: GestorPerfil;
+  // Sobrescrevem os stats de "Agências"/"Venderam 30D" com o agregado real
+  // (soma dos executivos subordinados via SST, ver
+  // gestor-dashboard.controller.ts) — só a página de dashboard (que já paga
+  // o custo de buscar isso) passa esses slots; Executivos/Agências não
+  // passam nada e caem no fallback mock de `perfil` abaixo, espelhando
+  // ExecutivoProfileHeader.
+  statsAgenciasSlot?: ReactNode;
+  statsVendendo30dSlot?: ReactNode;
 }
 
 const CHIPS_VISIVEIS_INICIALMENTE = 10;
@@ -22,7 +30,11 @@ const CHIPS_VISIVEIS_INICIALMENTE = 10;
 // espírito visual de ExecutivoProfileHeader (avatar com gradiente único por
 // id, badges, indicadores de topo), adaptado pros campos próprios de
 // Gestor (identificador único, status, lista de bases expansível).
-export function GestorProfileHeader({ perfil }: GestorProfileHeaderProps) {
+export function GestorProfileHeader({
+  perfil,
+  statsAgenciasSlot,
+  statsVendendo30dSlot,
+}: GestorProfileHeaderProps) {
   const [expandido, setExpandido] = useState(false);
   const basesVisiveis = expandido
     ? perfil.bases
@@ -126,13 +138,23 @@ export function GestorProfileHeader({ perfil }: GestorProfileHeaderProps) {
         </div>
 
         <div className="flex items-start gap-8">
-          <Stat value={perfil.totalExecutivos} label="Executivos" />
-          <Stat value={perfil.totalAgencias} label="Agências" />
+          <Stat value={<SensitiveValue value={perfil.totalExecutivos} />} label="Executivos" />
           <Stat
-            value={perfil.vendendoUltimos30d}
-            label={`Venderam 30D · ${perfil.vendendoUltimos30dPct}%`}
-            valueClassName="text-success"
+            value={statsAgenciasSlot ?? <SensitiveValue value={perfil.totalAgencias} />}
+            label="Agências"
           />
+          <div className="flex flex-col items-center gap-0.5">
+            {statsVendendo30dSlot ?? (
+              <>
+                <p className="text-success text-xl font-bold">
+                  <SensitiveValue value={perfil.vendendoUltimos30d} />
+                </p>
+                <p className="text-muted-foreground text-center text-[10.5px] font-semibold tracking-wide uppercase">
+                  Venderam 30D · <SensitiveValue value={`${perfil.vendendoUltimos30dPct}%`} />
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -144,15 +166,13 @@ function Stat({
   label,
   valueClassName,
 }: {
-  value: number;
+  value: ReactNode;
   label: string;
   valueClassName?: string;
 }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className={cn("text-xl font-bold", valueClassName ?? "text-foreground")}>
-        <SensitiveValue value={value} />
-      </p>
+      <p className={cn("text-xl font-bold", valueClassName ?? "text-foreground")}>{value}</p>
       <p className="text-muted-foreground text-center text-[10.5px] font-semibold tracking-wide uppercase">
         {label}
       </p>

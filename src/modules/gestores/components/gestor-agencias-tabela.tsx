@@ -20,6 +20,22 @@ interface GestorAgenciasTabelaProps {
   periodo: PeriodoVendas;
 }
 
+// Rank numérico da faixa de recência — só pra ordenação da coluna
+// "Última" (mesmas constantes de agencias-tabela.tsx do Executivo).
+const RANK_RECENCIA: Record<AgenciaDaGestaoView["faixaRecencia"], number> = {
+  ate30d: 1,
+  "30a90d": 2,
+  "90a365d": 3,
+  semVenda365d: 4,
+};
+
+const LABEL_RECENCIA: Record<AgenciaDaGestaoView["faixaRecencia"], string> = {
+  ate30d: "≤ 30d",
+  "30a90d": "30–90d",
+  "90a365d": "90d–1a",
+  semVenda365d: "sem venda (1a+)",
+};
+
 // SortableDataTable da carteira de agências do gestor (SPEC seção 8) —
 // mesmo componente do dashboard de Executivo (agencias-tabela.tsx), com
 // colunas Executivo (link pro detalhe) e Base a mais, porque a carteira
@@ -127,12 +143,16 @@ export function GestorAgenciasTabela({ agencias, periodo }: GestorAgenciasTabela
       ),
     },
     {
-      key: "diasSemComprar",
+      // Faixa aproximada (não dias exatos) — o SST não expõe data exata da
+      // última venda por agência num formato barato de buscar.
+      key: "faixaRecencia",
       label: "Última",
       align: "right",
       sortable: true,
-      sortValue: (a) => a.diasSemComprar,
-      render: (a) => <span className="text-muted-foreground">{a.diasSemComprar}d</span>,
+      sortValue: (a) => RANK_RECENCIA[a.faixaRecencia],
+      render: (a) => (
+        <span className="text-muted-foreground">{LABEL_RECENCIA[a.faixaRecencia]}</span>
+      ),
     },
     {
       key: "limite",
