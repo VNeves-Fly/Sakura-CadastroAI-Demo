@@ -1,5 +1,11 @@
 import type { ContratoAssinatura } from "@/modules/cadastro/domain/entities/contrato-assinatura.entity";
 
+export interface ContratoPendenteGestor {
+  contratoId: string;
+  agenciaId: string;
+  razaoSocial: string;
+}
+
 export interface ContratoAssinaturaRepository {
   // Idempotente (upsert por contratoId+email) — chamado quando alguém
   // assina de verdade (D4Sign reenvia o mesmo webhook em retries). O
@@ -18,4 +24,8 @@ export interface ContratoAssinaturaRepository {
   // nunca foi vista não tem o que marcar). `removido: false` limpa a marca
   // se a pessoa reaparecer.
   marcarRemocaoDoDocumento(contratoId: string, email: string, removido: boolean): Promise<void>;
+  // Tela "Contratos pendentes de assinatura" dos gestores da Sakura (ver
+  // docs/legitimuz/) — contratos onde esse e-mail é um destinatário
+  // conhecido (ContratoAssinatura) mas ainda sem assinadoEm.
+  findPendentesPorEmail(email: string): Promise<ContratoPendenteGestor[]>;
 }

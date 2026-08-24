@@ -73,6 +73,7 @@ import { AprovarComplementarModal } from "./aprovar-complementar-modal";
 import { VoltarButton } from "./voltar-button";
 import { AtendimentoButton } from "./atendimento-button";
 import { CadastroDetalheLive } from "./cadastro-detalhe-live";
+import { GateBiometriaSwitch } from "./gate-biometria-switch";
 import { obterDossieView } from "@/modules/admin/view-models/dossie.view-model";
 import {
   labelOrigemContrato,
@@ -119,6 +120,7 @@ import {
   marcarContratoAssinadoAction,
   recusarCadastroAction,
   reprocessarAnaliseAction,
+  definirGateBiometriaAction,
   reconsultarCreditoAction,
   consultarSicaAction,
   atualizarSicaAction,
@@ -286,6 +288,8 @@ export default async function DossieAgenciaPage({
   // continua podendo aprovar/reprovar/inserir manualmente, só não reabre um
   // documento já reprovado sozinho.
   const podeReanalisarDocumento = cargo === "ADMIN" || cargo === "DIRETOR_ANALISTA";
+  // Mesmo cargo de podeReanalisarDocumento — ver definirGateBiometriaAction.
+  const podeDefinirGateBiometria = cargo === "ADMIN" || cargo === "DIRETOR_ANALISTA";
 
   const [atendimentoAtual, historicoAtendimento] = await Promise.all([
     atendimentoController.obterAtendimentoAgenciaAtual(view.agencia.id),
@@ -557,6 +561,17 @@ export default async function DossieAgenciaPage({
           recusado={trilhaRecusada}
         />
       </div>
+
+      {agencia.status === STATUS_EM_ANALISE || agencia.status === STATUS_EM_COMPLEMENTAR ? (
+        <div className="border-border bg-card rounded-2xl border p-4">
+          <GateBiometriaSwitch
+            agenciaId={agencia.id}
+            ativo={agencia.gateBiometriaAtivo}
+            definirGateBiometriaAction={definirGateBiometriaAction}
+            somenteLeitura={!podeDefinirGateBiometria || !atendimentoAssumidoPorMim}
+          />
+        </div>
+      ) : null}
 
       {agencia.status === STATUS_EM_ANALISE ? (
         <div className="border-border bg-muted/40 text-muted-foreground flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed px-4 py-3 text-sm">

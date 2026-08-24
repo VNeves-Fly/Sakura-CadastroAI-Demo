@@ -375,6 +375,20 @@ async function construirHeroEKpis(
   const valor30d = air30d.tarifa + nonAir30d.tarifa;
   const tickets30d = air30d.tickets + nonAir30d.tickets;
 
+  // Projeção linear simples (ritmo do mês até hoje × dias restantes) —
+  // mesmo método anunciado no tooltip da UI ("Projeção linear com base no
+  // ritmo de vendas do mês corrente", ver kpis-secundarios.tsx), que até
+  // aqui não correspondia ao valor real exibido (mock por hash). Não é a
+  // metodologia de `projecao`/`acuracia` do dashboard-vendas (essa
+  // continua bloqueada por decisão de negócio, ver docs/faltante.md item
+  // 2) — aqui é só a média diária do mês corrente extrapolada pros dias
+  // que faltam, decisão explícita do usuário (2026-08-24) de usar dado
+  // real em vez de manter o multiplicador aleatório.
+  const { ano: anoAtual, mes: mesAtual, dia: diaDoMes } = partesHoje();
+  const diasNoMes = ultimoDiaDoMes(anoAtual, mesAtual);
+  const projecaoFimMes =
+    diaDoMes > 0 ? Math.round((mes.tarifa / diaDoMes) * diasNoMes) : mes.tarifa;
+
   return {
     hero: {
       dia: periodo(dia, variacaoDia),
@@ -387,10 +401,7 @@ async function construirHeroEKpis(
       mesAnteriorFaltaValor: Math.max(0, mesAnteriorValor - mes.tarifa),
       mesAnteriorPercentualAtingido:
         mesAnteriorValor > 0 ? Math.round((mes.tarifa / mesAnteriorValor) * 100) : 0,
-      // TODO(mock): projeção de fim de mês depende do mesmo algoritmo
-      // ainda não definido pro dashboard geral (docs/faltante.md) — fora
-      // de escopo aqui, preenchido pelo caller com o valor mock.
-      projecaoFimMes: 0,
+      projecaoFimMes,
       acumuladoAnoValor: ano.tarifa,
       acumuladoAnoBilhetes: ano.tickets,
       ticketMedio30d: tickets30d > 0 ? Math.round(valor30d / tickets30d) : 0,
@@ -669,10 +680,7 @@ async function obterHeroKpis(
     hero: mock.hero,
     kpis: mock.kpis,
   });
-  return {
-    hero: resultado.hero,
-    kpis: { ...resultado.kpis, projecaoFimMes: mock.kpis.projecaoFimMes },
-  };
+  return resultado;
 }
 
 // Seção pesada (roster + loop de terrestre por agência, ~2N+5 chamadas) —

@@ -45,10 +45,22 @@ Usado uma vez, manualmente, pra descobrir as variáveis reais do template config
 
 ## 2. Criar documento a partir do template — `POST /documents/{uuid-safe}/makedocumentbytemplateword`
 
+**⚠️ Atualizado 2026-08-20**: o Safe em uso hoje é `3838628e-86d9-4edf-9269-efaeb45ed469`
+(`safeName: "CadastroAI"`), não mais `9baf9199-0d3b-4f12-8e4b-20ee2d43946c`
+("Sakura APP", valor original deste doc, de 2026-07-17 — a conta migrou
+de Safe em algum momento entre essa data e agora). Confirmado ao vivo via
+`GET /documents/{uuid}` (campo `uuidSafe`). Da mesma forma, o
+`D4SIGN_TEMPLATE_ID` também já mudou pelo menos uma vez desde então —
+sempre confirmar via `POST /templates` (seção 1) antes de confiar num
+valor documentado aqui há mais de um mês; templates Word reeditados no
+painel do D4Sign ganham um `id` novo, o antigo simplesmente some da
+lista. Ver detalhes da última migração de template em
+[[d4sign-template-id-desatualizado-2026-08-20]] (memória do projeto).
+
 **Request:**
 
 ```
-POST https://secure.d4sign.com.br/api/v1/documents/9baf9199-0d3b-4f12-8e4b-20ee2d43946c/makedocumentbytemplateword?tokenAPI=...&cryptKey=...
+POST https://secure.d4sign.com.br/api/v1/documents/3838628e-86d9-4edf-9269-efaeb45ed469/makedocumentbytemplateword?tokenAPI=...&cryptKey=...
 Content-Type: application/json
 ```
 
@@ -142,6 +154,8 @@ Requisito de negócio: quando o documento vai pros sócios (estágio 0), exigir 
 
 Só os sócios (`ESTAGIO_SOCIOS`) recebem esses dois campos — os 4 signatários fixos da Sakura (Jean/Vivi/Wagner/Jennifer) não. **Ainda não exercido contra a conta real** — só coberto por teste unitário; falta confirmar ao vivo como o D4Sign expõe essas evidências pro analista revisar depois (painel deles, ou algum campo retornado no `GET /documents/{uuid}`/webhook).
 
+**2026-08-21 — condicional ao fluxo paralelo de biometria facial (Legitimuz, ver `docs/legitimuz/`):** quando `Agencia.gateBiometriaAtivo` está ligado pra essa agência, `docauthandselfie`/`videoselfie` **não são mandados** pros sócios — a Legitimuz já verificou a identidade (liveness + facematch, flow `kyc-faceindex`) antes de liberar o link de assinatura, pedir de novo selfie/vídeo aqui seria redundante. Sem o flag, comportamento idêntico ao de sempre (ambos os campos presentes).
+
 **Response:** `200 OK` (corpo não logado pelo adapter — só `response.ok` é checado; a doc oficial mostra um retorno com `key_signer`, `status: "created"`, etc.)
 
 ### 5.1 Estágios de assinatura (`after_position`) — não testado ao vivo ainda
@@ -205,13 +219,15 @@ O adapter agora monta a lista com **todos** os signatários de uma vez (sócios 
 
 ## 6. Enviar pra assinatura — `POST /documents/{uuid}/sendtosigner`
 
-**Request:**
+**Request (fluxo padrão, `gateBiometriaAtivo: false`):**
 
 ```json
 { "skip_email": "0", "workflow": "1" }
 ```
 
 `skip_email: "0"` → manda e-mail de notificação de verdade pro signatário. `workflow: "1"` → respeita a ordem de `after_position`: o D4Sign só notifica o próximo estágio depois que todos do estágio anterior assinarem (confirmado em `docs/endpoints-2.md`: "o segundo signatário só receberá a mensagem [...] DEPOIS que o primeiro signatário efetuar a assinatura").
+
+**2026-08-21 — `skip_email: "1"` com o gate de biometria ativo:** `skip_email` é **por documento, não por signatário** (confirmado na doc oficial, `docapi.d4sign.com.br/docs/endpoints-2` — obrigatório junto com EMBED/assinatura presencial). Com `Agencia.gateBiometriaAtivo` ligado, o D4Sign não notifica **ninguém** sozinho nesse documento — inclusive os 4 signatários fixos da Sakura, que passam a acompanhar pela tela "Contratos pendentes de assinatura" (`/assinaturas-pendentes`) em vez do e-mail automático. A entrega de links pros sócios (biometria primeiro, assinatura depois) vira responsabilidade da aplicação — ver `docs/legitimuz/` e `IniciarVerificacaoBiometricaUseCase`/`ObterStatusBiometriaUseCase`. **Não testado ao vivo ainda.**
 
 **Response:** `200 OK` (corpo não logado pelo adapter).
 

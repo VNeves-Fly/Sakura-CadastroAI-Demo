@@ -16,6 +16,8 @@ import type { StatusDocumento } from "@/modules/cadastro/domain/enums";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
 import type { DecisaoHumanaRepository } from "@/modules/cadastro/domain/repositories/decisao-humana-repository";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
+import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
 
 const ENDERECO = {
   cep: "01310-100",
@@ -53,6 +55,7 @@ function agenciaFake(status: string): Agencia {
     infoPendente: false,
     infoPendenteRemovidoPor: null,
     infoPendenteRemovidoEm: null,
+    gateBiometriaAtivo: false,
   });
 }
 
@@ -185,6 +188,7 @@ function criarContratoAssinaturaRepositoryFake(
     registrarDestinatario: jest.fn(),
     findByContratoId: jest.fn().mockResolvedValue([]),
     marcarRemocaoDoDocumento: jest.fn(),
+    findPendentesPorEmail: jest.fn(),
     ...overrides,
   };
 }
@@ -194,6 +198,16 @@ interface Deps {
   contratoAssinaturaService: ContratoAssinaturaService;
   decisaoHumanaRepository: DecisaoHumanaRepository;
   contratoAssinaturaRepository: ContratoAssinaturaRepository;
+  iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase;
+  emailSender: EmailSender;
+}
+
+function criarIniciarVerificacaoBiometricaFake(): IniciarVerificacaoBiometricaUseCase {
+  return { execute: jest.fn() } as unknown as IniciarVerificacaoBiometricaUseCase;
+}
+
+function criarEmailSenderFake(overrides: Partial<EmailSender> = {}): EmailSender {
+  return { send: jest.fn(), ...overrides };
 }
 
 function criarUseCase(overrides: Partial<Deps> = {}) {
@@ -202,6 +216,8 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     contratoAssinaturaService: criarContratoAssinaturaFake(),
     decisaoHumanaRepository: criarDecisaoHumanaFake(),
     contratoAssinaturaRepository: criarContratoAssinaturaRepositoryFake(),
+    iniciarVerificacaoBiometricaUseCase: criarIniciarVerificacaoBiometricaFake(),
+    emailSender: criarEmailSenderFake(),
     ...overrides,
   };
 
@@ -210,6 +226,8 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
     deps.contratoAssinaturaService,
     deps.decisaoHumanaRepository,
     deps.contratoAssinaturaRepository,
+    deps.iniciarVerificacaoBiometricaUseCase,
+    deps.emailSender,
   );
 
   return { useCase, ...deps };
@@ -218,6 +236,7 @@ function criarUseCase(overrides: Partial<Deps> = {}) {
 const INPUT: AprovarCadastroComplementarInput = {
   id: "agencia-1",
   analistaEmail: "analista@example.com",
+  baseUrl: "https://example.com",
 };
 
 describe("AprovarCadastroComplementarUseCase", () => {
@@ -242,7 +261,7 @@ describe("AprovarCadastroComplementarUseCase", () => {
   });
 
   it("gera o contrato e move a agência pra aguardando_assinatura", async () => {
-    const { useCase, contratoAssinaturaService, agenciaRepository } = criarUseCase();
+    const { useCase, contratoAssinaturaService, agenciaRepository, emailSender } = criarUseCase();
 
     const resultado = await useCase.execute(INPUT);
 
@@ -258,6 +277,11 @@ describe("AprovarCadastroComplementarUseCase", () => {
       { usuarioEmail: "analista@example.com", origem: "usuario" },
     );
     expect(resultado.status).toBe(STATUS_AGUARDANDO_ASSINATURA);
+    // Sem gateBiometriaAtivo — manda a Arte 1 (aviso de assinatura) pro
+    // sócio em vez de iniciar biometria.
+    expect(emailSender.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "fulano@example.com" }),
+    );
   });
 
   it("propaga o erro sem registrar keySigner/DecisaoHumana se criarContratoEAvancarStatus falhar", async () => {

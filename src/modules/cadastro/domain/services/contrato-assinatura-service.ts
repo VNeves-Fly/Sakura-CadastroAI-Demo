@@ -27,6 +27,14 @@ export interface GerarContratoInput {
   razaoSocial: string;
   endereco: GerarContratoEndereco;
   signatarios: ContratoSignatario[];
+  // Fluxo paralelo de biometria facial (Legitimuz) por agência — ver
+  // docs/legitimuz/. Quando true: sócios NÃO recebem docauthandselfie/
+  // videoselfie no createlist (a Legitimuz já cobre a verificação de
+  // identidade antes da assinatura) e sendtosigner vai com skip_email:"1"
+  // (D4Sign não notifica ninguém sozinho — a entrega dos links vira
+  // responsabilidade da nossa aplicação). false preserva o comportamento
+  // de sempre.
+  gateBiometriaAtivo: boolean;
 }
 
 export interface SignatarioKeySigner {

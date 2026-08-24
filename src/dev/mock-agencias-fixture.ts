@@ -9,7 +9,6 @@
 
 import type { AgenciaCarteiraView as AgenciaCarteiraViewCrm } from "@/modules/agencias-crm/types/agencia-carteira.types";
 import type { AgenciaCarteiraView as AgenciaCarteiraViewExecutivo } from "@/modules/atribuicoes/types/executivo-agencias.types";
-import type { AgenciaDaGestaoView } from "@/modules/gestores/types/gestor-agencias-tab.types";
 import type { AgenciaNovaLinha } from "@/modules/novas-agencias/types/novas-agencias.types";
 
 interface IdentidadeBase {
@@ -176,23 +175,6 @@ export const MOCK_AGENCIAS_EXECUTIVO: AgenciaCarteiraViewExecutivo[] =
     bilhetes30d: Math.round(a.vendasMes / 4_500),
     limite: Math.round(a.vendasAno * 1.2),
   }));
-
-export const MOCK_AGENCIAS_GESTOR: AgenciaDaGestaoView[] = SUBCONJUNTO_COMPARTILHADO.map((a) => ({
-  id: a.id,
-  nome: a.nome,
-  cnpj: a.cnpj,
-  executivoId: a.executivoNome ? `exec-${a.executivoNome.replace(/\s+/g, "-").toLowerCase()}` : "",
-  executivoNome: a.executivoNome ?? "não definido",
-  base: a.base,
-  status: a.ativo ? "ativo" : "inativo",
-  dadosFaltantes: false,
-  inativada: !a.ativo,
-  categoria: a.vendasAno >= 1_000_000 ? "1M" : a.vendasAno >= 100_000 ? "100K" : "10K",
-  vendasAno: a.vendasAno,
-  bilhetesAno: Math.round(a.vendasAno / 4_500),
-  diasSemComprar: a.vendasAno === 0 ? 180 : 5,
-  limite: Math.round(a.vendasAno * 1.2),
-}));
 
 export const MOCK_AGENCIAS_NOVAS: AgenciaNovaLinha[] = SUBCONJUNTO_COMPARTILHADO.map((a) => ({
   id: a.id,

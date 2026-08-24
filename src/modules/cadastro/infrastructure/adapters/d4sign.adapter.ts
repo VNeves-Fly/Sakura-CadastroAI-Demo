@@ -67,8 +67,12 @@ export class D4SignAdapter implements ContratoAssinaturaService {
 
     await this.registrarWebhook(documentUuid);
 
-    const signatariosKeySigner = await this.cadastrarSignatarios(documentUuid, input.signatarios);
-    await this.enviarParaAssinatura(documentUuid);
+    const signatariosKeySigner = await this.cadastrarSignatarios(
+      documentUuid,
+      input.signatarios,
+      input.gateBiometriaAtivo,
+    );
+    await this.enviarParaAssinatura(documentUuid, input.gateBiometriaAtivo);
 
     return { provedorId: documentUuid, status: "aguardando_assinatura", signatariosKeySigner };
   }
@@ -292,6 +296,7 @@ export class D4SignAdapter implements ContratoAssinaturaService {
   private async cadastrarSignatarios(
     documentUuid: string,
     signatarios: GerarContratoInput["signatarios"],
+    gateBiometriaAtivo: boolean,
   ): Promise<SignatarioKeySigner[]> {
     const signatariosPadrao = await this.signatarioPadraoRepository.findAtivos();
 
@@ -302,8 +307,11 @@ export class D4SignAdapter implements ContratoAssinaturaService {
       certificadoicpbr: "0", // sem certificado ICP-Brasil
       assinatura_presencial: "0", // assinatura remota
       after_position: String(ESTAGIO_SOCIOS),
-      docauthandselfie: "1", // exige selfie com documento
-      videoselfie: "1", // exige vídeo selfie
+      // Com o gate de biometria (Legitimuz) ativo pra essa agência, a
+      // verificação de identidade já aconteceu antes da assinatura — pedir
+      // de novo selfie/vídeo aqui seria redundante (decisão do usuário,
+      // 2026-08-21, ver docs/legitimuz/).
+      ...(gateBiometriaAtivo ? {} : { docauthandselfie: "1", videoselfie: "1" }),
     }));
 
     const fixos = signatariosPadrao
@@ -324,9 +332,18 @@ export class D4SignAdapter implements ContratoAssinaturaService {
     return extrairKeySignerPorEmail(resultado);
   }
 
-  private async enviarParaAssinatura(documentUuid: string): Promise<void> {
+  private async enviarParaAssinatura(
+    documentUuid: string,
+    gateBiometriaAtivo: boolean,
+  ): Promise<void> {
     await this.request("POST", `/documents/${documentUuid}/sendtosigner`, {
-      skip_email: "0", // envia e-mail de notificação
+      // Com o gate de biometria ativo, o D4Sign não notifica ninguém
+      // sozinho — a entrega dos links (biometria, depois assinatura) vira
+      // responsabilidade da nossa aplicação (ver docs/legitimuz/). skip_email
+      // é por DOCUMENTO, não por signatário — os 4 signatários fixos da
+      // Sakura também deixam de ser notificados automaticamente nesse caso
+      // (usam a tela "Contratos pendentes" ou o botão "Ver/copiar link").
+      skip_email: gateBiometriaAtivo ? "1" : "0",
       workflow: "1", // respeita a ordem de after_position (estágios)
     });
   }

@@ -415,6 +415,45 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       expect(resultado).toEqual({ processado: true });
     });
 
+    // Fluxo paralelo de biometria facial (Legitimuz, ver docs/legitimuz/):
+    // sem aprovação do time de cadastro (não há evidência de assinatura
+    // pra validar), pula aguardando_validacao inteira e vai direto pra
+    // análise de crédito quando todos os sócios assinam.
+    it("com gateBiometriaAtivo, avança direto pra aguardando_cadastramento quando o último sócio assina", async () => {
+      const repo = criarRepositorioFake({
+        findByContratoProvedorId: jest
+          .fn()
+          .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+        obterDetalhe: jest.fn().mockResolvedValue({
+          agencia: { status: STATUS_AGUARDANDO_ASSINATURA, gateBiometriaAtivo: true },
+          contratos: [{ id: "ct-1", status: STATUS_AGUARDANDO_ASSINATURA }],
+        } as never),
+      });
+      const assinaturaRepo = fakeContratoAssinaturaRepository([
+        { email: SOCIO_1 },
+        { email: SOCIO_2 },
+      ]);
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository([JEAN, WAGNER]),
+        fakeContratoEmailFalhaEntregaRepository(),
+        assinaturaRepo,
+        fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+      );
+
+      const resultado = await useCase.execute({
+        provedorId: "doc-1",
+        typePost: "4",
+        email: SOCIO_2,
+      });
+
+      expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO, {
+        usuarioEmail: SOCIO_2,
+        origem: "sistema - d4sign",
+      });
+      expect(resultado).toEqual({ processado: true });
+    });
+
     it("marca o contrato como assinado_agencia quando o aprovador assina, mas NÃO avança a agência se ainda faltam sócios", async () => {
       const repo = criarRepositorioFake({
         findByContratoProvedorId: jest

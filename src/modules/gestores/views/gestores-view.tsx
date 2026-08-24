@@ -6,6 +6,8 @@ import { GestoresListaToolbar } from "@/modules/gestores/components/gestores-lis
 import { GestoresListaTabela } from "@/modules/gestores/components/gestores-lista-tabela";
 import { GestorCadastroModal } from "@/modules/gestores/components/gestor-cadastro-modal";
 import { GestorEdicaoModal } from "@/modules/gestores/components/gestor-edicao-modal";
+import { PaginacaoSimples } from "@/modules/shared/components/paginacao-simples";
+import { TAMANHO_PAGINA_GESTORES } from "@/modules/gestores/types/gestor-lista.types";
 import type { BaseView } from "@/modules/bases/types/base.types";
 
 interface GestoresViewProps {
@@ -17,29 +19,48 @@ interface GestoresViewProps {
 export function GestoresView({ basesOptions, executivosPorGestor }: GestoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
   const [gestorEmEdicaoId, setGestorEmEdicaoId] = useState<string | null>(null);
-  const { gestores, total, isLoading, error, busca, atualizarBusca, alternarAtivo } =
-    useGestoresListaViewModel(executivosPorGestor);
+  const {
+    gestores,
+    total,
+    isLoading,
+    error,
+    busca,
+    atualizarBusca,
+    pagina,
+    totalPaginas,
+    setPagina,
+  } = useGestoresListaViewModel(executivosPorGestor);
 
   const gestorEmEdicao = gestores.find((gestor) => gestor.id === gestorEmEdicaoId);
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      <h1 className="text-foreground text-xl font-semibold">Gestores</h1>
+    <div className="flex w-full flex-col gap-[18px]">
+      <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#1A1A2E]">Gestores</h1>
 
       <GestoresListaToolbar
         busca={busca}
         onBuscaChange={atualizarBusca}
-        total={total}
         onNovoCadastro={() => setModalAberto(true)}
       />
 
-      <GestoresListaTabela
-        gestores={gestores}
-        isLoading={isLoading}
-        error={error}
-        onEditar={setGestorEmEdicaoId}
-        onAlternarAtivo={alternarAtivo}
-      />
+      <div>
+        <GestoresListaTabela
+          gestores={gestores}
+          isLoading={isLoading}
+          error={error}
+          onEditar={setGestorEmEdicaoId}
+        />
+
+        {!isLoading && !error ? (
+          <PaginacaoSimples
+            pagina={pagina}
+            totalPaginas={totalPaginas}
+            total={total}
+            tamanhoPagina={TAMANHO_PAGINA_GESTORES}
+            onMudarPagina={setPagina}
+          />
+        ) : null}
+      </div>
 
       <GestorCadastroModal
         aberto={modalAberto}

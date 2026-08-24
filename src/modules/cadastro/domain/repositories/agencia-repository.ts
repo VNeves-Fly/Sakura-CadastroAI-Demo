@@ -592,6 +592,11 @@ export interface AgenciaRepository {
   ): Promise<Agencia>;
   salvarSica(id: string, data: { codigo: string; salvoPor: string }): Promise<Agencia>;
   salvarTravelLink(id: string, data: { criado: boolean; salvoPor: string }): Promise<Agencia>;
+  // Liga/desliga o fluxo paralelo de biometria facial (Legitimuz) pra essa
+  // agência — precisa ser decidido antes da aprovação (em_analise/
+  // em_complementar), já que gerarEEnviar lê o valor na hora de montar o
+  // createlist/sendtosigner (ver docs/legitimuz/).
+  atualizarGateBiometria(id: string, ativo: boolean): Promise<Agencia>;
   // Devolve o id do Contrato criado — precisa pra gravar ContratoAssinatura
   // (keySigner capturado na hora da geração, ver AprovarCadastroComplementarUseCase/
   // AnalisarCadastroUseCase) logo em seguida.

@@ -5,23 +5,24 @@ import type { executivoDashboardController } from "@/modules/atribuicoes/present
 interface ExecutivoHeroKpisSecaoProps {
   heroKpisPromise: ReturnType<typeof executivoDashboardController.obterHeroKpis>;
   perfilId: string;
-  vendendo30d: number;
-  vendendo30dPct: number;
+  crossCanalPromise: ReturnType<typeof executivoDashboardController.obterCrossCanalEMiniStats>;
 }
 
-// Recebe a busca já disparada pelo pai (ExecutivoDashboardView), não a
-// dispara aqui — mesmo padrão de dashboard-vendas/components/secoes.
+// Recebe as buscas já disparadas pelo pai (ExecutivoDashboardView), não
+// as dispara aqui — mesmo padrão de dashboard-vendas/components/secoes.
+// Só `heroKpisPromise` é aguardada aqui; `crossCanalPromise` é só
+// repassada pra `KpisSecundariosGrid`, que a resolve no seu próprio
+// Suspense interno (card "Vendendo 30d") sem atrasar esta seção.
 export async function ExecutivoHeroKpisSecao({
   heroKpisPromise,
   perfilId,
-  vendendo30d,
-  vendendo30dPct,
+  crossCanalPromise,
 }: ExecutivoHeroKpisSecaoProps) {
   const { hero, kpis } = await heroKpisPromise;
   return (
     <>
       <ReceitaTotalCard hero={hero} perfilId={perfilId} />
-      <KpisSecundariosGrid kpis={kpis} vendendo30d={vendendo30d} vendendo30dPct={vendendo30dPct} />
+      <KpisSecundariosGrid kpis={kpis} crossCanalPromise={crossCanalPromise} />
     </>
   );
 }

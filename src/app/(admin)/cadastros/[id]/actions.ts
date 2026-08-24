@@ -62,6 +62,7 @@ export async function aprovarComplementarAction(id: string, formData: FormData) 
   await cadastroAdminController.aprovarComplementar({
     id,
     analistaEmail: await analistaLogado(),
+    baseUrl: obterUrlBase(headers()),
     gerarContratoAutomaticamente: formData.get("gerarContrato") !== null,
   });
   revalidatePath(`/cadastros/${id}`);
@@ -175,7 +176,7 @@ export async function cancelarContratoAction(agenciaId: string, formData: FormDa
 
 export async function ativarClienteAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.ativarCliente(id, await analistaLogado());
+  await cadastroAdminController.ativarCliente(id, await analistaLogado(), obterUrlBase(headers()));
   revalidatePath(`/cadastros/${id}`);
 }
 
@@ -185,13 +186,14 @@ export async function recusarCadastroAction(id: string, formData: FormData) {
     agenciaId: id,
     motivo: String(formData.get("motivo") ?? ""),
     recusadoPor: await analistaLogado(),
+    baseUrl: obterUrlBase(headers()),
   });
   revalidatePath(`/cadastros/${id}`);
 }
 
 export async function reprocessarAnaliseAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
-  await cadastroAdminController.reprocessarAnalise(id);
+  await cadastroAdminController.reprocessarAnalise(id, obterUrlBase(headers()));
   revalidatePath(`/cadastros/${id}`);
 }
 
@@ -518,6 +520,20 @@ export async function editarDadosBancariosAction(agenciaId: string, formData: Fo
       favorecidoDoc: parseStringOuNull(formData.get("favorecidoDoc")),
     },
   });
+  revalidatePath(`/cadastros/${agenciaId}`);
+}
+
+// Liga/desliga o fluxo paralelo de biometria facial (Legitimuz, ver
+// docs/legitimuz/) pra essa agência — restrito a Admin/Diretor de
+// Analistas, mesmo cargo de reanalisarDocumentoAction, além do gate de
+// sempre (garantirAtendimentoAssumido).
+export async function definirGateBiometriaAction(agenciaId: string, ativo: boolean) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) return;
+  const session = await getServerSession(nextAuthOptions);
+  if (!session?.user?.cargo || !CARGOS_REANALISE_DOCUMENTO.has(session.user.cargo)) {
+    throw new DomainError("Acesso não permitido.");
+  }
+  await cadastroAdminController.definirGateBiometria(agenciaId, ativo);
   revalidatePath(`/cadastros/${agenciaId}`);
 }
 

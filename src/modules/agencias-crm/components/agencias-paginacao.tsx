@@ -54,8 +54,8 @@ export function AgenciasPaginacao({
         onClick={() => onMudarPagina(destino)}
         aria-label={ariaLabel}
         className={cn(
-          "border-input text-foreground hover:bg-accent flex size-7 shrink-0 items-center justify-center rounded-full border transition",
-          desabilitado && "cursor-not-allowed opacity-40",
+          "flex size-7 shrink-0 items-center justify-center rounded-full border border-[#E2E2EE] text-[#3A3A55] transition hover:bg-[#FAFAFD]",
+          desabilitado && "cursor-not-allowed text-[#C9C9DA] opacity-70 hover:bg-transparent",
         )}
       >
         {children}
@@ -64,9 +64,9 @@ export function AgenciasPaginacao({
   }
 
   return (
-    <div className="border-border bg-card flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-[22px] py-3.5">
       <div className="flex items-center gap-2">
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-[#8888AA]">
           {inicio.toLocaleString("pt-BR")}-{fim.toLocaleString("pt-BR")} de{" "}
           {total.toLocaleString("pt-BR")}
         </p>
@@ -77,7 +77,7 @@ export function AgenciasPaginacao({
           <SelectTrigger
             id="agencias-tamanho-pagina"
             aria-label="Agências por página"
-            className="w-auto gap-1 rounded-full px-3 py-1.5 text-xs"
+            className="w-auto gap-1 rounded-full border-[#E2E2EE] px-3 py-1.5 text-xs text-[#3A3A55]"
           >
             <SelectValue />
           </SelectTrigger>
@@ -91,7 +91,7 @@ export function AgenciasPaginacao({
         </Select>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground mr-1 text-xs whitespace-nowrap">
+        <span className="mr-1 text-xs whitespace-nowrap text-[#8888AA]">
           Pág. {pagina} de {totalPaginas}
         </span>
         <Botao destino={1} ariaLabel="Primeira página">

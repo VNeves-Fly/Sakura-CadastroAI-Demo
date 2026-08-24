@@ -9,7 +9,7 @@ import type {
 // Faixas redondas batendo com os labels da UI (10K/100K/1M/10M) — sem
 // spec formal de limiar, mas agora é uma regra de negócio real sobre
 // `vendasAno` (SST), não mais um hash aleatório por agência.
-function categoriaPorVendas(vendasAno: number): CategoriaPremiacao {
+export function categoriaPorVendas(vendasAno: number): CategoriaPremiacao {
   if (vendasAno >= 10_000_000) return "10M";
   if (vendasAno >= 1_000_000) return "1M";
   if (vendasAno >= 100_000) return "100K";
@@ -19,7 +19,8 @@ function categoriaPorVendas(vendasAno: number): CategoriaPremiacao {
 // "Limite de crédito comercial" continua bloqueado (não existe no schema
 // espelhado do SICA, ver docs/mock-exec-resp.md) — mock determinístico
 // seedado pelo código SST da agência (não mais pelo id local do banco).
-function limiteMock(codigo: number): number {
+// Exportada pelo mesmo motivo de categoriaPorVendas acima.
+export function limiteMock(codigo: number): number {
   const seed = hashParaNumero(String(codigo));
   return ((seed % 900) + 20) * 12_000;
 }

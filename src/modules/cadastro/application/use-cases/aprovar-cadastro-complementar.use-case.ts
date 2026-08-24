@@ -13,10 +13,17 @@ import type { Documento } from "@/modules/cadastro/domain/entities/documento.ent
 import type { DecisaoHumanaRepository } from "@/modules/cadastro/domain/repositories/decisao-humana-repository";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 import { persistirKeySigners } from "@/modules/cadastro/domain/services/assinatura-socios.util";
+import { iniciarVerificacoesBiometricas } from "@/modules/cadastro/application/use-cases/iniciar-verificacoes-biometricas.util";
+import type { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import { notificarAssinaturaSemBiometria } from "@/modules/cadastro/application/use-cases/notificar-assinatura-sem-biometria.util";
+import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
 
 export interface AprovarCadastroComplementarInput {
   id: string;
   analistaEmail: string;
+  // Base da URL pública (obterUrlBase(headers())) — usada só quando a
+  // agência tem gateBiometriaAtivo, pro link de biometria mandado ao sócio.
+  baseUrl: string;
   // Checkbox "gerar contrato automaticamente" no modal de confirmação —
   // default true (comportamento de sempre). Quando false, pula a geração
   // no D4Sign e cria um Contrato-placeholder (ver
@@ -67,11 +74,14 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
     private readonly contratoAssinaturaService: ContratoAssinaturaService,
     private readonly decisaoHumanaRepository: DecisaoHumanaRepository,
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
+    private readonly iniciarVerificacaoBiometricaUseCase: IniciarVerificacaoBiometricaUseCase,
+    private readonly emailSender: EmailSender,
   ) {}
 
   async execute({
     id,
     analistaEmail,
+    baseUrl,
     gerarContratoAutomaticamente = true,
   }: AprovarCadastroComplementarInput): Promise<Agencia> {
     const detalhe = await this.agenciaRepository.obterDetalhe(id);
@@ -124,6 +134,7 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
           uf: "",
         },
         signatarios,
+        gateBiometriaAtivo: detalhe.agencia.gateBiometriaAtivo,
       });
 
       // Contrato + avanço de status numa transação só (ver
@@ -147,6 +158,17 @@ export class AprovarCadastroComplementarUseCase implements UseCase<
         resultado.contratoId,
         contratoResult.signatariosKeySigner,
       );
+      if (detalhe.agencia.gateBiometriaAtivo) {
+        await iniciarVerificacoesBiometricas(
+          this.iniciarVerificacaoBiometricaUseCase,
+          resultado.contratoId,
+          id,
+          signatarios,
+          baseUrl,
+        );
+      } else {
+        await notificarAssinaturaSemBiometria(this.emailSender, signatarios, baseUrl);
+      }
     } else {
       const resultado = await this.agenciaRepository.criarContratoEAvancarStatus(
         id,

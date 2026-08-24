@@ -1,27 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { LayoutGrid, Users, Building2 } from "lucide-react";
+import { LayoutGrid, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ABAS = [
   { chave: "dashboard", label: "Dashboard", icon: LayoutGrid, sufixo: "" },
   { chave: "executivos", label: "Executivos", icon: Users, sufixo: "/executivos" },
-  { chave: "agencias", label: "Agências", icon: Building2, sufixo: "/agencias" },
 ] as const;
 
 interface GestorTabsNavProps {
   gestorId: string;
-  // "agenda" removida (pedido do usuário, 2026-08-20) — aba e rota
-  // apagadas, ver gestor-detalhe-shell.tsx.
-  abaAtiva: "dashboard" | "executivos" | "agencias";
+  // "agenda" removida (pedido do usuário, 2026-08-20) e "agencias"
+  // removida (pedido do usuário, 2026-08-24) — abas e rotas apagadas, ver
+  // gestor-detalhe-shell.tsx.
+  abaAtiva: "dashboard" | "executivos";
 }
 
 // Nav de abas do detalhe do gestor — mesmo padrão visual de
-// ExecutivoTabsNav (ícone + label + sublinhado rosa na aba ativa). Só
-// "Dashboard" tem conteúdo construído nesta fase; Executivos/Agências
-// entram em fases seguintes, mesmo espírito do rollout faseado do módulo
-// Executivos (dashboard primeiro, depois agências).
+// ExecutivoTabsNav (ícone + label + sublinhado rosa na aba ativa).
 export function GestorTabsNav({ gestorId, abaAtiva }: GestorTabsNavProps) {
   return (
     <div className="border-border flex gap-1 border-b">

@@ -9,17 +9,29 @@ import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types
 
 interface GestorDetalheShellProps {
   perfil: GestorPerfil;
-  // "agenda" removida (pedido do usuário, 2026-08-20) — aba e rota
-  // apagadas, ver gestor-tabs-nav.tsx.
-  abaAtiva: "dashboard" | "executivos" | "agencias";
+  // "agenda" removida (pedido do usuário, 2026-08-20) e "agencias"
+  // removida (pedido do usuário, 2026-08-24) — abas e rotas apagadas, ver
+  // gestor-tabs-nav.tsx.
+  abaAtiva: "dashboard" | "executivos";
   children: ReactNode;
+  // Repassados pra GestorProfileHeader — só a aba Dashboard os preenche
+  // (via criarGestorHeaderStatsSlots), as demais abas caem no fallback
+  // mock/local de GestorProfileHeader.
+  statsAgenciasSlot?: ReactNode;
+  statsVendendo30dSlot?: ReactNode;
 }
 
 // Cabeçalho de página + cartão de identificação + tabs — compartilhado
 // pelas 4 abas do detalhe do gestor (SPEC pedida pelo usuário, 2026-08-17:
 // "não esquece de reaproveitar os componentes"). Cada view de aba só
 // precisa montar o conteúdo específico e passar como children.
-export function GestorDetalheShell({ perfil, abaAtiva, children }: GestorDetalheShellProps) {
+export function GestorDetalheShell({
+  perfil,
+  abaAtiva,
+  children,
+  statsAgenciasSlot,
+  statsVendendo30dSlot,
+}: GestorDetalheShellProps) {
   return (
     <div className="flex w-full flex-col gap-5">
       {/* items-end (não items-start): o título "Detalhes do Gestor" fica
@@ -49,7 +61,11 @@ export function GestorDetalheShell({ perfil, abaAtiva, children }: GestorDetalhe
         </div>
       </div>
 
-      <GestorProfileHeader perfil={perfil} />
+      <GestorProfileHeader
+        perfil={perfil}
+        statsAgenciasSlot={statsAgenciasSlot}
+        statsVendendo30dSlot={statsVendendo30dSlot}
+      />
       <GestorTabsNav gestorId={perfil.id} abaAtiva={abaAtiva} />
 
       {children}

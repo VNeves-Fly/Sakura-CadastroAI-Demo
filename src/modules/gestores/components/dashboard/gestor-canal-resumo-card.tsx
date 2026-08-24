@@ -70,6 +70,7 @@ export function GestorCanalResumoCard({
               rentabLYValor={rentabLYValor}
               rentabLYVariacaoPct={canal.rentabLYVariacaoPct}
               tamanho="pequeno"
+              mock
             />
           </div>
 

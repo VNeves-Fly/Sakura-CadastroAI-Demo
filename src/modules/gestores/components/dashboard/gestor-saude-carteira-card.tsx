@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { GestorAgenciaSegmentoModal } from "@/modules/gestores/components/dashboard/gestor-agencia-segmento-modal";
 import { cn } from "@/lib/utils";
@@ -18,12 +17,14 @@ const CORES: Record<SegmentoSaude["chave"], string> = {
   inativas: "text-destructive bg-destructive/5 border-destructive/20 hover:bg-destructive/10",
 };
 
-// Card "Saúde da carteira" (SPEC 3.10) — todos os valores são mock-gerados
-// (segmentação, quantidades, percentuais derivados de hash do gestor ID);
-// nomes/CNPJs das agências nos modais são também mock. Pixel-idêntico ao
-// mesmo card do dashboard de Executivo — a barra segmentada que existia
-// aqui antes foi removida (não faz parte do layout aprovado, pedido do
-// usuário, 2026-08-21).
+// Card "Saúde da carteira" (SPEC 3.10) — segmentação real, agregada de
+// gestorDashboardController (soma de construirSaudeCarteira por
+// executivo, via SST); só cai pro mock determinístico se o SST falhar
+// pra algum executivo (fallback silencioso, mesma convenção do resto do
+// dashboard — sem badge "MK" pra esse caso, ver executivo-dashboard.
+// sst-service.ts). Pixel-idêntico ao mesmo card do dashboard de
+// Executivo — a barra segmentada que existia aqui antes foi removida
+// (não faz parte do layout aprovado, pedido do usuário, 2026-08-21).
 export function GestorSaudeCarteiraCard({ segmentos }: GestorSaudeCarteiraCardProps) {
   const [segmentoAberto, setSegmentoAberto] = useState<SegmentoSaude | null>(null);
 
@@ -36,7 +37,6 @@ export function GestorSaudeCarteiraCard({ segmentos }: GestorSaudeCarteiraCardPr
             Segmenta as agências aprovadas em 4 grupos para priorizar ações.
           </p>
         </div>
-        <MockBadge />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

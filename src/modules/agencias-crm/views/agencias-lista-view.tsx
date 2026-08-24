@@ -36,35 +36,45 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
   } = useAgenciasCarteiraViewModel(agencias);
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-foreground text-xl font-semibold">Agências Sakura</h1>
+    // Card único envolvendo título+toolbar+abas+tabela+paginação — mesmo
+    // container visual de ListaAgenciasCard (/crm/novas-agencias), pedido do
+    // usuário pra padronizar o estilo das duas listagens (2026-08-24).
+    // Colunas/dados/funcionalidade da tabela e paginação inalterados.
+    <div className="overflow-hidden rounded-2xl border border-[#ECECF4] bg-white shadow-[0_1px_2px_rgba(20,20,50,0.04)]">
+      <div className="flex items-center justify-between gap-3 px-[22px] pt-[18px] pb-3">
+        <h1 className="text-[15px] font-bold tracking-[-0.01em] text-[#1A1A2E]">Agências Sakura</h1>
       </div>
 
-      <AgenciasToolbar
-        busca={busca}
-        onBuscaChange={atualizarBusca}
-        topVendas={topVendas}
-        onTopVendasChange={mudarTopVendas}
-        atualizadoEm={atualizadoEm}
+      <div className="px-[22px] pb-[18px]">
+        <AgenciasToolbar
+          busca={busca}
+          onBuscaChange={atualizarBusca}
+          topVendas={topVendas}
+          onTopVendasChange={mudarTopVendas}
+          atualizadoEm={atualizadoEm}
+        />
+      </div>
+
+      <div className="px-[22px]">
+        <AgenciasStatusTabs
+          statusTab={statusTab}
+          onChange={mudarStatusTab}
+          contadores={contadores}
+        />
+      </div>
+
+      <AgenciasCarteiraTabela
+        agencias={agenciasDaPagina}
+        offsetPagina={(pagina - 1) * tamanhoPagina}
       />
-
-      <AgenciasStatusTabs statusTab={statusTab} onChange={mudarStatusTab} contadores={contadores} />
-
-      <div className="border-border bg-card overflow-hidden rounded-2xl border">
-        <AgenciasCarteiraTabela
-          agencias={agenciasDaPagina}
-          offsetPagina={(pagina - 1) * tamanhoPagina}
-        />
-        <AgenciasPaginacao
-          pagina={pagina}
-          totalPaginas={totalPaginas}
-          total={total}
-          onMudarPagina={setPagina}
-          tamanhoPagina={tamanhoPagina}
-          onMudarTamanhoPagina={setTamanhoPagina}
-        />
-      </div>
+      <AgenciasPaginacao
+        pagina={pagina}
+        totalPaginas={totalPaginas}
+        total={total}
+        onMudarPagina={setPagina}
+        tamanhoPagina={tamanhoPagina}
+        onMudarTamanhoPagina={setTamanhoPagina}
+      />
     </div>
   );
 }

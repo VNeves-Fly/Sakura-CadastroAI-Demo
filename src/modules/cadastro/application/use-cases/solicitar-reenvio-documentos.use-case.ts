@@ -2,6 +2,13 @@ import type { UseCase } from "@/modules/shared/application/use-case";
 import { DomainError, NotFoundError } from "@/modules/shared/domain/errors";
 import type { AgenciaRepository } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { EmailSender } from "@/modules/shared/domain/services/email-sender";
+import {
+  montarEmailSakura,
+  paragrafoEmail,
+  caixaCinza,
+  botaoEmail,
+  iconeEmailUrl,
+} from "@/modules/shared/utils/email-template.util";
 
 export interface SolicitarReenvioDocumentosInput {
   agenciaId: string;
@@ -68,7 +75,33 @@ export class SolicitarReenvioDocumentosUseCase implements UseCase<
     await this.agenciaRepository.marcarInfoPendente(input.agenciaId);
 
     const link = `${input.baseUrl}/cadastro/documentos-pendentes/${input.agenciaId}`;
-    const listaHtml = itens.map((item) => `<li>${item}</li>`).join("");
+    const listaHtml = itens
+      .map(
+        (item) =>
+          `<li style="margin:0 0 6px 0;color:#0f1729;font-family:Arial,Helvetica,sans-serif;font-size:14px;">${item}</li>`,
+      )
+      .join("");
+
+    // Mesmo molde visual da Arte 3 ("Cadastro pendente"), mas com o
+    // conteúdo específico desta solicitação (quais documentos, link de
+    // reenvio) em vez do texto genérico só-WhatsApp — decisão do usuário,
+    // 2026-08-24: "podemos utilizar a mesma estrutura quando formos pedir
+    // um documento por email".
+    const html = montarEmailSakura({
+      baseUrl: input.baseUrl,
+      banner: {
+        iconeUrl: iconeEmailUrl(input.baseUrl, "cadastro-andamento"),
+        tituloLinhas: ["SEU CADASTRO", "ESTÁ QUASE", "PRONTO!"],
+      },
+      corpoHtml: `
+        ${paragrafoEmail(`Pra continuar a análise do cadastro de <strong>${detalhe.agencia.razaoSocial}</strong>, precisamos que os documentos abaixo sejam reenviados:`)}
+        ${caixaCinza(`<ul style="margin:0;padding-left:20px;text-align:left;">${listaHtml}</ul>`)}
+        <div style="text-align:center;margin:0 0 20px 0;">
+          ${botaoEmail({ label: "Reenviar documentos", href: link, cor: "pink" })}
+        </div>
+        ${paragrafoEmail("Nossa equipe também poderá entrar em contato. Por isso, fique sempre atento ao seu e-mail e telefone celular.")}
+      `,
+    });
 
     // Best-effort de verdade: falha de envio (SMTP fora do ar, credencial
     // expirada, e-mail de contato inválido) não pode quebrar a página —
@@ -78,15 +111,7 @@ export class SolicitarReenvioDocumentosUseCase implements UseCase<
       await this.emailSender.send({
         to: detalhe.agencia.emailContato,
         subject: "Documentos pendentes — Cadastro Sakura",
-        html: `
-          <div style="font-family: sans-serif; font-size: 15px; color: #1f2937;">
-            <p>Olá!</p>
-            <p>Pra continuar a análise do cadastro de <strong>${detalhe.agencia.razaoSocial}</strong>,
-            precisamos que os documentos abaixo sejam reenviados:</p>
-            <ul>${listaHtml}</ul>
-            <p><a href="${link}">${link}</a></p>
-          </div>
-        `,
+        html,
       });
     } catch (error) {
       console.error(

@@ -1,50 +1,30 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
+import { limiteMock } from "@/modules/atribuicoes/adapters/executivo-agencias.adapter";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
+import type { gestorDashboardController } from "@/modules/gestores/presentation/controllers/gestor-dashboard.controller";
 import type { ExecutivoDaGestaoView } from "@/modules/gestores/types/gestor-executivos-tab.types";
 
-// Mock determinístico das métricas de carteira — mesma fórmula de
-// promotor-lista.adapter.ts (lista de Executivos), mas alimentada pelo
-// total REAL de agências (`aprovadas`) em vez de gerar esse número também
-// via hash, já que aqui a gente já sabe a carteira de verdade.
-function gerarMetricasMock(id: string, aprovadas: number) {
-  const base = hashParaNumero(id);
-  const semVendaAno = aprovadas === 0 || base % 10 === 0;
-  const paradas90d = Math.max(0, Math.round(aprovadas * (((base >> 5) % 30) / 100)));
+type PorExecutivo = Awaited<
+  ReturnType<typeof gestorDashboardController.obterAgregadoCompleto>
+>["porExecutivo"][number];
 
-  if (semVendaAno) {
-    return {
-      semVendaAno: true,
-      vendendo30d: 0,
-      paradas90d,
-      vendasMes: 0,
-      vendasAno: 0,
-      limite: aprovadas * 15_000,
-      saudePercentual: aprovadas > 0 ? base % 15 : 0,
-    };
-  }
-
-  const vendendo30d = Math.max(1, Math.round(aprovadas * (0.3 + ((base >> 3) % 50) / 100)));
-  const vendasAno = ((base % 900) + 50) * 10_000;
-  const vendasMes = Math.round(vendasAno * (0.05 + ((base >> 2) % 10) / 100));
-  const limite = Math.round(vendasAno * (1.2 + ((base >> 4) % 20) / 100));
-  const saudePercentual = 20 + (base % 70);
-
-  return {
-    semVendaAno: false,
-    vendendo30d,
-    paradas90d,
-    vendasMes,
-    vendasAno,
-    limite,
-    saudePercentual,
-  };
-}
+const FAIXAS_PARADA = new Set(["90a365d", "semVenda365d"]);
 
 export const gestorExecutivosTabAdapter = {
-  toView(executivo: ExecutivoComCarteira): ExecutivoDaGestaoView {
+  // `agregado` vem de gestorDashboardController.obterAgregadoCompleto(...) —
+  // sempre 1 item por executivo, na mesma ordem/id de `executivo`, mesmo se
+  // o SST falhar pra algum (ver gestor-dashboard.controller.ts). `ativo`
+  // continua mock (sem flag real no schema, fora de escopo).
+  toView(executivo: ExecutivoComCarteira, agregado: PorExecutivo): ExecutivoDaGestaoView {
     const aprovadas = executivo.agencias.length;
     const base = hashParaNumero(executivo.id);
-    const metricas = gerarMetricasMock(executivo.id, aprovadas);
+    const paradas90d = agregado.agenciasCarteira.filter((agencia) =>
+      FAIXAS_PARADA.has(agencia.faixaRecencia),
+    ).length;
+    const limite = agregado.agenciasCarteira.reduce(
+      (total, agencia) => total + limiteMock(agencia.codigo),
+      0,
+    );
 
     return {
       id: executivo.id,
@@ -54,11 +34,27 @@ export const gestorExecutivosTabAdapter = {
       bases: executivo.bases,
       ativo: base % 10 !== 0,
       aprovadas,
-      ...metricas,
+      semVendaAno: agregado.hero.ano.valor === 0,
+      vendendo30d: agregado.miniStats.vendendo30d,
+      paradas90d,
+      vendasMes: agregado.hero.mes.valor,
+      vendasAno: agregado.hero.ano.valor,
+      limite,
+      saudePercentual: agregado.miniStats.vendendo30dPct,
     };
   },
 
-  toViewList(executivos: ExecutivoComCarteira[]): ExecutivoDaGestaoView[] {
-    return executivos.map((executivo) => gestorExecutivosTabAdapter.toView(executivo));
+  toViewList(
+    executivos: ExecutivoComCarteira[],
+    porExecutivo: PorExecutivo[],
+  ): ExecutivoDaGestaoView[] {
+    const agregadoPorId = new Map(porExecutivo.map((item) => [item.id, item]));
+    return executivos.map((executivo) => {
+      const agregado = agregadoPorId.get(executivo.id);
+      if (!agregado) {
+        throw new Error(`Agregado ausente para o executivo ${executivo.id}`);
+      }
+      return gestorExecutivosTabAdapter.toView(executivo, agregado);
+    });
   },
 };
