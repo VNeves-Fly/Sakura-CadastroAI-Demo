@@ -61,7 +61,7 @@ export function GestorTopAgenciasCard({
                 </span>
                 {item.quantidade !== undefined ? (
                   <span className="text-muted-foreground block text-xs">
-                    <SensitiveValue value={item.quantidade} />
+                    <SensitiveValue value={item.quantidade} /> bilhetes
                   </span>
                 ) : null}
               </span>
