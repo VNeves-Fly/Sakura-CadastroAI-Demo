@@ -32,7 +32,7 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
     <div className="overflow-x-auto">
       <div style={{ minWidth: 1040 }}>
         <div
-          className="border-border grid border-b px-4 py-3 text-[11px] font-bold tracking-[0.05em] text-[#8888AA] uppercase"
+          className="grid border-t border-b border-[#F0F0F6] bg-[#FAFAFD] px-[22px] py-3 text-[11px] font-bold tracking-[0.06em] text-[#8888AA] uppercase"
           style={{ gridTemplateColumns: COLS }}
         >
           <span>#</span>
@@ -50,7 +50,6 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
           </p>
         ) : (
           agencias.map((agencia, indice) => {
-            const par = (offsetPagina + indice) % 2 === 0;
             return (
               <div
                 key={agencia.id}
@@ -60,16 +59,13 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
                 // base-empresa-cadastro?codigoEmpresa=X), que não aceita
                 // filtro por CNPJ (confirmado por curl real, 2026-08-21).
                 onClick={() => router.push(`/crm/agencias/${agencia.id}`)}
-                className={cn(
-                  "border-border grid cursor-pointer items-center border-b px-4 py-3.5 text-[13px] text-[#2A2A40] transition-colors hover:bg-[#FCF3F8]",
-                  par ? "bg-[#FBFBFE]" : "bg-background",
-                )}
+                className="group grid cursor-pointer items-center border-b border-[#F4F4F9] px-[22px] py-3 text-[13px] text-[#3A3A55] transition-colors duration-150 hover:bg-[#FCFAFD]"
                 style={{ gridTemplateColumns: COLS }}
               >
                 <span className="text-[12.5px] text-[#9494AC] tabular-nums">
                   {offsetPagina + indice + 1}
                 </span>
-                <p className="truncate pr-2.5 text-[13px] font-medium text-[#1A1A2E]">
+                <p className="text-primary truncate pr-2.5 text-[13px] font-bold tracking-[0.01em] group-hover:underline">
                   {agencia.razaoSocial}
                 </p>
                 <span className="text-[12.5px] text-[#6B6B85] tabular-nums">

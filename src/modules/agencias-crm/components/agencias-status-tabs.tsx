@@ -20,7 +20,7 @@ const ABAS: { chave: StatusTab; label: string }[] = [
 // a versão anterior fazia com verde/vermelho).
 export function AgenciasStatusTabs({ statusTab, onChange, contadores }: AgenciasStatusTabsProps) {
   return (
-    <div className="border-border flex items-stretch gap-1.5 border-b">
+    <div className="flex items-stretch gap-1.5 border-b border-[#F0F0F6]">
       {ABAS.map((aba) => {
         const ativa = aba.chave === statusTab;
         return (
@@ -32,16 +32,13 @@ export function AgenciasStatusTabs({ statusTab, onChange, contadores }: Agencias
               "flex items-center gap-1.5 border-b-2 px-3.5 py-3 text-[13.5px] font-semibold transition",
               ativa
                 ? "border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground border-transparent",
+                : "border-transparent text-[#8888AA] hover:text-[#3A3A55]",
             )}
           >
             <LayoutGrid className="size-3.75" />
             {aba.label}
             <span
-              className={cn(
-                "text-xs font-semibold",
-                ativa ? "text-primary" : "text-muted-foreground/60",
-              )}
+              className={cn("text-xs font-semibold", ativa ? "text-primary" : "text-[#8888AA]/60")}
             >
               {contadores[aba.chave].toLocaleString("pt-BR")}
             </span>
