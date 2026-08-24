@@ -43,14 +43,8 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
     criarGestorHeaderStatsSlots(crossCanalPromise);
 
   const agenciasCarteira = executivos.flatMap((executivo) => executivo.agencias);
-  const {
-    canalAereo,
-    canalTerrestre,
-    atualizadoEm,
-    topAgenciasHoje,
-    topAgenciasHojeAereo,
-    topAgenciasHojeTerrestre,
-  } = montarGestorApresentacaoMock(perfil.id, agenciasCarteira);
+  const { atualizadoEm, topAgenciasHoje, topAgenciasHojeAereo, topAgenciasHojeTerrestre } =
+    montarGestorApresentacaoMock(perfil.id, agenciasCarteira);
 
   return (
     <GestorDetalheShell
@@ -60,12 +54,7 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
       statsVendendo30dSlot={statsVendendo30dSlot}
     >
       <Suspense fallback={<SecaoSkeleton altura="h-40" />}>
-        <GestorHeroKpisSecao
-          heroKpisPromise={heroKpisPromise}
-          canalAereo={canalAereo}
-          canalTerrestre={canalTerrestre}
-          atualizadoEm={atualizadoEm}
-        />
+        <GestorHeroKpisSecao heroKpisPromise={heroKpisPromise} atualizadoEm={atualizadoEm} />
       </Suspense>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

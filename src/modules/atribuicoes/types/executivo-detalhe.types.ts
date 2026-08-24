@@ -174,6 +174,14 @@ export interface CanalMargemPeriodo {
   ticketMedio: number;
   nacPct: number;
   intPct: number;
+  // Componentes brutos (não exibidos direto na UI do Executivo) — só
+  // existem pra permitir reagregação real no Gestor (soma de N executivos
+  // reconstruindo margemPct/nacPct a partir de valores absolutos, em vez
+  // de fazer média de percentuais — ver somarMargemRentab em
+  // agregacoes-gestor.util.ts).
+  valorLY: number; // tarifa do canal no mesmo período, 1 ano atrás
+  nacionalValor: number; // tarifa nacional do canal no período
+  internacionalValor: number; // tarifa internacional do canal no período
 }
 
 export interface CanalMargemResumo {

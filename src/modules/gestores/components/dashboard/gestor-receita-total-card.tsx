@@ -14,80 +14,35 @@ import {
   formatarPercentual,
 } from "@/modules/gestores/utils/formatar-moeda.util";
 import type {
-  CanalResumoGestor,
+  MargemRentabGestor,
   PeriodoVendasMesHeroGestor,
   VendasMesHeroGestor,
 } from "@/modules/gestores/types/gestor-detalhe.types";
 
 interface GestorReceitaTotalCardProps {
   hero: Record<PeriodoVendasMesHeroGestor, VendasMesHeroGestor>;
-  canalAereo: CanalResumoGestor;
-  canalTerrestre: CanalResumoGestor;
+  margemRentab: MargemRentabGestor;
   atualizadoEm: string;
-}
-
-// Média ponderada pelo valor de cada canal no período ativo — mesma conta
-// de ponderar() em executivo/dashboard/receita-total-card.tsx.
-function ponderar(
-  valorAereo: number,
-  valorTerrestre: number,
-  campoAereo: number,
-  campoTerrestre: number,
-) {
-  const total = valorAereo + valorTerrestre;
-  if (total === 0) return 0;
-  return (valorAereo * campoAereo + valorTerrestre * campoTerrestre) / total;
 }
 
 // Card "Receita total" (SPEC 3.5+3.6) — mesmo componente/lógica de
 // ReceitaTotalCard do dashboard de Executivo (duplicado por isolamento de
 // módulo), com o filtro de período próprio do Gestor (ver
-// filtro-periodo-gestor.store.ts) e os dois cartões de canal. O valor
-// grande e a variação % são reais (via SST); só margem/rentab. total (e
-// os dois cards de canal abaixo) continuam mock — por isso o badge "MK"
-// fica só no bloco MARGEM TOTAL, não no card inteiro (mesma convenção do
-// Executivo, ver margem-rentab-bloco.tsx).
+// filtro-periodo-gestor.store.ts) e os dois cartões de canal. Margem/
+// rentab. por canal são reais desde 2026-08-24 — agregação (soma) da
+// carteira dos executivos subordinados (ver somarMargemRentab em
+// agregacoes-gestor.util.ts) — só o timestamp "Atualizado em" continua
+// mock (sem fonte real de "hora de sincronização" no SST).
 export function GestorReceitaTotalCard({
   hero,
-  canalAereo,
-  canalTerrestre,
+  margemRentab,
   atualizadoEm,
 }: GestorReceitaTotalCardProps) {
   const filtro = useFiltroPeriodoGestorStore((estado) => estado.filtro);
   const periodo = resolverPeriodoGestor(filtro);
   const dadosDoPeriodo = hero[periodo];
+  const margemDoPeriodo = margemRentab[periodo];
   const negativo = dadosDoPeriodo.variacaoPct < 0;
-
-  const valorAereo = (dadosDoPeriodo.valor * canalAereo.participacaoPct) / 100;
-  const valorTerrestre = dadosDoPeriodo.valor - valorAereo;
-
-  const margemTotalPct = ponderar(
-    valorAereo,
-    valorTerrestre,
-    canalAereo.margemPct,
-    canalTerrestre.margemPct,
-  );
-  const margemTotalLYPct = ponderar(
-    valorAereo,
-    valorTerrestre,
-    canalAereo.margemLYPct,
-    canalTerrestre.margemLYPct,
-  );
-  const margemTotalVariacaoPct = ponderar(
-    valorAereo,
-    valorTerrestre,
-    canalAereo.margemVariacaoPct,
-    canalTerrestre.margemVariacaoPct,
-  );
-  const rentabTotalLYValor =
-    (valorAereo * canalAereo.rentabLYPct) / 100 +
-    (valorTerrestre * canalTerrestre.rentabLYPct) / 100;
-  const rentabTotalLYVariacaoPct = ponderar(
-    valorAereo,
-    valorTerrestre,
-    canalAereo.rentabLYVariacaoPct,
-    canalTerrestre.rentabLYVariacaoPct,
-  );
 
   return (
     <div className="border-border bg-card rounded-2xl border p-5">
@@ -107,13 +62,12 @@ export function GestorReceitaTotalCard({
             </p>
             <MargemRentabBlocoGestor
               margemLabel="MARGEM TOTAL"
-              margemPct={margemTotalPct}
-              margemLYPct={margemTotalLYPct}
-              margemVariacaoPct={margemTotalVariacaoPct}
-              rentabLYValor={rentabTotalLYValor}
-              rentabLYVariacaoPct={rentabTotalLYVariacaoPct}
+              margemPct={margemDoPeriodo.total.margemPct}
+              margemLYPct={margemDoPeriodo.total.margemLYPct}
+              margemVariacaoPct={margemDoPeriodo.total.margemVariacaoPct}
+              rentabLYValor={margemDoPeriodo.total.rentabLYValor}
+              rentabLYVariacaoPct={margemDoPeriodo.total.rentabLYVariacaoPct}
               tamanho="grande"
-              mock
             />
           </div>
 
@@ -140,16 +94,14 @@ export function GestorReceitaTotalCard({
 
       <div className="mt-3.5 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <GestorCanalResumoCard
-          canal={canalAereo}
-          heroValor={dadosDoPeriodo.valor}
+          canal={margemDoPeriodo.aereo}
           titulo="Aéreo"
           unidade="bilhetes"
           icon={Plane}
           tema="rosa"
         />
         <GestorCanalResumoCard
-          canal={canalTerrestre}
-          heroValor={dadosDoPeriodo.valor}
+          canal={margemDoPeriodo.terrestre}
           titulo="Terrestre"
           unidade="vendas"
           icon={Bus}

@@ -6,8 +6,11 @@
 // dele (docs/plano-gestores-backend.md §1).
 import { unmaskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import type {
+  CanalMargemPeriodo,
+  CanalMargemResumo,
   CrossCanal,
   KpisSecundarios,
+  MargemRentabExecutivo,
   MiniStats,
   PeriodoVendasMesHero,
   SegmentoComLista,
@@ -15,7 +18,10 @@ import type {
   VendasMesHero,
 } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 import type {
+  CanalMargemPeriodoGestor,
+  CanalMargemResumoGestor,
   KpisSecundariosGestor,
+  MargemRentabGestor,
   PeriodoVendasMesHeroGestor,
   RankingExecutivoSaude,
   VendasMesHeroGestor,
@@ -58,6 +64,63 @@ export function somarHeroTodosPeriodos(
   return Object.fromEntries(
     periodos.map((periodo) => [periodo, somarPeriodoHero(heroList.map((h) => h[periodo]))]),
   ) as Record<PeriodoVendasMesHeroGestor, VendasMesHeroGestor>;
+}
+
+// Duplicado de propósito (isolamento de módulo, mesmo princípio do resto
+// deste projeto) — mesma fórmula de calcularVariacaoPct em
+// executivo-dashboard.sst-service.ts (não exportada de lá).
+function calcularVariacaoPct(atual: number, anterior: number): number {
+  return anterior > 0 ? ((atual - anterior) / anterior) * 100 : 0;
+}
+
+// Soma um canal (total/aereo/terrestre) de N executivos a partir dos
+// componentes BRUTOS (valor/valorLY/rentabValor/rentabLYValor/
+// nacionalValor — todos reais, vindos do SST via
+// executivo-dashboard.sst-service.ts) e reconstrói margemPct/margemLYPct/
+// nacPct a partir dos totais agregados — nunca faz média de percentuais
+// individuais (um executivo pequeno com margem de 50% não pode pesar
+// igual a um grande com margem de 5%, mesma regra já aplicada em
+// somarKpis/mesAnteriorPercentualAtingido acima).
+function somarCanalMargem(canais: CanalMargemPeriodo[]): CanalMargemPeriodoGestor {
+  const valor = canais.reduce((s, c) => s + c.valor, 0);
+  const valorLY = canais.reduce((s, c) => s + c.valorLY, 0);
+  const quantidade = canais.reduce((s, c) => s + c.quantidade, 0);
+  const rentabValor = canais.reduce((s, c) => s + c.rentabValor, 0);
+  const rentabLYValor = canais.reduce((s, c) => s + c.rentabLYValor, 0);
+  const nacionalValor = canais.reduce((s, c) => s + c.nacionalValor, 0);
+
+  const margemPct = valor > 0 ? (rentabValor / valor) * 100 : 0;
+  const margemLYPct = valorLY > 0 ? (rentabLYValor / valorLY) * 100 : 0;
+  const nacPct = valor > 0 ? Math.round((nacionalValor / valor) * 1000) / 10 : 0;
+
+  return {
+    valor,
+    quantidade,
+    margemPct: Math.round(margemPct * 100) / 100,
+    margemLYPct: Math.round(margemLYPct * 100) / 100,
+    margemVariacaoPct: Math.round(calcularVariacaoPct(margemPct, margemLYPct) * 100) / 100,
+    rentabValor,
+    rentabLYValor,
+    rentabLYVariacaoPct: Math.round(calcularVariacaoPct(rentabValor, rentabLYValor) * 100) / 100,
+    ticketMedio: quantidade > 0 ? Math.round(valor / quantidade) : 0,
+    nacPct,
+    intPct: Math.round((100 - nacPct) * 10) / 10,
+  };
+}
+
+function somarCanalMargemResumo(resumos: CanalMargemResumo[]): CanalMargemResumoGestor {
+  return {
+    total: somarCanalMargem(resumos.map((r) => r.total)),
+    aereo: somarCanalMargem(resumos.map((r) => r.aereo)),
+    terrestre: somarCanalMargem(resumos.map((r) => r.terrestre)),
+  };
+}
+
+export function somarMargemRentab(list: MargemRentabExecutivo[]): MargemRentabGestor {
+  const periodos: PeriodoVendasMesHeroGestor[] = ["dia", "ontem", "mes", "ano"];
+  return Object.fromEntries(
+    periodos.map((periodo) => [periodo, somarCanalMargemResumo(list.map((m) => m[periodo]))]),
+  ) as MargemRentabGestor;
 }
 
 // vendendo30dRapido/vendendo30dPctRapido = perfil.vendendoUltimos30d/Pct

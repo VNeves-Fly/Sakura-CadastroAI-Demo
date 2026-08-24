@@ -50,22 +50,32 @@ export interface KpisSecundariosGestor {
   vendendo30dPct: number;
 }
 
-// Resumo de um canal (Aéreo/Terrestre) dentro do card de receita total
-// (SPEC seção 3.6) — mesmo shape/lógica de CanalResumo em
-// executivo-detalhe.types.ts: guarda só razões/percentuais, o valor
-// absoluto é derivado no componente a partir do valor do hero no período
-// ativo (`valorCanal = heroValor * participacaoPct/100`).
-export interface CanalResumoGestor {
-  participacaoPct: number;
+// Margem/rentabilidade real por canal (SPEC seção 3.6) — agregação real
+// (soma) da carteira de executivos subordinados, real desde 2026-08-24
+// (ver somarMargemRentab em agregacoes-gestor.util.ts). Mesmo shape de
+// CanalMargemPeriodo/CanalMargemResumo em executivo-detalhe.types.ts, mas
+// já consolidado (sem os componentes brutos usados só pra reagregação).
+export interface CanalMargemPeriodoGestor {
+  valor: number;
+  quantidade: number;
   margemPct: number;
   margemLYPct: number;
   margemVariacaoPct: number;
-  rentabLYPct: number;
+  rentabValor: number;
+  rentabLYValor: number;
   rentabLYVariacaoPct: number;
   ticketMedio: number;
   nacPct: number;
   intPct: number;
 }
+
+export interface CanalMargemResumoGestor {
+  total: CanalMargemPeriodoGestor;
+  aereo: CanalMargemPeriodoGestor;
+  terrestre: CanalMargemPeriodoGestor;
+}
+
+export type MargemRentabGestor = Record<PeriodoVendasMesHeroGestor, CanalMargemResumoGestor>;
 
 export interface AgenciaSegmentoResumo {
   nome: string;

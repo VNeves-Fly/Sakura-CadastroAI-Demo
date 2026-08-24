@@ -141,6 +141,8 @@ function gerarCanalMargemPeriodo(
   const margemNegativa = (seed >> 9) % 5 === 0;
   const rentabLYPct = Math.round((1.8 + ((seed >> 11) % 60) / 10) * 100) / 100;
   const nacPct = Math.min(100, Math.round((28 + (seed % 60)) * 10) / 10);
+  const valorLY = Math.round(valor * (0.7 + ((seed >> 5) % 50) / 100));
+  const nacionalValor = Math.round(valor * (nacPct / 100));
 
   return {
     valor,
@@ -150,11 +152,14 @@ function gerarCanalMargemPeriodo(
     margemVariacaoPct:
       (margemNegativa ? -1 : 1) * (Math.round((5 + ((seed >> 9) % 250) / 10) * 100) / 100),
     rentabValor: Math.round(valor * (margemPct / 100)),
-    rentabLYValor: Math.round(valor * (rentabLYPct / 100)),
+    rentabLYValor: Math.round(valorLY * (rentabLYPct / 100)),
     rentabLYVariacaoPct: Math.round((15 + ((seed >> 13) % 550) / 10) * 100) / 100,
     ticketMedio: quantidade > 0 ? Math.round(valor / quantidade) : 0,
     nacPct,
     intPct: Math.round((100 - nacPct) * 10) / 10,
+    valorLY,
+    nacionalValor,
+    internacionalValor: valor - nacionalValor,
   };
 }
 

@@ -11,6 +11,7 @@ import {
   somarCrossCanal,
   somarHeroTodosPeriodos,
   somarKpis,
+  somarMargemRentab,
   somarSaudeCarteira,
 } from "@/modules/gestores/utils/agregacoes-gestor.util";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
@@ -25,20 +26,20 @@ import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types
 async function obterHeroKpisDoExecutivo(executivo: ExecutivoComCarteira) {
   const agencias = executivo.agencias.map(mapAgencia);
   try {
-    const { hero, kpis } = await executivoDashboardController.obterHeroKpis(
+    const { hero, kpis, margemRentab } = await executivoDashboardController.obterHeroKpis(
       executivo.sica,
       executivo.id,
       executivo.agencias.length,
       agencias,
     );
-    return { id: executivo.id, hero, kpis };
+    return { id: executivo.id, hero, kpis, margemRentab };
   } catch {
     const mock = await executivoDashboardMockService.obterDashboard(
       executivo.id,
       executivo.agencias.length,
       agencias,
     );
-    return { id: executivo.id, hero: mock.hero, kpis: mock.kpis };
+    return { id: executivo.id, hero: mock.hero, kpis: mock.kpis, margemRentab: mock.margemRentab };
   }
 }
 
@@ -84,7 +85,8 @@ export const gestorDashboardController = {
       perfil.vendendoUltimos30d,
       perfil.vendendoUltimos30dPct,
     );
-    return { hero, kpis, porExecutivo };
+    const margemRentab = somarMargemRentab(porExecutivo.map((p) => p.margemRentab));
+    return { hero, kpis, margemRentab, porExecutivo };
   },
 
   async obterCrossCanalAgregado(executivos: ExecutivoComCarteira[]) {

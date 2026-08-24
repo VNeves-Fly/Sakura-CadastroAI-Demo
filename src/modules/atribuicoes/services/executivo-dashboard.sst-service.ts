@@ -389,6 +389,9 @@ function paraCanalMargemPeriodo(
     ticketMedio: atual.ticket_medio,
     nacPct,
     intPct: 100 - nacPct,
+    valorLY: ly.tarifa,
+    nacionalValor: atual.nacInter.nacional.tarifa,
+    internacionalValor: atual.nacInter.internacional.tarifa,
   };
 }
 
@@ -407,9 +410,7 @@ function margemResumoDoPeriodo(
   };
 }
 
-async function construirHeroEKpis(
-  codigoExecutivo: number,
-): Promise<{
+async function construirHeroEKpis(codigoExecutivo: number): Promise<{
   hero: ExecutivoDashboard["hero"];
   kpis: KpisSecundarios;
   margemRentab: MargemRentabExecutivo;
