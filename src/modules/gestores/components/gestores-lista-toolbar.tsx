@@ -1,35 +1,37 @@
 "use client";
 
-import { ToggleVisibilidadeButton } from "@/modules/shared/components/toggle-visibilidade-button";
+import { Search } from "lucide-react";
 import { BotaoNovoCadastro } from "@/modules/shared/components/botao-novo-cadastro";
-import { BuscaListaInput } from "@/modules/shared/components/busca-lista-input";
 
 interface GestoresListaToolbarProps {
   busca: string;
   onBuscaChange: (valor: string) => void;
-  total: number;
   onNovoCadastro: () => void;
 }
 
+// Toolbar pixel-perfect (mockup Claude Design, 2026-08-24, "Gestores") —
+// mesmo visual da toolbar de Executivos: só busca + Novo cadastro. O
+// contador "N resultado(s)" e o ToggleVisibilidadeButton saíram da UI (não
+// existem no mockup, e o mockup não mascara valor nenhum nesta lista).
+// Pedido do usuário, 2026-08-24: restilizar "pixel perfect".
 export function GestoresListaToolbar({
   busca,
   onBuscaChange,
-  total,
   onNovoCadastro,
 }: GestoresListaToolbarProps) {
   return (
-    <div className="border-border flex flex-wrap items-center gap-4 border-b pb-4">
-      <BuscaListaInput value={busca} onChange={onBuscaChange} placeholder="Buscar gerente..." />
-
-      <div className="ml-auto flex items-center gap-3">
-        <span className="text-muted-foreground text-sm whitespace-nowrap">
-          <span className="text-foreground font-semibold">{total}</span> resultado(s)
-        </span>
-
-        <ToggleVisibilidadeButton />
-
-        <BotaoNovoCadastro onClick={onNovoCadastro} />
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex h-[38px] min-w-[250px] items-center gap-2.5 rounded-full border border-[#F5D6E7] bg-white px-4">
+        <Search className="size-[15px] shrink-0 text-[#6B6B85]" strokeWidth={1.8} />
+        <input
+          value={busca}
+          onChange={(event) => onBuscaChange(event.target.value)}
+          placeholder="Buscar gerente..."
+          className="w-full bg-transparent text-sm text-[#1A1A2E] placeholder:text-[#6B6B85] focus:outline-none"
+        />
       </div>
+
+      <BotaoNovoCadastro onClick={onNovoCadastro} variant="solid" />
     </div>
   );
 }
