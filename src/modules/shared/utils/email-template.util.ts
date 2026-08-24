@@ -13,16 +13,22 @@ const COR_CINZA_CLARO = "#f2f2f2";
 const FONTE = "Arial, Helvetica, sans-serif";
 
 export interface EmailBanner {
-  // URL absoluta (`${baseUrl}/icons/<nome>.svg`) — os SVGs em public/icons/
-  // são só o desenho branco, pensados pra ir dentro do círculo navy.
-  // Referenciado por URL (não embutido em base64): mantém o e-mail leve e
-  // funciona na maioria dos clientes; Outlook desktop clássico não
-  // renderiza SVG em <img> — degrada pro círculo vazio, aceitável (o
-  // título ao lado já carrega a mensagem).
+  // URL absoluta do ÍCONE EM PNG (ver iconeEmailUrl abaixo) — desenho
+  // branco em fundo transparente, pensado pra ir dentro do círculo navy.
   iconeUrl: string;
   // Uma entry por linha do título (a arte sempre quebra em 1-3 linhas
   // curtas, nunca um parágrafo corrido).
   tituloLinhas: string[];
+}
+
+// SVG em <img> não renderiza em vários clientes de e-mail — confirmado ao
+// vivo no Gmail, 2026-08-24 (ícone quebrado). Os SVGs de public/icons/
+// (usados só aqui, em nenhuma outra tela) foram rasterizados em PNG uma
+// vez (ver scratchpad/rasterizar-icones-email.ts) e versionados como
+// `<nome>-email.png` ao lado do SVG original. Usar sempre esta função em
+// vez de montar a URL na mão, pra não escapar de novo pro .svg.
+export function iconeEmailUrl(baseUrl: string, nome: string): string {
+  return `${baseUrl}/icons/${nome}-email.png`;
 }
 
 export interface EmailCta {

@@ -7,6 +7,7 @@ import {
   caixaCinza,
   listaPassosEmail,
   blocoWhatsappEmail,
+  iconeEmailUrl,
 } from "@/modules/shared/utils/email-template.util";
 
 // Arte 1 (docs/emails/) — "O contrato está no seu e-mail!". Só faz sentido
@@ -24,7 +25,7 @@ export async function notificarAssinaturaSemBiometria(
   const html = montarEmailSakura({
     baseUrl,
     banner: {
-      iconeUrl: `${baseUrl}/icons/contrato.svg`,
+      iconeUrl: iconeEmailUrl(baseUrl, "contrato"),
       tituloLinhas: ["O CONTRATO ESTÁ", "NO SEU E-MAIL!"],
     },
     corpoHtml: `

@@ -3,6 +3,7 @@ import {
   montarEmailSakura,
   paragrafoEmail,
   botaoEmail,
+  iconeEmailUrl,
 } from "@/modules/shared/utils/email-template.util";
 import { WHATSAPP_LINK_ATENDIMENTO } from "@/modules/shared/utils/whatsapp.util";
 
@@ -21,7 +22,7 @@ export async function notificarCadastroPendente(
   const html = montarEmailSakura({
     baseUrl,
     banner: {
-      iconeUrl: `${baseUrl}/icons/cadastro-andamento.svg`,
+      iconeUrl: iconeEmailUrl(baseUrl, "cadastro-andamento"),
       tituloLinhas: ["SEU CADASTRO", "ESTÁ QUASE", "PRONTO!"],
     },
     corpoHtml: `

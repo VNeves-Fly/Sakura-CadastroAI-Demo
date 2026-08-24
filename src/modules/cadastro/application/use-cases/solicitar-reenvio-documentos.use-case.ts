@@ -7,6 +7,7 @@ import {
   paragrafoEmail,
   caixaCinza,
   botaoEmail,
+  iconeEmailUrl,
 } from "@/modules/shared/utils/email-template.util";
 
 export interface SolicitarReenvioDocumentosInput {
@@ -89,7 +90,7 @@ export class SolicitarReenvioDocumentosUseCase implements UseCase<
     const html = montarEmailSakura({
       baseUrl: input.baseUrl,
       banner: {
-        iconeUrl: `${input.baseUrl}/icons/cadastro-andamento.svg`,
+        iconeUrl: iconeEmailUrl(input.baseUrl, "cadastro-andamento"),
         tituloLinhas: ["SEU CADASTRO", "ESTÁ QUASE", "PRONTO!"],
       },
       corpoHtml: `
