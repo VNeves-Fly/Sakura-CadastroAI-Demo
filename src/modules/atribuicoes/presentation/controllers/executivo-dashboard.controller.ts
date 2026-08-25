@@ -88,4 +88,20 @@ export const executivoDashboardController = {
       agenciasCarteira: [],
     };
   },
+
+  // Versão enxuta pras listagens (/crm/executivos, /crm/gestores) — só
+  // vendasMes/vendasAno, sem o hero completo. Sem SICA (ou SST fora do ar)
+  // devolve 0 honesto, não um número mock inventado: a listagem não tem
+  // `agencias`/`totalAgencias` disponíveis pra alimentar
+  // executivoDashboardMockService, e um "sem dado real" aqui já vira o
+  // badge "Sem venda" que a UI já mostra (ver promotor-lista.adapter.ts).
+  async obterVendasResumo(sica: number | null): Promise<{ vendasMes: number; vendasAno: number }> {
+    if (!usaSstReal(sica)) return { vendasMes: 0, vendasAno: 0 };
+    try {
+      return await executivoDashboardSstService.obterVendasResumo(sica);
+    } catch (erro) {
+      console.error(`[executivo-lista] "vendasResumo" falhou contra o SST — usando 0.`, erro);
+      return { vendasMes: 0, vendasAno: 0 };
+    }
+  },
 };

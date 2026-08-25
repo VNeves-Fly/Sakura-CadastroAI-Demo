@@ -283,7 +283,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
   return [
     {
       chave: "ativas",
-      label: "Ativas",
+      label: "Ativas c/ credito",
       descricao: "Vendeu nos últimos 30 dias",
       quantidade: ativas,
       pct: pct(ativas),
@@ -291,7 +291,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
     },
     {
       chave: "potenciais",
-      label: "Potenciais",
+      label: "Agencias Carteira Click",
       descricao: "Vendeu nos últimos 12 meses, mas não nos últimos 30 dias",
       quantidade: potenciais,
       pct: pct(potenciais),
@@ -299,7 +299,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
     },
     {
       chave: "ociosas",
-      label: "Ociosas",
+      label: "Agencias com Limite de credito parado",
       descricao: "Aprovada, sem venda nos últimos 12 meses",
       quantidade: ociosas,
       pct: pct(ociosas),
@@ -307,7 +307,7 @@ function gerarSaudeCarteira(total: number, base: number): SegmentoSaude[] {
     },
     {
       chave: "inativas",
-      label: "Inativas",
+      label: "agencias sem vendas por 60 dias",
       descricao: "Status inativo no SICA, sem venda nos últimos 12 meses",
       quantidade: inativas,
       pct: pct(inativas),

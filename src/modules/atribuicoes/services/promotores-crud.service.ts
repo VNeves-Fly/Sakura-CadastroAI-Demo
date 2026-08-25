@@ -10,6 +10,10 @@ export interface RawPromotorResponse {
   bases: string[];
   userId: string | null;
   temporaryPassword?: string;
+  // Só vem em GET /api/promotores (listagem) — ver comVendasReais em
+  // promotores.routes.ts.
+  vendasMes?: number;
+  vendasAno?: number;
 }
 
 // Única camada autorizada a se comunicar com a API externa (rotas

@@ -11,10 +11,7 @@ import {
   SortableDataTable,
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
-import {
-  formatarMoedaAbreviada,
-  formatarPercentual,
-} from "@/modules/gestores/utils/formatar-moeda.util";
+import { formatarMoedaAbreviada } from "@/modules/gestores/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
 import type { ExecutivoDaGestaoView } from "@/modules/gestores/types/gestor-executivos-tab.types";
 
@@ -49,6 +46,7 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       label: "Cód.",
       sortable: true,
       sortValue: (linha) => linha.sica ?? 0,
+      headerClassName: "w-[8%]",
       render: (linha) => (
         <span className="text-muted-foreground font-mono text-xs">{linha.sica ?? "—"}</span>
       ),
@@ -58,36 +56,20 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       label: "Executivo",
       sortable: true,
       sortValue: (linha) => linha.nome,
+      headerClassName: "w-[32%]",
       render: (linha) => (
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           <span
             className={cn(
-              "font-medium",
+              "truncate font-medium",
               linha.semVendaAno ? "text-muted-foreground" : "text-foreground",
             )}
           >
             {linha.nome}
           </span>
-          <span className="text-muted-foreground text-xs">{linha.email}</span>
+          <span className="text-muted-foreground truncate text-xs">{linha.email}</span>
         </div>
       ),
-    },
-    {
-      key: "bases",
-      label: "Bases",
-      render: (linha) => (
-        <span className="text-muted-foreground max-w-40 truncate" title={linha.bases.join(", ")}>
-          {linha.bases.length > 0 ? linha.bases.join(", ") : "—"}
-        </span>
-      ),
-    },
-    {
-      key: "aprovadas",
-      label: "Aprov.",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.aprovadas,
-      render: (linha) => <SensitiveValue value={linha.aprovadas} />,
     },
     {
       key: "vendendo30d",
@@ -95,6 +77,7 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       align: "right",
       sortable: true,
       sortValue: (linha) => linha.vendendo30d,
+      headerClassName: "w-[15%]",
       render: (linha) => (
         <SensitiveValue
           className={linha.vendendo30d > 0 ? "text-success font-medium" : "text-muted-foreground"}
@@ -103,30 +86,12 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       ),
     },
     {
-      key: "paradas90d",
-      label: "Paradas +90d",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.paradas90d,
-      render: (linha) =>
-        linha.paradas90d > 0 ? (
-          <SensitiveValue
-            value={
-              <Badge variant="destructive" className="tabular-nums">
-                {linha.paradas90d}
-              </Badge>
-            }
-          />
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-    },
-    {
       key: "vendasMes",
       label: "Vendas mês",
       align: "right",
       sortable: true,
       sortValue: (linha) => linha.vendasMes,
+      headerClassName: "w-[15%]",
       render: (linha) =>
         linha.semVendaAno ? (
           <Badge variant="outline" className="text-muted-foreground">
@@ -142,6 +107,7 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       align: "right",
       sortable: true,
       sortValue: (linha) => linha.vendasAno,
+      headerClassName: "w-[15%]",
       render: (linha) => (
         <SensitiveValue
           className="text-primary font-semibold"
@@ -150,48 +116,10 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       ),
     },
     {
-      key: "limite",
-      label: "Limite",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.limite,
-      render: (linha) => <SensitiveValue value={formatarMoedaAbreviada(linha.limite)} />,
-    },
-    {
-      key: "saudePercentual",
-      label: "Saúde",
-      align: "right",
-      sortable: true,
-      sortValue: (linha) => linha.saudePercentual,
-      render: (linha) => (
-        <SensitiveValue
-          value={
-            <div className="flex items-center justify-end gap-2">
-              <span className="bg-muted h-1.5 w-14 overflow-hidden rounded-full">
-                <span
-                  className={cn(
-                    "block h-full rounded-full",
-                    linha.saudePercentual >= 60
-                      ? "bg-success"
-                      : linha.saudePercentual >= 30
-                        ? "bg-warning"
-                        : "bg-destructive",
-                  )}
-                  style={{ width: `${Math.min(100, linha.saudePercentual)}%` }}
-                />
-              </span>
-              <span className="text-xs tabular-nums">
-                {formatarPercentual(linha.saudePercentual)}
-              </span>
-            </div>
-          }
-        />
-      ),
-    },
-    {
       key: "ativo",
       label: "Status",
       align: "center",
+      headerClassName: "w-[10%]",
       render: (linha) => (
         <Badge
           variant="outline"
@@ -209,6 +137,7 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       key: "chevron",
       label: "",
       align: "right",
+      headerClassName: "w-[5%]",
       render: () => <ChevronRight className="text-muted-foreground ml-auto size-4" />,
     },
   ];
@@ -237,6 +166,7 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
         onRowClick={(linha) => router.push(`/crm/executivos/${linha.id}`)}
         rowClassName={(linha) => (linha.semVendaAno ? "opacity-60" : undefined)}
         emptyMessage="Nenhum executivo encontrado."
+        tableClassName="table-fixed"
       />
     </div>
   );

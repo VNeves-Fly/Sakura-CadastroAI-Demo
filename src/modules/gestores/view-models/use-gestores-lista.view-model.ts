@@ -12,7 +12,10 @@ import {
 
 const FILTROS_INICIAIS: GestorListaFiltros = { busca: "" };
 
-export function useGestoresListaViewModel(executivosPorGestor: Record<string, number>) {
+export function useGestoresListaViewModel(
+  executivosPorGestor: Record<string, number>,
+  vendasPorGestor: Record<string, { vendasMes: number; vendasAno: number }>,
+) {
   const { gestores, isLoading, error } = useGestoresListViewModel();
   const nivelOverrides = useGestorNiveisStore((state) => state.overrides);
   const ativoOverrides = useGestorStatusStore((state) => state.overrides);
@@ -24,10 +27,11 @@ export function useGestoresListaViewModel(executivosPorGestor: Record<string, nu
       gestorListaAdapter.toListaViewList(
         gestores,
         executivosPorGestor,
+        vendasPorGestor,
         nivelOverrides,
         ativoOverrides,
       ),
-    [gestores, executivosPorGestor, nivelOverrides, ativoOverrides],
+    [gestores, executivosPorGestor, vendasPorGestor, nivelOverrides, ativoOverrides],
   );
 
   const gestoresFiltrados = useMemo(() => {

@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { AlertTriangle, Bus, Plane, Trophy } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { ExecutivoProfileHeader } from "@/modules/atribuicoes/components/executivo/executivo-profile-header";
 import { ExecutivoTabsNav } from "@/modules/atribuicoes/components/executivo/executivo-tabs-nav";
 import { SecaoSkeleton } from "@/modules/atribuicoes/components/executivo/dashboard/secao-skeleton";
 import { ExecutivoHeroKpisSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-hero-kpis-secao";
 import { ExecutivoSaudeCarteiraSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-saude-carteira-secao";
-import { TopAgenciasExecutivoCard } from "@/modules/atribuicoes/components/executivo/dashboard/top-agencias-executivo-card";
+import { ExecutivoTopAgenciasSecao } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-top-agencias-secao";
 import { criarExecutivoHeaderStatsSlots } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-header-stats";
 import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
-import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
-import { gerarRankingsHoje } from "@/modules/atribuicoes/utils/canal-resumo-mock.util";
 import type {
   ExecutivoAgenciaResumo,
   ExecutivoPerfil,
@@ -34,17 +32,15 @@ function depoisDe<T>(gate: Promise<unknown>, tarefa: () => Promise<T>): Promise<
 // Dispara as buscas aqui (não em page.tsx) e passa as promises ainda
 // pendentes pros componentes de seção, cada um no seu próprio `Suspense` —
 // a página abre com o header/perfil (já real, sem SST) na hora, hero/kpis
-// logo em seguida, e só a seção de saúde da carteira (a mais cara) fica em
-// skeleton por mais tempo. Mesma arquitetura de streaming de
-// dashboard-vendas-view.tsx.
+// logo em seguida, e só a seção de saúde da carteira + Top 10 Agências (as
+// mais caras, dependem de `crossCanal`) ficam em skeleton por mais tempo.
+// Mesma arquitetura de streaming de dashboard-vendas-view.tsx.
 //
-// "Top 10 Agências" (SPEC 3.8) é mock de apresentação (ver
-// canal-resumo-mock.util.ts) e não depende do SST — por isso renderiza
-// direto aqui, sem Suspense, com o resto do conteúdo síncrono da página
-// (`Mini Stats`/`Cross-canal` saíram da tela nesta restilização, seguindo
-// o layout aprovado — a chamada que os alimentava continua rodando por
-// causa de `saudeCarteira`/`statsAgenciasSlot`/`statsVendendo30dSlot`,
-// que ainda dependem dela).
+// "Top 10 Agências" (SPEC 3.8) é real desde 2026-08-24 (ver
+// ExecutivoTopAgenciasSecao/canal-resumo-mock.util.ts) — depende de
+// `agenciasCarteira`, que só sai depois de `crossCanalPromise` resolver,
+// por isso entrou no mesmo Suspense da seção pesada (antes renderizava
+// mock, instantâneo, sem Suspense).
 export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardViewProps) {
   const nomeBase = perfil.bases[0] ? `${perfil.nome} (${perfil.bases[0]})` : perfil.nome;
 
@@ -64,11 +60,6 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
   );
   const { statsAgenciasSlot, statsVendendo30dSlot } =
     criarExecutivoHeaderStatsSlots(crossCanalPromise);
-
-  const { topAgenciasHoje, topAgenciasHojeAereo, topAgenciasHojeTerrestre } = gerarRankingsHoje(
-    agencias,
-    hashParaNumero(perfil.id),
-  );
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -110,29 +101,17 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
         />
       </Suspense>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TopAgenciasExecutivoCard
-          icon={Trophy}
-          titulo="Top 10 Agências (Hoje)"
-          subtitulo="Modalidade: Aéreo + Terrestre"
-          itens={topAgenciasHoje}
-          iconLinhaTema="rosa"
-        />
-        <TopAgenciasExecutivoCard
-          icon={Plane}
-          titulo="Top 10 Agências Aéreo"
-          subtitulo="Modalidade: Aéreo"
-          itens={topAgenciasHojeAereo}
-          iconLinhaTema="rosa"
-        />
-        <TopAgenciasExecutivoCard
-          icon={Bus}
-          titulo="Top 10 Agências Terrestre"
-          subtitulo="Modalidade: Terrestre"
-          itens={topAgenciasHojeTerrestre}
-          iconLinhaTema="azul"
-        />
-      </div>
+      <Suspense
+        fallback={
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <SecaoSkeleton altura="h-48" />
+            <SecaoSkeleton altura="h-48" />
+            <SecaoSkeleton altura="h-48" />
+          </div>
+        }
+      >
+        <ExecutivoTopAgenciasSecao crossCanalPromise={crossCanalPromise} />
+      </Suspense>
 
       <Suspense fallback={<SecaoSkeleton altura="h-64" />}>
         <ExecutivoSaudeCarteiraSecao crossCanalPromise={crossCanalPromise} />

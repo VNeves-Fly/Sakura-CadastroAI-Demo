@@ -7,6 +7,11 @@ export interface PromotorCrudView {
   gestorId: string | null;
   bases: string[];
   temAcesso: boolean;
+  // Só populados por `listPromotoresRoute()` (real, via SST — ver
+  // promotores.routes.ts/comVendasReais) — getById/create/update não
+  // buscam isso, por isso opcionais aqui.
+  vendasMes?: number;
+  vendasAno?: number;
 }
 
 export interface PromotorFormValues {
