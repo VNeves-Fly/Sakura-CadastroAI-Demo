@@ -47,6 +47,11 @@ interface RawBaseEmpresaCadastro {
   email_empresa: string;
   descricao_tipo_empresa: string;
   data_cadastro: string;
+  // `filial`: sigla de 3 letras (ex. "SAO", "RAO") — confirmado por curl
+  // real (2026-08-25) contra este mesmo endpoint, mesmo campo que
+  // /api/agencias/ativas devolve como `base` (ver agencia-carteira.sst-
+  // service.ts). Nome diferente, mesmo conceito.
+  filial: string;
   filial_nome: string;
   codigo_executivo: number;
   nome_executivo: string;

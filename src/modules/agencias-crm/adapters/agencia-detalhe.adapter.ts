@@ -531,9 +531,19 @@ export function montarAgenciaDetalheViewSst(
     },
     perfilComercial: {
       sica: String(codigoEmpresa),
-      base: executivoContexto.base,
+      // `base`: real do SST (`baseEmpresa.filial`, sigla de 3 letras,
+      // mesmo campo de /api/agencias/ativas.base — ver
+      // agencia-carteira.adapter.ts) — pedido do usuário, 2026-08-25.
+      // Cai pro "melhor esforço" local só se o SST não trouxer filial
+      // pra essa agência.
+      base: baseEmpresa.filial || executivoContexto.base,
       gestorNome: executivoContexto.gestorNome,
-      executivoNome: executivoContexto.executivoNome ?? baseEmpresa.nome_executivo,
+      // `||`, não `??`: agência sem executivo atribuído no SST devolve
+      // `codigo_executivo: 0` + `nome_executivo: ""` (string vazia, não
+      // null/undefined — confirmado por curl real, 2026-08-25, agência
+      // 6615) — trata como "sem executivo" (UI mostra "—"), igual ao
+      // resto do adapter (ver dataUltimaCompra abaixo).
+      executivoNome: executivoContexto.executivoNome || baseEmpresa.nome_executivo || null,
       // Sem fonte real (segmento comercial, faturamento médio, comissão e
       // incentivo não existem em nenhum sistema hoje) — não mockar, UI
       // mostra "—" (pedido do usuário, 2026-08-21).

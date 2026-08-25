@@ -143,6 +143,12 @@ interface RawAgenciaAtivaCarteira {
   empresa_status: string;
   codigo_executivo: number | null;
   nome_executivo: string | null;
+  // Sigla de 3 letras (ex.: "SAO", "RAO", "VIX") + nome completo da
+  // cidade/unidade — confirmado por curl real (2026-08-25) contra este
+  // mesmo endpoint. Real por linha, direto do SST — substitui o
+  // "melhor esforço" via Promotor.bases[0] (pedido do usuário).
+  base: string | null;
+  base_nome: string | null;
 }
 
 const LIMITE_PAGINA_ROSTER = 500;
@@ -182,6 +188,8 @@ export interface AgenciaRosterSst {
   status: string;
   codigoExecutivo: number | null;
   nomeExecutivo: string | null;
+  baseSigla: string | null;
+  baseNome: string | null;
 }
 
 export interface MetricasCarteiraSst {
@@ -214,6 +222,8 @@ export const agenciaCarteiraSstService = {
       status: linha.empresa_status,
       codigoExecutivo: linha.codigo_executivo ?? null,
       nomeExecutivo: linha.nome_executivo ?? null,
+      baseSigla: linha.base ?? null,
+      baseNome: linha.base_nome ?? null,
     }));
   },
 
