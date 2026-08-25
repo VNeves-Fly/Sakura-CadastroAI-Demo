@@ -4,6 +4,13 @@ import {
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
 import { valkeyGet, valkeySet } from "@/modules/dashboard-vendas/infrastructure/valkey-cache.util";
 import { executivoDashboardMockService } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
+import {
+  crossCanalVazio,
+  heroVazio,
+  kpisVazios,
+  margemRentabVazio,
+  saudeCarteiraVazia,
+} from "@/modules/atribuicoes/utils/executivo-dashboard-vazio.util";
 import type {
   AgenciaCarteiraResumo,
   AgenciaSegmentoResumo,
@@ -114,17 +121,21 @@ async function sstGet<T>(
   }
 }
 
-// Degrada uma seção pro mock em vez de derrubar a página inteira — mesmo
-// padrão de dashboard-vendas.sst-service.ts.
-async function comFallback<T>(rotulo: string, tarefa: Promise<T>, valorMock: T): Promise<T> {
+// Degrada uma seção pra "0 honesto" em vez de derrubar a página inteira —
+// mesmo padrão de dashboard-vendas.sst-service.ts. Até 2026-08-25 caía pro
+// mock nessa mesma falha (número inventado, plausível); decisão do usuário
+// nessa data: sem SST não inventa nada, mostra zero/vazio real — mesmo
+// critério já usado quando falta SICA (ver usaSstReal em
+// executivo-dashboard.controller.ts).
+async function comFallback<T>(rotulo: string, tarefa: Promise<T>, valorVazio: T): Promise<T> {
   try {
     return await tarefa;
   } catch (erro) {
     console.error(
-      `[executivo-dashboard] "${rotulo}" falhou contra o SST — usando mock só nesta seção.`,
+      `[executivo-dashboard] "${rotulo}" falhou contra o SST — usando 0/vazio só nesta seção.`,
       erro,
     );
-    return valorMock;
+    return valorVazio;
   }
 }
 
@@ -800,27 +811,24 @@ async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise
 
 // Seção rápida (~6 chamadas, todas agregadas — sem loop por agência) —
 // pode renderizar assim que pronta, sem esperar `obterCrossCanalEMiniStats`.
+// `_promotorId`/`_totalAgencias`/`_agencias` não são usados aqui (só
+// `codigoExecutivo`) — mantidos na assinatura só pra bater com a mesma
+// chamada de 4 args que `obterCrossCanalEMiniStats` recebe do controller.
 async function obterHeroKpis(
   codigoExecutivo: number,
-  promotorId: string,
-  totalAgencias: number,
-  agencias: ExecutivoAgenciaResumo[],
+  _promotorId: string,
+  _totalAgencias: number,
+  _agencias: ExecutivoAgenciaResumo[],
 ): Promise<{
   hero: ExecutivoDashboard["hero"];
   kpis: KpisSecundarios;
   margemRentab: MargemRentabExecutivo;
 }> {
-  const mock = await executivoDashboardMockService.obterDashboard(
-    promotorId,
-    totalAgencias,
-    agencias,
-  );
-  const resultado = await comFallback(
-    "hero+kpis+margemRentab",
-    construirHeroEKpis(codigoExecutivo),
-    { hero: mock.hero, kpis: mock.kpis, margemRentab: mock.margemRentab },
-  );
-  return resultado;
+  return comFallback("hero+kpis+margemRentab", construirHeroEKpis(codigoExecutivo), {
+    hero: heroVazio(),
+    kpis: kpisVazios(),
+    margemRentab: margemRentabVazio(),
+  });
 }
 
 // Seção pesada (roster + loop de terrestre por agência, ~2N+5 chamadas) —
@@ -837,23 +845,18 @@ async function obterCrossCanalEMiniStats(
   saudeCarteira: SegmentoSaude[];
   agenciasCarteira: AgenciaCarteiraResumo[];
 }> {
-  const mock = await executivoDashboardMockService.obterDashboard(
-    promotorId,
-    totalAgencias,
-    agencias,
-  );
   const resultado = await comFallback(
     "crossCanal+vendendo30d+saudeCarteira+agenciasCarteira",
     construirCrossCanalEVendendo30d(codigoExecutivo),
     {
-      crossCanal: mock.crossCanal,
-      vendendo30d: mock.miniStats.vendendo30d,
-      vendendo30dPct: mock.miniStats.vendendo30dPct,
+      crossCanal: crossCanalVazio(totalAgencias),
+      vendendo30d: 0,
+      vendendo30dPct: 0,
       // fallback só se a chamada ao roster falhar de vez — usa o número
       // do banco local como último recurso, mesma convenção antiga.
       agencias: totalAgencias,
-      saudeCarteira: mock.saudeCarteira,
-      // sem equivalente mock pra lista de agências reais — cai vazia em
+      saudeCarteira: saudeCarteiraVazia(),
+      // sem equivalente real pra lista de agências reais — cai vazia em
       // vez de inventar linhas (a aba "Agências" mostra uma mensagem de
       // erro/lista vazia nesse caso, não fabrica dado).
       agenciasCarteira: [],
@@ -864,7 +867,11 @@ async function obterCrossCanalEMiniStats(
     saudeCarteira: resultado.saudeCarteira,
     agenciasCarteira: resultado.agenciasCarteira,
     miniStats: {
-      ...mock.miniStats,
+      // `ociosasLimite`/`comCredito` não têm fonte real no SST hoje (ver
+      // topo do arquivo) — únicos dois campos que continuam mock mesmo
+      // com SICA+SST OK, não é fallback de indisponibilidade.
+      ...(await executivoDashboardMockService.obterDashboard(promotorId, totalAgencias, agencias))
+        .miniStats,
       agencias: resultado.agencias,
       vendendo30d: resultado.vendendo30d,
       vendendo30dPct: resultado.vendendo30dPct,

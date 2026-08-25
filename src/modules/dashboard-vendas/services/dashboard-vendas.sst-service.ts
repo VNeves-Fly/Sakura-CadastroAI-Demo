@@ -5,6 +5,12 @@ import {
 import { valkeyGet, valkeySet } from "@/modules/dashboard-vendas/infrastructure/valkey-cache.util";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import {
+  conversaoVazia,
+  projecaoVazia,
+  recenciaECruzamentoVazio,
+  resumoEDiaVazio,
+} from "@/modules/dashboard-vendas/utils/dashboard-vendas-vazio.util";
+import {
   calcularCurvaHoraria,
   calcularFormaHoraria,
   calcularProjecaoDoDia,
@@ -1436,28 +1442,23 @@ async function obterResumoEDiaComFallback(): Promise<
     | "nacionalInternacionalPorMes"
   >
 > {
-  const mock = await dashboardVendasMockService.obterResumoEDia();
-  return comFallback("resumoEDia", obterResumoEDia(), mock);
+  return comFallback("resumoEDia", obterResumoEDia(), resumoEDiaVazio());
 }
 
 async function obterProjecaoComFallback(): Promise<ProjecaoDia> {
-  const mock = await dashboardVendasMockService.obterProjecao();
-  return comFallback("projecao", construirProjecaoReal(), mock);
+  return comFallback("projecao", construirProjecaoReal(), projecaoVazia());
 }
 
 async function obterVendasMensaisComFallback(): Promise<VendaMensal[]> {
-  const mock = await dashboardVendasMockService.obterDashboard();
-  return comFallback("vendasMensais", construirVendasMensais(), mock.vendasMensais);
+  return comFallback("vendasMensais", construirVendasMensais(), []);
 }
 
 async function obterVendasDiariasComFallback(): Promise<VendaDiaria[]> {
-  const mock = await dashboardVendasMockService.obterDashboard();
-  return comFallback("vendasDiarias", construirVendasDiarias(), mock.vendasDiarias);
+  return comFallback("vendasDiarias", construirVendasDiarias(), []);
 }
 
 async function obterConversaoComFallback(): Promise<Conversao> {
-  const mock = await dashboardVendasMockService.obterDashboard();
-  return comFallback("conversao", construirConversao(), mock.conversao);
+  return comFallback("conversao", construirConversao(), conversaoVazia());
 }
 
 async function obterRecenciaECruzamentoComFallback(): Promise<
@@ -1466,7 +1467,6 @@ async function obterRecenciaECruzamentoComFallback(): Promise<
     "recencia" | "recenciaDetalhe" | "cruzamentoCanais" | "cruzamentoDetalhe"
   >
 > {
-  const mock = await dashboardVendasMockService.obterDashboard();
   return comFallback(
     "recencia/cruzamentoCanais",
     (async () => {
@@ -1482,12 +1482,7 @@ async function obterRecenciaECruzamentoComFallback(): Promise<
         cruzamentoDetalhe: cruzamentoResultado.cruzamentoDetalhe,
       };
     })(),
-    {
-      recencia: mock.recencia,
-      recenciaDetalhe: mock.recenciaDetalhe,
-      cruzamentoCanais: mock.cruzamentoCanais,
-      cruzamentoDetalhe: mock.cruzamentoDetalhe,
-    },
+    recenciaECruzamentoVazio(),
   );
 }
 

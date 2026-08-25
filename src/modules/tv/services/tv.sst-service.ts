@@ -3,7 +3,7 @@ import {
   sstBaseUrl,
 } from "@/modules/cadastro/infrastructure/adapters/flysakura-sst-http.util";
 import { valkeyGet, valkeySet } from "@/modules/dashboard-vendas/infrastructure/valkey-cache.util";
-import { tvMockService } from "@/modules/tv/services/tv.mock-service";
+import { shareAereoVazio, top10Vazio, vendasECanaisVazio } from "@/modules/tv/utils/tv-vazio.util";
 import type {
   CanalTv,
   CompanhiaShareTv,
@@ -391,20 +391,10 @@ async function construirTop10(): Promise<
 }
 
 async function obterDadosReais(): Promise<TvData> {
-  const mock = await tvMockService.obterDados();
-
   const [vendasECanais, shareAereo, top10] = await Promise.all([
-    comFallback("vendas/aereo/terrestre", construirVendasECanais(), {
-      vendas: mock.vendas,
-      aereo: mock.aereo,
-      terrestre: mock.terrestre,
-    }),
-    comFallback("shareAereo", construirShareAereo(), mock.shareAereo),
-    comFallback("top10", construirTop10(), {
-      top10Clientes: mock.top10Clientes,
-      top10Nacional: mock.top10Nacional,
-      top10Internacional: mock.top10Internacional,
-    }),
+    comFallback("vendas/aereo/terrestre", construirVendasECanais(), vendasECanaisVazio()),
+    comFallback("shareAereo", construirShareAereo(), shareAereoVazio()),
+    comFallback("top10", construirTop10(), top10Vazio()),
   ]);
 
   return { ...vendasECanais, shareAereo, ...top10 };
