@@ -538,7 +538,12 @@ export function montarAgenciaDetalheViewSst(
       // pra essa agência.
       base: baseEmpresa.filial || executivoContexto.base,
       gestorNome: executivoContexto.gestorNome,
-      executivoNome: executivoContexto.executivoNome ?? baseEmpresa.nome_executivo,
+      // `||`, não `??`: agência sem executivo atribuído no SST devolve
+      // `codigo_executivo: 0` + `nome_executivo: ""` (string vazia, não
+      // null/undefined — confirmado por curl real, 2026-08-25, agência
+      // 6615) — trata como "sem executivo" (UI mostra "—"), igual ao
+      // resto do adapter (ver dataUltimaCompra abaixo).
+      executivoNome: executivoContexto.executivoNome || baseEmpresa.nome_executivo || null,
       // Sem fonte real (segmento comercial, faturamento médio, comissão e
       // incentivo não existem em nenhum sistema hoje) — não mockar, UI
       // mostra "—" (pedido do usuário, 2026-08-21).
