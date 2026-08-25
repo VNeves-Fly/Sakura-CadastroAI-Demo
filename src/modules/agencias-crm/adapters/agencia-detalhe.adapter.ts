@@ -300,7 +300,9 @@ function construirBlocoVendas(
       },
       volumeTotalAno: volumeAno,
       ticketMedioAereo,
-      topCompanhias: vendasReais?.topCompanhias ?? gerarTopCompanhias(base),
+      topCompanhias:
+        vendasReais?.topCompanhias ??
+        gerarTopCompanhias(base, volumeNacional + volumeInternacional),
       faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
       margemAereo,
       margemTerrestre,
