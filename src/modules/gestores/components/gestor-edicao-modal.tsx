@@ -70,6 +70,9 @@ export function GestorEdicaoModal({
 
     const succeeded = await submit({
       nome,
+      // Não editável por aqui, mesmo padrão de executivo-edicao-modal.tsx —
+      // só reenvia o valor atual pra não apagar no PATCH.
+      sica: gestor.sica !== null ? String(gestor.sica) : "",
       email,
       telefone,
       baseIds,

@@ -3,6 +3,7 @@ import { z } from "zod";
 export const createGestorSchema = z
   .object({
     nome: z.string().min(2, "Nome deve ter ao menos 2 caracteres."),
+    sica: z.number().int().positive().nullable().default(null),
     email: z.string().email("E-mail inválido.").nullable().default(null),
     telefone: z.string().nullable().default(null),
     baseIds: z.array(z.string()).default([]),

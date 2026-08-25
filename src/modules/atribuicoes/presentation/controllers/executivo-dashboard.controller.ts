@@ -1,5 +1,12 @@
 import { executivoDashboardMockService } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 import { executivoDashboardSstService } from "@/modules/atribuicoes/services/executivo-dashboard.sst-service";
+import {
+  crossCanalVazio,
+  heroVazio,
+  kpisVazios,
+  margemRentabVazio,
+  saudeCarteiraVazia,
+} from "@/modules/atribuicoes/utils/executivo-dashboard-vazio.util";
 import type {
   AgenciaCarteiraResumo,
   ExecutivoAgenciaResumo,
@@ -10,12 +17,15 @@ import type {
   SegmentoSaude,
 } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
-// Ponto único de decisão mock↔real do dashboard do executivo (mesmo
+// Ponto único de decisão real↔vazio do dashboard do executivo (mesmo
 // critério do dashboard-vendas.controller.ts): SST_API_KEY configurada +
 // `sica` não nulo liga o serviço real. Sem código SICA não há
 // `codigoExecutivo` pra filtrar no SST (promotores importados só do
 // export legado "gerentes_conta" não têm SICA, ver prisma/schema.prisma
-// `Promotor.sica`) — cai pro mock, e a view sinaliza esse caso lendo
+// `Promotor.sica`) — cai pro "0/vazio honesto" (ver
+// executivo-dashboard-vazio.util.ts; até 2026-08-25 caía pro mock —
+// decisão do usuário nessa data: nunca mais inventar número plausível
+// pra disfarçar dado ausente), e a view sinaliza esse caso lendo
 // `perfil.sica` diretamente (ver executivo-dashboard-view.tsx), sem
 // precisar de um contrato de "fonte" aqui.
 //
@@ -43,12 +53,7 @@ export const executivoDashboardController = {
     if (usaSstReal(sica)) {
       return executivoDashboardSstService.obterHeroKpis(sica, promotorId, totalAgencias, agencias);
     }
-    const mock = await executivoDashboardMockService.obterDashboard(
-      promotorId,
-      totalAgencias,
-      agencias,
-    );
-    return { hero: mock.hero, kpis: mock.kpis, margemRentab: mock.margemRentab };
+    return { hero: heroVazio(), kpis: kpisVazios(), margemRentab: margemRentabVazio() };
   },
 
   // `saudeCarteira` vem junto (mesma chamada/loop por agência de
@@ -74,15 +79,24 @@ export const executivoDashboardController = {
         agencias,
       );
     }
+    // `ociosasLimite`/`comCredito` não têm fonte real no SST hoje (ver
+    // executivo-dashboard.sst-service.ts) — únicos dois campos que
+    // continuam vindo do mock mesmo aqui, não é sobre falta de SICA.
     const mock = await executivoDashboardMockService.obterDashboard(
       promotorId,
       totalAgencias,
       agencias,
     );
     return {
-      crossCanal: mock.crossCanal,
-      miniStats: mock.miniStats,
-      saudeCarteira: mock.saudeCarteira,
+      crossCanal: crossCanalVazio(totalAgencias),
+      miniStats: {
+        agencias: totalAgencias,
+        vendendo30d: 0,
+        vendendo30dPct: 0,
+        ociosasLimite: mock.miniStats.ociosasLimite,
+        comCredito: mock.miniStats.comCredito,
+      },
+      saudeCarteira: saudeCarteiraVazia(),
       // sem SICA não há como filtrar o SST por executivo — sem lista real
       // de agências, mostra vazio em vez de inventar linhas.
       agenciasCarteira: [],

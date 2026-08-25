@@ -6,27 +6,39 @@ import {
 } from "@/modules/dashboard-vendas/adapters/dashboard-vendas.adapter";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import { dashboardVendasSstService } from "@/modules/dashboard-vendas/services/dashboard-vendas.sst-service";
+import {
+  conversaoVazia,
+  projecaoVazia,
+  recenciaECruzamentoVazio,
+  resumoEDiaVazio,
+} from "@/modules/dashboard-vendas/utils/dashboard-vendas-vazio.util";
 
 // Ponto único que a Server Component (`page.tsx`) chama — mesmo padrão do
 // `cadastroAdminController`. Adapter sempre antes do consumo dos dados do
 // service, nunca o inverso.
 //
-// Mesmo critério de troca mock/real do resto do projeto (ver
-// cadastro-admin.controller.ts): com SST_API_KEY configurada, usa o
+// Mesmo critério real↔vazio do resto do projeto (ver
+// executivo-dashboard.controller.ts): com SST_API_KEY configurada, usa o
 // serviço real (que já cobre resumo/miniKpis/rankings/nacional×internacional
-// via SST — ver dashboard-vendas.sst-service.ts — e cai pro mock só nas
-// seções ainda sem fonte real).
-const dashboardVendasService = process.env.SST_API_KEY
-  ? dashboardVendasSstService
-  : dashboardVendasMockService;
+// via SST — ver dashboard-vendas.sst-service.ts, com seu próprio fallback
+// pra "0/vazio honesto" por seção se uma chamada falhar). Sem a chave, cada
+// método granular devolve "0/vazio honesto" direto (nunca mais o mock —
+// decisão do usuário, 2026-08-25) — exceto `obterMockEstatico`, que segue
+// sempre mock por não ter fonte real nenhuma ainda (ver comentário abaixo).
+const SST_ATIVO = Boolean(process.env.SST_API_KEY);
 
 // Métodos granulares (além de `obterDashboard`) pra alimentar o
 // carregamento progressivo de `crm/dashboard/page.tsx` — cada seção
 // pesada é buscada e normalizada por conta própria, sem esperar as
 // outras (ver Suspense na página).
 export const dashboardVendasController = {
+  // Não usado hoje pelas páginas ao vivo (só em teste) — mantido no
+  // padrão antigo (troca de serviço inteiro) pra não reescrever um
+  // caminho morto; os métodos granulares abaixo são os que a UI real usa.
   async obterDashboard() {
-    const raw = await dashboardVendasService.obterDashboard();
+    const raw = await (
+      SST_ATIVO ? dashboardVendasSstService : dashboardVendasMockService
+    ).obterDashboard();
     return dashboardVendasAdapter.toViewModel(raw);
   },
   async obterMockEstatico() {
@@ -38,7 +50,8 @@ export const dashboardVendasController = {
     return dashboardVendasMockService.obterMockEstatico();
   },
   async obterProjecao() {
-    return dashboardVendasService.obterProjecao();
+    if (!SST_ATIVO) return projecaoVazia();
+    return dashboardVendasSstService.obterProjecao();
   },
   // `cache()` (memoização por request do React) — `ResumoDoDiaSecao` e
   // `RankingsSecao` chamam isto de forma independente (cada uma no seu
@@ -46,20 +59,25 @@ export const dashboardVendasController = {
   // isto duplicariam a busca cara no SST (overview/top-agências/ranking
   // de cias/nac-int) uma vez por seção.
   obterResumoEDia: cache(async () => {
-    const dados = await dashboardVendasService.obterResumoEDia();
+    const dados = SST_ATIVO ? await dashboardVendasSstService.obterResumoEDia() : resumoEDiaVazio();
     return { ...dados, resumoPorPeriodo: normalizarResumoPorPeriodo(dados.resumoPorPeriodo) };
   }),
   async obterVendasMensais() {
-    return dashboardVendasService.obterVendasMensais();
+    if (!SST_ATIVO) return [];
+    return dashboardVendasSstService.obterVendasMensais();
   },
   async obterVendasDiarias() {
-    return dashboardVendasService.obterVendasDiarias();
+    if (!SST_ATIVO) return [];
+    return dashboardVendasSstService.obterVendasDiarias();
   },
   async obterConversao() {
-    return dashboardVendasService.obterConversao();
+    if (!SST_ATIVO) return conversaoVazia();
+    return dashboardVendasSstService.obterConversao();
   },
   async obterRecenciaECruzamento() {
-    const dados = await dashboardVendasService.obterRecenciaECruzamento();
+    const dados = SST_ATIVO
+      ? await dashboardVendasSstService.obterRecenciaECruzamento()
+      : recenciaECruzamentoVazio();
     return { ...dados, cruzamentoCanais: normalizarCruzamento(dados.cruzamentoCanais) };
   },
 };
