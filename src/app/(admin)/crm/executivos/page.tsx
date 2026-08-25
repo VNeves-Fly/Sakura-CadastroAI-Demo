@@ -15,9 +15,8 @@ export default async function PromotoresPage() {
     redirect("/cadastros");
   }
 
-  // Lista de gestores só pra exibir o nome na coluna GESTOR da tabela — ao
-  // contrário do formulário de cadastro (/executivos/novo), aqui não há
-  // restrição por cargo: é leitura, não seleção de vínculo.
+  // Lista de gestores pra exibir o nome na coluna GESTOR da tabela — é
+  // leitura, não seleção de vínculo, então não tem restrição por cargo.
   const [gestoresRaw, todasBases] = await Promise.all([
     atribuicoesAdminController.listarGestores(),
     basesController.list(),
@@ -28,5 +27,21 @@ export default async function PromotoresPage() {
     bases: gestor.bases,
   }));
 
-  return <PromotoresView gestoresOptions={gestoresOptions} todasBases={todasBases} />;
+  // Opções pro seletor "Gestor" do modal de cadastro (ex-/executivos/novo,
+  // migrado pra modal — padronização pedida pelo usuário, 2026-08-25): aqui
+  // sim há restrição por cargo — Gestor não escolhe, o vínculo já é o dele.
+  const criacaoGestoresOptions = cargo === "GESTOR" ? null : gestoresOptions;
+  const minhasBasesSiglas =
+    cargo === "GESTOR" && session?.user?.id
+      ? ((await atribuicoesAdminController.buscarGestorPorUserId(session.user.id))?.bases ?? [])
+      : undefined;
+
+  return (
+    <PromotoresView
+      gestoresOptions={gestoresOptions}
+      criacaoGestoresOptions={criacaoGestoresOptions}
+      minhasBasesSiglas={minhasBasesSiglas}
+      todasBases={todasBases}
+    />
+  );
 }

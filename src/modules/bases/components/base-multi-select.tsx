@@ -32,7 +32,12 @@ export function BaseMultiSelect({
       {opcoes.length === 0 ? (
         <p className="text-muted-foreground text-xs">{vazioLabel ?? "Nenhuma base disponível."}</p>
       ) : (
-        <div className="border-input flex max-h-48 flex-col gap-1 overflow-y-auto rounded-2xl border p-3">
+        // Altura fixa (não só max-h) — Executivo mostra menos opções que
+        // Gestor (filtra pelas bases do gestor selecionado, ver
+        // promotor-form.tsx), e com max-h a caixa encolhia junto,
+        // deixando os dois modais com tamanho visualmente diferente
+        // (pedido do usuário, 2026-08-25: mesmo tamanho nos dois).
+        <div className="border-input flex h-48 flex-col gap-1 overflow-y-auto rounded-2xl border p-3">
           {opcoes.map((base) => (
             <label key={base.id} className="text-foreground flex items-center gap-2 text-sm">
               <input
