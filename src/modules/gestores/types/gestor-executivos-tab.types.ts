@@ -10,7 +10,6 @@ export interface ExecutivoDaGestaoView {
   email: string;
   sica: number | null;
   bases: string[];
-  ativo: boolean; // mock — sem status real de "executivo ativo" hoje
   semVendaAno: boolean; // mock — deriva de vendasAno === 0
   aprovadas: number; // real — quantidade de agências da carteira
   vendendo30d: number;

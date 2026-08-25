@@ -57,7 +57,6 @@ export function montarGestorPerfil(gestor: GestorRaw, executivos: ExecutivoComCa
     0,
   );
   const totalExecutivos = executivos.length;
-  const ativo = base % 10 !== 0; // mock — ~90% ativo (sem status real no model)
   const vendendoUltimos30d = Math.round(totalAgencias * (0.3 + (base % 50) / 100));
   const vendendoUltimos30dPct =
     totalAgencias > 0 ? Math.round((vendendoUltimos30d / totalAgencias) * 100) : 0;
@@ -68,7 +67,6 @@ export function montarGestorPerfil(gestor: GestorRaw, executivos: ExecutivoComCa
     identificador: gerarIdentificador(gestor.nome),
     email: gestor.email,
     telefone: gestor.telefone,
-    ativo,
     // Nível não é resolvido aqui — o override mora em localStorage
     // (gestor-niveis.store.ts), inacessível no servidor, e o campo ainda
     // não é exibido nesta página; seed determinístico como fallback neutro

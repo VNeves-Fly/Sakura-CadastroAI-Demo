@@ -14,7 +14,6 @@ export interface GestorPerfil {
   identificador: string; // mock — slug tipo "GEST-SAKURA" a partir do nome
   email: string | null; // real
   telefone: string | null; // real
-  ativo: boolean; // mock — sem campo de status no model Gestor hoje
   nivel: GestorNivel; // mock (ver gestor-nivel.types.ts)
   bases: string[]; // real
   basePrincipal: string | null; // real (bases[0])

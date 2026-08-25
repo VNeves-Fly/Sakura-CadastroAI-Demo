@@ -28,7 +28,6 @@ export const gestorListaAdapter = {
     executivosPorGestor: Record<string, number>,
     vendasPorGestor: Record<string, { vendasMes: number; vendasAno: number }>,
     nivelOverrides: Record<string, GestorNivel>,
-    ativoOverrides: Record<string, boolean>,
   ): GestorListaView {
     const nivel = nivelOverrides[gestor.id] ?? nivelSeed(gestor.id);
     const metricas = gerarMetricasMock(gestor.id);
@@ -40,7 +39,6 @@ export const gestorListaAdapter = {
       temAcesso: gestor.temAcesso,
       bases: gestor.bases,
       nivel,
-      ativo: ativoOverrides[gestor.id] ?? true,
       executivos: executivosPorGestor[gestor.id] ?? 0,
       semVenda: vendas.vendasAno === 0,
       vendasMes: vendas.vendasMes,
@@ -54,16 +52,9 @@ export const gestorListaAdapter = {
     executivosPorGestor: Record<string, number>,
     vendasPorGestor: Record<string, { vendasMes: number; vendasAno: number }>,
     nivelOverrides: Record<string, GestorNivel>,
-    ativoOverrides: Record<string, boolean>,
   ): GestorListaView[] {
     return gestores.map((gestor) =>
-      gestorListaAdapter.toListaView(
-        gestor,
-        executivosPorGestor,
-        vendasPorGestor,
-        nivelOverrides,
-        ativoOverrides,
-      ),
+      gestorListaAdapter.toListaView(gestor, executivosPorGestor, vendasPorGestor, nivelOverrides),
     );
   },
 };

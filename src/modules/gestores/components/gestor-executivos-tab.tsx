@@ -56,7 +56,7 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       label: "Executivo",
       sortable: true,
       sortValue: (linha) => linha.nome,
-      headerClassName: "w-[32%]",
+      headerClassName: "w-[42%]",
       render: (linha) => (
         <div className="flex min-w-0 flex-col">
           <span
@@ -113,24 +113,6 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
           className="text-primary font-semibold"
           value={formatarMoedaAbreviada(linha.vendasAno)}
         />
-      ),
-    },
-    {
-      key: "ativo",
-      label: "Status",
-      align: "center",
-      headerClassName: "w-[10%]",
-      render: (linha) => (
-        <Badge
-          variant="outline"
-          className={
-            linha.ativo
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-muted-foreground/30 bg-muted text-muted-foreground"
-          }
-        >
-          {linha.ativo ? "Ativo" : "Inativo"}
-        </Badge>
       ),
     },
     {
