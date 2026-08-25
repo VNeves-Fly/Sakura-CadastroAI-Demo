@@ -531,7 +531,12 @@ export function montarAgenciaDetalheViewSst(
     },
     perfilComercial: {
       sica: String(codigoEmpresa),
-      base: executivoContexto.base,
+      // `base`: real do SST (`baseEmpresa.filial`, sigla de 3 letras,
+      // mesmo campo de /api/agencias/ativas.base — ver
+      // agencia-carteira.adapter.ts) — pedido do usuário, 2026-08-25.
+      // Cai pro "melhor esforço" local só se o SST não trouxer filial
+      // pra essa agência.
+      base: baseEmpresa.filial || executivoContexto.base,
       gestorNome: executivoContexto.gestorNome,
       executivoNome: executivoContexto.executivoNome ?? baseEmpresa.nome_executivo,
       // Sem fonte real (segmento comercial, faturamento médio, comissão e

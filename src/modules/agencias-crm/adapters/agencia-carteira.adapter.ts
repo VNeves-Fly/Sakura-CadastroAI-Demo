@@ -67,7 +67,8 @@ function gerarMetricasMock(seed: number): MetricasMock {
 // ligar o `codigoExecutivo` do SST à hierarquia local Executivo→Gestor
 // (que não existe no SST). Agência cujo executivo não tem Promotor local
 // correspondente ainda mostra o nome vindo do SST (item.nomeExecutivo),
-// só fica sem gestor/base/executivoId pra filtrar.
+// só fica sem gestor/executivoId pra filtrar — `base` não depende mais
+// desse match (vem direto do SST, ver `item.baseSigla` abaixo).
 //
 // metricasReaisPorSica: mapa do SST (agenciaCarteiraSstService.
 // obterMetricasCarteira(), indexado por codigoEmpresa) ou `null` quando a
@@ -87,7 +88,12 @@ export function montarAgenciaCarteiraView(
 
   const executivo =
     item.codigoExecutivo !== null ? promotorPorSica.get(item.codigoExecutivo) : undefined;
-  const base = executivo?.bases[0] ?? null;
+  // `base`: real do SST (sigla de 3 letras, ex. "SAO"/"RAO"/"VIX", direto
+  // de /api/agencias/ativas) — pedido do usuário, 2026-08-25: substitui o
+  // "melhor esforço" via Promotor.bases[0] (local, esparso, só cobria as
+  // ~11 pessoas atribuídas manualmente). Cai pro local só se o SST não
+  // trouxer base pra essa linha.
+  const base = item.baseSigla ?? executivo?.bases[0] ?? null;
   const regiao = base ? (regiaoPorBase.get(base) ?? null) : null;
 
   const metricasReais = metricasReaisPorSica?.get(sicaCodigo);
