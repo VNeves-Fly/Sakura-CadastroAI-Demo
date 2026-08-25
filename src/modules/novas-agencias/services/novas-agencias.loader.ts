@@ -34,7 +34,14 @@ export async function carregarNovasAgencias(): Promise<NovasAgenciasData> {
     prismaNovasAgenciasRepository.contarAtivasNoSistema(),
   ]);
 
-  if (!usaSstReal()) {
+  // Sem agência aprovada na janela, não há nada pra cruzar com o SST —
+  // pula a chamada (agenciaCarteiraSstService.obterMetricasCarteira()
+  // agrega a carteira TODA, aéreo 365d + terrestre paginado, cara mesmo
+  // com cache frio: ~30s medido contra o SST real, ver
+  // docs/crm-agencias-backend.md). Sem isso, toda visita a esta página
+  // pagaria esse custo mesmo quando o resultado final seria uma lista
+  // vazia de qualquer forma.
+  if (!usaSstReal() || agenciasLocais.length === 0) {
     return montarNovasAgenciasView(agenciasLocais, null, new Map(), totalAtivasNoSistema, hoje);
   }
 
