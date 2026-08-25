@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Mail, MapPin, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { MockBadge } from "@/modules/shared/components/mock-badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { ToggleVisibilidadeButton } from "@/modules/shared/components/toggle-visibilidade-button";
 import {
@@ -13,27 +12,27 @@ import type { ExecutivoPerfil } from "@/modules/atribuicoes/types/executivo-deta
 
 interface ExecutivoProfileHeaderProps {
   perfil: ExecutivoPerfil;
-  // Sobrescrevem os stats de "Agências"/"Venderam últimos 30d" com dado
-  // real do SST (roster + vendendo30d, ver executivo-dashboard.sst-service.ts)
-  // — só a página de dashboard (que já paga o custo de buscar isso pro
-  // crossCanal) passa esses slots; `agencias/`/`agenda/` não passam nada e
-  // caem no fallback local-DB/mock abaixo, sem chamada ao SST (ver
-  // comentário em executivo-detalhe.adapter.ts).
+  // Sobrescreve o stat de "Agências" com dado real do SST (roster, ver
+  // executivo-dashboard.sst-service.ts) — só a página de dashboard (que já
+  // paga o custo de buscar isso pro crossCanal) passa esse slot;
+  // `agencias/`/`agenda/` não passam nada e caem no fallback local-DB
+  // abaixo, sem chamada ao SST (ver comentário em
+  // executivo-detalhe.adapter.ts).
   statsAgenciasSlot?: ReactNode;
+  // "Venderam últimos 30d" saiu do cabeçalho (pedido do usuário,
+  // 2026-08-25 — duplicava o card "Vendendo 30d" dos KPIs Secundários
+  // logo abaixo, ver kpis-secundarios.tsx). Prop aceita mas ignorada de
+  // propósito — as 3 páginas que montam esse slot (dashboard/agencias/
+  // agenda) continuam passando, sem precisar tocar nelas.
   statsVendendo30dSlot?: ReactNode;
 }
 
 // Cartão de identidade do executivo (SPEC seção 3.2) — avatar com
-// gradiente único por id, badges de bases/conquistas e os 3 KPIs de topo
-// (agências / gestor responsável / vendendo últimos 30d). Nome, email, sica,
-// bases e gestorNome são reais; `totalAgencias`/`vendendoUltimos30d` do
-// `perfil` (mock/local-DB) só aparecem quando os slots acima não são
-// passados.
-export function ExecutivoProfileHeader({
-  perfil,
-  statsAgenciasSlot,
-  statsVendendo30dSlot,
-}: ExecutivoProfileHeaderProps) {
+// gradiente único por id, badges de bases/conquistas e os 2 KPIs de topo
+// (agências / gestor responsável). Nome, email, sica, bases e gestorNome
+// são reais; `totalAgencias` do `perfil` (local-DB) só aparece quando o
+// slot acima não é passado.
+export function ExecutivoProfileHeader({ perfil, statsAgenciasSlot }: ExecutivoProfileHeaderProps) {
   return (
     <div className="border-border bg-card rounded-2xl border p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -91,7 +90,7 @@ export function ExecutivoProfileHeader({
         </div>
       </div>
 
-      <div className="border-border mt-6 grid grid-cols-1 gap-4 border-t pt-5 sm:grid-cols-3">
+      <div className="border-border mt-6 grid grid-cols-1 gap-4 border-t pt-5 sm:grid-cols-2">
         <div>
           <p className="text-foreground text-2xl font-bold">
             {statsAgenciasSlot ?? <SensitiveValue value={perfil.totalAgencias} />}
@@ -105,21 +104,6 @@ export function ExecutivoProfileHeader({
           <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
             Gestor responsável
           </p>
-        </div>
-        <div className="space-y-1">
-          {statsVendendo30dSlot ?? (
-            <>
-              <div className="flex items-center gap-2">
-                <p className="text-success text-2xl font-bold">
-                  <SensitiveValue value={perfil.vendendoUltimos30d} />
-                </p>
-                <MockBadge className="mt-1" />
-              </div>
-              <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-                Venderam últimos 30d · <SensitiveValue value={`${perfil.vendendoUltimos30dPct}%`} />
-              </p>
-            </>
-          )}
         </div>
       </div>
     </div>

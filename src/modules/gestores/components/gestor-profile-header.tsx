@@ -13,13 +13,16 @@ import type { GestorPerfil } from "@/modules/gestores/types/gestor-detalhe.types
 
 interface GestorProfileHeaderProps {
   perfil: GestorPerfil;
-  // Sobrescrevem os stats de "Agências"/"Venderam 30D" com o agregado real
-  // (soma dos executivos subordinados via SST, ver
-  // gestor-dashboard.controller.ts) — só a página de dashboard (que já paga
-  // o custo de buscar isso) passa esses slots; Executivos/Agências não
-  // passam nada e caem no fallback mock de `perfil` abaixo, espelhando
-  // ExecutivoProfileHeader.
+  // Sobrescreve o stat de "Agências" com o agregado real (soma dos
+  // executivos subordinados via SST, ver gestor-dashboard.controller.ts) —
+  // só a página de dashboard (que já paga o custo de buscar isso) passa
+  // esse slot; Executivos/Agências não passam nada e caem no fallback mock
+  // de `perfil` abaixo, espelhando ExecutivoProfileHeader.
   statsAgenciasSlot?: ReactNode;
+  // "Venderam 30D" saiu do cabeçalho (pedido do usuário, 2026-08-25 —
+  // duplicava o card "Vendendo 30d" dos KPIs Secundários logo abaixo, ver
+  // gestor-kpis-secundarios.tsx). Prop aceita mas ignorada de propósito —
+  // a página de Dashboard continua passando, sem precisar tocar nela.
   statsVendendo30dSlot?: ReactNode;
 }
 
@@ -30,11 +33,7 @@ const CHIPS_VISIVEIS_INICIALMENTE = 10;
 // espírito visual de ExecutivoProfileHeader (avatar com gradiente único por
 // id, badges, indicadores de topo), adaptado pros campos próprios de
 // Gestor (identificador único, status, lista de bases expansível).
-export function GestorProfileHeader({
-  perfil,
-  statsAgenciasSlot,
-  statsVendendo30dSlot,
-}: GestorProfileHeaderProps) {
+export function GestorProfileHeader({ perfil, statsAgenciasSlot }: GestorProfileHeaderProps) {
   const [expandido, setExpandido] = useState(false);
   const basesVisiveis = expandido
     ? perfil.bases
@@ -143,18 +142,6 @@ export function GestorProfileHeader({
             value={statsAgenciasSlot ?? <SensitiveValue value={perfil.totalAgencias} />}
             label="Agências"
           />
-          <div className="flex flex-col items-center gap-0.5">
-            {statsVendendo30dSlot ?? (
-              <>
-                <p className="text-success text-xl font-bold">
-                  <SensitiveValue value={perfil.vendendoUltimos30d} />
-                </p>
-                <p className="text-muted-foreground text-center text-[10.5px] font-semibold tracking-wide uppercase">
-                  Venderam 30D · <SensitiveValue value={`${perfil.vendendoUltimos30dPct}%`} />
-                </p>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </div>
