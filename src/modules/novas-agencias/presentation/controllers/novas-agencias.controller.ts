@@ -1,13 +1,12 @@
-import { novasAgenciasMockService } from "@/modules/novas-agencias/services/novas-agencias.mock-service";
+import { carregarNovasAgencias } from "@/modules/novas-agencias/services/novas-agencias.loader";
 
 // Ponto único que a Server Component (`page.tsx`) chama — mesmo padrão
-// do resto do projeto (ver dashboard-vendas.controller.ts). Hoje só
-// existe o serviço mock: a SPEC desta página pediu explicitamente
-// "sem nenhuma lógica de backend real" — se um dia existir uma fonte
-// real, ela entra aqui do mesmo jeito que dashboardVendasController
-// alterna mock/SST, sem precisar tocar na View.
+// do resto do projeto (ver dashboard-vendas.controller.ts). Identidade e
+// entrada das agências vêm sempre do Prisma local; métricas de venda
+// vêm do SST quando SST_API_KEY está configurada, com fallback mock por
+// linha (ver novas-agencias.loader.ts/adapter.ts).
 export const novasAgenciasController = {
   async obterNovasAgencias() {
-    return novasAgenciasMockService.obterNovasAgencias();
+    return carregarNovasAgencias();
   },
 };
