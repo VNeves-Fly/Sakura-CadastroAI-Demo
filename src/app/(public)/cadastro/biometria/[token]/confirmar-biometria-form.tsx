@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
-import { confirmarBiometriaAction } from "./actions";
+import { confirmarBiometriaAction, consultarStatusBiometriaAction } from "./actions";
 import { maskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
 import type { ObterStatusBiometriaResult } from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
 
@@ -10,10 +10,11 @@ type Status =
   | { kind: "erro"; mensagem: string }
   | ({ kind: "confirmado" } & ObterStatusBiometriaResult);
 
-// Enquanto pendente/análise manual, repolla sozinho com o mesmo CPF já
-// confirmado — o resultado real (aprovado/reprovado) só chega depois via
-// webhook da Legitimuz, então sem isso o sócio precisaria ficar
-// recarregando a página manualmente até o resultado sair.
+// Enquanto pendente/análise manual (ou aprovado mas o link de assinatura
+// ainda não saiu — ver `precisaContinuarPollando` abaixo), repolla sozinho
+// com o mesmo CPF já confirmado — o resultado real (aprovado/reprovado)
+// só chega depois via webhook da Legitimuz, então sem isso o sócio
+// precisaria ficar recarregando a página manualmente até o resultado sair.
 const INTERVALO_POLL_MS = 15_000;
 
 export function ConfirmarBiometriaForm({ token }: { token: string }) {
@@ -22,7 +23,7 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
   const [isPending, startTransition] = useTransition();
   const cpfConfirmadoRef = useRef<string | null>(null);
 
-  function confirmar(cpfDigitado: string) {
+  function confirmarInicial(cpfDigitado: string) {
     startTransition(async () => {
       try {
         const resultado = await confirmarBiometriaAction(token, cpfDigitado);
@@ -45,20 +46,38 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
       setStatus({ kind: "erro", mensagem: validacao.mensagem ?? "CPF inválido." });
       return;
     }
-    confirmar(cpf);
+    confirmarInicial(cpf);
   }
 
-  // Poll automático só quando já confirmado e ainda sem desfecho.
+  // Poll automático — continua enquanto ainda não há desfecho pro sócio
+  // ver: pendente/análise manual (esperando a Legitimuz) OU já aprovado
+  // mas sem link de assinatura ainda (esperando o D4Sign capturar o
+  // keySigner — ver comentário em ObterStatusBiometriaUseCase). Usa
+  // consultarStatusBiometriaAction (rate limit próprio, bem mais folgado
+  // que o de confirmação — ver actions.ts) e, numa falha transitória, só
+  // ignora e tenta de novo no próximo tick em vez de derrubar o status já
+  // confirmado (senão a tela voltaria a pedir CPF no meio da espera).
   useEffect(() => {
     if (status.kind !== "confirmado") return;
-    if (status.status !== "pendente" && status.status !== "analise_manual") return;
+    const precisaContinuarPollando =
+      status.status === "pendente" ||
+      status.status === "analise_manual" ||
+      (status.status === "aprovado" && !status.linkAssinatura);
+    if (!precisaContinuarPollando) return;
     const cpfAtual = cpfConfirmadoRef.current;
     if (!cpfAtual) return;
 
-    const intervalo = setInterval(() => confirmar(cpfAtual), INTERVALO_POLL_MS);
+    const intervalo = setInterval(async () => {
+      try {
+        const resultado = await consultarStatusBiometriaAction(token, cpfAtual);
+        setStatus({ kind: "confirmado", ...resultado });
+      } catch {
+        // Falha transitória (rate limit, blip de rede) — mantém o status
+        // atual na tela, tenta de novo no próximo tick.
+      }
+    }, INTERVALO_POLL_MS);
     return () => clearInterval(intervalo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- confirmar é estável o bastante aqui (só lê refs/estado local)
-  }, [status]);
+  }, [status, token]);
 
   if (status.kind === "confirmado" && status.status === "aprovado") {
     return (
@@ -73,7 +92,8 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
           </a>
         ) : (
           <p className="text-muted-foreground text-sm">
-            Estamos preparando seu link de assinatura — atualize esta página em instantes.
+            Estamos preparando seu link de assinatura — esta página atualiza sozinha assim que ficar
+            pronto.
           </p>
         )}
       </div>
