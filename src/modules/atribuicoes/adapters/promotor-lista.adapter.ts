@@ -29,7 +29,6 @@ export const promotorListaAdapter = {
   toListaView(
     promotor: PromotorCrudView,
     gestoresPorId: Map<string, GestorOpcao>,
-    ativoOverrides: Record<string, boolean>,
   ): PromotorListaView {
     const metricas = gerarMetricasMock(promotor.id);
     const vendasMes = promotor.vendasMes ?? 0;
@@ -43,7 +42,6 @@ export const promotorListaAdapter = {
       temAcesso: promotor.temAcesso,
       semVinculo: promotor.bases.length === 0 || !promotor.gestorId,
       semVenda: vendasAno === 0,
-      ativo: ativoOverrides[promotor.id] ?? true,
       vendasMes,
       vendasAno,
       ...metricas,
@@ -53,11 +51,8 @@ export const promotorListaAdapter = {
   toListaViewList(
     promotores: PromotorCrudView[],
     gestoresOptions: GestorOpcao[] | null,
-    ativoOverrides: Record<string, boolean>,
   ): PromotorListaView[] {
     const gestoresPorId = new Map((gestoresOptions ?? []).map((gestor) => [gestor.id, gestor]));
-    return promotores.map((promotor) =>
-      promotorListaAdapter.toListaView(promotor, gestoresPorId, ativoOverrides),
-    );
+    return promotores.map((promotor) => promotorListaAdapter.toListaView(promotor, gestoresPorId));
   },
 };

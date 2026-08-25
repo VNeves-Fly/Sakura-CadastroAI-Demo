@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Mail, MapPin, Circle } from "lucide-react";
+import { Mail, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
@@ -44,9 +44,11 @@ export function GestorProfileHeader({ perfil, statsAgenciasSlot }: GestorProfile
     <div className="border-border bg-card rounded-2xl border p-5">
       {/* Linha única centralizada (align-items:center), sem divisória e
           sem grid de métricas — diferente do ExecutivoProfileHeader de
-          propósito (SPEC 3.3, checklist §5): o cartão do gestor tem pill
-          de status "ATIVO"/base/tag que o do executivo não tem, e não tem
-          os botões de visualizar/editar. */}
+          propósito (SPEC 3.3, checklist §5): o cartão do gestor tem tag
+          de base que o do executivo não tem, e não tem os botões de
+          visualizar/editar. Pill de status "ATIVO"/"INATIVO" saiu daqui
+          (pedido do usuário, 2026-08-25 — mock sem fonte real, nunca
+          vamos usar, ver gestor-status.store.ts removida). */}
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <span
@@ -63,18 +65,6 @@ export function GestorProfileHeader({ perfil, statsAgenciasSlot }: GestorProfile
               </h1>
               <Badge variant="outline" className="font-mono">
                 #{perfil.identificador}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "gap-1.5",
-                  perfil.ativo
-                    ? "border-success/30 bg-success/10 text-success"
-                    : "border-muted-foreground/30 bg-muted text-muted-foreground",
-                )}
-              >
-                <Circle className="size-1.5 fill-current" />
-                {perfil.ativo ? "ATIVO" : "INATIVO"}
               </Badge>
             </div>
 

@@ -2,14 +2,9 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useUpdateGestorViewModel } from "@/modules/gestores/view-models/use-update-gestor.view-model";
 import { useNivelDoGestor } from "@/modules/gestores/stores/gestor-niveis.store";
-import {
-  useGestorStatusStore,
-  useAtivoDoGestor,
-} from "@/modules/gestores/stores/gestor-status.store";
 import { NIVEIS_GESTOR, nivelSeed } from "@/modules/gestores/types/gestor-nivel.types";
 import type { GestorNivel } from "@/modules/gestores/types/gestor-nivel.types";
 import type { BaseView } from "@/modules/bases/types/base.types";
@@ -39,13 +34,11 @@ export function GestorEdicaoModal({
   const { gestor, isLoading, submitError, isSubmitting, submit } =
     useUpdateGestorViewModel(gestorId);
   const nivelDaStore = useNivelDoGestor(gestorId ?? "");
-  const ativoDaStore = useAtivoDoGestor(gestorId ?? "");
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [nivel, setNivel] = useState<GestorNivel>("gerente");
-  const [ativo, setAtivo] = useState(true);
 
   // Repopula o form sempre que o gestor carregado muda (abriu outra linha,
   // ou terminou de buscar) — mesmo formato de paraValoresIniciais do
@@ -56,8 +49,7 @@ export function GestorEdicaoModal({
     setEmail(gestor.email ?? "");
     setTelefone(gestor.telefone ?? "");
     setNivel(nivelDaStore ?? nivelSeed(gestor.id));
-    setAtivo(ativoDaStore);
-  }, [gestor, nivelDaStore, ativoDaStore]);
+  }, [gestor, nivelDaStore]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,9 +77,7 @@ export function GestorEdicaoModal({
 
     if (succeeded) {
       // Nível já é gravado dentro de submit() quando values.nivel existe
-      // (ver use-update-gestor.view-model.ts) — só falta o status, que o
-      // hook de update não conhece.
-      useGestorStatusStore.getState().definirAtivo(gestorId, ativo);
+      // (ver use-update-gestor.view-model.ts).
       onOpenChange(false);
     }
   }
@@ -187,11 +177,6 @@ export function GestorEdicaoModal({
                   />
                 </div>
               </div>
-
-              <label className="flex items-center gap-2">
-                <Switch checked={ativo} onCheckedChange={setAtivo} />
-                <span className="text-foreground text-sm font-medium">Gerente ativo</span>
-              </label>
 
               {submitError ? <p className="text-destructive text-sm">{submitError}</p> : null}
 

@@ -9,15 +9,13 @@ import type { GestorNivel } from "@/modules/gestores/types/gestor-nivel.types";
 // (total/vend30d/paradas90d/limite/saude) não têm fonte real hoje — mesma
 // decisão de promotor-lista.types.ts — mock determinístico sempre calculado
 // e apenas mascarado via SensitiveValue quando o toggle global de
-// visibilidade (useDataVisibility) estiver oculto. "ativo" também é mock
-// front-end (ver gestor-status.store.ts) — default true.
+// visibilidade (useDataVisibility) estiver oculto.
 export interface GestorListaView {
   id: string;
   nome: string;
   temAcesso: boolean;
   bases: string[];
   nivel: GestorNivel;
-  ativo: boolean;
   executivos: number;
   semVenda: boolean;
   total: number;

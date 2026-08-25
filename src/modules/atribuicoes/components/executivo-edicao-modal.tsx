@@ -2,13 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useUpdatePromotorViewModel } from "@/modules/atribuicoes/view-models/use-update-promotor.view-model";
-import {
-  useAtivoDoPromotor,
-  usePromotorStatusStore,
-} from "@/modules/atribuicoes/stores/promotor-status.store";
 import type { BaseView } from "@/modules/bases/types/base.types";
 
 interface ExecutivoEdicaoModalProps {
@@ -30,20 +25,17 @@ export function ExecutivoEdicaoModal({
 }: ExecutivoEdicaoModalProps) {
   const { promotor, isLoading, submitError, isSubmitting, submit } =
     useUpdatePromotorViewModel(promotorId);
-  const ativoDaStore = useAtivoDoPromotor(promotorId ?? "");
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [ativo, setAtivo] = useState(true);
 
   useEffect(() => {
     if (!promotor) return;
     setNome(promotor.nome);
     setEmail(promotor.email);
     setTelefone(promotor.telefone ?? "");
-    setAtivo(ativoDaStore);
-  }, [promotor, ativoDaStore]);
+  }, [promotor]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,7 +60,6 @@ export function ExecutivoEdicaoModal({
     });
 
     if (succeeded) {
-      usePromotorStatusStore.getState().definirAtivo(promotorId, ativo);
       onOpenChange(false);
     }
   }
@@ -138,11 +129,6 @@ export function ExecutivoEdicaoModal({
                   />
                 </div>
               </div>
-
-              <label className="flex items-center gap-2">
-                <Switch checked={ativo} onCheckedChange={setAtivo} />
-                <span className="text-foreground text-sm font-medium">Executivo ativo</span>
-              </label>
 
               {submitError ? <p className="text-destructive text-sm">{submitError}</p> : null}
 

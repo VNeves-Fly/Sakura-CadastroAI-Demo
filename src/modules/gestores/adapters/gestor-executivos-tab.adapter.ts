@@ -1,4 +1,3 @@
-import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { limiteMock } from "@/modules/atribuicoes/adapters/executivo-agencias.adapter";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
 import type { gestorDashboardController } from "@/modules/gestores/presentation/controllers/gestor-dashboard.controller";
@@ -13,11 +12,9 @@ const FAIXAS_PARADA = new Set(["90a365d", "semVenda365d"]);
 export const gestorExecutivosTabAdapter = {
   // `agregado` vem de gestorDashboardController.obterAgregadoCompleto(...) —
   // sempre 1 item por executivo, na mesma ordem/id de `executivo`, mesmo se
-  // o SST falhar pra algum (ver gestor-dashboard.controller.ts). `ativo`
-  // continua mock (sem flag real no schema, fora de escopo).
+  // o SST falhar pra algum (ver gestor-dashboard.controller.ts).
   toView(executivo: ExecutivoComCarteira, agregado: PorExecutivo): ExecutivoDaGestaoView {
     const aprovadas = executivo.agencias.length;
-    const base = hashParaNumero(executivo.id);
     const paradas90d = agregado.agenciasCarteira.filter((agencia) =>
       FAIXAS_PARADA.has(agencia.faixaRecencia),
     ).length;
@@ -32,7 +29,6 @@ export const gestorExecutivosTabAdapter = {
       email: executivo.email,
       sica: executivo.sica,
       bases: executivo.bases,
-      ativo: base % 10 !== 0,
       aprovadas,
       semVendaAno: agregado.hero.ano.valor === 0,
       vendendo30d: agregado.miniStats.vendendo30d,

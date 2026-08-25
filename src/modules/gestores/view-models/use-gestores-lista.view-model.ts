@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useGestoresListViewModel } from "@/modules/gestores/view-models/use-gestores-list.view-model";
 import { useGestorNiveisStore } from "@/modules/gestores/stores/gestor-niveis.store";
-import { useGestorStatusStore } from "@/modules/gestores/stores/gestor-status.store";
 import { gestorListaAdapter } from "@/modules/gestores/adapters/gestor-lista.adapter";
 import {
   TAMANHO_PAGINA_GESTORES,
@@ -18,7 +17,6 @@ export function useGestoresListaViewModel(
 ) {
   const { gestores, isLoading, error } = useGestoresListViewModel();
   const nivelOverrides = useGestorNiveisStore((state) => state.overrides);
-  const ativoOverrides = useGestorStatusStore((state) => state.overrides);
   const [filtros, setFiltros] = useState<GestorListaFiltros>(FILTROS_INICIAIS);
   const [pagina, setPagina] = useState(1);
 
@@ -29,9 +27,8 @@ export function useGestoresListaViewModel(
         executivosPorGestor,
         vendasPorGestor,
         nivelOverrides,
-        ativoOverrides,
       ),
-    [gestores, executivosPorGestor, vendasPorGestor, nivelOverrides, ativoOverrides],
+    [gestores, executivosPorGestor, vendasPorGestor, nivelOverrides],
   );
 
   const gestoresFiltrados = useMemo(() => {
@@ -64,9 +61,5 @@ export function useGestoresListaViewModel(
     pagina: paginaAtual,
     totalPaginas,
     setPagina,
-    // Botão Inativar/Ativar da lista — grava só no override local (ver
-    // gestor-status.store.ts), sem chamada à API.
-    alternarAtivo: (gestorId: string, ativo: boolean) =>
-      useGestorStatusStore.getState().definirAtivo(gestorId, ativo),
   };
 }
