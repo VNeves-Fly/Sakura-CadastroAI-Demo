@@ -1,10 +1,13 @@
-// Modelo de dados da página /crm/novas-agencias — módulo isolado e 100%
-// mock (sem I/O real), reproduzindo a camada visual da SPEC recebida em
-// 2026-08-21 (substitui a SPEC anterior de 2026-08-18 — ver
-// novas-agencias.mock-service.ts). Nenhum destes tipos representa dado
-// real da Sakura; os valores são literais, copiados da SPEC.
+// Modelo de dados da página /crm/novas-agencias. Identidade/entrada das
+// agências vem do Prisma local (Agencia aprovada nos últimos 90 dias,
+// via HistoricoEtapaCadastro); volume/situação/1ª compra vêm do SST
+// quando SST_API_KEY está configurada, com fallback mock determinístico
+// por linha — ver novas-agencias.loader.ts/adapter.ts.
+//
+// "logou" foi removido (decisão 2026-08-25): não existe fonte real de
+// login/acesso de agência em lugar nenhum do sistema.
 
-export type SituacaoAgenciaNova = "nunca" | "logou" | "comprando" | "parou";
+export type SituacaoAgenciaNova = "nunca" | "comprando" | "parou";
 
 export interface SituacaoConfig {
   label: string;
@@ -12,16 +15,12 @@ export interface SituacaoConfig {
   cor: string;
 }
 
-// Linha da tabela "Lista de agências" (SPEC 9.2) — só os campos exibidos
-// (nome, meta, executivo, gerente, entrada, primeira compra, volume,
-// situação) viram tipo; a SPEC lista outros campos no array de origem
-// (dias, ultima, bilhetes, credito, creditoNota, pagamento) que "existem
-// no modelo mas não são renderizados" — omitidos aqui de propósito, sem
-// paridade a manter (nenhum consumidor os lê).
+// Linha da tabela "Lista de agências" — só os campos exibidos (nome,
+// meta, executivo, gerente, entrada, primeira compra, volume, situação).
 export interface AgenciaNovaLinha {
   id: string;
   nome: string;
-  meta: string; // "10.000.000/0001-10 · ERP 40000 · São Paulo/SP"
+  meta: string; // CNPJ real, ex. "10.000.000/0001-10" (sem ERP/cidade-UF — não há fonte real na Agencia local)
   executivo: string;
   gerente: string;
   entrada: string; // já formatado, ex. "16/08/2026"
@@ -37,14 +36,12 @@ export interface FunilAtivacaoKpis {
   nuncaCompraramPct: string; // "78,7% da base"
   comprando: number;
   comprandoPct: string; // "21,3% da base"
-  baseAprovadas: number; // 1224 — "base de 1.224 agências aprovadas"
+  baseAprovadas: number; // total histórico de agências com status "ativo" (não só as dos últimos 90 dias) — "base de N agências aprovadas"
 }
 
 export interface NovasAgenciasData {
-  sincronizacao: { ultimaEm: string; distancia: string; proximaEm: string };
   funil: FunilAtivacaoKpis;
   volumeGerado: string; // "R$ 26,5 M"
   tempoMedioPrimeiraCompraDias: number;
-  totalAgencias: number; // 28 — total da lista completa
-  agencias: AgenciaNovaLinha[]; // 12 linhas renderizadas (SPEC 9.2)
+  agencias: AgenciaNovaLinha[]; // todas as agências aprovadas nos últimos 90 dias
 }
