@@ -9,8 +9,22 @@ import { unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
 
 // Página sem login (token opaco na URL + confirmação de CPF) — protege
 // contra tentativa de adivinhar o CPF de quem recebeu um token de verdade
-// (e vice-versa). Mesmo espírito do rate limit de documentos-pendentes.
+// (e vice-versa). Mesmo espírito do rate limit de documentos-pendentes. Só
+// se aplica à confirmação EXPLÍCITA (submit do form) — ver
+// RATE_LIMIT_CONSULTAR_STATUS abaixo pro poll automático, que é outra
+// coisa (mesmo CPF já validado, sem risco de adivinhação).
 const RATE_LIMIT_CONFIRMAR_BIOMETRIA = { limite: 10, janelaMs: 10 * 60 * 1000 };
+
+// Bug real encontrado 2026-08-25: o poll de 15s (ConfirmarBiometriaForm)
+// reusava confirmarBiometriaAction/RATE_LIMIT_CONFIRMAR_BIOMETRIA — na
+// prática o 11º poll (~2min30 de sessão) sempre estourava esse limite de
+// 10/10min, e como o efeito de poll só continua rodando enquanto
+// `status.kind === "confirmado"`, um único RateLimitError matava o poll
+// pra sempre (a UI caía de volta pro form de CPF). Biometria facial de
+// verdade (selfie, reposicionar, tentar de novo) facilmente passa de
+// 2min30 — chave própria e limite bem mais folgado, já que aqui o CPF já
+// foi confirmado uma vez, não há risco de adivinhação a se conter.
+const RATE_LIMIT_CONSULTAR_STATUS = { limite: 120, janelaMs: 10 * 60 * 1000 };
 
 // Server Actions não recebem um Request — lê os mesmos headers via
 // next/headers() (mesmo padrão de documentos-pendentes/actions.ts).
@@ -25,7 +39,23 @@ export async function confirmarBiometriaAction(
   token: string,
   cpfMascarado: string,
 ): Promise<ObterStatusBiometriaResult> {
-  if (!verificarRateLimit(`biometria:${ipCliente()}`, RATE_LIMIT_CONFIRMAR_BIOMETRIA)) {
+  if (!verificarRateLimit(`biometria:confirmar:${ipCliente()}`, RATE_LIMIT_CONFIRMAR_BIOMETRIA)) {
+    throw new RateLimitError();
+  }
+
+  return cadastroPublicoController.obterStatusBiometria({
+    token,
+    cpf: unmaskCpf(cpfMascarado),
+  });
+}
+
+// Usado só pelo poll automático (ConfirmarBiometriaForm) com o CPF já
+// confirmado no submit inicial — ver RATE_LIMIT_CONSULTAR_STATUS.
+export async function consultarStatusBiometriaAction(
+  token: string,
+  cpfMascarado: string,
+): Promise<ObterStatusBiometriaResult> {
+  if (!verificarRateLimit(`biometria:status:${ipCliente()}`, RATE_LIMIT_CONSULTAR_STATUS)) {
     throw new RateLimitError();
   }
 
