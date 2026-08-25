@@ -6,7 +6,9 @@ import {
   gerarMargemAereo,
   gerarMargemTerrestre,
   gerarNacIntTerrestre,
+  gerarVolumePorPeriodo,
 } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
+import type { PeriodoVolumeAgencia } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
 import type {
@@ -20,6 +22,7 @@ import type {
   CategoriaPremiacao,
   FaturaAgencia,
   TopCompanhiaAgencia,
+  VolumeCanalPeriodoAgencia,
 } from "@/modules/agencias-crm/types/agencia-detalhe.types";
 
 const CATEGORIAS: CategoriaPremiacao[] = ["10K", "100K", "1M", "10M"];
@@ -142,6 +145,61 @@ function construirMargemCanal(
   };
 }
 
+// Card "Volume total" por período (dia/ontem/mês real via overview,
+// pedido do usuário 2026-08-25 — ver agencia-detalhe.sst-service.ts).
+// "Ano" reaproveita os totais anuais já resolvidos (reais ou mock) de
+// construirBlocoVendas, exatos por construção — nunca precisa de
+// aproximação. Sem vendasReais, dia/ontem/mês caem no mesmo mock por hash
+// de antes (gerarVolumePorPeriodo), com o split Aéreo/Terrestre aplicado
+// via a MESMA proporção anual que o card já usava (só relocado daqui pro
+// adapter, não é lógica nova).
+function construirPorPeriodo(
+  base: number,
+  vendasReais: VendasReaisSst | null,
+  totaisAno: {
+    valor: number;
+    volumeAereo: number;
+    volumeTerrestre: number;
+    bilhetesAereo: number;
+    ticketMedioAereo: number;
+    servicosTerrestre: number;
+    ticketMedioTerrestre: number;
+  },
+): Record<PeriodoVolumeAgencia, VolumeCanalPeriodoAgencia> {
+  if (vendasReais) {
+    return { ...vendasReais.porPeriodo, ano: totaisAno };
+  }
+
+  const participacaoAereoPct =
+    totaisAno.valor > 0 ? (totaisAno.volumeAereo / totaisAno.valor) * 100 : 0;
+  const mockPorPeriodo = gerarVolumePorPeriodo(base, totaisAno.valor);
+
+  function doValor(valor: number): VolumeCanalPeriodoAgencia {
+    const volumeAereo = Math.round((valor * participacaoAereoPct) / 100);
+    const volumeTerrestre = valor - volumeAereo;
+    return {
+      valor,
+      volumeAereo,
+      volumeTerrestre,
+      bilhetesAereo:
+        totaisAno.ticketMedioAereo > 0 ? Math.round(volumeAereo / totaisAno.ticketMedioAereo) : 0,
+      ticketMedioAereo: totaisAno.ticketMedioAereo,
+      servicosTerrestre:
+        totaisAno.ticketMedioTerrestre > 0
+          ? Math.round(volumeTerrestre / totaisAno.ticketMedioTerrestre)
+          : 0,
+      ticketMedioTerrestre: totaisAno.ticketMedioTerrestre,
+    };
+  }
+
+  return {
+    dia: doValor(mockPorPeriodo.dia.valor),
+    ontem: doValor(mockPorPeriodo.ontem.valor),
+    mes: doValor(mockPorPeriodo.mes.valor),
+    ano: totaisAno,
+  };
+}
+
 // Bloco "vendas" + categoria — idêntico pra agência com dossiê local
 // (seed = hash do id local) ou só SST (seed = hash do código SICA, ver
 // montarAgenciaDetalheViewSst) — extraído pra não duplicar o merge com
@@ -200,6 +258,20 @@ function construirBlocoVendas(
     volumeTerrestre,
   );
   const terrestreNacInt = vendasReais?.terrestreNacInt ?? gerarNacIntTerrestre(base);
+  const ticketMedioAereo =
+    vendasReais?.ticketMedioAereo ??
+    (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0);
+  const ticketMedioTerrestre =
+    servicosTerrestre > 0 ? Math.round(volumeTerrestre / servicosTerrestre) : 0;
+  const porPeriodo = construirPorPeriodo(base, vendasReais, {
+    valor: volumeAno,
+    volumeAereo: volumeNacional + volumeInternacional,
+    volumeTerrestre,
+    bilhetesAereo: bilhetesAno,
+    ticketMedioAereo,
+    servicosTerrestre,
+    ticketMedioTerrestre,
+  });
 
   return {
     categoria,
@@ -225,13 +297,12 @@ function construirBlocoVendas(
         intPct: terrestreNacInt.intPct,
       },
       volumeTotalAno: volumeAno,
-      ticketMedioAereo:
-        vendasReais?.ticketMedioAereo ??
-        (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0),
+      ticketMedioAereo,
       topCompanhias: vendasReais?.topCompanhias ?? gerarTopCompanhias(base),
       faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
       margemAereo,
       margemTerrestre,
+      porPeriodo,
     },
   };
 }

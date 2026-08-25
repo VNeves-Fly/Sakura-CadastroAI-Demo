@@ -5,10 +5,7 @@ import { Bus, Clock, Plane } from "lucide-react";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { formatarMoedaCompleta } from "@/modules/agencias-crm/utils/formatar-moeda.util";
-import {
-  gerarAtualizadoEm,
-  gerarVolumePorPeriodo,
-} from "@/modules/agencias-crm/utils/canal-margem-mock.util";
+import { gerarAtualizadoEm } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import { AgenciaMargemRentabBloco } from "@/modules/agencias-crm/components/detalhe/agencia-margem-rentab-bloco";
 import { AgenciaCanalResumoCard } from "@/modules/agencias-crm/components/detalhe/agencia-canal-resumo-card";
 import { FiltroPeriodoAgenciaPopover } from "@/modules/agencias-crm/components/detalhe/filtro-periodo-agencia-popover";
@@ -38,51 +35,32 @@ function ponderar(
 
 // Card "Volume total" — aba Dashboard do detalhe de Agência (SPEC
 // seção 3.5.A). `vendas.aereoNacional/aereoInternacional/terrestre/
-// volumeTotalAno/ticketMedioAereo/margemAereo/margemTerrestre` vêm do SST
-// real (agenciaDetalheSstService.obterVendas, ver agencia-detalhe.adapter.ts)
-// quando a agência tem venda detectada — mock por hash só como fallback,
-// mesmo critério do resto do módulo. Isso inclui o NAC/INT do Terrestre
-// (`vendas.terrestre.nacPct/intPct`, agrupado por `nac_int` real do SST).
-// Margem/rentabilidade e NAC/INT não reagem ao filtro "Período" (sempre a
-// janela anual, real ou mock) — só a repartição por dia/ontem/mês do
-// valor grande é mock (ver gerarVolumePorPeriodo), assim como "Atualizado
-// em". Por isso o valor grande aqui segue a cor sólida
-// `var(--color-primary)` pedida na SPEC, não o gradiente rosa→roxo→azul
-// usado no Dashboard CRM/Executivo/Gestor.
+// volumeTotalAno/ticketMedioAereo/margemAereo/margemTerrestre/porPeriodo`
+// vêm do SST real (agenciaDetalheSstService.obterVendas, ver
+// agencia-detalhe.adapter.ts) quando a agência tem venda detectada — mock
+// por hash só como fallback, mesmo critério do resto do módulo. Isso
+// inclui o NAC/INT do Terrestre (`vendas.terrestre.nacPct/intPct`,
+// agrupado por `nac_int` real do SST). `porPeriodo` (dia/ontem/mês/ano)
+// já vem resolvido real-ou-mock do adapter — dia/ontem/mês real via
+// GET /api/consolidado/overview?codigoEmpresa=X&painel=FILIAL, mesmo
+// endpoint do Dashboard CRM/Executivo (pedido do usuário, 2026-08-25).
+// Margem/rentabilidade não reage ao filtro "Período" (sempre a janela
+// anual, real ou mock), assim como "Atualizado em". Por isso o valor
+// grande aqui segue a cor sólida `var(--color-primary)` pedida na SPEC,
+// não o gradiente rosa→roxo→azul usado no Dashboard CRM/Executivo/Gestor.
 export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotalCardProps) {
   const filtro = useFiltroPeriodoAgenciaStore((estado) => estado.filtro);
   const periodo = resolverPeriodoAgencia(filtro);
   const { margemAereo, margemTerrestre } = vendas;
 
-  const { volumePorPeriodo, atualizadoEm } = useMemo(() => {
-    const base = hashParaNumero(agenciaId);
-    return {
-      volumePorPeriodo: gerarVolumePorPeriodo(base, vendas.volumeTotalAno),
-      atualizadoEm: gerarAtualizadoEm(base),
-    };
-  }, [agenciaId, vendas.volumeTotalAno]);
+  const atualizadoEm = useMemo(() => gerarAtualizadoEm(hashParaNumero(agenciaId)), [agenciaId]);
 
-  const valorDoPeriodo = volumePorPeriodo[periodo].valor;
-
-  // Participação de cada canal no total anual (real, do adapter) —
-  // aplicada em cima do valor do período selecionado (mock, ver
-  // gerarVolumePorPeriodo) pra reagir ao filtro de período junto com o
-  // valor grande do card, mesmo padrão de ReceitaTotalCard do Executivo.
-  const participacaoAereoPct =
-    vendas.volumeTotalAno > 0
-      ? ((vendas.aereoNacional.volume + vendas.aereoInternacional.volume) / vendas.volumeTotalAno) *
-        100
-      : 0;
-  const volumeAereo = Math.round((valorDoPeriodo * participacaoAereoPct) / 100);
-  const volumeTerrestre = valorDoPeriodo - volumeAereo;
-  const bilhetesAereo =
-    vendas.ticketMedioAereo > 0 ? Math.round(volumeAereo / vendas.ticketMedioAereo) : 0;
-  const ticketMedioTerrestre =
-    vendas.terrestre.servicos > 0
-      ? Math.round(vendas.terrestre.volume / vendas.terrestre.servicos)
-      : 0;
-  const servicosTerrestre =
-    ticketMedioTerrestre > 0 ? Math.round(volumeTerrestre / ticketMedioTerrestre) : 0;
+  const periodoDados = vendas.porPeriodo[periodo];
+  const valorDoPeriodo = periodoDados.valor;
+  const volumeAereo = periodoDados.volumeAereo;
+  const volumeTerrestre = periodoDados.volumeTerrestre;
+  const bilhetesAereo = periodoDados.bilhetesAereo;
+  const servicosTerrestre = periodoDados.servicosTerrestre;
 
   const margemTotalPct = ponderar(
     volumeAereo,
@@ -149,7 +127,7 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
           volume={volumeAereo}
           quantidade={bilhetesAereo}
           unidade="bilhetes"
-          ticketMedio={vendas.ticketMedioAereo}
+          ticketMedio={periodoDados.ticketMedioAereo}
           nacPct={vendas.aereoNacional.pctAereo}
           intPct={vendas.aereoInternacional.pctAereo}
           margem={margemAereo}
@@ -161,7 +139,7 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
           volume={volumeTerrestre}
           quantidade={servicosTerrestre}
           unidade="serviços"
-          ticketMedio={ticketMedioTerrestre}
+          ticketMedio={periodoDados.ticketMedioTerrestre}
           nacPct={vendas.terrestre.nacPct}
           intPct={vendas.terrestre.intPct}
           margem={margemTerrestre}
