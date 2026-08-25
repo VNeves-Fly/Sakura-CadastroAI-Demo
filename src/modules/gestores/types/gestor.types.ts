@@ -3,6 +3,7 @@ import type { GestorNivel } from "@/modules/gestores/types/gestor-nivel.types";
 export interface GestorView {
   id: string;
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   temAcesso: boolean;
@@ -12,6 +13,7 @@ export interface GestorView {
 
 export interface GestorFormValues {
   nome: string;
+  sica: string;
   email: string;
   telefone: string;
   baseIds: string[];
@@ -26,6 +28,7 @@ export interface GestorFormValues {
 
 export interface GestorPayload {
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   baseIds: string[];

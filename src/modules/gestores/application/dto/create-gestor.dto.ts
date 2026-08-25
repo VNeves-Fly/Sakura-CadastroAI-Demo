@@ -1,5 +1,6 @@
 export interface CreateGestorInput {
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   baseIds: string[];
@@ -12,6 +13,7 @@ export interface CreateGestorInput {
 export interface GestorOutput {
   id: string;
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   userId: string | null;

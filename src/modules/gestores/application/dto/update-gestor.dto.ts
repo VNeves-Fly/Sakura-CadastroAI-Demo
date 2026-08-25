@@ -1,5 +1,6 @@
 export interface UpdateGestorInput {
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   baseIds: string[];

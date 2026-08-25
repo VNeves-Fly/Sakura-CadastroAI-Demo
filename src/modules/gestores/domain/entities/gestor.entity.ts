@@ -1,6 +1,7 @@
 export interface GestorProps {
   id: string;
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   userId: string | null;
@@ -22,6 +23,10 @@ export class Gestor {
 
   get nome(): string {
     return this.props.nome;
+  }
+
+  get sica(): number | null {
+    return this.props.sica;
   }
 
   get email(): string | null {
@@ -59,6 +64,7 @@ export class Gestor {
     return {
       id: this.props.id,
       nome: this.props.nome,
+      sica: this.props.sica,
       email: this.props.email,
       telefone: this.props.telefone,
       userId: this.props.userId,
