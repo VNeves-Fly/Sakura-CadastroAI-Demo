@@ -60,18 +60,20 @@ function labelEtapa(status: string): string {
   return "contrato";
 }
 
-function gerarTopCompanhias(base: number): TopCompanhiaAgencia[] {
-  const volumes = COMPANHIAS_AEREAS.map((nome, indice) => ({
-    nome,
-    volume: 10_000 + (hashParaNumero(`${base}-${nome}`) % ((10 - indice) * 40_000 + 5_000)),
-  }));
-  const valorTotal = volumes.reduce((acumulado, item) => acumulado + item.volume, 0);
-  return volumes
-    .map((item) => ({
-      ...item,
-      participacaoPct: valorTotal > 0 ? (item.volume / valorTotal) * 100 : 0,
-    }))
-    .sort((a, b) => b.volume - a.volume);
+// participacaoPct sobre `totalAereo` (volumeNacional + volumeInternacional
+// do bloco vendas, real ou mock) — mesmo critério do lado real (ver
+// buscarTopCompanhias em agencia-detalhe.sst-service.ts), não sobre a
+// soma dos volumes mockados aqui (que são hash independente, sem relação
+// com o total aéreo mockado em construirBlocoVendas).
+function gerarTopCompanhias(base: number, totalAereo: number): TopCompanhiaAgencia[] {
+  return COMPANHIAS_AEREAS.map((nome, indice) => {
+    const volume = 10_000 + (hashParaNumero(`${base}-${nome}`) % ((10 - indice) * 40_000 + 5_000));
+    return {
+      nome,
+      volume,
+      participacaoPct: totalAereo > 0 ? (volume / totalAereo) * 100 : 0,
+    };
+  }).sort((a, b) => b.volume - a.volume);
 }
 
 function gerarFaturas(base: number, quantidade: number): FaturaAgencia[] {
@@ -228,7 +230,9 @@ function construirBlocoVendas(
       ticketMedioAereo:
         vendasReais?.ticketMedioAereo ??
         (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0),
-      topCompanhias: vendasReais?.topCompanhias ?? gerarTopCompanhias(base),
+      topCompanhias:
+        vendasReais?.topCompanhias ??
+        gerarTopCompanhias(base, volumeNacional + volumeInternacional),
       faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
       margemAereo,
       margemTerrestre,
