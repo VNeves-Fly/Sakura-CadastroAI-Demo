@@ -67,7 +67,12 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     const filtradas = agencias.filter((agencia) => {
       if (statusTab === "ativas" && agencia.status !== "ativo") return false;
       if (statusTab === "inativas" && !agencia.reprovadaOuInativa) return false;
-      if (buscaCriticos && agencia.diasSemComprar <= 90) return false;
+      // `diasSemComprar === null` = nenhuma venda detectada em nenhum
+      // canal (nunca comprou) — o caso mais crítico de todos, por isso
+      // nunca é excluído aqui (tratado como "> 90", não como "0").
+      if (buscaCriticos && agencia.diasSemComprar !== null && agencia.diasSemComprar <= 90) {
+        return false;
+      }
       if (
         buscaLiteral &&
         !agencia.razaoSocial.toLowerCase().includes(buscaLiteral) &&

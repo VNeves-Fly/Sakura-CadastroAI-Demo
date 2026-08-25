@@ -4,13 +4,16 @@
 // agencia-carteira.sst-service.ts), não da tabela `Agencia` deste app
 // (funil de cadastro/onboarding — conceito diferente, decisão do usuário
 // 2026-08-21, mesmo critério já aplicado em executivo-agencias.types.ts).
-// Gestor/base são melhor esforço via Promotor.sica → Promotor.gestorId/
-// bases (única hierarquia Executivo→Gestor que existe, é local, não do
-// SST). Canal de vendas, bilhetes, ticket médio, vendas mês/ano e última
-// compra vêm do SST Service real quando a agência tem venda detectada;
-// caem em mock determinístico via hash como fallback, documentado no
-// adapter. Categoria/premiação e limite não têm fonte real hoje — seguem
-// mock, razão documentada no adapter.
+// `base` vem direto do SST (roster); gestor é melhor esforço via
+// Promotor.sica → Promotor.gestorId (única hierarquia Executivo→Gestor
+// que existe, é local, não do SST). Canal de vendas, bilhetes, ticket
+// médio, vendas mês/ano e última compra vêm do SST Service real quando a
+// agência tem venda detectada; ficam honestamente zerados/nulos (não
+// mock) quando não há venda detectada em nenhum canal — pedido do
+// usuário, 2026-08-25 (a listagem mostrava números inventados por hash,
+// indistinguíveis de venda real). Categoria/premiação e limite não têm
+// fonte real hoje — sempre null/0, nunca mock, razão documentada no
+// adapter.
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 export type CanalVendas = "aereo" | "terrestre" | "ambos";
 // SPEC_AGENCIAS_SAKURA (pixel, 2026-08-21) trocou as 3 abas antigas
@@ -30,16 +33,16 @@ export interface AgenciaCarteiraView {
   executivoId: string | null; // real — Promotor.id resolvido via Promotor.sica === codigoExecutivo
   executivoNome: string | null; // real (SST, ou Promotor.nome quando há match local)
   gestorNome: string | null; // real — via Promotor.gestorId, só quando há match local
-  base: string | null; // melhor esforço — primeira base do executivo, só quando há match local
+  base: string | null; // real — sigla do SST (roster), fallback pra Promotor.bases[0] local
   regiao: string | null; // real — derivada de Base.uf (ver regiao-por-uf.util.ts)
-  categoria: CategoriaPremiacao | null; // mock — sem fonte real de faixa de premiação no SST
-  canal: CanalVendas; // real (SST, resumo-agrupado aéreo+terrestre) — mock se sem venda detectada
-  bilhetes: number; // real (SST) — mock se sem venda detectada
-  ticketMedio: number; // real (SST) — mock se sem venda detectada
-  vendasMes: number; // real (SST) — mock se sem venda detectada
-  vendasAno: number; // real (SST) — mock se sem venda detectada
-  diasSemComprar: number; // real (SST, data_ultima_venda) — mock se sem venda detectada
-  limite: number; // mock — SICA só espelha limite de crédito de fatura, não limite de compra
+  categoria: CategoriaPremiacao | null; // sem fonte real de faixa de premiação no SST — sempre null
+  canal: CanalVendas | null; // real (SST, resumo-agrupado aéreo+terrestre) — null se sem venda detectada
+  bilhetes: number; // real (SST) — 0 se sem venda detectada
+  ticketMedio: number; // real (SST) — 0 se sem venda detectada
+  vendasMes: number; // real (SST) — 0 se sem venda detectada
+  vendasAno: number; // real (SST) — 0 se sem venda detectada
+  diasSemComprar: number | null; // real (SST, data_ultima_venda) — null se nenhuma venda detectada
+  limite: number; // sem fonte real — SICA só espelha limite de crédito de fatura, não limite de compra; sempre 0
   sica: string | null; // real — mesmo código de codigoEmpresa, formatado como no SICA
 }
 
