@@ -9,13 +9,10 @@ const COLS =
   "minmax(0,2.1fr) minmax(0,1.05fr) minmax(0,0.78fr) minmax(0,0.78fr) minmax(0,0.9fr) minmax(190px,1.4fr)";
 
 // Nome da agência linka pra página própria da agência (/crm/agencias/[id],
-// mesmo padrão de Executivo/Gestor/listagem de Agências, pedido do
-// usuário, 2026-08-21) — mas as 12 linhas desta tela são 100%
-// mock/fictícias (id, nome e CNPJ inventados pela SPEC, sem registro real
-// no banco), então o link vai cair num "página não encontrada" pra
-// qualquer linha. A ligação já fica pronta pro dia em que esta lista vier
-// de agências reais (ver novas-agencias.mock-service.ts), sem precisar
-// tocar aqui de novo.
+// mesmo padrão de Executivo/Gestor/listagem de Agências). `agencia.id` é
+// o cuid real da `Agencia` local (não o código SICA) — cai no caminho
+// "local" de /crm/agencias/[id] (ver docs/crm-agencias-backend.md §3.1),
+// não no caminho SST.
 export function ListaAgenciasTabela({ agencias }: { agencias: AgenciaNovaLinha[] }) {
   return (
     <div style={{ minWidth: 1020 }}>

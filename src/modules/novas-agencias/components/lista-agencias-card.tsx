@@ -6,13 +6,12 @@ import type { AgenciaNovaLinha } from "@/modules/novas-agencias/types/novas-agen
 
 interface ListaAgenciasCardProps {
   agencias: AgenciaNovaLinha[]; // já filtradas
-  totalAgencias: number; // 28 — total da base, não do array acima
+  totalAgencias: number; // total da base (agencias.length não filtrado, ver novas-agencias-view.tsx)
   filtro: "nunca" | "comprando" | null;
   onLimparFiltro: () => void;
   // Levantado pro componente pai (não é state local, como nos outros
   // toggles do módulo): o filtro por KPI do funil precisa forçar
-  // `aberta = true` ao selecionar (SPEC 10.2), então quem manda no
-  // estado é a View.
+  // `aberta = true` ao selecionar, então quem manda no estado é a View.
   aberta: boolean;
   onToggleAberta: () => void;
 }

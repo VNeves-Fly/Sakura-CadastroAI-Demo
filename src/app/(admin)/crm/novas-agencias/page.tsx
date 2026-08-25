@@ -9,10 +9,6 @@ import { NovasAgenciasView } from "@/modules/novas-agencias/views/novas-agencias
 // direto pela URL).
 const CARGOS_COM_ACESSO = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 
-// Reprodução 1:1 (só front-end) da tela "Análise de Novas Agências" —
-// SPEC recebida do usuário (2026-08-18), sem nenhuma lógica de backend
-// real: todo o dado vem de novas-agencias.mock-service.ts (arrays em
-// memória). Sidebar/header reais deste projeto, não os da SPEC.
 export default async function NovasAgenciasPage() {
   const session = await getServerSession(nextAuthOptions);
   if (!session || !CARGOS_COM_ACESSO.has(session.user.cargo)) {
@@ -20,6 +16,16 @@ export default async function NovasAgenciasPage() {
   }
 
   const dados = await novasAgenciasController.obterNovasAgencias();
+  // Calculado no servidor (não no client component) pra não dar mismatch
+  // de hidratação — é só "quando esta página foi carregada", não um dado
+  // de sincronização real (não existe cron por trás desta tela).
+  const carregadoEm = new Date().toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  return <NovasAgenciasView dados={dados} />;
+  return <NovasAgenciasView dados={dados} carregadoEm={carregadoEm} />;
 }

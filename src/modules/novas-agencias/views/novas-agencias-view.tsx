@@ -10,21 +10,21 @@ import type { NovasAgenciasData } from "@/modules/novas-agencias/types/novas-age
 
 interface NovasAgenciasViewProps {
   dados: NovasAgenciasData;
+  // Pré-formatado pela Server Component (page.tsx) — evita mismatch de
+  // hidratação de usar `new Date()` direto num client component.
+  carregadoEm: string;
 }
 
 type FiltroKpi = "nunca" | "comprando" | null;
 
-// View única desta página — 100% client, estado local (SPEC seção 10:
-// listaAberta/filtro/periodoAberto). Reproduz só a camada visual da SPEC
-// recebida em 2026-08-21 (substitui a versão anterior de 2026-08-18 — ver
-// services/novas-agencias.mock-service.ts pra origem dos dados).
-export function NovasAgenciasView({ dados }: NovasAgenciasViewProps) {
+// View única desta página — 100% client, estado local (listaAberta/filtro).
+export function NovasAgenciasView({ dados, carregadoEm }: NovasAgenciasViewProps) {
   const [filtro, setFiltro] = useState<FiltroKpi>(null);
   const [listaAberta, setListaAberta] = useState(true);
 
   const agenciasFiltradas =
     filtro === "nunca"
-      ? dados.agencias.filter((a) => a.situacao === "nunca" || a.situacao === "logou")
+      ? dados.agencias.filter((a) => a.situacao === "nunca")
       : filtro === "comprando"
         ? dados.agencias.filter((a) => a.situacao === "comprando")
         : dados.agencias;
@@ -44,22 +44,14 @@ export function NovasAgenciasView({ dados }: NovasAgenciasViewProps) {
             Análise de Novas Agências
           </h1>
           <p className="max-w-[62ch] text-sm text-[#6B6B85]">
-            Ativação, primeiro acesso e primeira compra das agências aprovadas nos últimos 90 dias.
+            Ativação e primeira compra das agências aprovadas nos últimos 90 dias.
           </p>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-[#8888AA]">
-            <span className="bg-primary inline-block size-1.5 rounded-full" />
-            <span>{dados.sincronizacao.ultimaEm}</span>
-            <span>·</span>
-            <span>{dados.sincronizacao.distancia}</span>
-            <span>·</span>
-            <span>próx. {dados.sincronizacao.proximaEm}</span>
-          </div>
         </div>
 
         <div className="flex flex-col items-end gap-3">
           <div className="flex items-center gap-1.5 text-xs text-[#8888AA]">
             <Eye className="size-3.5" strokeWidth={2} />
-            <span>21/08/2026, 11:32</span>
+            <span>{carregadoEm}</span>
           </div>
           <FiltroPeriodoDashboardPopover />
         </div>
@@ -74,7 +66,7 @@ export function NovasAgenciasView({ dados }: NovasAgenciasViewProps) {
 
       <ListaAgenciasCard
         agencias={agenciasFiltradas}
-        totalAgencias={dados.totalAgencias}
+        totalAgencias={dados.agencias.length}
         filtro={filtro}
         onLimparFiltro={() => setFiltro(null)}
         aberta={listaAberta}

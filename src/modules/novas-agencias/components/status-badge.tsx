@@ -8,14 +8,9 @@ import type {
 // (mesmo padrão de cor dinâmica já usado no projeto, ex. kpi-card.tsx).
 const CONFIG: Record<SituacaoAgenciaNova, SituacaoConfig> = {
   nunca: {
-    label: "Nunca comprou (sem login)",
+    label: "Nunca comprou",
     bg: "rgba(239,68,68,0.10)",
     cor: "#DC2626",
-  },
-  logou: {
-    label: "Logou, nunca comprou",
-    bg: "rgba(245,158,11,0.12)",
-    cor: "#B45309",
   },
   comprando: {
     label: "Comprando (90d)",

@@ -18,6 +18,12 @@ interface FunilAtivacaoCardProps {
 // botões de seta nas colunas 2/3 fazem toggle do filtro que dirige a
 // "Lista de agências" abaixo (mesmo estado, ver novas-agencias-view.tsx).
 export function FunilAtivacaoCard({ funil, filtro, onFiltrar }: FunilAtivacaoCardProps) {
+  // Derivado dos KPIs reais (não literal) — evita a barra dessincronizar
+  // dos números/percentuais exibidos ao lado quando o dado deixa de ser mock.
+  const totalBarra = funil.comprando + funil.nuncaCompraram;
+  const pctComprando = totalBarra > 0 ? (funil.comprando / totalBarra) * 100 : 0;
+  const pctNuncaCompraram = totalBarra > 0 ? 100 - pctComprando : 0;
+
   return (
     <div className="flex flex-col gap-[18px] rounded-2xl border border-[#ECECF4] bg-white p-[22px_24px] shadow-[0_1px_2px_rgba(20,20,50,0.04)]">
       <div className="flex items-baseline justify-between gap-4">
@@ -60,10 +66,13 @@ export function FunilAtivacaoCard({ funil, filtro, onFiltrar }: FunilAtivacaoCar
 
       <div className="flex flex-col gap-2">
         <div className="flex h-2.5 overflow-hidden rounded-full bg-[#F2F2F8]">
-          <span className="block h-full" style={{ width: "21.3%", background: "#10B981" }} />
           <span
             className="block h-full"
-            style={{ width: "78.7%", background: "rgba(239,68,68,0.35)" }}
+            style={{ width: `${pctComprando}%`, background: "#10B981" }}
+          />
+          <span
+            className="block h-full"
+            style={{ width: `${pctNuncaCompraram}%`, background: "rgba(239,68,68,0.35)" }}
           />
         </div>
         <div className="flex justify-between text-[11px] text-[#8888AA]">
