@@ -8,6 +8,8 @@
 // (não existe limite de crédito modelado no domínio) e segue mock
 // determinístico, documentado no adapter.
 
+import type { PeriodoVolumeAgencia } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
+
 export type CategoriaPremiacao = "10K" | "100K" | "1M" | "10M";
 
 export interface AgenciaDetalheEmpresa {
@@ -161,6 +163,24 @@ export interface CanalMargem {
   rentabLYVariacaoPct: number;
 }
 
+// Card "Volume total" por período (📅 dia/ontem/mês/ano, mesmo filtro do
+// Dashboard CRM/Executivo) — dia/ontem/mês real via GET
+// /api/consolidado/overview?codigoEmpresa=X&painel=FILIAL (ver
+// agencia-detalhe.sst-service.ts) quando a agência tem sicaCodigo e a
+// integração está ligada; mock determinístico por hash como fallback
+// (pedido do usuário, 2026-08-25). "Ano" reaproveita volumeTotalAno/
+// aereoNacional/aereoInternacional/terrestre acima (mesma fonte, sem
+// dado divergente).
+export interface VolumeCanalPeriodoAgencia {
+  valor: number;
+  volumeAereo: number;
+  volumeTerrestre: number;
+  bilhetesAereo: number;
+  ticketMedioAereo: number;
+  servicosTerrestre: number;
+  ticketMedioTerrestre: number;
+}
+
 // vendas: real (SST, ver agencia-detalhe.sst-service.ts) quando a
 // agência tem sicaCodigo e a integração está ligada — mock por hash
 // como fallback (sem sicaCodigo, sem venda detectada, ou integração
@@ -179,6 +199,7 @@ export interface AgenciaDetalheVendas {
   faturas: FaturaAgencia[];
   margemAereo: CanalMargem;
   margemTerrestre: CanalMargem;
+  porPeriodo: Record<PeriodoVolumeAgencia, VolumeCanalPeriodoAgencia>;
 }
 
 export interface AgenciaDetalheView {

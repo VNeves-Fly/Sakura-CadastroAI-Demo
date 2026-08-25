@@ -466,6 +466,86 @@ async function buscarTopCompanhias(
   );
 }
 
+// Overview do card "Volume total" (aba Dashboard) — dia/ontem/mês real via
+// GET /api/consolidado/overview?codigoEmpresa=X&painel=FILIAL, mesmo
+// endpoint/parâmetros já usados em dashboard-vendas.sst-service.ts e
+// executivo-dashboard.sst-service.ts (aqui o filtro é `codigoEmpresa`, não
+// `codigoExecutivo`) — pedido do usuário, 2026-08-25: esses 3 períodos
+// substituem a repartição mock por hash que existia antes no card
+// (gerarVolumePorPeriodo). "Ano" continua fora daqui: usa o total anual
+// (365d) já calculado em obterVendas via buscarAir/buscarNonAir, mesma
+// fonte que já alimenta aereoNacional/aereoInternacional/terrestre deste
+// service — evita ter dois números "ano" divergentes na mesma página
+// (overview.ano é ano-calendário, diferente da janela rolante de 365d).
+interface RawPeriodoOverview {
+  tarifa: number;
+  tickets: number;
+  ticket_medio: number;
+}
+interface RawCanalOverview {
+  dia: RawPeriodoOverview;
+  mes: RawPeriodoOverview;
+}
+interface RawOverviewResponse {
+  filial: {
+    total: RawCanalOverview;
+    aereo: RawCanalOverview;
+    terrestre: RawCanalOverview;
+  };
+}
+
+const ZERO_PERIODO_OVERVIEW: RawPeriodoOverview = { tarifa: 0, tickets: 0, ticket_medio: 0 };
+const ZERO_OVERVIEW: RawOverviewResponse = {
+  filial: {
+    total: { dia: ZERO_PERIODO_OVERVIEW, mes: ZERO_PERIODO_OVERVIEW },
+    aereo: { dia: ZERO_PERIODO_OVERVIEW, mes: ZERO_PERIODO_OVERVIEW },
+    terrestre: { dia: ZERO_PERIODO_OVERVIEW, mes: ZERO_PERIODO_OVERVIEW },
+  },
+};
+
+async function buscarOverview(data: string, codigoEmpresa: string): Promise<RawOverviewResponse> {
+  return comCache(`agencias-crm:detalhe:${codigoEmpresa}:overview:${data}`, () =>
+    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+      codigoEmpresa,
+      data,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    }),
+  );
+}
+
+export interface VolumeCanalPeriodoSst {
+  valor: number;
+  volumeAereo: number;
+  volumeTerrestre: number;
+  bilhetesAereo: number;
+  ticketMedioAereo: number;
+  servicosTerrestre: number;
+  ticketMedioTerrestre: number;
+}
+
+export interface VendasPorPeriodoSst {
+  dia: VolumeCanalPeriodoSst;
+  ontem: VolumeCanalPeriodoSst;
+  mes: VolumeCanalPeriodoSst;
+}
+
+function paraPeriodoOverview(
+  total: RawPeriodoOverview,
+  aereo: RawPeriodoOverview,
+  terrestre: RawPeriodoOverview,
+): VolumeCanalPeriodoSst {
+  return {
+    valor: Math.round(total.tarifa),
+    volumeAereo: Math.round(aereo.tarifa),
+    volumeTerrestre: Math.round(terrestre.tarifa),
+    bilhetesAereo: aereo.tickets,
+    ticketMedioAereo: Math.round(aereo.ticket_medio),
+    servicosTerrestre: terrestre.tickets,
+    ticketMedioTerrestre: Math.round(terrestre.ticket_medio),
+  };
+}
+
 interface RawFatura {
   numero_fatura: number;
   tipo_fatura: "AIR" | "TER";
@@ -598,6 +678,7 @@ export interface VendasReaisSst {
   margemAereo: CanalMargemSst;
   margemTerrestre: CanalMargemSst;
   terrestreNacInt: { nacPct: number; intPct: number };
+  porPeriodo: VendasPorPeriodoSst;
 }
 
 export const agenciaDetalheSstService = {
@@ -638,6 +719,8 @@ export const agenciaDetalheSstService = {
       reservasInfo,
       aereoLY,
       terrestreLY,
+      overviewHoje,
+      overviewOntem,
     ] = await Promise.all([
       comFallback("aereo-nacional", buscarAir(sicaCodigo, inicioAno, fim, "NAC"), ZERO_PERIODO),
       comFallback(
@@ -674,7 +757,27 @@ export const agenciaDetalheSstService = {
         buscarNonAir(sicaCodigo, inicioAnoLY, fimAnoLY),
         ZERO_PERIODO,
       ),
+      comFallback("overview-hoje", buscarOverview(fim, sicaCodigo), ZERO_OVERVIEW),
+      comFallback("overview-ontem", buscarOverview(diasAtrasIso(1), sicaCodigo), ZERO_OVERVIEW),
     ]);
+
+    const porPeriodo: VendasPorPeriodoSst = {
+      dia: paraPeriodoOverview(
+        overviewHoje.filial.total.dia,
+        overviewHoje.filial.aereo.dia,
+        overviewHoje.filial.terrestre.dia,
+      ),
+      ontem: paraPeriodoOverview(
+        overviewOntem.filial.total.dia,
+        overviewOntem.filial.aereo.dia,
+        overviewOntem.filial.terrestre.dia,
+      ),
+      mes: paraPeriodoOverview(
+        overviewHoje.filial.total.mes,
+        overviewHoje.filial.aereo.mes,
+        overviewHoje.filial.terrestre.mes,
+      ),
+    };
 
     const bilhetesAereoAno = aereoNac.tickets + aereoInter.tickets;
     const proporcaoNacional = bilhetesAereoAno > 0 ? aereoNac.tickets / bilhetesAereoAno : 1;
@@ -750,6 +853,7 @@ export const agenciaDetalheSstService = {
       margemAereo,
       margemTerrestre,
       terrestreNacInt,
+      porPeriodo,
     };
   },
 };
