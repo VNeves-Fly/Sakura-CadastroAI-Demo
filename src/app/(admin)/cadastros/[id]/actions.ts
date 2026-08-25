@@ -127,6 +127,23 @@ export async function obterLinkAssinaturaAction(agenciaId: string, email: string
   return cadastroAdminController.obterLinkAssinatura({ agenciaId, email });
 }
 
+// Botão "Reenviar link de biometria" — diferente de obterLinkAssinaturaAction,
+// isto MUTA (gera sessão nova na Legitimuz, upsert em BiometriaVerificacao,
+// tenta mandar e-mail), então passa por garantirAtendimentoAssumido como as
+// outras actions que mudam estado.
+export async function reenviarLinkBiometriaAction(agenciaId: string, email: string) {
+  if (!(await garantirAtendimentoAssumido(agenciaId))) {
+    return { ok: false as const, motivo: "Assuma o atendimento desta agência antes de agir." };
+  }
+  const resultado = await cadastroAdminController.reenviarLinkBiometria({
+    agenciaId,
+    email,
+    baseUrl: obterUrlBase(headers()),
+  });
+  revalidatePath(`/cadastros/${agenciaId}`);
+  return resultado;
+}
+
 export async function marcarContratoAssinadoAction(id: string) {
   if (!(await garantirAtendimentoAssumido(id))) return;
   await cadastroAdminController.marcarContratoAssinado(id, await analistaLogado());

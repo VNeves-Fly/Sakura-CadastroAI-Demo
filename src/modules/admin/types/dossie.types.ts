@@ -1,4 +1,4 @@
-import type { StatusDocumento } from "@/modules/cadastro/domain/enums";
+import type { StatusDocumento, StatusBiometriaVerificacao } from "@/modules/cadastro/domain/enums";
 import type { AnaliseIaComparacaoCampo } from "@/modules/cadastro/domain/services/document-analysis-service";
 import type {
   AnaliseIaAmat,
@@ -117,6 +117,12 @@ export interface SignatarioFila {
   // ou sync manual registrar esse destinatário (ver ContratoAssinatura).
   // Habilita o botão "Ver/copiar link" (ObterLinkAssinaturaUseCase).
   keySigner: string | null;
+  // Status da verificação de biometria facial (Legitimuz) — sempre null
+  // pra grupo "Sakura" (só sócio passa por biometria) e pra "Agência"
+  // quando a agência não tem gateBiometriaAtivo, ou quando o sócio ainda
+  // não tem nenhuma BiometriaVerificacao registrada (nunca tentado, ou a
+  // tentativa falhou antes de persistir — ver botão "Reenviar link").
+  biometriaStatus: StatusBiometriaVerificacao | null;
 }
 
 // AMAT/SOFIA reais (ver ConsultaAmatCard/ConsultaSofiaCard), lidos do

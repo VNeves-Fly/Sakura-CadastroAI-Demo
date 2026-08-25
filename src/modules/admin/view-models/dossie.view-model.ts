@@ -53,6 +53,7 @@ export async function obterDossieView(id: string) {
     emailsFalhaEntrega,
     assinaturasContrato,
     signatariosPadraoAtivos,
+    biometriaVerificacoes,
     analiseContratoSocialRaw,
     analisesSociosRaw,
     dadosReceita,
@@ -75,6 +76,13 @@ export async function obterDossieView(id: string) {
       ? cadastroAdminController.listarAssinaturasContrato(contratoAtual.id)
       : Promise.resolve([]),
     contratoAtual ? cadastroAdminController.listarSignatariosPadraoAtivos() : Promise.resolve([]),
+    // Status por sócio da verificação de biometria (Legitimuz) — só
+    // relevante quando a agência tem gateBiometriaAtivo, mas buscar
+    // sempre é mais simples que condicionar (lista vazia quando não há
+    // linha nenhuma, ver docs/legitimuz/).
+    contratoAtual
+      ? cadastroAdminController.listarBiometriaVerificacoes(contratoAtual.id)
+      : Promise.resolve([]),
     contratoSocial
       ? cadastroAdminController.obterAnaliseDocumento(contratoSocial.id)
       : Promise.resolve(null),
@@ -114,6 +122,15 @@ export async function obterDossieView(id: string) {
     cadastroAdminController.listarObservacoes(agencia.id),
   ]);
   const emailsNaoEntregues = new Set(emailsFalhaEntrega.map((falha) => falha.email));
+  // Normalizado (trim+lowercase) porque BiometriaVerificacao.email vem de
+  // input digitado pelo sócio na página pública — mesmo cuidado de
+  // ObterLinkAssinaturaUseCase pro e-mail de assinatura.
+  const biometriaStatusPorEmail = new Map(
+    biometriaVerificacoes.map((verificacao) => [
+      verificacao.email.trim().toLowerCase(),
+      verificacao.status,
+    ]),
+  );
   // `keySigner` também vem daqui — precisa pro botão "Ver/copiar link" na
   // Fila de Assinatura (ver ObterLinkAssinaturaUseCase).
   const assinaturasPorEmail = new Map(
@@ -196,6 +213,7 @@ export async function obterDossieView(id: string) {
     contratoAtual?.status ?? null,
     emailsNaoEntregues,
     assinaturasPorEmail,
+    biometriaStatusPorEmail,
   );
 
   return {

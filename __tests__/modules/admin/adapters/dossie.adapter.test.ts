@@ -60,6 +60,7 @@ describe("montarFilaAssinatura", () => {
       null,
       new Set(),
       new Map(),
+      new Map(),
     );
 
     expect(fila.map((s) => s.nome)).toEqual(["Fulano de Tal", "Assina Padrao", "Assina Explicito"]);
@@ -88,7 +89,7 @@ describe("montarFilaAssinatura", () => {
     const jean = signatarioPadraoFake({ id: "jean", nome: "Jean", estagio: 1, ordem: 99 });
     const vivi = signatarioPadraoFake({ id: "vivi", nome: "Vivi", estagio: 2, ordem: 1 });
 
-    const fila = montarFilaAssinatura([], [vivi, jean], null, new Set(), new Map());
+    const fila = montarFilaAssinatura([], [vivi, jean], null, new Set(), new Map(), new Map());
 
     expect(fila.map((s) => s.nome)).toEqual(["Jean", "Vivi"]);
   });
@@ -106,6 +107,7 @@ describe("montarFilaAssinatura", () => {
         ["socio@example.com", { assinadoEm: null, keySigner: "a2V5LXNvY2lv" }],
         ["cadastro@sakuratur.com.br", { assinadoEm: new Date(), keySigner: "a2V5LWplYW4=" }],
       ]),
+      new Map(),
     );
 
     expect(fila.find((s) => s.id === socio.id)?.keySigner).toBe("a2V5LXNvY2lv");
