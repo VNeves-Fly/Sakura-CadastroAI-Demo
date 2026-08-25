@@ -17,6 +17,11 @@ type Status =
 // precisaria ficar recarregando a página manualmente até o resultado sair.
 const INTERVALO_POLL_MS = 15_000;
 
+// Sócio que já tinha aprovado a biometria (abriu o link de novo, ou é o
+// resultado de um poll) não precisa clicar em nada — encaminha direto pro
+// D4Sign depois de um respiro curto pra dar tempo de ler "aprovada!".
+const REDIRECT_ASSINATURA_MS = 5_000;
+
 export function ConfirmarBiometriaForm({ token }: { token: string }) {
   const [cpf, setCpf] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -79,17 +84,37 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
     return () => clearInterval(intervalo);
   }, [status, token]);
 
+  // Redireciona sozinho pro D4Sign assim que o link de assinatura sai —
+  // cobre tanto quem chegou aqui e já tinha aprovado (poll trouxe o link
+  // na primeira consulta) quanto quem está vendo a aprovação acontecer ao
+  // vivo. O botão abaixo continua disponível pra quem não quiser esperar.
+  useEffect(() => {
+    if (status.kind !== "confirmado" || status.status !== "aprovado" || !status.linkAssinatura) {
+      return;
+    }
+    const link = status.linkAssinatura;
+    const timeout = setTimeout(() => {
+      window.location.href = link;
+    }, REDIRECT_ASSINATURA_MS);
+    return () => clearTimeout(timeout);
+  }, [status]);
+
   if (status.kind === "confirmado" && status.status === "aprovado") {
     return (
       <div className="mt-6 flex flex-col items-center gap-3 text-center">
         <p className="text-success text-sm font-medium">✓ Biometria aprovada!</p>
         {status.linkAssinatura ? (
-          <a
-            href={status.linkAssinatura}
-            className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-6 py-2.5 text-sm font-semibold transition"
-          >
-            Assinar contrato
-          </a>
+          <>
+            <p className="text-muted-foreground text-sm">
+              Encaminhando você pra assinatura do contrato...
+            </p>
+            <a
+              href={status.linkAssinatura}
+              className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-6 py-2.5 text-sm font-semibold transition"
+            >
+              Assinar contrato agora
+            </a>
+          </>
         ) : (
           <p className="text-muted-foreground text-sm">
             Estamos preparando seu link de assinatura — esta página atualiza sozinha assim que ficar
