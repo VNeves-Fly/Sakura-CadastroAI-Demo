@@ -30,6 +30,10 @@ import { LegitimuzAdapter } from "@/modules/cadastro/infrastructure/adapters/leg
 import { MockLegitimuzService } from "@/modules/cadastro/infrastructure/adapters/mock-legitimuz.adapter";
 import { PrismaBiometriaVerificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-biometria-verificacao.repository";
 import { IniciarVerificacaoBiometricaUseCase } from "@/modules/cadastro/application/use-cases/iniciar-verificacao-biometrica.use-case";
+import {
+  ReenviarLinkBiometriaUseCase,
+  type ReenviarLinkBiometriaInput,
+} from "@/modules/cadastro/application/use-cases/reenviar-link-biometria.use-case";
 import { DefinirGateBiometriaUseCase } from "@/modules/cadastro/application/use-cases/definir-gate-biometria.use-case";
 import { LocalFileStorage } from "@/modules/cadastro/infrastructure/adapters/local-file-storage.adapter";
 import { GcsFileStorage } from "@/modules/cadastro/infrastructure/adapters/gcs-file-storage.adapter";
@@ -631,6 +635,27 @@ export const cadastroAdminController = {
       agenciaRepository,
       contratoAssinaturaRepository,
       contratoAssinaturaService,
+    );
+    return useCase.execute(input);
+  },
+
+  // Status de biometria por sócio (badge na Fila de Assinatura) — ver
+  // BiometriaVerificacaoRepository.findByContratoId.
+  listarBiometriaVerificacoes(contratoId: string) {
+    return biometriaVerificacaoRepository.findByContratoId(contratoId);
+  },
+
+  // Botão "Reenviar link de biometria" na Fila de Assinatura — ver
+  // ReenviarLinkBiometriaUseCase.
+  reenviarLinkBiometria(input: ReenviarLinkBiometriaInput) {
+    const iniciarVerificacaoBiometricaUseCase = new IniciarVerificacaoBiometricaUseCase(
+      biometriaVerificacaoService,
+      biometriaVerificacaoRepository,
+      emailSender,
+    );
+    const useCase = new ReenviarLinkBiometriaUseCase(
+      agenciaRepository,
+      iniciarVerificacaoBiometricaUseCase,
     );
     return useCase.execute(input);
   },

@@ -1,5 +1,5 @@
 import type { Documento } from "@/modules/cadastro/domain/entities/documento.entity";
-import type { TipoDocumento } from "@/modules/cadastro/domain/enums";
+import type { TipoDocumento, StatusBiometriaVerificacao } from "@/modules/cadastro/domain/enums";
 import type { AnaliseIaDocumento } from "@/modules/cadastro/domain/entities/analise-ia-documento.entity";
 import type { SignatarioPadrao } from "@/modules/cadastro/domain/entities/signatario-padrao.entity";
 import type { UsuarioMaster } from "@/modules/cadastro/domain/entities/usuario-master.entity";
@@ -280,6 +280,7 @@ export function montarFilaAssinatura(
   statusContrato: string | null,
   emailsNaoEntregues: Set<string>,
   assinaturasPorEmail: Map<string, { assinadoEm: Date | null; keySigner: string | null }>,
+  biometriaStatusPorEmail: Map<string, StatusBiometriaVerificacao>,
 ): SignatarioFila[] {
   const socioAssinadoInferido =
     statusContrato === CONTRATO_STATUS_ASSINADO_AGENCIA ||
@@ -302,6 +303,7 @@ export function montarFilaAssinatura(
         assinadoEm: registro?.assinadoEm ?? null,
         emailNaoEntregue: emailsNaoEntregues.has(socio.email),
         keySigner: registro?.keySigner ?? null,
+        biometriaStatus: biometriaStatusPorEmail.get(socio.email.trim().toLowerCase()) ?? null,
       };
     });
 
@@ -328,6 +330,8 @@ export function montarFilaAssinatura(
         assinadoEm: registro?.assinadoEm ?? null,
         emailNaoEntregue: signatario.email ? emailsNaoEntregues.has(signatario.email) : false,
         keySigner: registro?.keySigner ?? null,
+        // Só sócio passa por biometria — signatário fixo da Sakura nunca.
+        biometriaStatus: null,
       };
     });
 

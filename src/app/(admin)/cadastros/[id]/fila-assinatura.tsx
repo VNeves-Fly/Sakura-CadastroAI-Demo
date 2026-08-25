@@ -3,7 +3,8 @@ import type { SignatarioFila } from "@/modules/admin/types/dossie.types";
 import { SecaoColapsavel } from "@/modules/admin/components/secao-colapsavel";
 import { formatarData } from "@/modules/admin/utils/dossie-campos.util";
 import { LinkAssinaturaButton } from "./link-assinatura-button";
-import { obterLinkAssinaturaAction } from "./actions";
+import { LinkBiometriaButton } from "./link-biometria-button";
+import { obterLinkAssinaturaAction, reenviarLinkBiometriaAction } from "./actions";
 
 // D4Sign avisou (webhook type_post=2) que o convite pra assinar nunca
 // chegou nesse e-mail — sem isso, o signatário fica esperando pra sempre
@@ -60,7 +61,15 @@ function BadgeStatusSignatario({
 // Fila numerada de quem precisa assinar o contrato (sócios da agência +
 // signatários fixos da Sakura) — ver montarFilaAssinatura no
 // dossie.adapter.ts pra origem de cada campo.
-export function FilaAssinatura({ fila, agenciaId }: { fila: SignatarioFila[]; agenciaId: string }) {
+export function FilaAssinatura({
+  fila,
+  agenciaId,
+  gateBiometriaAtivo,
+}: {
+  fila: SignatarioFila[];
+  agenciaId: string;
+  gateBiometriaAtivo: boolean;
+}) {
   const totalAssinados = fila.filter((item) => item.assinado).length;
 
   return (
@@ -97,6 +106,14 @@ export function FilaAssinatura({ fila, agenciaId }: { fila: SignatarioFila[]; ag
                   agenciaId={agenciaId}
                   email={item.email}
                   obterLinkAssinaturaAction={obterLinkAssinaturaAction}
+                />
+              ) : null}
+              {item.email && item.grupo === "Agência" && gateBiometriaAtivo ? (
+                <LinkBiometriaButton
+                  agenciaId={agenciaId}
+                  email={item.email}
+                  biometriaStatus={item.biometriaStatus}
+                  reenviarLinkBiometriaAction={reenviarLinkBiometriaAction}
                 />
               ) : null}
             </div>

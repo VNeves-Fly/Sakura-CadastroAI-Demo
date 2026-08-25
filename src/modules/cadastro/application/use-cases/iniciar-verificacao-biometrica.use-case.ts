@@ -18,6 +18,10 @@ export interface IniciarVerificacaoBiometricaInput {
   disparo: DisparoEmail;
 }
 
+export interface IniciarVerificacaoBiometricaResult {
+  link: string;
+}
+
 const DIAS_EXPIRACAO_TOKEN = 7;
 
 // Gera o token de acesso (opaco, não reaproveita nenhum id existente —
@@ -26,11 +30,16 @@ const DIAS_EXPIRACAO_TOKEN = 7;
 // docs/legitimuz/), inicia a verificação na Legitimuz (flow kyc-faceindex)
 // e manda o e-mail com o link pro sócio. Chamado por
 // assinatura-socios.util.ts (logo após gerarEEnviar, um por sócio), pelo
-// botão manual "Reenviar link de biometria" e pelo cron de lembrete diário
-// — nos três casos, best-effort no nível do CALLER (aqui pode lançar).
+// botão manual "Reenviar link de biometria" (ver ReenviarLinkBiometriaUseCase)
+// e pelo cron de lembrete diário — nos três casos, best-effort no nível do
+// CALLER pra chamada da Legitimuz/persistência (aqui pode lançar). O
+// envio do e-mail em si é best-effort AQUI DENTRO (try/catch próprio):
+// se a Legitimuz respondeu com sucesso, o link já é válido e deve ser
+// retornado/mostrável mesmo que o e-mail falhe (ex.: botão "Reenviar link"
+// no dossiê quer o link na tela independente do SMTP estar no ar).
 export class IniciarVerificacaoBiometricaUseCase implements UseCase<
   IniciarVerificacaoBiometricaInput,
-  void
+  IniciarVerificacaoBiometricaResult
 > {
   constructor(
     private readonly biometriaVerificacaoService: BiometriaVerificacaoService,
@@ -38,7 +47,9 @@ export class IniciarVerificacaoBiometricaUseCase implements UseCase<
     private readonly emailSender: EmailSender,
   ) {}
 
-  async execute(input: IniciarVerificacaoBiometricaInput): Promise<void> {
+  async execute(
+    input: IniciarVerificacaoBiometricaInput,
+  ): Promise<IniciarVerificacaoBiometricaResult> {
     const token = randomBytes(32).toString("hex");
     const redirectUrl = `${input.baseUrl}/cadastro/biometria/${token}`;
     const expiraEm = new Date(Date.now() + DIAS_EXPIRACAO_TOKEN * 24 * 60 * 60 * 1000);
@@ -62,25 +73,33 @@ export class IniciarVerificacaoBiometricaUseCase implements UseCase<
       expiraEm,
     });
 
-    await this.emailSender.send({
-      to: input.email,
-      subject: "Verificação de biometria facial — Cadastro Sakura",
-      meta: {
-        origem: "biometria-verificacao",
-        disparo: input.disparo,
-        agenciaId: input.agenciaId,
-      },
-      html: `
-        <div style="font-family: sans-serif; font-size: 15px; color: #1f2937;">
-          <p>Olá, ${input.nome}!</p>
-          <p>Falta pouco pra assinar o contrato da sua agência. Antes de assinar,
-          precisamos confirmar sua identidade com uma verificação rápida de
-          biometria facial (uma selfie).</p>
-          <p><a href="${redirectUrl}">${redirectUrl}</a></p>
-          <p>Assim que a verificação for aprovada, você recebe o link pra
-          assinar o contrato.</p>
-        </div>
-      `,
-    });
+    try {
+      await this.emailSender.send({
+        to: input.email,
+        subject: "Verificação de biometria facial — Cadastro Sakura",
+        meta: {
+          origem: "biometria-verificacao",
+          disparo: input.disparo,
+          agenciaId: input.agenciaId,
+        },
+        html: `
+          <div style="font-family: sans-serif; font-size: 15px; color: #1f2937;">
+            <p>Olá, ${input.nome}!</p>
+            <p>Falta pouco pra assinar o contrato da sua agência. Antes de assinar,
+            precisamos confirmar sua identidade com uma verificação rápida de
+            biometria facial (uma selfie).</p>
+            <p><a href="${redirectUrl}">${redirectUrl}</a></p>
+            <p>Assim que a verificação for aprovada, você recebe o link pra
+            assinar o contrato.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.warn(
+        `IniciarVerificacaoBiometricaUseCase: falha ao enviar e-mail pra ${input.email} (contratoId=${input.contratoId}): ${String(error)}`,
+      );
+    }
+
+    return { link: redirectUrl };
   }
 }
