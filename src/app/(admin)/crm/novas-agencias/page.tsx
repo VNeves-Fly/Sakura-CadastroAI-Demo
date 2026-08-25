@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { novasAgenciasController } from "@/modules/novas-agencias/presentation/controllers/novas-agencias.controller";
-import { NovasAgenciasView } from "@/modules/novas-agencias/views/novas-agencias-view";
+import { NovasAgenciasSecao } from "@/modules/novas-agencias/components/novas-agencias-secao";
+import { NovasAgenciasSkeleton } from "@/modules/novas-agencias/components/novas-agencias-skeleton";
 
 // Mesmo guard de /crm/agencias — análise executiva, restrita a
 // ADMIN/Diretor (nunca só esconder do menu: sem isto, dava pra acessar
@@ -15,7 +17,14 @@ export default async function NovasAgenciasPage() {
     redirect("/cadastros");
   }
 
-  const dados = await novasAgenciasController.obterNovasAgencias();
+  // Disparado sem `await` — a página abre com o skeleton na hora (ver
+  // NovasAgenciasSkeleton) em vez de esperar o banco local + as métricas
+  // reais do SST (que, em cache frio, podem levar dezenas de segundos —
+  // ver agencia-carteira.sst-service.ts); mesmo padrão de
+  // /crm/agencias/page.tsx. O Suspense abaixo troca pro conteúdo real
+  // assim que a promise resolver.
+  const dadosPromise = novasAgenciasController.obterNovasAgencias();
+
   // Calculado no servidor (não no client component) pra não dar mismatch
   // de hidratação — é só "quando esta página foi carregada", não um dado
   // de sincronização real (não existe cron por trás desta tela).
@@ -27,5 +36,9 @@ export default async function NovasAgenciasPage() {
     minute: "2-digit",
   });
 
-  return <NovasAgenciasView dados={dados} carregadoEm={carregadoEm} />;
+  return (
+    <Suspense fallback={<NovasAgenciasSkeleton />}>
+      <NovasAgenciasSecao dadosPromise={dadosPromise} carregadoEm={carregadoEm} />
+    </Suspense>
+  );
 }
