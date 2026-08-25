@@ -1417,6 +1417,29 @@ async function obterResumoEDia(): Promise<
   };
 }
 
+// Diferente das outras seções pesadas (projeção, vendas mensais/diárias,
+// conversão, recência×cruzamento — todas com sua própria *ComFallback*
+// logo abaixo), `obterResumoEDia` ficava SEM proteção — um 500 real do
+// SST aqui (ex.: "[sica] rawQuery failed", visto em produção 2026-08-25)
+// derrubava a página inteira com um Unhandled Runtime Error em vez de só
+// degradar essa seção pro mock. É a seção mais pesada (12 chamadas
+// concorrentes ao SST — overview, top-agências, ranking-cias, nac/int) e
+// a primeira da fila (`depoisDe`, ver dashboard-vendas-view.tsx), então
+// era também a mais provável de falhar sob esse volume.
+async function obterResumoEDiaComFallback(): Promise<
+  Pick<
+    DashboardVendasData,
+    | "resumoPorPeriodo"
+    | "miniKpis"
+    | "rankingPorPeriodo"
+    | "fornecedoresPorPeriodo"
+    | "nacionalInternacionalPorMes"
+  >
+> {
+  const mock = await dashboardVendasMockService.obterResumoEDia();
+  return comFallback("resumoEDia", obterResumoEDia(), mock);
+}
+
 async function obterProjecaoComFallback(): Promise<ProjecaoDia> {
   const mock = await dashboardVendasMockService.obterProjecao();
   return comFallback("projecao", construirProjecaoReal(), mock);
@@ -1469,7 +1492,7 @@ async function obterRecenciaECruzamentoComFallback(): Promise<
 }
 
 export const dashboardVendasSstService = {
-  obterResumoEDia,
+  obterResumoEDia: obterResumoEDiaComFallback,
   obterVendasMensais: obterVendasMensaisComFallback,
   obterVendasDiarias: obterVendasDiariasComFallback,
   obterConversao: obterConversaoComFallback,
@@ -1483,7 +1506,7 @@ export const dashboardVendasSstService = {
     const [mockEstatico, resumoEDia, vendasMensais, vendasDiarias, conversao, recenciaECruzamento] =
       await Promise.all([
         dashboardVendasMockService.obterDashboard(),
-        obterResumoEDia(),
+        obterResumoEDiaComFallback(),
         obterVendasMensaisComFallback(),
         obterVendasDiariasComFallback(),
         obterConversaoComFallback(),

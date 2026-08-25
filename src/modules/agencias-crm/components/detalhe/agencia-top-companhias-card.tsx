@@ -38,11 +38,13 @@ function resolverCorCompanhia(nome: string): string {
 // Card "Top Companhias Aéreas" (SPEC seção 3.5.B) — `companhias` vem de
 // `vendas.topCompanhias`, real via SST (GET /api/reports/ranking-cias,
 // ver agencia-detalhe.sst-service.ts) quando a agência tem venda
-// detectada; mock por hash como fallback. Aqui só reestilizado e
-// limitado às 8 primeiras.
+// detectada; mock por hash como fallback. Limitado às 8 primeiras.
+// Largura da barra = `participacaoPct` (fatia real sobre o total aéreo
+// da agência — aereoNacional + aereoInternacional, mesmo total do card
+// "Aéreo" — ver buscarTopCompanhias), não mais relativa ao 1º colocado:
+// pedido do usuário, 2026-08-25 ("a distribuição está errada").
 export function AgenciaTopCompanhiasCard({ companhias }: AgenciaTopCompanhiasCardProps) {
   const top8 = companhias.slice(0, 8);
-  const valorMaximo = top8[0]?.volume ?? 1;
 
   return (
     <div className="border-border rounded-xl border p-[18px_20px]">
@@ -70,7 +72,7 @@ export function AgenciaTopCompanhiasCard({ companhias }: AgenciaTopCompanhiasCar
                 <div
                   className="h-full rounded-full"
                   style={{
-                    width: `${Math.max(4, Math.round((companhia.volume / valorMaximo) * 100))}%`,
+                    width: `${Math.max(4, Math.round(companhia.participacaoPct))}%`,
                     background: cor,
                   }}
                 />
