@@ -1,10 +1,12 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
-import { GestoresView } from "@/modules/gestores/views/gestores-view";
 import { basesController } from "@/modules/bases/presentation/controllers/bases.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
+import { calcularVendasPorGestor } from "@/modules/gestores/services/vendas-por-gestor.loader";
+import { GestoresListaSecao } from "@/modules/gestores/components/gestores-lista-secao";
+import { GestoresListaSkeleton } from "@/modules/gestores/components/gestores-lista-skeleton";
 
 const CARGOS_GESTAO_DE_GESTORES = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 
@@ -14,6 +16,8 @@ export default async function GestoresPage() {
     redirect("/cadastros");
   }
 
+  // Banco local (Prisma) — rápido, mantido com `await` bloqueante mesmo:
+  // a lista de gestores em si depende disso de qualquer forma.
   const [basesOptions, promotores] = await Promise.all([
     basesController.list(),
     atribuicoesAdminController.listarPromotores(),
@@ -29,32 +33,19 @@ export default async function GestoresPage() {
     executivosPorGestor[gestorId] = (executivosPorGestor[gestorId] ?? 0) + 1;
   }
 
-  // "Vendas mês"/"Vendas ano" da lista de Gestores (SPEC seção 2.2) — Gestor
-  // não existe no SST (sem `sica` próprio), então "real" aqui é a soma das
-  // vendas reais dos executivos subordinados — mesmo fan-out de
-  // comVendasReais (promotores.routes.ts), só que agregado por gestorId em
-  // vez de 1 linha por promotor. Cada chamada individual nunca rejeita (ver
-  // executivoDashboardController.obterVendasResumo).
-  const vendasPorPromotor = await Promise.all(
-    promotores.map((promotor) => executivoDashboardController.obterVendasResumo(promotor.sica)),
-  );
-  const vendasPorGestor: Record<string, { vendasMes: number; vendasAno: number }> = {};
-  promotores.forEach((promotor, indice) => {
-    const gestorId = promotor.gestorId;
-    if (!gestorId) return;
-    const vendas = vendasPorPromotor[indice]!;
-    const acumulado = vendasPorGestor[gestorId] ?? { vendasMes: 0, vendasAno: 0 };
-    vendasPorGestor[gestorId] = {
-      vendasMes: acumulado.vendasMes + vendas.vendasMes,
-      vendasAno: acumulado.vendasAno + vendas.vendasAno,
-    };
-  });
+  // Disparado sem `await` — a página abre com o skeleton na hora (ver
+  // GestoresListaSkeleton) em vez de esperar até dezenas de chamadas ao
+  // SST (uma por promotor, ver vendas-por-gestor.loader.ts) resolverem; o
+  // Suspense abaixo troca pro conteúdo real assim que a promise resolver.
+  const vendasPorGestorPromise = calcularVendasPorGestor(promotores);
 
   return (
-    <GestoresView
-      basesOptions={basesOptions}
-      executivosPorGestor={executivosPorGestor}
-      vendasPorGestor={vendasPorGestor}
-    />
+    <Suspense fallback={<GestoresListaSkeleton />}>
+      <GestoresListaSecao
+        basesOptions={basesOptions}
+        executivosPorGestor={executivosPorGestor}
+        vendasPorGestorPromise={vendasPorGestorPromise}
+      />
+    </Suspense>
   );
 }
