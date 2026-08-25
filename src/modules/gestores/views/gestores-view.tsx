@@ -25,10 +25,17 @@ export function GestoresView({
 }: GestoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
   const [gestorEmEdicaoId, setGestorEmEdicaoId] = useState<string | null>(null);
-  const { gestores, total, isLoading, error, busca, atualizarBusca } = useGestoresListaViewModel(
-    executivosPorGestor,
-    vendasPorGestor,
-  );
+  const {
+    gestores,
+    total,
+    isLoading,
+    error,
+    busca,
+    atualizarBusca,
+    pagina,
+    totalPaginas,
+    setPagina,
+  } = useGestoresListaViewModel(executivosPorGestor, vendasPorGestor);
 
   const gestorEmEdicao = gestores.find((gestor) => gestor.id === gestorEmEdicaoId);
 
