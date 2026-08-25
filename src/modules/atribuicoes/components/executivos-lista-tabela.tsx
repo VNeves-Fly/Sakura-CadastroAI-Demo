@@ -2,12 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
+import { ExecutivosListaTabelaSkeleton } from "@/modules/atribuicoes/components/executivos-lista-tabela-skeleton";
 import type { PromotorListaView } from "@/modules/atribuicoes/types/promotor-lista.types";
 import { cn } from "@/lib/utils";
-
-const LINHAS_SKELETON = 8;
 
 interface ExecutivosListaTabelaProps {
   executivos: PromotorListaView[];
@@ -17,8 +15,10 @@ interface ExecutivosListaTabelaProps {
 }
 
 // Grid de colunas idêntico no header e nas linhas (mockup Claude Design,
-// 2026-08-24, "Executivos").
-const COLS = "minmax(200px,1.6fr) minmax(180px,1.3fr) minmax(130px,1fr) minmax(130px,1fr) 90px";
+// 2026-08-24, "Executivos") — exportado pra ExecutivosListaTabelaSkeleton
+// reusar o mesmo template e o skeleton bater pixel a pixel com a tabela real.
+export const COLS =
+  "minmax(200px,1.6fr) minmax(180px,1.3fr) minmax(130px,1fr) minmax(130px,1fr) 90px";
 
 type ColunaChave = "nome" | "gestorNome" | "vendasMes" | "vendasAno";
 type Direcao = "asc" | "desc";
@@ -78,68 +78,42 @@ export function ExecutivosListaTabela({
     });
   }
 
-  const header = (
-    <div
-      className="grid items-center gap-4 rounded-t-lg border-t border-b border-[#F7DCEB] bg-[#FBFBFE] px-4 py-3.5"
-      style={{ gridTemplateColumns: COLS }}
-    >
-      {COLUNAS.map((coluna) => (
-        <button
-          key={coluna.chave}
-          type="button"
-          onClick={() => alternarOrdenacao(coluna.chave)}
-          className={cn(
-            "inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-[11.5px] font-semibold tracking-[0.06em] text-[#6B6B85] uppercase",
-            coluna.centralizada && "justify-center",
-          )}
-        >
-          {coluna.label}
-          <span className="text-[10px]">
-            {sort.chave === coluna.chave ? (sort.direcao === "asc" ? "↑" : "↓") : "⇅"}
-          </span>
-        </button>
-      ))}
-      <span />
-    </div>
-  );
-
-  // Placeholder da tabela (header real + linhas skeleton) enquanto
-  // usePromotoresListViewModel busca /api/promotores — substitui o texto
-  // "Carregando executivos..." de antes, mesmo espírito visual de
-  // AgenciasListaSkeleton (barras no lugar das colunas reais).
-  if (isLoading) {
-    return (
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: 860 }}>
-          {header}
-          {Array.from({ length: LINHAS_SKELETON }, (_, indice) => (
-            <div
-              key={indice}
-              className="grid items-center gap-4 border-b border-[#F7DCEB] bg-white px-4 py-3.5"
-              style={{ gridTemplateColumns: COLS }}
-            >
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="mx-auto h-4 w-16" />
-              <Skeleton className="mx-auto h-4 w-16" />
-              <Skeleton className="ml-auto h-4 w-12" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return <p className="text-destructive text-sm">{error}</p>;
-  }
-
   return (
     <div className="overflow-x-auto">
       <div style={{ minWidth: 860 }}>
-        {header}
+        <div
+          className="grid items-center gap-4 rounded-t-lg border-t border-b border-[#F7DCEB] bg-[#FBFBFE] px-4 py-3.5"
+          style={{ gridTemplateColumns: COLS }}
+        >
+          {COLUNAS.map((coluna) => (
+            <button
+              key={coluna.chave}
+              type="button"
+              onClick={() => alternarOrdenacao(coluna.chave)}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-[11.5px] font-semibold tracking-[0.06em] text-[#6B6B85] uppercase",
+                coluna.centralizada && "justify-center",
+              )}
+            >
+              {coluna.label}
+              <span className="text-[10px]">
+                {sort.chave === coluna.chave ? (sort.direcao === "asc" ? "↑" : "↓") : "⇅"}
+              </span>
+            </button>
+          ))}
+          <span />
+        </div>
 
-        {linhasOrdenadas.length === 0 ? (
+        {isLoading ? (
+          // Header real já fica visível — só o corpo troca pro skeleton
+          // enquanto GET /api/promotores espera o fan-out ao SST resolver
+          // (ver comVendasReais em promotores.routes.ts, pode levar vários
+          // segundos em cache frio). Sem isto a tela ficava com uma linha
+          // de texto solta, lida como "página em branco".
+          <ExecutivosListaTabelaSkeleton />
+        ) : error ? (
+          <p className="text-destructive px-4 py-10 text-center text-sm">{error}</p>
+        ) : linhasOrdenadas.length === 0 ? (
           <p className="py-10 text-center text-sm text-[#6B6B85]">Nenhum executivo encontrado.</p>
         ) : (
           linhasOrdenadas.map((linha) => (

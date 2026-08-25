@@ -52,9 +52,12 @@ export class PrismaPromotorRepository implements PromotorRepository {
     return record ? toDomain(record) : null;
   }
 
+  // findFirst (não findUnique) porque a comparação precisa ser
+  // case-insensitive — email não tem `mode` disponível no where de
+  // findUnique, só em filtros de findFirst/findMany.
   async findByEmail(email: string): Promise<Promotor | null> {
-    const record = await this.prisma.promotor.findUnique({
-      where: { email },
+    const record = await this.prisma.promotor.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
       include: INCLUDE_BASES,
     });
     return record ? toDomain(record) : null;

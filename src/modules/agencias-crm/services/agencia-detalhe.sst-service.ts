@@ -435,6 +435,16 @@ async function buscarTopCompanhias(
   codigoEmpresa: string,
   inicio: string,
   fim: string,
+  // Total aéreo REAL da agência no período (aereoNacional.tarifa +
+  // aereoInternacional.tarifa, de /api/consolidado/air — ver buscarAir em
+  // obterVendas), não a soma das linhas deste endpoint. `/api/reports/
+  // ranking-cias` é uma fonte independente (sem filtro `status`
+  // explícito, ao contrário de buscarAir) — nada garante que a soma bata
+  // com o total aéreo oficial. Usar a soma interna como base fazia cada
+  // % ser "fatia dentro do próprio ranking", não "fatia real do aéreo da
+  // agência", que é o que o card precisa mostrar (pedido do usuário,
+  // 2026-08-25).
+  totalAereo: number,
 ): Promise<TopCompanhiaAgencia[]> {
   return comCache(
     `agencias-crm:detalhe:${codigoEmpresa}:top-companhias:${inicio}:${fim}`,
@@ -445,18 +455,11 @@ async function buscarTopCompanhias(
         endDate: fim,
         limit: LIMITE_RANKING_COMPANHIAS,
       });
-      // % de participação = fatia sobre a soma de TODAS as companhias do
-      // período (não só as ~8 exibidas no card) — o SST não devolve esse
-      // percentual pronto.
-      const valorTotal = resposta.data.reduce(
-        (acumulado, linha) => acumulado + linha.tarifa_total,
-        0,
-      );
       return resposta.data
         .map((linha) => ({
           nome: linha.nome_cia,
           volume: Math.round(linha.tarifa_total),
-          participacaoPct: valorTotal > 0 ? (linha.tarifa_total / valorTotal) * 100 : 0,
+          participacaoPct: totalAereo > 0 ? (linha.tarifa_total / totalAereo) * 100 : 0,
         }))
         .sort((a, b) => b.volume - a.volume);
     },
@@ -778,12 +781,17 @@ export const agenciaDetalheSstService = {
 
     const bilhetesAereoAno = aereoNac.tickets + aereoInter.tickets;
     const proporcaoNacional = bilhetesAereoAno > 0 ? aereoNac.tickets / bilhetesAereoAno : 1;
+    // Aéreo combinado (NAC+INTER) — usado como base do % de participação
+    // de cada companhia em buscarTopCompanhias (ver comentário lá) e de
+    // novo mais abaixo pra margem/rentabilidade; calculado uma vez só
+    // aqui, aereoNac/aereoInter já resolvidos pelo Promise.all anterior.
+    const tarifaAereoAno = aereoNac.tarifa + aereoInter.tarifa;
 
     const [topRotas, topCompanhias, faturas, evolucaoMensal, terrestreNacInt] = await Promise.all([
       comFallback("top-rotas", buscarTopRotas(sicaCodigo), [] as TopRotaAgencia[]),
       comFallback(
         "top-companhias",
-        buscarTopCompanhias(sicaCodigo, inicioAno, fim),
+        buscarTopCompanhias(sicaCodigo, inicioAno, fim, tarifaAereoAno),
         [] as TopCompanhiaAgencia[],
       ),
       comFallback("faturas", buscarFaturas(sicaCodigo, inicioAno, fim), [] as FaturaAgencia[]),
@@ -806,9 +814,8 @@ export const agenciaDetalheSstService = {
       ? Math.max(0, Math.floor((Date.now() - new Date(dataUltimaCompra).getTime()) / 86_400_000))
       : null;
 
-    // Aéreo combinado (NAC+INTER) — soma dos dois já buscados acima, não
-    // precisa de uma 3ª chamada só pra margem/rentabilidade total.
-    const tarifaAereoAno = aereoNac.tarifa + aereoInter.tarifa;
+    // Aéreo combinado (NAC+INTER) — tarifaAereoAno já calculado acima
+    // (reaproveitado por buscarTopCompanhias); só falta a rentabilidade.
     const rentabilidadeAereoAno = aereoNac.rentabilidade + aereoInter.rentabilidade;
     const margemAereo: CanalMargemSst = {
       margemPct: tarifaAereoAno > 0 ? (rentabilidadeAereoAno / tarifaAereoAno) * 100 : 0,
