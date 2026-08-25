@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type { PromotorListaView } from "@/modules/atribuicoes/types/promotor-lista.types";
 import { cn } from "@/lib/utils";
+
+const LINHAS_SKELETON = 8;
 
 interface ExecutivosListaTabelaProps {
   executivos: PromotorListaView[];
@@ -75,8 +78,56 @@ export function ExecutivosListaTabela({
     });
   }
 
+  const header = (
+    <div
+      className="grid items-center gap-4 rounded-t-lg border-t border-b border-[#F7DCEB] bg-[#FBFBFE] px-4 py-3.5"
+      style={{ gridTemplateColumns: COLS }}
+    >
+      {COLUNAS.map((coluna) => (
+        <button
+          key={coluna.chave}
+          type="button"
+          onClick={() => alternarOrdenacao(coluna.chave)}
+          className={cn(
+            "inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-[11.5px] font-semibold tracking-[0.06em] text-[#6B6B85] uppercase",
+            coluna.centralizada && "justify-center",
+          )}
+        >
+          {coluna.label}
+          <span className="text-[10px]">
+            {sort.chave === coluna.chave ? (sort.direcao === "asc" ? "↑" : "↓") : "⇅"}
+          </span>
+        </button>
+      ))}
+      <span />
+    </div>
+  );
+
+  // Placeholder da tabela (header real + linhas skeleton) enquanto
+  // usePromotoresListViewModel busca /api/promotores — substitui o texto
+  // "Carregando executivos..." de antes, mesmo espírito visual de
+  // AgenciasListaSkeleton (barras no lugar das colunas reais).
   if (isLoading) {
-    return <p className="text-sm text-[#6B6B85]">Carregando executivos...</p>;
+    return (
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: 860 }}>
+          {header}
+          {Array.from({ length: LINHAS_SKELETON }, (_, indice) => (
+            <div
+              key={indice}
+              className="grid items-center gap-4 border-b border-[#F7DCEB] bg-white px-4 py-3.5"
+              style={{ gridTemplateColumns: COLS }}
+            >
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="mx-auto h-4 w-16" />
+              <Skeleton className="mx-auto h-4 w-16" />
+              <Skeleton className="ml-auto h-4 w-12" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -86,28 +137,7 @@ export function ExecutivosListaTabela({
   return (
     <div className="overflow-x-auto">
       <div style={{ minWidth: 860 }}>
-        <div
-          className="grid items-center gap-4 rounded-t-lg border-t border-b border-[#F7DCEB] bg-[#FBFBFE] px-4 py-3.5"
-          style={{ gridTemplateColumns: COLS }}
-        >
-          {COLUNAS.map((coluna) => (
-            <button
-              key={coluna.chave}
-              type="button"
-              onClick={() => alternarOrdenacao(coluna.chave)}
-              className={cn(
-                "inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-[11.5px] font-semibold tracking-[0.06em] text-[#6B6B85] uppercase",
-                coluna.centralizada && "justify-center",
-              )}
-            >
-              {coluna.label}
-              <span className="text-[10px]">
-                {sort.chave === coluna.chave ? (sort.direcao === "asc" ? "↑" : "↓") : "⇅"}
-              </span>
-            </button>
-          ))}
-          <span />
-        </div>
+        {header}
 
         {linhasOrdenadas.length === 0 ? (
           <p className="py-10 text-center text-sm text-[#6B6B85]">Nenhum executivo encontrado.</p>
