@@ -7,18 +7,33 @@ interface AgenciaTopCompanhiasCardProps {
   companhias: TopCompanhiaAgencia[];
 }
 
-// Cor institucional real por companhia (SPEC seção 3.5.B) — fallback pra
-// var(--color-primary) quando a companhia não está no mapa.
-const CORES: Record<string, string> = {
-  Gol: "#FF7020",
-  Azul: "#0033A0",
-  Latam: "#E30613",
-  Iberia: "#D7192D",
-  Lufthansa: "#05164D",
-  "Air France": "#002157",
-  "United Airlines": "#1414AF",
-  "Tap Portugal": "#00A04B",
-};
+// Cor institucional real por companhia (SPEC seção 3.5.B) — o SST devolve
+// o nome legal completo em CAIXA ALTA (ex. "AZUL LINHAS AEREAS", "AMERICAN
+// AIRLINES INC."), não o nome curto do mockup, então o match é por
+// palavra-chave contida no nome (case-insensitive), não igualdade exata.
+// Fallback pra hsl(var(--primary)) quando a companhia não está no mapa —
+// var(--color-primary) NÃO existe no CSS deste projeto (Tailwind v4 em
+// modo compat via tailwind.config.ts, sem bloco @theme que geraria
+// --color-*), então usar esse nome quebrava o background silenciosamente.
+const CORES_POR_PALAVRA_CHAVE: Array<[string, string]> = [
+  ["GOL", "#FF7020"],
+  ["AZUL", "#0033A0"],
+  ["LATAM", "#E30613"],
+  ["IBERIA", "#D7192D"],
+  ["LUFTHANSA", "#05164D"],
+  ["AIR FRANCE", "#002157"],
+  ["UNITED", "#1414AF"],
+  ["TAP", "#00A04B"],
+  ["AMERICAN", "#0078D2"],
+  ["SWISS", "#CC0000"],
+];
+const COR_FALLBACK = "hsl(var(--primary))";
+
+function resolverCorCompanhia(nome: string): string {
+  const nomeNormalizado = nome.toUpperCase();
+  const encontrada = CORES_POR_PALAVRA_CHAVE.find(([chave]) => nomeNormalizado.includes(chave));
+  return encontrada?.[1] ?? COR_FALLBACK;
+}
 
 // Card "Top Companhias Aéreas" (SPEC seção 3.5.B) — `companhias` vem de
 // `vendas.topCompanhias`, real via SST (GET /api/reports/ranking-cias,
@@ -39,7 +54,7 @@ export function AgenciaTopCompanhiasCard({ companhias }: AgenciaTopCompanhiasCar
 
       <div className="mt-1">
         {top8.map((companhia, indice) => {
-          const cor = CORES[companhia.nome] ?? "var(--color-primary)";
+          const cor = resolverCorCompanhia(companhia.nome);
           return (
             <div key={companhia.nome} className="border-border border-t py-2.5">
               <div className="flex items-center justify-between gap-3">

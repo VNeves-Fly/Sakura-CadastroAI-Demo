@@ -425,6 +425,12 @@ interface RawRankingCia {
   tarifa_total: number;
 }
 
+// Universo de companhias aéreas por agência é pequeno (mesmo padrão usado
+// em paraTopFornecedores, dashboard-vendas.sst-service.ts) — uma página só
+// com esse limite já cobre praticamente todas, sem precisar paginar de
+// verdade atrás do campo `total`.
+const LIMITE_RANKING_COMPANHIAS = 200;
+
 async function buscarTopCompanhias(
   codigoEmpresa: string,
   inicio: string,
@@ -437,12 +443,22 @@ async function buscarTopCompanhias(
         codigoEmpresa,
         startDate: inicio,
         endDate: fim,
-        limit: 10,
+        limit: LIMITE_RANKING_COMPANHIAS,
       });
-      return resposta.data.map((linha) => ({
-        nome: linha.nome_cia,
-        volume: Math.round(linha.tarifa_total),
-      }));
+      // % de participação = fatia sobre a soma de TODAS as companhias do
+      // período (não só as ~8 exibidas no card) — o SST não devolve esse
+      // percentual pronto.
+      const valorTotal = resposta.data.reduce(
+        (acumulado, linha) => acumulado + linha.tarifa_total,
+        0,
+      );
+      return resposta.data
+        .map((linha) => ({
+          nome: linha.nome_cia,
+          volume: Math.round(linha.tarifa_total),
+          participacaoPct: valorTotal > 0 ? (linha.tarifa_total / valorTotal) * 100 : 0,
+        }))
+        .sort((a, b) => b.volume - a.volume);
     },
   );
 }

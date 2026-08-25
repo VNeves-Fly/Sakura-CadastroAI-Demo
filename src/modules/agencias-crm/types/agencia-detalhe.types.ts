@@ -99,6 +99,10 @@ export interface AgenciaDetalhePerfilComercial {
 export interface TopCompanhiaAgencia {
   nome: string;
   volume: number;
+  // Fatia de `volume` sobre a soma de TODAS as companhias do período (não
+  // só as exibidas no card) — ver `buscarTopCompanhias` em
+  // agencia-detalhe.sst-service.ts.
+  participacaoPct: number;
 }
 
 export interface FaturaAgencia {

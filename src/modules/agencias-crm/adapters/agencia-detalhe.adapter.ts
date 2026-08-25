@@ -61,10 +61,17 @@ function labelEtapa(status: string): string {
 }
 
 function gerarTopCompanhias(base: number): TopCompanhiaAgencia[] {
-  return COMPANHIAS_AEREAS.map((nome, indice) => ({
+  const volumes = COMPANHIAS_AEREAS.map((nome, indice) => ({
     nome,
     volume: 10_000 + (hashParaNumero(`${base}-${nome}`) % ((10 - indice) * 40_000 + 5_000)),
-  })).sort((a, b) => b.volume - a.volume);
+  }));
+  const valorTotal = volumes.reduce((acumulado, item) => acumulado + item.volume, 0);
+  return volumes
+    .map((item) => ({
+      ...item,
+      participacaoPct: valorTotal > 0 ? (item.volume / valorTotal) * 100 : 0,
+    }))
+    .sort((a, b) => b.volume - a.volume);
 }
 
 function gerarFaturas(base: number, quantidade: number): FaturaAgencia[] {
