@@ -71,7 +71,7 @@ export function AgenciaDetalheView({ detalhe }: AgenciaDetalheViewProps) {
               {detalhe.dadosDocumentacao.empresa.cnpj}
             </p>
             <p className="text-[12.5px] text-[#8888AA]">
-              Promotor: {detalhe.perfilComercial.executivoNome ?? "—"} · Gestor:{" "}
+              Executivo: {detalhe.perfilComercial.executivoNome ?? "—"} · Gestor:{" "}
               {detalhe.perfilComercial.gestorNome ?? "—"} · Base:{" "}
               {detalhe.perfilComercial.base ?? "—"}
             </p>

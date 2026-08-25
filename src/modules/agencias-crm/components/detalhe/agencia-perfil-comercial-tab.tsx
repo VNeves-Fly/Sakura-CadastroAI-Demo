@@ -64,7 +64,7 @@ export function AgenciaPerfilComercialTab({ perfil }: AgenciaPerfilComercialTabP
           </Campo>
 
           <Campo label="Gestor">{perfil.gestorNome ?? "—"}</Campo>
-          <Campo label="Executivo (Promotor)">{perfil.executivoNome ?? "—"}</Campo>
+          <Campo label="Executivo">{perfil.executivoNome ?? "—"}</Campo>
           <Campo label="Média de Faturamento">
             {perfil.mediaFaturamento !== null ? (
               <SensitiveValue value={formatarMoedaAbreviada(perfil.mediaFaturamento)} />

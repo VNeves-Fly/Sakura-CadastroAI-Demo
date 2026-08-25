@@ -84,7 +84,7 @@ async function renderizarDetalheSst(codigoEmpresa: number) {
     throw new Error("Integração com o SST não está configurada.");
   }
 
-  const [cadastroComercial, promotores] = await Promise.all([
+  const [cadastroComercial, promotores, gestores] = await Promise.all([
     agenciaDetalheSstService
       .obterCadastroComercial(codigoEmpresa)
       .catch((erro): CadastroComercialSst => {
@@ -92,6 +92,7 @@ async function renderizarDetalheSst(codigoEmpresa: number) {
         return { baseEmpresa: null, cadastro: null };
       }),
     atribuicoesAdminController.listarPromotores(),
+    atribuicoesAdminController.listarGestores(),
   ]);
 
   if (!cadastroComercial.baseEmpresa) {
@@ -99,13 +100,18 @@ async function renderizarDetalheSst(codigoEmpresa: number) {
   }
 
   // Gestor/base/executivo são melhor esforço via Promotor.sica — única
-  // hierarquia Executivo→Gestor que existe, o SST não modela Gestor (ver
-  // agencia-carteira.adapter.ts, mesmo critério já usado na listagem).
-  const promotor = promotores.find((item) => item.sica === codigoEmpresa) ?? null;
+  // hierarquia Executivo→Gestor que existe, o SST não modela Gestor.
+  // MESMO critério de agencia-carteira.adapter.ts (promotorPorSica): casa
+  // contra `codigo_executivo` (o código do executivo responsável por
+  // ESTA agência, devolvido pelo SST em base-empresa-cadastro), não
+  // contra o `codigoEmpresa` da própria agência — comparar contra
+  // codigoEmpresa (bug anterior) quase nunca batia com o sica de um
+  // executivo, então Gestor praticamente nunca aparecia (bug reportado
+  // pelo usuário, 2026-08-25).
+  const codigoExecutivoSst = cadastroComercial.baseEmpresa.codigo_executivo;
+  const promotor = promotores.find((item) => item.sica === codigoExecutivoSst) ?? null;
   const gestorNome = promotor?.gestorId
-    ? ((await atribuicoesAdminController.listarGestores()).find(
-        (gestor) => gestor.id === promotor.gestorId,
-      )?.nome ?? null)
+    ? (gestores.find((gestor) => gestor.id === promotor.gestorId)?.nome ?? null)
     : null;
 
   const vendasReais = await obterVendasComMetricasDaCarteira(String(codigoEmpresa));
