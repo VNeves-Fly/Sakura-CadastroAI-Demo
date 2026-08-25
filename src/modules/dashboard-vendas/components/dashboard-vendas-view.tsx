@@ -15,7 +15,18 @@ import { RecenciaECruzamentoSecao } from "@/modules/dashboard-vendas/components/
 import { ConversaoSecao } from "@/modules/dashboard-vendas/components/secoes/conversao-secao";
 // import { VendasMensaisSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-mensais-secao";
 // import { VendasDiariasSecao } from "@/modules/dashboard-vendas/components/secoes/vendas-diarias-secao";
-import { SecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/secao-skeleton";
+// `SecaoSkeleton` (retângulo cinza genérico) só era usado pelas 5 seções
+// ativas abaixo, que agora têm skeleton fiel ao layout real (pedido do
+// usuário, 2026-08-25: o layout tem que carregar na hora, só os valores
+// ficam em loading). Import comentado (mesmo motivo dos outros acima) —
+// ainda é usado pelo bloco comentado de Vendas Mensais/Diárias no fim
+// deste arquivo, é só descomentar os dois juntos.
+// import { SecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/secao-skeleton";
+import { ResumoDoDiaSkeleton } from "@/modules/dashboard-vendas/components/secoes/resumo-do-dia-skeleton";
+import { RankingsSkeleton } from "@/modules/dashboard-vendas/components/secoes/rankings-skeleton";
+import { ProjecaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/projecao-skeleton";
+import { RecenciaECruzamentoSkeleton } from "@/modules/dashboard-vendas/components/secoes/recencia-e-cruzamento-skeleton";
+import { ConversaoSkeleton } from "@/modules/dashboard-vendas/components/secoes/conversao-skeleton";
 import { dashboardVendasController } from "@/modules/dashboard-vendas/presentation/controllers/dashboard-vendas.controller";
 
 // Encadeia a busca de uma seção depois que `gate` resolveu OU rejeitou —
@@ -61,15 +72,7 @@ export function DashboardVendasView() {
     <div className="dashboard-vendas-scope flex flex-col gap-4">
       {/* "Vendas Intraday" oculta a pedido do usuário (2026-08-18) — ver
           comentário no import acima e em resumo-do-dia-secao.tsx. */}
-      <Suspense
-        fallback={
-          <>
-            <SecaoSkeleton altura="h-24" />
-            <SecaoSkeleton altura="h-24" />
-            <SecaoSkeleton altura="h-64" />
-          </>
-        }
-      >
+      <Suspense fallback={<ResumoDoDiaSkeleton />}>
         <ResumoDoDiaSecao resumoEDiaPromise={resumoEDiaPromise} />
       </Suspense>
 
@@ -79,19 +82,12 @@ export function DashboardVendasView() {
           entre as linhas (gap em % descasava com as linhas vizinhas,
           pedido do usuário, 2026-08-19). */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Suspense
-          fallback={
-            <>
-              <SecaoSkeleton altura="h-56" />
-              <SecaoSkeleton altura="h-56" />
-            </>
-          }
-        >
+        <Suspense fallback={<RankingsSkeleton />}>
           <RankingsSecao resumoEDiaPromise={resumoEDiaPromise} />
         </Suspense>
       </div>
 
-      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
+      <Suspense fallback={<ProjecaoSkeleton />}>
         <ProjecaoSecao projecaoPromise={projecaoPromise} />
       </Suspense>
 
@@ -100,11 +96,11 @@ export function DashboardVendasView() {
       <AcuraciaProjecaoPanel acuracia={mockEstatico.acuracia} />
       */}
 
-      <Suspense fallback={<SecaoSkeleton altura="h-72" />}>
+      <Suspense fallback={<RecenciaECruzamentoSkeleton />}>
         <RecenciaECruzamentoSecao recenciaECruzamentoPromise={recenciaECruzamentoPromise} />
       </Suspense>
 
-      <Suspense fallback={<SecaoSkeleton altura="h-48" />}>
+      <Suspense fallback={<ConversaoSkeleton />}>
         <ConversaoSecao conversaoPromise={conversaoPromise} />
       </Suspense>
 

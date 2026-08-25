@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
+import { ExecutivosListaTabelaSkeleton } from "@/modules/atribuicoes/components/executivos-lista-tabela-skeleton";
 import type { PromotorListaView } from "@/modules/atribuicoes/types/promotor-lista.types";
 import { cn } from "@/lib/utils";
 
@@ -14,8 +15,10 @@ interface ExecutivosListaTabelaProps {
 }
 
 // Grid de colunas idêntico no header e nas linhas (mockup Claude Design,
-// 2026-08-24, "Executivos").
-const COLS = "minmax(200px,1.6fr) minmax(180px,1.3fr) minmax(130px,1fr) minmax(130px,1fr) 90px";
+// 2026-08-24, "Executivos") — exportado pra ExecutivosListaTabelaSkeleton
+// reusar o mesmo template e o skeleton bater pixel a pixel com a tabela real.
+export const COLS =
+  "minmax(200px,1.6fr) minmax(180px,1.3fr) minmax(130px,1fr) minmax(130px,1fr) 90px";
 
 type ColunaChave = "nome" | "gestorNome" | "vendasMes" | "vendasAno";
 type Direcao = "asc" | "desc";
@@ -75,14 +78,6 @@ export function ExecutivosListaTabela({
     });
   }
 
-  if (isLoading) {
-    return <p className="text-sm text-[#6B6B85]">Carregando executivos...</p>;
-  }
-
-  if (error) {
-    return <p className="text-destructive text-sm">{error}</p>;
-  }
-
   return (
     <div className="overflow-x-auto">
       <div style={{ minWidth: 860 }}>
@@ -109,7 +104,16 @@ export function ExecutivosListaTabela({
           <span />
         </div>
 
-        {linhasOrdenadas.length === 0 ? (
+        {isLoading ? (
+          // Header real já fica visível — só o corpo troca pro skeleton
+          // enquanto GET /api/promotores espera o fan-out ao SST resolver
+          // (ver comVendasReais em promotores.routes.ts, pode levar vários
+          // segundos em cache frio). Sem isto a tela ficava com uma linha
+          // de texto solta, lida como "página em branco".
+          <ExecutivosListaTabelaSkeleton />
+        ) : error ? (
+          <p className="text-destructive px-4 py-10 text-center text-sm">{error}</p>
+        ) : linhasOrdenadas.length === 0 ? (
           <p className="py-10 text-center text-sm text-[#6B6B85]">Nenhum executivo encontrado.</p>
         ) : (
           linhasOrdenadas.map((linha) => (
