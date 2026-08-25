@@ -1459,6 +1459,11 @@ model Promotor {
 model Gestor {
   id       String  @id @default(cuid())
   nome     String
+  // Nullable+unique — mesmo padrão de Promotor.sica acima: nem todo Gestor
+  // tem código SICA próprio (ele não vende no SST, só os executivos
+  // subordinados têm), então o campo fica opcional (pedido do usuário,
+  // 2026-08-25 — padronização com o cadastro de Executivo).
+  sica     Int?    @unique
   // Nullable+unique — Gestores criados pelo backfill a partir da string
   // legada (ver prisma/scripts/backfill-gestores.ts) não têm e-mail
   // conhecido até alguém preencher; Postgres permite múltiplos NULL num

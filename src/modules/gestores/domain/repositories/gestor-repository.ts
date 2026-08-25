@@ -12,6 +12,7 @@ export interface NovoUsuarioGestorData {
 
 export interface CriarGestorData {
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   baseIds: string[];
@@ -20,6 +21,7 @@ export interface CriarGestorData {
 
 export interface AtualizarGestorData {
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   baseIds: string[];

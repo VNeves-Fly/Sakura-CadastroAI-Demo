@@ -72,6 +72,7 @@ export class UpdateGestorUseCase implements UseCase<UpdateGestorUseCaseInput, Ge
 
     const gestor: Gestor = await this.gestorRepository.atualizar(id, {
       nome: input.nome,
+      sica: input.sica,
       email: input.email,
       telefone: input.telefone,
       baseIds: input.baseIds,

@@ -28,6 +28,7 @@ const inputClassName =
 
 const VALORES_VAZIOS: GestorFormValues = {
   nome: "",
+  sica: "",
   email: "",
   telefone: "",
   baseIds: [],
@@ -52,6 +53,7 @@ function paraValoresIniciais(
   return {
     ...VALORES_VAZIOS,
     nome: gestor.nome,
+    sica: gestor.sica !== null ? String(gestor.sica) : "",
     email: gestor.email ?? "",
     telefone: gestor.telefone ?? "",
     baseIds: gestor.bases
@@ -147,28 +149,44 @@ export function GestorForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="nivel" className="text-foreground text-sm font-medium">
-          Nível
-        </label>
-        <select
-          id="nivel"
-          required
-          value={values.nivel ?? ""}
-          onChange={(event) =>
-            setValues({ ...values, nivel: event.target.value as GestorFormValues["nivel"] })
-          }
-          className={inputClassName}
-        >
-          <option value="" disabled>
-            Selecione o nível
-          </option>
-          {NIVEIS_GESTOR.map((opcao) => (
-            <option key={opcao.valor} value={opcao.valor}>
-              {opcao.label}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="sica" className="text-foreground text-sm font-medium">
+            SICA
+          </label>
+          <input
+            id="sica"
+            type="number"
+            placeholder="Opcional"
+            value={values.sica}
+            onChange={(event) => setValues({ ...values, sica: event.target.value })}
+            className={inputClassName}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="nivel" className="text-foreground text-sm font-medium">
+            Nível
+          </label>
+          <select
+            id="nivel"
+            required
+            value={values.nivel ?? ""}
+            onChange={(event) =>
+              setValues({ ...values, nivel: event.target.value as GestorFormValues["nivel"] })
+            }
+            className={inputClassName}
+          >
+            <option value="" disabled>
+              Selecione o nível
             </option>
-          ))}
-        </select>
+            {NIVEIS_GESTOR.map((opcao) => (
+              <option key={opcao.valor} value={opcao.valor}>
+                {opcao.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <BaseMultiSelect

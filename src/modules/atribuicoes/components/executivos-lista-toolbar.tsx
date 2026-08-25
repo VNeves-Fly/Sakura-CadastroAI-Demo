@@ -6,6 +6,7 @@ import { BotaoNovoCadastro } from "@/modules/shared/components/botao-novo-cadast
 interface ExecutivosListaToolbarProps {
   busca: string;
   onBuscaChange: (valor: string) => void;
+  onNovoCadastro: () => void;
 }
 
 // Toolbar pixel-perfect (mockup Claude Design, 2026-08-24, "Executivos") —
@@ -15,7 +16,13 @@ interface ExecutivosListaToolbarProps {
 // valor nenhum nesta lista. O filtro de busca continua vivo no
 // view-model (useExecutivosListaViewModel), só a apresentação mudou.
 // Pedido do usuário, 2026-08-24: restilizar "pixel perfect".
-export function ExecutivosListaToolbar({ busca, onBuscaChange }: ExecutivosListaToolbarProps) {
+// "Novo cadastro" abre modal (padronizado com Gestores, pedido do usuário
+// 2026-08-25) — deixou de navegar pra /crm/executivos/novo.
+export function ExecutivosListaToolbar({
+  busca,
+  onBuscaChange,
+  onNovoCadastro,
+}: ExecutivosListaToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex h-[38px] min-w-[250px] items-center gap-2.5 rounded-full border border-[#F5D6E7] bg-white px-4">
@@ -28,7 +35,7 @@ export function ExecutivosListaToolbar({ busca, onBuscaChange }: ExecutivosLista
         />
       </div>
 
-      <BotaoNovoCadastro href="/crm/executivos/novo" variant="solid" />
+      <BotaoNovoCadastro onClick={onNovoCadastro} variant="solid" />
     </div>
   );
 }

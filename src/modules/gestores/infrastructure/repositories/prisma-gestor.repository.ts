@@ -14,6 +14,7 @@ function toDomain(record: GestorRecordComBases): Gestor {
   return Gestor.create({
     id: record.id,
     nome: record.nome,
+    sica: record.sica,
     email: record.email,
     telefone: record.telefone,
     userId: record.userId,
@@ -83,6 +84,7 @@ export class PrismaGestorRepository implements GestorRepository {
       return tx.gestor.create({
         data: {
           nome: data.nome,
+          sica: data.sica,
           email: data.email,
           telefone: data.telefone,
           userId,
@@ -121,6 +123,7 @@ export class PrismaGestorRepository implements GestorRepository {
         where: { id },
         data: {
           nome: data.nome,
+          sica: data.sica,
           email: data.email,
           telefone: data.telefone,
           ...(userId ? { userId } : {}),

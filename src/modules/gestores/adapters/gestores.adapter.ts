@@ -10,6 +10,7 @@ export const gestoresAdapter = {
   toServiceInput(values: GestorFormValues): GestorPayload {
     return {
       nome: values.nome.trim(),
+      sica: values.sica.trim() ? Number(values.sica.trim()) : null,
       email: values.email.trim() ? values.email.trim().toLowerCase() : null,
       telefone: values.telefone.trim() ? values.telefone.trim() : null,
       baseIds: [...new Set(values.baseIds)],
@@ -24,6 +25,7 @@ export const gestoresAdapter = {
     return {
       id: raw.id,
       nome: raw.nome,
+      sica: raw.sica,
       email: raw.email,
       telefone: raw.telefone,
       temAcesso: raw.userId !== null,

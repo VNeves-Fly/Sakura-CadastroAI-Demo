@@ -3,6 +3,7 @@ import type { GestorPayload } from "@/modules/gestores/types/gestor.types";
 export interface RawGestorResponse {
   id: string;
   nome: string;
+  sica: number | null;
   email: string | null;
   telefone: string | null;
   userId: string | null;

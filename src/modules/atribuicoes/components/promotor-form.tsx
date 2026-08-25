@@ -26,6 +26,11 @@ interface PromotorFormProps {
   minhasBasesSiglas?: string[];
   // Catálogo completo de Base, pra resolver sigla <-> id.
   todasBases: BaseView[];
+  // Usados quando o form é embutido num Dialog (ver executivo-cadastro-modal.tsx)
+  // — o modal já traz título/borda/sombra próprios via DialogHeader/DialogContent,
+  // então evita duplicar esse chrome.
+  className?: string;
+  mostrarTitulo?: boolean;
 }
 
 const inputClassName =
@@ -75,6 +80,8 @@ export function PromotorForm({
   gestoresOptions,
   minhasBasesSiglas,
   todasBases,
+  className,
+  mostrarTitulo = true,
 }: PromotorFormProps) {
   const [values, setValues] = useState<PromotorFormValues>(() =>
     paraValoresIniciais(promotorAtual, gestoresOptions, todasBases),
@@ -102,11 +109,16 @@ export function PromotorForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-border bg-card flex flex-col gap-4 rounded-[1.5rem] border p-6 shadow-sm"
+      className={
+        className ??
+        "border-border bg-card flex flex-col gap-4 rounded-[1.5rem] border p-6 shadow-sm"
+      }
     >
-      <h2 className="text-foreground text-sm font-semibold">
-        {promotorAtual ? "Editar executivo" : "Novo executivo"}
-      </h2>
+      {mostrarTitulo ? (
+        <h2 className="text-foreground text-sm font-semibold">
+          {promotorAtual ? "Editar executivo" : "Novo executivo"}
+        </h2>
+      ) : null}
 
       <div className="flex flex-col gap-1">
         <label htmlFor="nome" className="text-foreground text-sm font-medium">

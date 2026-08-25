@@ -59,6 +59,7 @@ export class CreateGestorUseCase implements UseCase<CreateGestorInput, GestorOut
 
     const gestor = await this.gestorRepository.criar({
       nome: input.nome,
+      sica: input.sica,
       email: input.email,
       telefone: input.telefone,
       baseIds: input.baseIds,
