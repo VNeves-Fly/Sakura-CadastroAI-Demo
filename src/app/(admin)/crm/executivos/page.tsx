@@ -20,13 +20,16 @@ export default async function PromotoresPage() {
 
   // Lista de gestores pra exibir o nome na coluna GESTOR da tabela — é
   // leitura, não seleção de vínculo, então não tem restrição por cargo.
-  // `promotores` (banco local, rápido) já vem aqui também — antes só era
-  // buscado no fetch client de /api/promotores, que travava a tabela
+  // `promotoresTodos` (banco local, rápido) já vem aqui também — antes só
+  // era buscado no fetch client de /api/promotores, que travava a tabela
   // inteira esperando o fan-out de SST junto (ver docs/otimizacao-tempo.md).
-  const [gestoresRaw, todasBases, promotores] = await Promise.all([
+  const [gestoresRaw, todasBases, promotoresTodos, gestorAtual] = await Promise.all([
     atribuicoesAdminController.listarGestores(),
     basesController.list(),
     atribuicoesAdminController.listarPromotores(),
+    cargo === "GESTOR" && session?.user?.id
+      ? atribuicoesAdminController.buscarGestorPorUserId(session.user.id)
+      : Promise.resolve(null),
   ]);
   const gestoresOptions = gestoresRaw.map((gestor) => ({
     id: gestor.id,
@@ -34,14 +37,21 @@ export default async function PromotoresPage() {
     bases: gestor.bases,
   }));
 
+  // Mesmo escopo de resolverAcessoPromotores em promotores.routes.ts:
+  // Gestor só enxerga os próprios executivos. Antes desse SSR, isso era
+  // garantido pelo filtro em listPromotoresRoute (comparando
+  // promotor.gestorId); replicado aqui pra não vazar dado de outros
+  // gestores pro carregamento inicial.
+  const promotores =
+    cargo === "GESTOR"
+      ? promotoresTodos.filter((promotor) => promotor.gestorId === gestorAtual?.id)
+      : promotoresTodos;
+
   // Opções pro seletor "Gestor" do modal de cadastro (ex-/executivos/novo,
   // migrado pra modal — padronização pedida pelo usuário, 2026-08-25): aqui
   // sim há restrição por cargo — Gestor não escolhe, o vínculo já é o dele.
   const criacaoGestoresOptions = cargo === "GESTOR" ? null : gestoresOptions;
-  const minhasBasesSiglas =
-    cargo === "GESTOR" && session?.user?.id
-      ? ((await atribuicoesAdminController.buscarGestorPorUserId(session.user.id))?.bases ?? [])
-      : undefined;
+  const minhasBasesSiglas = cargo === "GESTOR" ? (gestorAtual?.bases ?? []) : undefined;
 
   // Disparado sem `await` — a página abre com o skeleton na hora em vez de
   // esperar o fan-out de SST (uma chamada por promotor, pode levar dezenas
