@@ -1,7 +1,8 @@
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 import type { SignatarioKeySigner } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
+import type { StatusBiometriaVerificacao } from "@/modules/cadastro/domain/enums";
 
-function normalizarEmail(email: string): string {
+export function normalizarEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
@@ -46,4 +47,24 @@ export function todosSociosAssinaram(emailsSocios: string[], emailsAssinados: st
 
   const assinados = new Set(emailsAssinados.map(normalizarEmail));
   return emailsSocios.every((email) => assinados.has(normalizarEmail(email)));
+}
+
+// Mesmo racional de todosSociosAssinaram, mas pro fluxo paralelo de
+// biometria facial (Legitimuz) — decisão do usuário (2026-08-25): com o
+// gate ativo, a agência só pode avançar quando TODOS os sócios tiverem
+// AMBOS assinado e com a biometria aprovada, não só assinado. Isso vale
+// mesmo que um sócio consiga assinar "por fora" (ex.: link de assinatura
+// copiado manualmente no dossiê sem nunca passar pela biometria) — a
+// agência simplesmente não avança até a biometria também aparecer
+// aprovada, então não é preciso impedir o acesso ao link em si.
+export function todosSociosComBiometriaAprovada(
+  emailsSocios: string[],
+  biometrias: { email: string; status: StatusBiometriaVerificacao }[],
+): boolean {
+  if (emailsSocios.length === 0) return false;
+
+  const aprovados = new Set(
+    biometrias.filter((b) => b.status === "aprovado").map((b) => normalizarEmail(b.email)),
+  );
+  return emailsSocios.every((email) => aprovados.has(normalizarEmail(email)));
 }

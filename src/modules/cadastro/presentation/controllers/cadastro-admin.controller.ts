@@ -612,6 +612,7 @@ export const cadastroAdminController = {
       contratoSignatarioRepository,
       signatarioPadraoRepository,
       contratoAssinaturaRepository,
+      biometriaVerificacaoRepository,
     );
     return useCase.execute({ agenciaId, sincronizadoPor });
   },
@@ -719,6 +720,7 @@ export const cadastroAdminController = {
       contratoEmailFalhaEntregaRepository,
       contratoAssinaturaRepository,
       contratoSignatarioRepository,
+      biometriaVerificacaoRepository,
     );
     const useCase = new RegistrarContratoExternoUseCase(
       contratoRepository,

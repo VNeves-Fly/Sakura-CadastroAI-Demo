@@ -4,6 +4,7 @@ import { PrismaSignatarioPadraoRepository } from "@/modules/cadastro/infrastruct
 import { PrismaContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-email-falha-entrega.repository";
 import { PrismaContratoAssinaturaRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-assinatura.repository";
 import { PrismaContratoSignatarioRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-contrato-signatario.repository";
+import { PrismaBiometriaVerificacaoRepository } from "@/modules/cadastro/infrastructure/repositories/prisma-biometria-verificacao.repository";
 import {
   ProcessarWebhookD4SignUseCase,
   type ProcessarWebhookD4SignInput,
@@ -14,6 +15,7 @@ const signatarioPadraoRepository = new PrismaSignatarioPadraoRepository(prisma);
 const contratoEmailFalhaEntregaRepository = new PrismaContratoEmailFalhaEntregaRepository(prisma);
 const contratoAssinaturaRepository = new PrismaContratoAssinaturaRepository(prisma);
 const contratoSignatarioRepository = new PrismaContratoSignatarioRepository(prisma);
+const biometriaVerificacaoRepository = new PrismaBiometriaVerificacaoRepository(prisma);
 
 export const webhookD4SignController = {
   processar(input: ProcessarWebhookD4SignInput) {
@@ -23,6 +25,7 @@ export const webhookD4SignController = {
       contratoEmailFalhaEntregaRepository,
       contratoAssinaturaRepository,
       contratoSignatarioRepository,
+      biometriaVerificacaoRepository,
     );
     return useCase.execute(input);
   },

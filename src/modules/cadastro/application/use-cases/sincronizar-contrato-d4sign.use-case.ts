@@ -9,7 +9,8 @@ import type { ContratoSignatarioRepository } from "@/modules/cadastro/domain/rep
 import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repositories/signatario-padrao-repository";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 import type { ContratoAssinaturaService } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
-import { todosSociosAssinaram } from "@/modules/cadastro/domain/services/assinatura-socios.util";
+import type { BiometriaVerificacaoRepository } from "@/modules/cadastro/domain/repositories/biometria-verificacao-repository";
+import { tentarAvancarAposAssinaturaEBiometria } from "@/modules/cadastro/application/use-cases/avancar-status-pos-assinatura.util";
 
 export interface SincronizarContratoD4SignInput {
   agenciaId: string;
@@ -51,6 +52,7 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
     private readonly contratoSignatarioRepository: ContratoSignatarioRepository,
     private readonly signatarioPadraoRepository: SignatarioPadraoRepository,
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
+    private readonly biometriaVerificacaoRepository: BiometriaVerificacaoRepository,
   ) {}
 
   async execute({
@@ -180,27 +182,23 @@ export class SincronizarContratoD4SignUseCase implements UseCase<
 
     let avancouStatus = false;
     if (detalhe.agencia.status === STATUS_AGUARDANDO_ASSINATURA) {
-      // assinadoEm !== null é obrigatório: uma linha em ContratoAssinatura
-      // não significa mais "assinou" por si só (ver registrarDestinatario).
-      const emailsAssinadosHistorico = assinaturasAntes
-        .filter((a) => a.assinadoEm !== null)
-        .map((a) => a.email);
-      const emailsAssinadosAgora = destinatariosD4Sign
-        .filter((item) => item.assinado === true)
-        .map((item) => item.email);
-
-      if (
-        todosSociosAssinaram(
-          socios.map((s) => s.email),
-          [...emailsAssinadosHistorico, ...emailsAssinadosAgora],
-        )
-      ) {
-        await this.agenciaRepository.atualizarStatus(agenciaId, STATUS_AGUARDANDO_VALIDACAO, {
-          usuarioEmail: sincronizadoPor,
-          origem: "usuario",
-        });
-        avancouStatus = true;
-      }
+      // tentarAvancarAposAssinaturaEBiometria já reconsulta
+      // ContratoAssinatura do zero (o loop acima já persistiu tudo que o
+      // D4Sign reportou agora), então cobre tanto o histórico quanto o que
+      // acabou de ser sincronizado sem precisar montar a lista combinada
+      // aqui. Com o gate ativo, só avança se a biometria também estiver
+      // aprovada pra todo mundo (decisão do usuário 2026-08-25) — mesmo
+      // pulo de aguardando_validacao explicado no webhook do D4Sign.
+      avancouStatus = await tentarAvancarAposAssinaturaEBiometria(
+        this.agenciaRepository,
+        this.contratoSignatarioRepository,
+        this.contratoAssinaturaRepository,
+        this.biometriaVerificacaoRepository,
+        agenciaId,
+        contratoAtual.id,
+        detalhe.agencia.gateBiometriaAtivo,
+        { usuarioEmail: sincronizadoPor, origem: "usuario" },
+      );
     } else if (detalhe.agencia.status === STATUS_AGUARDANDO_VALIDACAO) {
       // Mesma regra do webhook: a assinatura do aprovador com a validação
       // pendente é, em si, a aprovação formal do time de cadastro.
