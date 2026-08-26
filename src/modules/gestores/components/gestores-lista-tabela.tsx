@@ -40,12 +40,10 @@ function valorOrdenavel(linha: GestorListaView, chave: ColunaChave): string | nu
 // SortableDataTable/<Table> genérica nem StickyHorizontalScrollbar (o
 // mockup não precisa — só 6 colunas, mais estreitas que a versão
 // anterior). Colunas reduzidas ao que o mockup mostra — Total/Vend.30d/
-// Paradas+90d/Limite/Saúde e o botão Inativar/Ativar saíram da lista (o
-// Inativar/Ativar continua no modal de edição, ver gestor-edicao-modal.tsx
-// — nenhuma funcionalidade foi perdida, só saiu da linha). Máscara de
-// dados sensíveis (SensitiveValue) também saiu — o mockup não tem o botão
-// de olho na toolbar. Pedido do usuário, 2026-08-24: restilizar
-// /crm/gestores "pixel perfect" com o modelo fornecido.
+// Paradas+90d/Limite/Saúde saíram da lista. Máscara de dados sensíveis
+// (SensitiveValue) também saiu — o mockup não tem o botão de olho na
+// toolbar. Pedido do usuário, 2026-08-24: restilizar /crm/gestores
+// "pixel perfect" com o modelo fornecido.
 export function GestoresListaTabela({
   gestores,
   isLoading,
