@@ -2,19 +2,28 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { httpError, httpOk } from "@/modules/shared/presentation/http-response";
 import { webhookLegitimuzController } from "@/modules/cadastro/presentation/controllers/webhook-legitimuz.controller";
 
-// Três formatos de payload confirmados até agora:
+// Formatos de payload confirmados até agora (o flow kyc-faceindex manda
+// MAIS DE UM evento por sessão — não é um payload único):
 // - Atualização de revisão manual (`type: "update"`, quando alguém no
 //   dashboard da Legitimuz resolve um caso "Análise Manual"): o status de
 //   verdade fica em `validationPerson.meta.status`/`.ref_id`, não na raiz
 //   (doc do ClickUp, nunca testado ao vivo).
 // - Evento genérico documentado: `{ status, ref_id, personId, integration }`
 //   na raiz (idem, nunca testado ao vivo).
-// - Evento REAL do flow kyc-faceindex, confirmado ao vivo 2026-08-26 (a
-//   doc estava errada pra esse caso): NÃO tem `status` na raiz — o
-//   resultado vem em `liveness.status`/`facematch.status` (`ref_id` esse
-//   sim já vem na raiz, igual ao formato documentado). Usa `liveness`
-//   primeiro — é a etapa sempre presente, mesmo se `facematch` não rodar
-//   por algum motivo.
+// - Evento de liveness/facematch, confirmado ao vivo 2026-08-26 (a doc
+//   estava errada pra esse caso): NÃO tem `status` na raiz — o resultado
+//   vem em `liveness.status`/`facematch.status` (`ref_id` esse sim já vem
+//   na raiz).
+// - Evento de OCR de documento (`ocr.status`), TAMBÉM confirmado ao vivo
+//   2026-08-26 — surpresa: a doc original (e o comentário em
+//   legitimuz.adapter.ts) achava que kyc-faceindex não fazia captura de
+//   documento, mas manda esse evento também, aparentemente numa etapa
+//   anterior à de liveness/facematch da mesma sessão. NÃO tratamos isso
+//   como aprovação — ver `ehEventoSoDocumento` abaixo: documento aprovado
+//   sozinho não prova quem está do outro lado da câmera na hora da selfie,
+//   só que existe um documento válido (que poderia até ser de outra
+//   pessoa). Só liveness/facematch decide o status de
+//   BiometriaVerificacao.
 interface CamposWebhookLegitimuz {
   refId: unknown;
   status: unknown;
@@ -34,6 +43,14 @@ function extrairCampos(body: Record<string, unknown>): CamposWebhookLegitimuz {
     refId: body.ref_id,
     status: body.status ?? liveness?.status ?? facematch?.status,
   };
+}
+
+// Evento reconhecido (tem ref_id) mas só de OCR, sem liveness/facematch —
+// ver comentário acima. Reconhecemos e respondemos 200 (evita retry),
+// mas de propósito NÃO extraímos status dele: aprovação de documento não
+// deve nunca virar aprovação de biometria facial.
+function ehEventoSoDocumento(body: Record<string, unknown>): boolean {
+  return body.type !== "update" && !body.status && !body.liveness && !body.facematch && !!body.ocr;
 }
 
 // Assinatura documentada como `X-Signature: sha256=<hmac>`, calculada
@@ -86,11 +103,24 @@ export async function processarWebhookLegitimuzRoute(request: Request) {
   }
 
   const { refId, status } = extrairCampos(body);
-  if (typeof refId !== "string" || !refId || typeof status !== "string" || !status) {
+
+  if (typeof refId !== "string" || !refId) {
+    console.error(`Webhook Legitimuz: ref_id inválido — ref_id=${JSON.stringify(refId)}.`);
+    return httpError("Payload de webhook inválido — ref_id é obrigatório.", 422);
+  }
+
+  if (typeof status !== "string" || !status) {
+    if (ehEventoSoDocumento(body)) {
+      console.warn(
+        `Webhook Legitimuz: ref_id=${refId} é um evento só de OCR de documento — reconhecido, sem ação (não conta como biometria aprovada).`,
+      );
+      return httpOk({ processado: false, motivo: "Evento de OCR de documento — sem ação." });
+    }
+
     console.error(
-      `Webhook Legitimuz: ref_id/status inválidos — ref_id=${JSON.stringify(refId)}, status=${JSON.stringify(status)}.`,
+      `Webhook Legitimuz: status inválido — ref_id=${refId}, status=${JSON.stringify(status)}.`,
     );
-    return httpError("Payload de webhook inválido — ref_id e status são obrigatórios.", 422);
+    return httpError("Payload de webhook inválido — status é obrigatório.", 422);
   }
 
   const resultado = await webhookLegitimuzController.processar({ refId, status });

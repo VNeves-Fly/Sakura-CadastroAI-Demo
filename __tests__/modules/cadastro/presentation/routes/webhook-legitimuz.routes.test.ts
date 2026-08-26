@@ -149,6 +149,30 @@ describe("processarWebhookLegitimuzRoute", () => {
     });
   });
 
+  it("reconhece (200, sem chamar o use-case) um evento só de OCR de documento — não conta como biometria aprovada", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.LEGITIMUZ_WEBHOOK_SECRET;
+
+    // Payload real recebido em produção — etapa de OCR/captura de
+    // documento do próprio flow kyc-faceindex, sem liveness/facematch
+    // nenhum (contrário ao que a doc original previa pra esse flow).
+    const request = buildJsonRequest({
+      integration: { id: 30425, domain: "painel.sakuraclick.com.br" },
+      ref_id: "11820988f971104e71796e19e73baf366501d5ecab4e5fbd079de8ba1e04c845",
+      cliente: { cpf: "37576153873", nome: "Adriano Laino Simoes" },
+      ocr: {
+        validated: true,
+        status: "Documento Aprovado",
+        check: { doc_frente: "Documento Aprovado", doc_verso: "Documento Aprovado" },
+      },
+      personId: 733102438,
+    });
+    const response = await processarWebhookLegitimuzRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).not.toHaveBeenCalled();
+  });
+
   it("sempre responde 200 mesmo quando o use-case não reconhece o evento (evita retry)", async () => {
     process.env = { ...originalEnv };
     delete process.env.LEGITIMUZ_WEBHOOK_SECRET;
