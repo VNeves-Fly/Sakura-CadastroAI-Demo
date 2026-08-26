@@ -13,6 +13,7 @@ import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repos
 import type { ContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/domain/repositories/contrato-email-falha-entrega-repository";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 import type { ContratoSignatarioRepository } from "@/modules/cadastro/domain/repositories/contrato-signatario-repository";
+import type { BiometriaVerificacaoRepository } from "@/modules/cadastro/domain/repositories/biometria-verificacao-repository";
 
 function criarRepositorioFake(overrides: Partial<AgenciaRepository> = {}): AgenciaRepository {
   return {
@@ -86,6 +87,21 @@ function fakeContratoSignatarioRepository(
   } as unknown as ContratoSignatarioRepository;
 }
 
+// Só relevante quando a agência tem gateBiometriaAtivo — nos testes sem
+// gate, tentarAvancarAposAssinaturaEBiometria nem chega a consultar isso.
+function fakeBiometriaVerificacaoRepository(
+  biometrias: Array<{ email: string; status: string }> = [],
+): BiometriaVerificacaoRepository {
+  return {
+    criarOuSubstituir: jest.fn(),
+    buscarPorToken: jest.fn(),
+    buscarPorContratoIdEEmail: jest.fn(),
+    findByContratoId: jest.fn().mockResolvedValue(biometrias),
+    atualizarStatus: jest.fn(),
+    incrementarTentativasLembrete: jest.fn(),
+  } as unknown as BiometriaVerificacaoRepository;
+}
+
 const JEAN = SignatarioPadrao.create({
   id: "sig-jean",
   nome: "Jean",
@@ -122,6 +138,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       fakeContratoEmailFalhaEntregaRepository(),
       fakeContratoAssinaturaRepository(),
       fakeContratoSignatarioRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "3" });
@@ -143,6 +160,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       fakeContratoEmailFalhaEntregaRepository(),
       fakeContratoAssinaturaRepository(),
       fakeContratoSignatarioRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({ provedorId: "doc-desconhecido", typePost: "1" });
@@ -166,6 +184,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       fakeContratoEmailFalhaEntregaRepository(),
       fakeContratoAssinaturaRepository(),
       fakeContratoSignatarioRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
@@ -190,6 +209,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       fakeContratoEmailFalhaEntregaRepository(),
       fakeContratoAssinaturaRepository(),
       fakeContratoSignatarioRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
@@ -212,6 +232,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         emailFalhaRepo,
         fakeContratoAssinaturaRepository(),
         fakeContratoSignatarioRepository(),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "2" });
@@ -231,6 +252,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         emailFalhaRepo,
         fakeContratoAssinaturaRepository(),
         fakeContratoSignatarioRepository(),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -256,6 +278,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         emailFalhaRepo,
         fakeContratoAssinaturaRepository(),
         fakeContratoSignatarioRepository(),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -288,6 +311,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         emailFalhaRepo,
         fakeContratoAssinaturaRepository(),
         fakeContratoSignatarioRepository(),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       await useCase.execute({
@@ -310,6 +334,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository(),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "4" });
@@ -330,6 +355,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository(),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -359,6 +385,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -396,6 +423,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -419,7 +447,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
     // sem aprovação do time de cadastro (não há evidência de assinatura
     // pra validar), pula aguardando_validacao inteira e vai direto pra
     // análise de crédito quando todos os sócios assinam.
-    it("com gateBiometriaAtivo, avança direto pra aguardando_cadastramento quando o último sócio assina", async () => {
+    it("com gateBiometriaAtivo, avança direto pra aguardando_cadastramento quando o último sócio assina E todos já têm biometria aprovada", async () => {
       const repo = criarRepositorioFake({
         findByContratoProvedorId: jest
           .fn()
@@ -439,6 +467,10 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        fakeBiometriaVerificacaoRepository([
+          { email: SOCIO_1, status: "aprovado" },
+          { email: SOCIO_2, status: "aprovado" },
+        ]),
       );
 
       const resultado = await useCase.execute({
@@ -452,6 +484,44 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         origem: "sistema - d4sign",
       });
       expect(resultado).toEqual({ processado: true });
+    });
+
+    it("com gateBiometriaAtivo, NÃO avança quando o último sócio assina mas algum ainda não tem biometria aprovada", async () => {
+      const repo = criarRepositorioFake({
+        findByContratoProvedorId: jest
+          .fn()
+          .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+        obterDetalhe: jest.fn().mockResolvedValue({
+          agencia: { status: STATUS_AGUARDANDO_ASSINATURA, gateBiometriaAtivo: true },
+          contratos: [{ id: "ct-1", status: STATUS_AGUARDANDO_ASSINATURA }],
+        } as never),
+      });
+      const assinaturaRepo = fakeContratoAssinaturaRepository([
+        { email: SOCIO_1 },
+        { email: SOCIO_2 },
+      ]);
+      const useCase = new ProcessarWebhookD4SignUseCase(
+        repo,
+        fakeSignatarioPadraoRepository([JEAN, WAGNER]),
+        fakeContratoEmailFalhaEntregaRepository(),
+        assinaturaRepo,
+        fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        // Só SOCIO_1 tem biometria aprovada — SOCIO_2 assinou (evento
+        // atual) mas ainda não validou a biometria facial.
+        fakeBiometriaVerificacaoRepository([{ email: SOCIO_1, status: "aprovado" }]),
+      );
+
+      const resultado = await useCase.execute({
+        provedorId: "doc-1",
+        typePost: "4",
+        email: SOCIO_2,
+      });
+
+      expect(repo.atualizarStatus).not.toHaveBeenCalled();
+      expect(resultado).toEqual({
+        processado: true,
+        motivo: "Assinatura registrada — ainda faltam sócios assinar e/ou validar biometria.",
+      });
     });
 
     it("marca o contrato como assinado_agencia quando o aprovador assina, mas NÃO avança a agência se ainda faltam sócios", async () => {
@@ -471,6 +541,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -510,6 +581,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -551,6 +623,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -585,6 +658,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -618,6 +692,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
         fakeContratoEmailFalhaEntregaRepository(),
         assinaturaRepo,
         fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
+        fakeBiometriaVerificacaoRepository(),
       );
 
       const resultado = await useCase.execute({
@@ -650,6 +725,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       fakeContratoEmailFalhaEntregaRepository(),
       fakeContratoAssinaturaRepository(),
       fakeContratoSignatarioRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
@@ -659,6 +735,67 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       usuarioEmail: null,
       origem: "sistema - d4sign",
     });
+    expect(resultado).toEqual({ processado: true });
+  });
+
+  it("com gateBiometriaAtivo, alcança aguardando_cadastramento (via '1') quando todos os sócios já têm biometria aprovada", async () => {
+    const repo = criarRepositorioFake({
+      findByContratoProvedorId: jest
+        .fn()
+        .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+      obterDetalhe: jest.fn().mockResolvedValue({
+        agencia: { status: STATUS_AGUARDANDO_ASSINATURA, gateBiometriaAtivo: true },
+        contratos: [{ id: "ct-1", status: STATUS_AGUARDANDO_ASSINATURA }],
+      } as never),
+    });
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+      fakeContratoAssinaturaRepository(),
+      fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+      fakeBiometriaVerificacaoRepository([
+        { email: SOCIO_1, status: "aprovado" },
+        { email: SOCIO_2, status: "aprovado" },
+      ]),
+    );
+
+    const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
+
+    expect(repo.atualizarStatusContrato).toHaveBeenCalledWith("ct-1", CONTRATO_STATUS_ASSINADO);
+    expect(repo.atualizarStatus).toHaveBeenCalledWith("ag-1", STATUS_AGUARDANDO_CADASTRAMENTO, {
+      usuarioEmail: null,
+      origem: "sistema - d4sign",
+    });
+    expect(resultado).toEqual({ processado: true });
+  });
+
+  it("com gateBiometriaAtivo, fecha o contrato como assinado mas NÃO avança a agência (via '1') se algum sócio ainda não validou a biometria", async () => {
+    const repo = criarRepositorioFake({
+      findByContratoProvedorId: jest
+        .fn()
+        .mockResolvedValue({ agenciaId: "ag-1", contratoId: "ct-1" }),
+      obterDetalhe: jest.fn().mockResolvedValue({
+        agencia: { status: STATUS_AGUARDANDO_ASSINATURA, gateBiometriaAtivo: true },
+        contratos: [{ id: "ct-1", status: STATUS_AGUARDANDO_ASSINATURA }],
+      } as never),
+    });
+    const useCase = new ProcessarWebhookD4SignUseCase(
+      repo,
+      fakeSignatarioPadraoRepository(),
+      fakeContratoEmailFalhaEntregaRepository(),
+      fakeContratoAssinaturaRepository(),
+      fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+      fakeBiometriaVerificacaoRepository([{ email: SOCIO_1, status: "aprovado" }]),
+    );
+
+    const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });
+
+    // O documento fecha normalmente (D4Sign já confirmou que todos
+    // assinaram) — só o avanço de Agencia.status fica pra trás até o
+    // webhook da Legitimuz aprovar o sócio que falta.
+    expect(repo.atualizarStatusContrato).toHaveBeenCalledWith("ct-1", CONTRATO_STATUS_ASSINADO);
+    expect(repo.atualizarStatus).not.toHaveBeenCalled();
     expect(resultado).toEqual({ processado: true });
   });
 
@@ -677,6 +814,7 @@ describe("ProcessarWebhookD4SignUseCase", () => {
       fakeContratoEmailFalhaEntregaRepository(),
       fakeContratoAssinaturaRepository(),
       fakeContratoSignatarioRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({ provedorId: "doc-1", typePost: "1" });

@@ -11,7 +11,11 @@ import type { SignatarioPadraoRepository } from "@/modules/cadastro/domain/repos
 import type { ContratoEmailFalhaEntregaRepository } from "@/modules/cadastro/domain/repositories/contrato-email-falha-entrega-repository";
 import type { ContratoAssinaturaRepository } from "@/modules/cadastro/domain/repositories/contrato-assinatura-repository";
 import type { ContratoSignatarioRepository } from "@/modules/cadastro/domain/repositories/contrato-signatario-repository";
-import { todosSociosAssinaram } from "@/modules/cadastro/domain/services/assinatura-socios.util";
+import type { BiometriaVerificacaoRepository } from "@/modules/cadastro/domain/repositories/biometria-verificacao-repository";
+import {
+  tentarAvancarAposAssinaturaEBiometria,
+  avancarAposDocumentoFinalizado,
+} from "@/modules/cadastro/application/use-cases/avancar-status-pos-assinatura.util";
 
 export interface ProcessarWebhookD4SignInput {
   // uuid do documento no D4Sign — é o Contrato.provedorId gravado quando
@@ -77,6 +81,7 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
     private readonly contratoEmailFalhaEntregaRepository: ContratoEmailFalhaEntregaRepository,
     private readonly contratoAssinaturaRepository: ContratoAssinaturaRepository,
     private readonly contratoSignatarioRepository: ContratoSignatarioRepository,
+    private readonly biometriaVerificacaoRepository: BiometriaVerificacaoRepository,
   ) {}
 
   async execute(input: ProcessarWebhookD4SignInput): Promise<ProcessarWebhookD4SignOutput> {
@@ -173,43 +178,32 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       };
     }
 
-    const socios = await this.contratoSignatarioRepository.findByContratoId(referencia.contratoId);
-    const assinaturas = await this.contratoAssinaturaRepository.findByContratoId(
-      referencia.contratoId,
-    );
-
-    // assinadoEm !== null é obrigatório aqui: uma linha em ContratoAssinatura
-    // não significa mais "assinou" por si só — pode ser só um destinatário
-    // conhecido pelo sync (ver registrarDestinatario).
-    if (
-      !todosSociosAssinaram(
-        socios.map((s) => s.email),
-        assinaturas.filter((a) => a.assinadoEm !== null).map((a) => a.email),
-      )
-    ) {
-      return {
-        processado: true,
-        motivo: "Assinatura registrada — ainda faltam sócios assinar.",
-      };
-    }
-
     // Fluxo paralelo de biometria facial (Legitimuz, ver docs/legitimuz/):
-    // não existe mais "aprovação do time de cadastro" pra validar — não há
-    // evidência de assinatura pra validar (docauthandselfie/videoselfie
-    // nem são pedidos nesse fluxo), então pula aguardando_validacao
-    // inteira e vai direto pra análise de crédito (SICA/TravelLink).
-    await this.agenciaRepository.atualizarStatus(
+    // com o gate ativo não existe mais "aprovação do time de cadastro"
+    // pra validar — não há evidência de assinatura pra validar
+    // (docauthandselfie/videoselfie nem são pedidos nesse fluxo) —, então
+    // pula aguardando_validacao inteira e vai direto pra análise de
+    // crédito, MAS só quando todos os sócios também tiverem a biometria
+    // aprovada (não só assinado — decisão do usuário 2026-08-25, ver
+    // tentarAvancarAposAssinaturaEBiometria). Sem o gate, comportamento de
+    // sempre: só depende da assinatura.
+    const avancou = await tentarAvancarAposAssinaturaEBiometria(
+      this.agenciaRepository,
+      this.contratoSignatarioRepository,
+      this.contratoAssinaturaRepository,
+      this.biometriaVerificacaoRepository,
       referencia.agenciaId,
-      agencia?.agencia.gateBiometriaAtivo
-        ? STATUS_AGUARDANDO_CADASTRAMENTO
-        : STATUS_AGUARDANDO_VALIDACAO,
-      {
-        usuarioEmail: input.email ?? null,
-        origem: "sistema - d4sign",
-      },
+      referencia.contratoId,
+      agencia?.agencia.gateBiometriaAtivo ?? false,
+      { usuarioEmail: input.email ?? null, origem: "sistema - d4sign" },
     );
 
-    return { processado: true };
+    return {
+      processado: true,
+      motivo: avancou
+        ? undefined
+        : "Assinatura registrada — ainda faltam sócios assinar e/ou validar biometria.",
+    };
   }
 
   private async processarDocumentoFinalizado(
@@ -248,12 +242,17 @@ export class ProcessarWebhookD4SignUseCase implements UseCase<
       // Mesmo pulo de aguardando_validacao explicado em
       // processarAssinaturaIndividual — aqui é só o caminho de "alcançar"
       // quando o '4' individual do último sócio se perdeu e só o '1' final
-      // chegou.
-      await this.agenciaRepository.atualizarStatus(
+      // chegou. Com o gate ativo, mesmo com o "1" confirmando que todos
+      // assinaram, ainda pode faltar biometria — avancarAposDocumentoFinalizado
+      // cuida disso (só avança se também estiver tudo aprovado; não
+      // reconfere a assinatura em si, o "1" já é prova disso).
+      await avancarAposDocumentoFinalizado(
+        this.agenciaRepository,
+        this.contratoSignatarioRepository,
+        this.biometriaVerificacaoRepository,
         referencia.agenciaId,
-        agencia?.agencia.gateBiometriaAtivo
-          ? STATUS_AGUARDANDO_CADASTRAMENTO
-          : STATUS_AGUARDANDO_VALIDACAO,
+        referencia.contratoId,
+        agencia?.agencia.gateBiometriaAtivo ?? false,
         contextoWebhook,
       );
     } else if (statusAtual === STATUS_AGUARDANDO_VALIDACAO) {

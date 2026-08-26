@@ -13,6 +13,7 @@ import type {
   ContratoAssinaturaService,
   DestinatarioD4Sign,
 } from "@/modules/cadastro/domain/services/contrato-assinatura-service";
+import type { BiometriaVerificacaoRepository } from "@/modules/cadastro/domain/repositories/biometria-verificacao-repository";
 
 const SOCIO_1 = "socio1@agencia.com";
 const SOCIO_2 = "socio2@agencia.com";
@@ -100,25 +101,63 @@ function fakeSignatarioPadraoRepository(
   };
 }
 
+// Stateful (não só um jest.fn() estático): registrar/registrarDestinatario/
+// marcarRemocaoDoDocumento mutam o mesmo Map que findByContratoId lê depois
+// — necessário porque tentarAvancarAposAssinaturaEBiometria (chamado no
+// meio de SincronizarContratoD4SignUseCase.execute) reconsulta o
+// repositório DEPOIS do loop de backfill, então precisa enxergar o que
+// acabou de ser escrito na mesma execução (mesma garantia que o Prisma
+// real dá — read-after-write).
 function fakeContratoAssinaturaRepository(
-  assinaturas: Array<{
+  assinaturasIniciais: Array<{
     email: string;
     assinadoEm?: Date | null;
     removidoDoDocumentoEm?: Date | null;
+    keySigner?: string | null;
   }> = [],
 ): ContratoAssinaturaRepository {
+  const estado = new Map(
+    assinaturasIniciais.map((a) => [
+      a.email,
+      { assinadoEm: null, removidoDoDocumentoEm: null, keySigner: null, ...a },
+    ]),
+  );
+
   return {
-    registrar: jest.fn(),
-    registrarDestinatario: jest.fn(),
-    marcarRemocaoDoDocumento: jest.fn(),
-    findByContratoId: jest.fn().mockResolvedValue(
-      assinaturas.map((a) => ({
-        assinadoEm: null,
-        removidoDoDocumentoEm: null,
-        keySigner: null,
-        ...a,
-      })),
+    registrar: jest.fn(
+      async (_contratoId: string, email: string, keySigner: string | null = null) => {
+        const atual = estado.get(email) ?? {
+          email,
+          assinadoEm: null,
+          removidoDoDocumentoEm: null,
+          keySigner: null,
+        };
+        estado.set(email, {
+          ...atual,
+          assinadoEm: new Date(),
+          keySigner: keySigner ?? atual.keySigner,
+        });
+      },
     ),
+    registrarDestinatario: jest.fn(
+      async (_contratoId: string, email: string, keySigner: string | null = null) => {
+        const atual = estado.get(email) ?? {
+          email,
+          assinadoEm: null,
+          removidoDoDocumentoEm: null,
+          keySigner: null,
+        };
+        estado.set(email, { ...atual, keySigner: keySigner ?? atual.keySigner });
+      },
+    ),
+    marcarRemocaoDoDocumento: jest.fn(
+      async (_contratoId: string, email: string, removido: boolean) => {
+        const atual = estado.get(email);
+        if (atual)
+          estado.set(email, { ...atual, removidoDoDocumentoEm: removido ? new Date() : null });
+      },
+    ),
+    findByContratoId: jest.fn(async () => Array.from(estado.values())),
   } as unknown as ContratoAssinaturaRepository;
 }
 
@@ -128,6 +167,22 @@ function destinatario(
   keySigner: string | null = null,
 ): DestinatarioD4Sign {
   return { email, assinado, assinadoEm: null, keySigner };
+}
+
+// Só relevante quando a agência tem gateBiometriaAtivo — nos testes sem
+// gate (AGENCIA_DETALHE_BASE não define esse campo, então fica falsy),
+// tentarAvancarAposAssinaturaEBiometria nem chega a consultar isso.
+function fakeBiometriaVerificacaoRepository(
+  biometrias: Array<{ email: string; status: string }> = [],
+): BiometriaVerificacaoRepository {
+  return {
+    criarOuSubstituir: jest.fn(),
+    buscarPorToken: jest.fn(),
+    buscarPorContratoIdEEmail: jest.fn(),
+    findByContratoId: jest.fn().mockResolvedValue(biometrias),
+    atualizarStatus: jest.fn(),
+    incrementarTentativasLembrete: jest.fn(),
+  } as unknown as BiometriaVerificacaoRepository;
 }
 
 const AGENCIA_DETALHE_BASE = {
@@ -143,6 +198,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository(),
       fakeSignatarioPadraoRepository(),
       fakeContratoAssinaturaRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -164,6 +220,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository(),
       fakeSignatarioPadraoRepository(),
       fakeContratoAssinaturaRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -187,6 +244,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
       fakeSignatarioPadraoRepository(),
       fakeContratoAssinaturaRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -216,6 +274,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
       fakeSignatarioPadraoRepository(),
       fakeContratoAssinaturaRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -240,6 +299,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
       fakeSignatarioPadraoRepository([]),
       fakeContratoAssinaturaRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -268,6 +328,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
       fakeSignatarioPadraoRepository([]),
       fakeContratoAssinaturaRepository(),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -300,6 +361,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
       fakeSignatarioPadraoRepository([]),
       contratoAssinaturaRepository,
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -324,6 +386,72 @@ describe("SincronizarContratoD4SignUseCase", () => {
     });
   });
 
+  describe("gate de biometria ativo (2026-08-25)", () => {
+    const AGENCIA_DETALHE_GATE_ATIVO = {
+      agencia: { status: STATUS_AGUARDANDO_ASSINATURA, gateBiometriaAtivo: true },
+      contratos: [{ id: "ct-1", provedorId: "doc-1", status: STATUS_AGUARDANDO_ASSINATURA }],
+    };
+
+    it("NÃO avança (nem pra aguardando_validacao) quando todos assinaram mas falta biometria de algum sócio", async () => {
+      const agenciaRepository = fakeAgenciaRepository({
+        obterDetalhe: jest.fn().mockResolvedValue(AGENCIA_DETALHE_GATE_ATIVO),
+      });
+      const useCase = new SincronizarContratoD4SignUseCase(
+        agenciaRepository,
+        fakeContratoAssinaturaService({
+          obterDestinatarios: jest
+            .fn()
+            .mockResolvedValue([destinatario(SOCIO_1, true), destinatario(SOCIO_2, true)]),
+        }),
+        fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        fakeSignatarioPadraoRepository([]),
+        fakeContratoAssinaturaRepository([]),
+        fakeBiometriaVerificacaoRepository([{ email: SOCIO_1, status: "aprovado" }]),
+      );
+
+      const resultado = await useCase.execute({
+        agenciaId: "ag-1",
+        sincronizadoPor: "analista@x.com",
+      });
+
+      expect(agenciaRepository.atualizarStatus).not.toHaveBeenCalled();
+      expect(resultado.ok && resultado.avancouStatus).toBe(false);
+    });
+
+    it("avança direto pra aguardando_cadastramento (pula aguardando_validacao) quando todos assinaram E têm biometria aprovada", async () => {
+      const agenciaRepository = fakeAgenciaRepository({
+        obterDetalhe: jest.fn().mockResolvedValue(AGENCIA_DETALHE_GATE_ATIVO),
+      });
+      const useCase = new SincronizarContratoD4SignUseCase(
+        agenciaRepository,
+        fakeContratoAssinaturaService({
+          obterDestinatarios: jest
+            .fn()
+            .mockResolvedValue([destinatario(SOCIO_1, true), destinatario(SOCIO_2, true)]),
+        }),
+        fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
+        fakeSignatarioPadraoRepository([]),
+        fakeContratoAssinaturaRepository([]),
+        fakeBiometriaVerificacaoRepository([
+          { email: SOCIO_1, status: "aprovado" },
+          { email: SOCIO_2, status: "aprovado" },
+        ]),
+      );
+
+      const resultado = await useCase.execute({
+        agenciaId: "ag-1",
+        sincronizadoPor: "analista@x.com",
+      });
+
+      expect(agenciaRepository.atualizarStatus).toHaveBeenCalledWith(
+        "ag-1",
+        STATUS_AGUARDANDO_CADASTRAMENTO,
+        { usuarioEmail: "analista@x.com", origem: "usuario" },
+      );
+      expect(resultado.ok && resultado.avancouStatus).toBe(true);
+    });
+  });
+
   it("registra destinatário sem assinatura (só o keySigner) quando alguém ainda não assinou", async () => {
     const contratoAssinaturaRepository = fakeContratoAssinaturaRepository([]);
     const useCase = new SincronizarContratoD4SignUseCase(
@@ -334,6 +462,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
       fakeSignatarioPadraoRepository([]),
       contratoAssinaturaRepository,
+      fakeBiometriaVerificacaoRepository(),
     );
 
     await useCase.execute({ agenciaId: "ag-1", sincronizadoPor: "analista@x.com" });
@@ -366,6 +495,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
       fakeSignatarioPadraoRepository([JEAN]),
       fakeContratoAssinaturaRepository([{ email: SOCIO_1, assinadoEm: new Date() }]),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -402,6 +532,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
       fakeSignatarioPadraoRepository([JEAN]),
       fakeContratoAssinaturaRepository([{ email: SOCIO_1, assinadoEm: new Date() }]),
+      fakeBiometriaVerificacaoRepository(),
     );
 
     const resultado = await useCase.execute({
@@ -427,6 +558,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }, { email: SOCIO_2 }]),
       fakeSignatarioPadraoRepository([]),
       contratoAssinaturaRepository,
+      fakeBiometriaVerificacaoRepository(),
     );
 
     await useCase.execute({ agenciaId: "ag-1", sincronizadoPor: "analista@x.com" });
@@ -450,6 +582,7 @@ describe("SincronizarContratoD4SignUseCase", () => {
       fakeContratoSignatarioRepository([{ email: SOCIO_1 }]),
       fakeSignatarioPadraoRepository([]),
       contratoAssinaturaRepository,
+      fakeBiometriaVerificacaoRepository(),
     );
 
     await useCase.execute({ agenciaId: "ag-1", sincronizadoPor: "analista@x.com" });
