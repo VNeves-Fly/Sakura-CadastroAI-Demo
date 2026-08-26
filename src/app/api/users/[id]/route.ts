@@ -1,4 +1,8 @@
-import { getUserByIdRoute } from "@/modules/users/presentation/routes/users.routes";
+import {
+  getUserByIdRoute,
+  updateUserRoute,
+  deactivateUserRoute,
+} from "@/modules/users/presentation/routes/users.routes";
 
 /**
  * @swagger
@@ -30,4 +34,56 @@ import { getUserByIdRoute } from "@/modules/users/presentation/routes/users.rout
  */
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   return getUserByIdRoute(params.id);
+}
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   patch:
+ *     summary: Atualiza um usuário
+ *     tags: [Users]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Usuário atualizado
+ *       404:
+ *         description: Usuário não encontrado
+ *       409:
+ *         description: E-mail já cadastrado por outro usuário
+ *       422:
+ *         description: Dados de entrada inválidos
+ */
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  return updateUserRoute(request, params.id);
+}
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Remove o acesso de um usuário (desativa — não apaga o registro)
+ *     tags: [Users]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Usuário desativado
+ *       404:
+ *         description: Usuário não encontrado
+ */
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  return deactivateUserRoute(params.id);
 }

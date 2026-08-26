@@ -3,6 +3,7 @@ import { User } from "@/modules/users/domain/entities/user.entity";
 import type { Cargo } from "@/modules/users/domain/enums";
 import type {
   CreateUserData,
+  UpdateUserData,
   UserRepository,
 } from "@/modules/users/domain/repositories/user-repository";
 
@@ -14,6 +15,8 @@ type UserRecord = {
   phone: string;
   cargo: PrismaCargo;
   mustChangePassword: boolean;
+  ativo: boolean;
+  lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -49,7 +52,32 @@ export class PrismaUserRepository implements UserRepository {
         cargo: data.cargo,
         mustChangePassword: data.mustChangePassword,
         password: data.passwordHash,
+        ativo: data.ativo,
       },
+    });
+    return this.toDomain(record);
+  }
+
+  async update(id: string, data: UpdateUserData): Promise<User> {
+    const record = await this.prisma.user.update({
+      where: { id },
+      data: {
+        name: `${data.firstName} ${data.lastName}`.trim(),
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        cargo: data.cargo,
+        ativo: data.ativo,
+      },
+    });
+    return this.toDomain(record);
+  }
+
+  async deactivate(id: string): Promise<User> {
+    const record = await this.prisma.user.update({
+      where: { id },
+      data: { ativo: false },
     });
     return this.toDomain(record);
   }
@@ -82,6 +110,8 @@ export class PrismaUserRepository implements UserRepository {
       phone: record.phone,
       cargo: record.cargo as Cargo,
       mustChangePassword: record.mustChangePassword,
+      ativo: record.ativo,
+      lastLoginAt: record.lastLoginAt,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });

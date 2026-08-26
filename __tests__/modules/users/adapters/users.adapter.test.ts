@@ -2,7 +2,7 @@ import { usersAdapter } from "@/modules/users/adapters/users.adapter";
 import type { RawUserResponse } from "@/modules/users/services/users.service";
 
 describe("usersAdapter.toServiceInput", () => {
-  it("normaliza e-mail (trim + minúsculo), nome, sobrenome e telefone (trim)", () => {
+  it("normaliza e-mail (trim + minúsculo), nome, sobrenome e telefone (trim), e fixa senha temporária + boas-vindas", () => {
     expect(
       usersAdapter.toServiceInput({
         firstName: "  Fulano  ",
@@ -10,9 +10,7 @@ describe("usersAdapter.toServiceInput", () => {
         email: "  Fulano@Empresa.COM  ",
         phone: "  11912345678  ",
         cargo: "ANALISTA",
-        password: "senha-forte-123",
-        mustChangePassword: false,
-        useTemporaryPassword: false,
+        ativo: true,
       }),
     ).toEqual({
       firstName: "Fulano",
@@ -20,24 +18,32 @@ describe("usersAdapter.toServiceInput", () => {
       email: "fulano@empresa.com",
       phone: "11912345678",
       cargo: "ANALISTA",
-      password: "senha-forte-123",
-      mustChangePassword: false,
-      useTemporaryPassword: false,
+      mustChangePassword: true,
+      useTemporaryPassword: true,
+      ativo: true,
     });
   });
+});
 
-  it("não mexe na senha (case-sensitive por natureza)", () => {
-    const resultado = usersAdapter.toServiceInput({
+describe("usersAdapter.toUpdateServiceInput", () => {
+  it("normaliza e-mail, nome, sobrenome e telefone, repassando ativo tal qual", () => {
+    expect(
+      usersAdapter.toUpdateServiceInput({
+        firstName: "  Fulano  ",
+        lastName: "  Tal  ",
+        email: "  Fulano@Empresa.COM  ",
+        phone: "  11912345678  ",
+        cargo: "GESTOR",
+        ativo: false,
+      }),
+    ).toEqual({
       firstName: "Fulano",
       lastName: "Tal",
       email: "fulano@empresa.com",
       phone: "11912345678",
-      cargo: "ANALISTA",
-      password: "SenhaComMaiuscula123",
-      mustChangePassword: false,
-      useTemporaryPassword: false,
+      cargo: "GESTOR",
+      ativo: false,
     });
-    expect(resultado.password).toBe("SenhaComMaiuscula123");
   });
 });
 
@@ -50,11 +56,13 @@ describe("usersAdapter.toView / toViewList", () => {
     phone: "11912345678",
     cargo: "ANALISTA",
     mustChangePassword: false,
+    ativo: true,
+    lastLoginAt: "2026-01-05T00:00:00.000Z",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-02T00:00:00.000Z",
   };
 
-  it("toView expõe só os campos que a view precisa (sem updatedAt)", () => {
+  it("toView expõe só os campos que a view precisa (sem updatedAt/mustChangePassword)", () => {
     expect(usersAdapter.toView(raw)).toEqual({
       id: "1",
       firstName: "Fulano",
@@ -62,6 +70,8 @@ describe("usersAdapter.toView / toViewList", () => {
       email: "fulano@empresa.com",
       phone: "11912345678",
       cargo: "ANALISTA",
+      ativo: true,
+      lastLoginAt: "2026-01-05T00:00:00.000Z",
       createdAt: "2026-01-01T00:00:00.000Z",
     });
   });
@@ -71,27 +81,5 @@ describe("usersAdapter.toView / toViewList", () => {
       usersAdapter.toView(raw),
       usersAdapter.toView({ ...raw, id: "2" }),
     ]);
-  });
-});
-
-describe("usersAdapter.toCreatedResult", () => {
-  const raw: RawUserResponse = {
-    id: "1",
-    firstName: "Fulano",
-    lastName: "Tal",
-    email: "fulano@empresa.com",
-    phone: "11912345678",
-    cargo: "ANALISTA",
-    mustChangePassword: true,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-02T00:00:00.000Z",
-    temporaryPassword: "aB3!xy9Qz2*k",
-  };
-
-  it("expõe a senha temporária junto com a view do usuário", () => {
-    expect(usersAdapter.toCreatedResult(raw)).toEqual({
-      user: usersAdapter.toView(raw),
-      temporaryPassword: "aB3!xy9Qz2*k",
-    });
   });
 });

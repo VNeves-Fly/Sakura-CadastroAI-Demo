@@ -34,6 +34,7 @@ export class CreateUserUseCase implements UseCase<CreateUserInput, UserOutput> {
       cargo: input.cargo,
       mustChangePassword: input.mustChangePassword,
       passwordHash,
+      ativo: input.ativo,
     });
 
     // Só revela a senha em texto puro quando o admin pediu troca no

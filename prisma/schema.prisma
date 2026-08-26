@@ -31,6 +31,18 @@ model User {
   // usuário ou quando uma senha temporária é gerada).
   mustChangePassword Boolean @default(false)
 
+  // Acesso bloqueado quando false (checado no authorize() do NextAuth,
+  // ver authenticate-user.use-case.ts) — "Remover usuário" em /usuarios
+  // desativa em vez de apagar a linha, já que User tem relações sem
+  // cascade (Mensagem, análise de Conversa, SolicitacaoAtendimentoAgencia)
+  // que um DELETE de verdade quebraria pra qualquer usuário com histórico
+  // de uso real. Pedido do usuário, 2026-08-26.
+  ativo Boolean @default(true)
+  // Gravado no authorize() a cada login bem-sucedido — null até o primeiro
+  // login registrado a partir desta coluna existir (usuários já existentes
+  // aparecem como "nunca" em /usuarios até logarem de novo).
+  lastLoginAt DateTime?
+
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

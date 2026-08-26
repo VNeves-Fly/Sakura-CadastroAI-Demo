@@ -9,9 +9,20 @@ export interface RawUserResponse {
   phone: string;
   cargo: Cargo;
   mustChangePassword: boolean;
+  ativo: boolean;
+  lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
   temporaryPassword?: string;
+}
+
+export interface UpdateUserServiceInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  cargo: Cargo;
+  ativo: boolean;
 }
 
 // Única camada autorizada a se comunicar com a API externa (rotas /api/users).
@@ -36,6 +47,33 @@ export const usersService = {
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
       throw new Error(payload?.error ?? "Não foi possível criar o usuário.");
+    }
+
+    return response.json();
+  },
+
+  async update(id: string, input: UpdateUserServiceInput): Promise<RawUserResponse> {
+    const response = await fetch(`/api/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error ?? "Não foi possível salvar as alterações.");
+    }
+
+    return response.json();
+  },
+
+  // "Remover usuário" — desativa (ver DeactivateUserUseCase), não apaga.
+  async deactivate(id: string): Promise<RawUserResponse> {
+    const response = await fetch(`/api/users/${id}`, { method: "DELETE" });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error ?? "Não foi possível remover o usuário.");
     }
 
     return response.json();

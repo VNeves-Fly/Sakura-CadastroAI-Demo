@@ -12,6 +12,7 @@ export const createUserSchema = z
     password: z.string().min(8, "Senha deve ter ao menos 8 caracteres.").optional(),
     mustChangePassword: z.boolean().default(false),
     useTemporaryPassword: z.boolean().default(false),
+    ativo: z.boolean().default(true),
   })
   .refine((data) => data.useTemporaryPassword || Boolean(data.password), {
     message: "Informe uma senha ou marque para gerar uma senha temporária.",

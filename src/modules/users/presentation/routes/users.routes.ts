@@ -10,6 +10,7 @@ import { obterIpCliente, verificarRateLimit } from "@/modules/shared/infrastruct
 import { obterUrlBase } from "@/modules/shared/utils/url-base.util";
 import { usersController } from "@/modules/users/presentation/controllers/users.controller";
 import { createUserSchema } from "@/modules/users/application/dto/create-user.schema";
+import { updateUserSchema } from "@/modules/users/application/dto/update-user.schema";
 import { changePasswordSchema } from "@/modules/users/application/dto/change-password.schema";
 import { requestPasswordResetSchema } from "@/modules/users/application/dto/request-password-reset.schema";
 import { verifyPasswordResetSchema } from "@/modules/users/application/dto/verify-password-reset.schema";
@@ -70,6 +71,31 @@ export async function createUserRoute(request: Request) {
 export async function getUserByIdRoute(id: string) {
   try {
     const user = await usersController.getById(id);
+    return httpOk(user);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function updateUserRoute(request: Request, id: string) {
+  try {
+    const body = await request.json();
+    const parsed = updateUserSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    }
+
+    const user = await usersController.update(id, parsed.data);
+    return httpOk(user);
+  } catch (error) {
+    return mapErrorToResponse(error);
+  }
+}
+
+export async function deactivateUserRoute(id: string) {
+  try {
+    const user = await usersController.deactivate(id);
     return httpOk(user);
   } catch (error) {
     return mapErrorToResponse(error);
