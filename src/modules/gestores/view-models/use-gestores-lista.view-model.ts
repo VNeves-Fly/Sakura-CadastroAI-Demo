@@ -8,14 +8,16 @@ import {
   TAMANHO_PAGINA_GESTORES,
   type GestorListaFiltros,
 } from "@/modules/gestores/types/gestor-lista.types";
+import type { RawGestorResponse } from "@/modules/gestores/services/gestores.service";
 
 const FILTROS_INICIAIS: GestorListaFiltros = { busca: "" };
 
 export function useGestoresListaViewModel(
   executivosPorGestor: Record<string, number>,
   vendasPorGestor: Record<string, { vendasMes: number; vendasAno: number }>,
+  initialGestores?: RawGestorResponse[],
 ) {
-  const { gestores, isLoading, error } = useGestoresListViewModel();
+  const { gestores, isLoading, error } = useGestoresListViewModel(initialGestores);
   const nivelOverrides = useGestorNiveisStore((state) => state.overrides);
   const [filtros, setFiltros] = useState<GestorListaFiltros>(FILTROS_INICIAIS);
   const [pagina, setPagina] = useState(1);

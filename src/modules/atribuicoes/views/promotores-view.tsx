@@ -7,7 +7,10 @@ import { ExecutivosListaTabela } from "@/modules/atribuicoes/components/executiv
 import { ExecutivoCadastroModal } from "@/modules/atribuicoes/components/executivo-cadastro-modal";
 import { PaginacaoSimples } from "@/modules/shared/components/paginacao-simples";
 import { TAMANHO_PAGINA_EXECUTIVOS } from "@/modules/atribuicoes/types/promotor-lista.types";
-import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
+import type {
+  GestorOpcao,
+  PromotorCrudView,
+} from "@/modules/atribuicoes/types/promotor-crud.types";
 import type { BaseView } from "@/modules/bases/types/base.types";
 
 interface PromotoresViewProps {
@@ -19,6 +22,10 @@ interface PromotoresViewProps {
   criacaoGestoresOptions: GestorOpcao[] | null;
   minhasBasesSiglas?: string[];
   todasBases: BaseView[];
+  // Já vem com vendas reais mescladas (SSR, ver promotores-lista-secao.tsx)
+  // — quando presente, semeia a store e evita repetir o fetch client no
+  // mount (mesmo fan-out de SST que já rodou no servidor).
+  initialExecutivos?: PromotorCrudView[];
 }
 
 export function PromotoresView({
@@ -26,6 +33,7 @@ export function PromotoresView({
   criacaoGestoresOptions,
   minhasBasesSiglas,
   todasBases,
+  initialExecutivos,
 }: PromotoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
   const [promotorEmEdicaoId, setPromotorEmEdicaoId] = useState<string | null>(null);
@@ -39,7 +47,7 @@ export function PromotoresView({
     pagina,
     totalPaginas,
     setPagina,
-  } = useExecutivosListaViewModel(gestoresOptions);
+  } = useExecutivosListaViewModel(gestoresOptions, initialExecutivos);
 
   // Um único modal (ExecutivoCadastroModal) atende Novo e Editar — abre em
   // branco quando modalAberto, ou pré-preenchido quando promotorEmEdicaoId

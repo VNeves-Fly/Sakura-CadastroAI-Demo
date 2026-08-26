@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { usePromotoresListViewModel } from "@/modules/atribuicoes/view-models/use-promotores-list.view-model";
 import { promotorListaAdapter } from "@/modules/atribuicoes/adapters/promotor-lista.adapter";
-import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
+import type {
+  GestorOpcao,
+  PromotorCrudView,
+} from "@/modules/atribuicoes/types/promotor-crud.types";
 import {
   TAMANHO_PAGINA_EXECUTIVOS,
   type PromotorListaFiltros,
@@ -18,8 +21,11 @@ const FILTROS_INICIAIS: PromotorListaFiltros = {
   ocultarSemVendas: false,
 };
 
-export function useExecutivosListaViewModel(gestoresOptions: GestorOpcao[] | null) {
-  const { promotores, isLoading, error } = usePromotoresListViewModel();
+export function useExecutivosListaViewModel(
+  gestoresOptions: GestorOpcao[] | null,
+  initialExecutivos?: PromotorCrudView[],
+) {
+  const { promotores, isLoading, error } = usePromotoresListViewModel(initialExecutivos);
   const [filtros, setFiltros] = useState<PromotorListaFiltros>(FILTROS_INICIAIS);
   const [pagina, setPagina] = useState(1);
 
