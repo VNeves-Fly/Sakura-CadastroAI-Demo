@@ -1,14 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { Loader2 } from "lucide-react";
 import { confirmarBiometriaAction, consultarStatusBiometriaAction } from "./actions";
 import { maskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
 import type { ObterStatusBiometriaResult } from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
 
 type Status =
   | { kind: "idle" }
+  | { kind: "verificando" }
   | { kind: "erro"; mensagem: string }
   | ({ kind: "confirmado" } & ObterStatusBiometriaResult);
+
+// O redirect_url mandado pra Legitimuz é esta mesma página — quando ela
+// termina o widget, o navegador SAI do nosso domínio e volta como uma
+// navegação de página cheia (não uma transição client-side), então todo
+// estado em memória (inclusive o CPF que o sócio já tinha confirmado
+// segundos antes) se perde e ele cairia de novo no formulário de CPF do
+// zero (relatado pelo usuário, 2026-08-26). sessionStorage sobrevive a
+// esse reload (mesma aba) sem precisar mexer em nada do lado da
+// Legitimuz — o CPF só é salvo depois de já ter sido validado contra o
+// registro (ver aplicarResultado), então isso não abre nenhum atalho de
+// segurança novo em relação ao formulário manual.
+function chaveCpfSalvo(tok: string): string {
+  return `biometria-cpf-${tok}`;
+}
 
 // Enquanto pendente/análise manual (ou aprovado mas o link de assinatura
 // ainda não saiu — ver `precisaContinuarPollando` abaixo), repolla sozinho
@@ -28,12 +44,23 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
   const [isPending, startTransition] = useTransition();
   const cpfConfirmadoRef = useRef<string | null>(null);
 
+  function aplicarResultado(cpfConfirmado: string, resultado: ObterStatusBiometriaResult) {
+    cpfConfirmadoRef.current = cpfConfirmado;
+    try {
+      sessionStorage.setItem(chaveCpfSalvo(token), cpfConfirmado);
+    } catch {
+      // sessionStorage indisponível (aba anônima/modo privado etc.) — só
+      // perde a retomada automática depois do redirect da Legitimuz, o
+      // fluxo manual (digitar o CPF de novo) continua funcionando.
+    }
+    setStatus({ kind: "confirmado", ...resultado });
+  }
+
   function confirmarInicial(cpfDigitado: string) {
     startTransition(async () => {
       try {
         const resultado = await confirmarBiometriaAction(token, cpfDigitado);
-        cpfConfirmadoRef.current = cpfDigitado;
-        setStatus({ kind: "confirmado", ...resultado });
+        aplicarResultado(cpfDigitado, resultado);
       } catch (error) {
         setStatus({
           kind: "erro",
@@ -53,6 +80,33 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
     }
     confirmarInicial(cpf);
   }
+
+  // Retomada automática após o redirect da Legitimuz — reusa o CPF salvo
+  // em sessionStorage (ver chaveCpfSalvo) nesta mesma aba, sem obrigar o
+  // sócio a digitar de novo. Usa consultarStatusBiometriaAction (rate
+  // limit folgado — ver actions.ts) por ser uma reconsulta, não uma nova
+  // tentativa de confirmação; se o CPF salvo não bater mais por algum
+  // motivo, só cai de volta pro formulário em vez de mostrar erro.
+  useEffect(() => {
+    let cpfSalvo: string | null = null;
+    try {
+      cpfSalvo = sessionStorage.getItem(chaveCpfSalvo(token));
+    } catch {
+      cpfSalvo = null;
+    }
+    if (!cpfSalvo) return;
+
+    setStatus({ kind: "verificando" });
+    (async () => {
+      try {
+        const resultado = await consultarStatusBiometriaAction(token, cpfSalvo);
+        aplicarResultado(cpfSalvo, resultado);
+      } catch {
+        setStatus({ kind: "idle" });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na montagem, token é estável
+  }, [token]);
 
   // Poll automático — continua enquanto ainda não há desfecho pro sócio
   // ver: pendente/análise manual (esperando a Legitimuz) OU já aprovado
@@ -162,6 +216,15 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
         <p className="text-muted-foreground text-xs">
           Esta página atualiza sozinha assim que o resultado sair.
         </p>
+      </div>
+    );
+  }
+
+  if (status.kind === "verificando") {
+    return (
+      <div className="mt-6 flex flex-col items-center gap-2 text-center">
+        <Loader2 className="text-muted-foreground size-5 animate-spin" />
+        <p className="text-muted-foreground text-sm">Verificando sua biometria...</p>
       </div>
     );
   }
