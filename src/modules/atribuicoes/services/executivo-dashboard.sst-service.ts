@@ -685,17 +685,18 @@ function construirAgenciasCarteira(
   });
 }
 
-// `agencias`/`aprovadas`/`vendendo30dPct` usam `roster.length` (SST) como
-// denominador, não `Agencia.executivoId` do banco local — decisão do
-// usuário (2026-08-20) depois de constatar que `Agencia.executivoId` é
-// preenchido manualmente por analista e pode estar vazio pra praticamente
-// toda a base num ambiente real (confirmado: 0 de 2 agências no banco de
-// teste tinham `executivoId`, mostrando "0 agências" pra todo executivo
-// mesmo com carteira real no SST). Diverge de propósito de
-// `ExecutivoPerfil.totalAgencias` (ainda local-DB, usado por
-// `agencias/`/`agenda/`, ver executivo-detalhe.adapter.ts) — só o
+// `agencias`/`aprovadas`/`vendendo30dPct` usam contagens do SST (roster
+// e/ou `codigosEmpresa`), não `Agencia.executivoId` do banco local —
+// decisão do usuário (2026-08-20) depois de constatar que
+// `Agencia.executivoId` é preenchido manualmente por analista e pode
+// estar vazio pra praticamente toda a base num ambiente real (confirmado:
+// 0 de 2 agências no banco de teste tinham `executivoId`, mostrando "0
+// agências" pra todo executivo mesmo com carteira real no SST). Diverge
+// de propósito de `ExecutivoPerfil.totalAgencias` (ainda local-DB, usado
+// por `agencias/`/`agenda/`, ver executivo-detalhe.adapter.ts) — só o
 // dashboard, que já paga o custo do roster pra `crossCanal`, usa o número
-// do SST.
+// do SST. `agencias` usa `codigosEmpresa.length` (não `roster.length`) pra
+// bater com `agenciasCarteira` — ver comentário abaixo.
 async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise<{
   crossCanal: ExecutivoDashboard["crossCanal"];
   vendendo30d: number;
@@ -754,7 +755,12 @@ async function construirCrossCanalEVendendo30d(codigoExecutivo: number): Promise
   return {
     vendendo30d,
     vendendo30dPct: roster.length > 0 ? Math.round((vendendo30d / roster.length) * 100) : 0,
-    agencias: roster.length,
+    // `codigosEmpresa.length`, não `roster.length` — precisa bater com
+    // `agenciasCarteira` abaixo (mesmo conjunto, ver comentário em
+    // `codigosEmpresa` acima), senão o stat "Agências" do header mostra
+    // menos do que a própria tabela da aba Agências (bug reportado pelo
+    // usuário, 2026-08-25: 421 no header vs 423 na tabela).
+    agencias: codigosEmpresa.length,
     saudeCarteira: construirSaudeCarteira(
       codigosEmpresa,
       rosterPorCodigo,
