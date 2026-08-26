@@ -8,6 +8,7 @@ import { GestorCadastroModal } from "@/modules/gestores/components/gestor-cadast
 import { GestorEdicaoModal } from "@/modules/gestores/components/gestor-edicao-modal";
 import { PaginacaoSimples } from "@/modules/shared/components/paginacao-simples";
 import { TAMANHO_PAGINA_GESTORES } from "@/modules/gestores/types/gestor-lista.types";
+import type { RawGestorResponse } from "@/modules/gestores/services/gestores.service";
 import type { BaseView } from "@/modules/bases/types/base.types";
 
 interface GestoresViewProps {
@@ -16,12 +17,16 @@ interface GestoresViewProps {
   executivosPorGestor: Record<string, number>;
   // Real: soma das vendas SST dos executivos subordinados, ver page.tsx.
   vendasPorGestor: Record<string, { vendasMes: number; vendasAno: number }>;
+  // Já vem do banco local (SSR, ver page.tsx) — quando presente, semeia a
+  // store e evita o fetch client redundante a /api/gestores no mount.
+  initialGestores?: RawGestorResponse[];
 }
 
 export function GestoresView({
   basesOptions,
   executivosPorGestor,
   vendasPorGestor,
+  initialGestores,
 }: GestoresViewProps) {
   const [modalAberto, setModalAberto] = useState(false);
   const [gestorEmEdicaoId, setGestorEmEdicaoId] = useState<string | null>(null);
@@ -35,7 +40,7 @@ export function GestoresView({
     pagina,
     totalPaginas,
     setPagina,
-  } = useGestoresListaViewModel(executivosPorGestor, vendasPorGestor);
+  } = useGestoresListaViewModel(executivosPorGestor, vendasPorGestor, initialGestores);
 
   const gestorEmEdicao = gestores.find((gestor) => gestor.id === gestorEmEdicaoId);
 

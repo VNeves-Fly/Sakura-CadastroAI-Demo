@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import { basesController } from "@/modules/bases/presentation/controllers/bases.controller";
 import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
+import { gestoresController } from "@/modules/gestores/presentation/controllers/gestores.controller";
 import { calcularVendasPorGestor } from "@/modules/gestores/services/vendas-por-gestor.loader";
 import { GestoresListaSecao } from "@/modules/gestores/components/gestores-lista-secao";
 import { GestoresListaSkeleton } from "@/modules/gestores/components/gestores-lista-skeleton";
@@ -17,10 +18,13 @@ export default async function GestoresPage() {
   }
 
   // Banco local (Prisma) — rápido, mantido com `await` bloqueante mesmo:
-  // a lista de gestores em si depende disso de qualquer forma.
-  const [basesOptions, promotores] = await Promise.all([
+  // a lista de gestores em si depende disso de qualquer forma. `gestoresRaw`
+  // seedava antes só via fetch client redundante em GestoresView (mesmo
+  // dado, refeito a cada navegação) — agora vem direto daqui.
+  const [basesOptions, promotores, gestoresRaw] = await Promise.all([
     basesController.list(),
     atribuicoesAdminController.listarPromotores(),
+    gestoresController.list(),
   ]);
 
   // Coluna "Executivos" da lista é dado real — contagem de Promotor.gestorId
@@ -45,6 +49,7 @@ export default async function GestoresPage() {
         basesOptions={basesOptions}
         executivosPorGestor={executivosPorGestor}
         vendasPorGestorPromise={vendasPorGestorPromise}
+        gestoresRaw={gestoresRaw}
       />
     </Suspense>
   );
