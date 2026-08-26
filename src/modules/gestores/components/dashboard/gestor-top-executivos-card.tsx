@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { cn } from "@/lib/utils";
 import type { RankingExecutivoSaude } from "@/modules/gestores/types/gestor-detalhe.types";
 
@@ -45,7 +44,7 @@ export function GestorTopExecutivosCard({
                 <span className="text-foreground truncate font-medium uppercase">{item.nome}</span>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="text-muted-foreground text-xs tabular-nums">
-                    <SensitiveValue value={`${item.vendendo}/${item.total}`} />
+                    {`${item.vendendo}/${item.total}`}
                   </span>
                   <span className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
                     <span

@@ -8,6 +8,8 @@ export interface UserProps {
   phone: string;
   cargo: Cargo;
   mustChangePassword: boolean;
+  ativo: boolean;
+  lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +49,14 @@ export class User {
     return this.props.mustChangePassword;
   }
 
+  get ativo(): boolean {
+    return this.props.ativo;
+  }
+
+  get lastLoginAt(): Date | null {
+    return this.props.lastLoginAt;
+  }
+
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -55,9 +65,10 @@ export class User {
     return this.props.updatedAt;
   }
 
-  toJSON(): Omit<UserProps, "createdAt" | "updatedAt"> & {
+  toJSON(): Omit<UserProps, "createdAt" | "updatedAt" | "lastLoginAt"> & {
     createdAt: string;
     updatedAt: string;
+    lastLoginAt: string | null;
   } {
     return {
       id: this.props.id,
@@ -67,6 +78,8 @@ export class User {
       phone: this.props.phone,
       cargo: this.props.cargo,
       mustChangePassword: this.props.mustChangePassword,
+      ativo: this.props.ativo,
+      lastLoginAt: this.props.lastLoginAt ? this.props.lastLoginAt.toISOString() : null,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
     };

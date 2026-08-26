@@ -30,6 +30,18 @@ export class AuthenticateUserUseCase implements UseCase<
       throw new InvalidCredentialsError();
     }
 
+    // Mesma mensagem genérica de senha errada — não revela pro cliente que
+    // a conta existe mas está desativada (ver Remover usuário, /usuarios).
+    if (!record.ativo) {
+      throw new InvalidCredentialsError();
+    }
+
+    // Best-effort: se a gravação falhar, não deve derrubar o login — só
+    // "Último acesso" em /usuarios fica desatualizado até o próximo login.
+    void this.credentialsRepository.touchLastLogin(record.id).catch((error) => {
+      console.error("Falha ao gravar lastLoginAt:", error);
+    });
+
     const authenticatedUser = AuthenticatedUser.create({
       id: record.id,
       name: record.name,

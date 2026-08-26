@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { GestorAgenciaSegmentoModal } from "@/modules/gestores/components/dashboard/gestor-agencia-segmento-modal";
 import { cn } from "@/lib/utils";
 import type { SegmentoSaude } from "@/modules/gestores/types/gestor-detalhe.types";
@@ -54,8 +53,7 @@ export function GestorSaudeCarteiraCard({ segmentos }: GestorSaudeCarteiraCardPr
               {segmento.label}
             </span>
             <p className="mt-1 text-lg font-bold">
-              <SensitiveValue value={segmento.quantidade} />{" "}
-              <span className="text-sm">({segmento.pct}%)</span>
+              {segmento.quantidade} <span className="text-sm">({segmento.pct}%)</span>
             </p>
             <p className="text-xs opacity-80">{segmento.descricao}</p>
           </button>

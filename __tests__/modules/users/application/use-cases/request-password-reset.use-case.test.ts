@@ -17,6 +17,8 @@ function fakeUser(): User {
     phone: "11999999999",
     cargo: "ANALISTA",
     mustChangePassword: false,
+    ativo: true,
+    lastLoginAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -28,6 +30,8 @@ function criarMocks(user: User | null) {
     findByEmail: jest.fn().mockResolvedValue(user),
     findAll: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+    deactivate: jest.fn(),
     updatePassword: jest.fn(),
   };
 

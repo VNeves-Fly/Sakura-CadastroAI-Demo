@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
+import { LoadingBall } from "@/components/ui/loading-ball";
 import type { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 
 interface ExecutivoHeaderStatsProps {
@@ -17,7 +17,7 @@ export async function ExecutivoHeaderAgenciasStat({
   crossCanalPromise,
 }: ExecutivoHeaderStatsProps) {
   const { miniStats } = await crossCanalPromise;
-  return <SensitiveValue value={miniStats.agencias} />;
+  return <>{miniStats.agencias}</>;
 }
 
 // Mesma estrutura de tags do branch mock em `executivo-profile-header.tsx`
@@ -32,31 +32,32 @@ export async function ExecutivoHeaderVendendo30dStat({
   return (
     <>
       <div className="flex items-center gap-2">
-        <p className="text-success text-2xl font-bold">
-          <SensitiveValue value={miniStats.vendendo30d} />
-        </p>
+        <p className="text-success text-2xl font-bold">{miniStats.vendendo30d}</p>
       </div>
       <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-        Venderam últimos 30d · <SensitiveValue value={`${miniStats.vendendo30dPct}%`} />
+        Venderam últimos 30d · {`${miniStats.vendendo30dPct}%`}
       </p>
     </>
   );
 }
 
-// `<span>`, não `Skeleton` (que renderiza um `<div>`) — este fallback vai
+// `LoadingBall` já é um `<span>` (não um `<div>`) — este fallback vai
 // dentro do `<p>` de "Agências" em executivo-profile-header.tsx, e um
 // `<div>` dentro de `<p>` é HTML inválido: o navegador fecha a tag `<p>`
 // antes da hora, e a árvore final diverge da que o React esperava —
 // exatamente a causa de um erro de hidratação visto aqui (2026-08-20).
+// Bolinha rosa quicando em vez de barra cinza estática pro número em si
+// (pedido do usuário, 2026-08-26) — mesmo padrão de tv-skeleton.tsx e
+// executivos-lista-tabela-skeleton.tsx pra valor ainda vindo do SST.
 export function ExecutivoHeaderAgenciasStatSkeleton() {
-  return <span className="bg-muted inline-block h-6 w-8 animate-pulse rounded-md align-middle" />;
+  return <LoadingBall size="sm" className="align-middle" />;
 }
 
 export function ExecutivoHeaderVendendo30dStatSkeleton() {
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-8 w-10" />
+      <div className="flex h-8 items-center gap-2">
+        <LoadingBall size="lg" />
       </div>
       <Skeleton className="mt-1 h-3 w-36" />
     </>

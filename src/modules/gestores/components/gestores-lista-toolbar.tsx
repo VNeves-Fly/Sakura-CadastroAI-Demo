@@ -11,9 +11,8 @@ interface GestoresListaToolbarProps {
 
 // Toolbar pixel-perfect (mockup Claude Design, 2026-08-24, "Gestores") —
 // mesmo visual da toolbar de Executivos: só busca + Novo cadastro. O
-// contador "N resultado(s)" e o ToggleVisibilidadeButton saíram da UI (não
-// existem no mockup, e o mockup não mascara valor nenhum nesta lista).
-// Pedido do usuário, 2026-08-24: restilizar "pixel perfect".
+// contador "N resultado(s)" saiu da UI (não existe no mockup). Pedido do
+// usuário, 2026-08-24: restilizar "pixel perfect".
 export function GestoresListaToolbar({
   busca,
   onBuscaChange,
