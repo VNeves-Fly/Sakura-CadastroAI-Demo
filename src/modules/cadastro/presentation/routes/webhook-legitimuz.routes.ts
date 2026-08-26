@@ -2,12 +2,19 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { httpError, httpOk } from "@/modules/shared/presentation/http-response";
 import { webhookLegitimuzController } from "@/modules/cadastro/presentation/controllers/webhook-legitimuz.controller";
 
-// Dois formatos de payload documentados (doc colada pelo usuário, ClickUp,
-// 2026-08-21 — nunca testado ao vivo contra a conta real):
-// - Evento inicial: `{ status, ref_id, personId, integration }`.
+// Três formatos de payload confirmados até agora:
 // - Atualização de revisão manual (`type: "update"`, quando alguém no
 //   dashboard da Legitimuz resolve um caso "Análise Manual"): o status de
-//   verdade fica em `validationPerson.meta.status`/`.ref_id`, não na raiz.
+//   verdade fica em `validationPerson.meta.status`/`.ref_id`, não na raiz
+//   (doc do ClickUp, nunca testado ao vivo).
+// - Evento genérico documentado: `{ status, ref_id, personId, integration }`
+//   na raiz (idem, nunca testado ao vivo).
+// - Evento REAL do flow kyc-faceindex, confirmado ao vivo 2026-08-26 (a
+//   doc estava errada pra esse caso): NÃO tem `status` na raiz — o
+//   resultado vem em `liveness.status`/`facematch.status` (`ref_id` esse
+//   sim já vem na raiz, igual ao formato documentado). Usa `liveness`
+//   primeiro — é a etapa sempre presente, mesmo se `facematch` não rodar
+//   por algum motivo.
 interface CamposWebhookLegitimuz {
   refId: unknown;
   status: unknown;
@@ -20,7 +27,13 @@ function extrairCampos(body: Record<string, unknown>): CamposWebhookLegitimuz {
     return { refId: meta?.ref_id, status: meta?.status };
   }
 
-  return { refId: body.ref_id, status: body.status };
+  const liveness = body.liveness as Record<string, unknown> | undefined;
+  const facematch = body.facematch as Record<string, unknown> | undefined;
+
+  return {
+    refId: body.ref_id,
+    status: body.status ?? liveness?.status ?? facematch?.status,
+  };
 }
 
 // Assinatura documentada como `X-Signature: sha256=<hmac>`, calculada
