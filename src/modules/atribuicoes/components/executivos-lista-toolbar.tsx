@@ -12,10 +12,9 @@ interface ExecutivosListaToolbarProps {
 // Toolbar pixel-perfect (mockup Claude Design, 2026-08-24, "Executivos") —
 // só busca + Novo cadastro. Os toggles "Esconder INATIVO"/"Ocultar sem
 // vendas" e o contador "N promotor(es)" saíram da UI (não existem no
-// mockup); o ToggleVisibilidadeButton também saiu — o mockup não mascara
-// valor nenhum nesta lista. O filtro de busca continua vivo no
-// view-model (useExecutivosListaViewModel), só a apresentação mudou.
-// Pedido do usuário, 2026-08-24: restilizar "pixel perfect".
+// mockup). O filtro de busca continua vivo no view-model
+// (useExecutivosListaViewModel), só a apresentação mudou. Pedido do
+// usuário, 2026-08-24: restilizar "pixel perfect".
 // "Novo cadastro" abre modal (padronizado com Gestores, pedido do usuário
 // 2026-08-25) — deixou de navegar pra /crm/executivos/novo.
 export function ExecutivosListaToolbar({

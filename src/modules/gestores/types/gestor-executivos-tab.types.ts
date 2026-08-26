@@ -3,7 +3,7 @@
 // (contagem real de agências da carteira) vêm de dado real. As demais
 // métricas de carteira não têm fonte real hoje (mesma decisão documentada
 // em promotor-lista.types.ts para a lista de Executivos) — mock
-// determinístico via hash, sempre calculado (mascarado por SensitiveValue).
+// determinístico via hash, sempre calculado.
 export interface ExecutivoDaGestaoView {
   id: string;
   nome: string;

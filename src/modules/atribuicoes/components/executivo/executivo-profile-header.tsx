@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Mail, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   gerarGradienteAvatar,
   extrairIniciais,
@@ -78,7 +77,7 @@ export function ExecutivoProfileHeader({ perfil, statsAgenciasSlot }: ExecutivoP
       <div className="border-border mt-6 grid grid-cols-1 gap-4 border-t pt-5 sm:grid-cols-2">
         <div>
           <p className="text-foreground text-2xl font-bold">
-            {statsAgenciasSlot ?? <SensitiveValue value={perfil.totalAgencias} />}
+            {statsAgenciasSlot ?? perfil.totalAgencias}
           </p>
           <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
             Agências

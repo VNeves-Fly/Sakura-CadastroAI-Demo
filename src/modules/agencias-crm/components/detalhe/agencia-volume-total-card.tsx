@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { Bus, Clock, Plane } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { formatarMoedaCompleta } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import { gerarAtualizadoEm } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
@@ -97,7 +96,7 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
           <p className="text-primary text-[clamp(36px,4vw,42px)] leading-none font-black">
-            <SensitiveValue value={formatarMoedaCompleta(valorDoPeriodo)} />
+            {formatarMoedaCompleta(valorDoPeriodo)}
           </p>
           <AgenciaMargemRentabBloco
             margemLabel="MARGEM TOTAL"

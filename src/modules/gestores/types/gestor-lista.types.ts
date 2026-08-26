@@ -7,9 +7,7 @@ import type { GestorNivel } from "@/modules/gestores/types/gestor-nivel.types";
 // executivos subordinados (ver page.tsx/vendasPorGestor). "nivel" é mock
 // front-end (ver gestor-nivel.types.ts). As demais métricas de carteira
 // (total/vend30d/paradas90d/limite/saude) não têm fonte real hoje — mesma
-// decisão de promotor-lista.types.ts — mock determinístico sempre calculado
-// e apenas mascarado via SensitiveValue quando o toggle global de
-// visibilidade (useDataVisibility) estiver oculto.
+// decisão de promotor-lista.types.ts — mock determinístico sempre calculado.
 export interface GestorListaView {
   id: string;
   nome: string;

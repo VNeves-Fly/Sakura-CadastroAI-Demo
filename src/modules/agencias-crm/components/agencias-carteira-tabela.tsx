@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
@@ -83,14 +82,10 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
                   {agencia.executivoNome ?? "não definido"}
                 </span>
                 <span className="text-right tabular-nums">
-                  <SensitiveValue
-                    value={agencia.vendasMes > 0 ? formatarMoedaAbreviada(agencia.vendasMes) : "—"}
-                  />
+                  {agencia.vendasMes > 0 ? formatarMoedaAbreviada(agencia.vendasMes) : "—"}
                 </span>
                 <span className="text-primary text-right font-semibold tabular-nums">
-                  <SensitiveValue
-                    value={agencia.vendasAno > 0 ? formatarMoedaAbreviada(agencia.vendasAno) : "—"}
-                  />
+                  {agencia.vendasAno > 0 ? formatarMoedaAbreviada(agencia.vendasAno) : "—"}
                 </span>
               </div>
             );

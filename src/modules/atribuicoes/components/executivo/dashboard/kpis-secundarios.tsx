@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { KpiCard } from "@/modules/atribuicoes/components/executivo/dashboard/kpi-card";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
@@ -32,10 +31,10 @@ async function Vendendo30dKpiCard({
       value={
         <span className="text-success inline-flex items-center gap-1.5">
           <TrendingUp className="size-4.5" />
-          <SensitiveValue value={miniStats.vendendo30d} />
+          {miniStats.vendendo30d}
         </span>
       }
-      subtext={<SensitiveValue value={`${miniStats.vendendo30dPct}%`} />}
+      subtext={`${miniStats.vendendo30dPct}%`}
     />
   );
 }
@@ -62,7 +61,7 @@ export function KpisSecundariosGrid({ kpis, crossCanalPromise }: KpisSecundarios
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <KpiCard
           label="Mês anterior (realizado)"
-          value={<SensitiveValue value={formatarMoedaAbreviada(kpis.mesAnteriorValor)} />}
+          value={formatarMoedaAbreviada(kpis.mesAnteriorValor)}
           subtext={
             <div className="flex flex-col gap-1">
               <span className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
@@ -71,16 +70,14 @@ export function KpisSecundariosGrid({ kpis, crossCanalPromise }: KpisSecundarios
                   style={{ width: `${Math.min(100, kpis.mesAnteriorPercentualAtingido)}%` }}
                 />
               </span>
-              <SensitiveValue
-                value={`Falta ${formatarMoedaAbreviada(kpis.mesAnteriorFaltaValor)} (${kpis.mesAnteriorPercentualAtingido}% atingido)`}
-              />
+              {`Falta ${formatarMoedaAbreviada(kpis.mesAnteriorFaltaValor)} (${kpis.mesAnteriorPercentualAtingido}% atingido)`}
             </div>
           }
         />
         <KpiCard
           label="Projeção fim do mês"
           tooltip="Projeção linear com base no ritmo de vendas do mês corrente."
-          value={<SensitiveValue value={formatarMoedaAbreviada(kpis.projecaoFimMes)} />}
+          value={formatarMoedaAbreviada(kpis.projecaoFimMes)}
           subtext="ritmo atual"
         />
         <Suspense fallback={<Vendendo30dKpiCardSkeleton />}>

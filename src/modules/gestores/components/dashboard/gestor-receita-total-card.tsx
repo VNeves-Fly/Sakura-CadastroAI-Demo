@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight, Bus, Clock, Plane } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { FiltroPeriodoGestorPopover } from "@/modules/gestores/components/dashboard/filtro-periodo-gestor-popover";
 import { GestorCanalResumoCard } from "@/modules/gestores/components/dashboard/gestor-canal-resumo-card";
 import { MargemRentabBlocoGestor } from "@/modules/gestores/components/dashboard/margem-rentab-bloco-gestor";
@@ -58,7 +57,7 @@ export function GestorReceitaTotalCard({
               className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
               style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
             >
-              <SensitiveValue value={formatarMoedaCompleta(dadosDoPeriodo.valor)} />
+              {formatarMoedaCompleta(dadosDoPeriodo.valor)}
             </p>
             <MargemRentabBlocoGestor
               margemLabel="MARGEM TOTAL"
@@ -87,7 +86,7 @@ export function GestorReceitaTotalCard({
             }
           >
             {negativo ? <ArrowDownRight className="size-4" /> : <ArrowUpRight className="size-4" />}
-            <SensitiveValue value={formatarPercentual(Math.abs(dadosDoPeriodo.variacaoPct))} />
+            {formatarPercentual(Math.abs(dadosDoPeriodo.variacaoPct))}
           </span>
         </div>
       </div>

@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { Landmark, ShieldCheck, UserCog, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   formatarData,
   formatarMoedaAbreviada,
@@ -66,23 +65,17 @@ export function AgenciaPerfilComercialTab({ perfil }: AgenciaPerfilComercialTabP
           <Campo label="Gestor">{perfil.gestorNome ?? "—"}</Campo>
           <Campo label="Executivo">{perfil.executivoNome ?? "—"}</Campo>
           <Campo label="Média de Faturamento">
-            {perfil.mediaFaturamento !== null ? (
-              <SensitiveValue value={formatarMoedaAbreviada(perfil.mediaFaturamento)} />
-            ) : (
-              "—"
-            )}
+            {perfil.mediaFaturamento !== null
+              ? formatarMoedaAbreviada(perfil.mediaFaturamento)
+              : "—"}
           </Campo>
         </div>
       </Secao>
 
       <Secao icon={Wallet} titulo="Limites & Comissão">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Campo label="Limite Faturado">
-            <SensitiveValue value={formatarMoedaAbreviada(perfil.limiteFaturado)} />
-          </Campo>
-          <Campo label="Limite Cartão">
-            <SensitiveValue value={formatarMoedaAbreviada(perfil.limiteCartao)} />
-          </Campo>
+          <Campo label="Limite Faturado">{formatarMoedaAbreviada(perfil.limiteFaturado)}</Campo>
+          <Campo label="Limite Cartão">{formatarMoedaAbreviada(perfil.limiteCartao)}</Campo>
           <Campo label="Bloqueio de Crédito">
             {perfil.bloqCred ? (
               <Badge variant="destructive">Bloqueado</Badge>

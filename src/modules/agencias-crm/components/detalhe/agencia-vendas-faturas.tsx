@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { Download, Search } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { exportarCsv } from "@/modules/agencias-crm/utils/csv-export.util";
 import {
   formatarData,
@@ -121,7 +120,7 @@ export function AgenciaVendasFaturas({ faturas, identificadorAgencia }: AgenciaV
                     fatura.valor < 0 ? "text-[#059669]" : "text-[#1A1A2E]",
                   )}
                 >
-                  <SensitiveValue value={formatarMoedaAbreviada(fatura.valor)} />
+                  {formatarMoedaAbreviada(fatura.valor)}
                 </span>
                 <div className="flex justify-end">
                   <span
