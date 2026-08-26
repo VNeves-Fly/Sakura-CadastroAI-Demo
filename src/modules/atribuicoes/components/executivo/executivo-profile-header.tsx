@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { Mail, MapPin, Pencil } from "lucide-react";
+import { Mail, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
-import { ToggleVisibilidadeButton } from "@/modules/shared/components/toggle-visibilidade-button";
 import {
   gerarGradienteAvatar,
   extrairIniciais,
@@ -35,58 +33,45 @@ interface ExecutivoProfileHeaderProps {
 export function ExecutivoProfileHeader({ perfil, statsAgenciasSlot }: ExecutivoProfileHeaderProps) {
   return (
     <div className="border-border bg-card rounded-2xl border p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <span
-            className="flex size-16 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
-            style={{ background: gerarGradienteAvatar(perfil.id) }}
-          >
-            {extrairIniciais(perfil.nome)}
-          </span>
+      <div className="flex flex-wrap items-start gap-4">
+        <span
+          className="flex size-16 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
+          style={{ background: gerarGradienteAvatar(perfil.id) }}
+        >
+          {extrairIniciais(perfil.nome)}
+        </span>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-foreground text-xl font-bold uppercase">{perfil.nome}</h1>
-              {perfil.sica ? (
-                <Badge variant="outline" className="font-mono">
-                  SICA {perfil.sica}
-                </Badge>
-              ) : null}
-            </div>
-
-            <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <Mail className="size-3.5" />
-              <span>{perfil.email}</span>
-              {perfil.bases.length > 0 ? (
-                <>
-                  <span aria-hidden>·</span>
-                  <MapPin className="size-3.5" />
-                  <span>Base {perfil.bases[0]}</span>
-                </>
-              ) : null}
-            </div>
-
-            {perfil.bases.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {perfil.bases.map((base) => (
-                  <Badge key={base} variant="outline">
-                    {base}
-                  </Badge>
-                ))}
-              </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-foreground text-xl font-bold uppercase">{perfil.nome}</h1>
+            {perfil.sica ? (
+              <Badge variant="outline" className="font-mono">
+                SICA {perfil.sica}
+              </Badge>
             ) : null}
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <ToggleVisibilidadeButton />
-          <Link
-            href={`/crm/executivos/${perfil.id}/editar`}
-            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs font-medium"
-          >
-            <Pencil className="size-3.5" />
-            Editar cadastro
-          </Link>
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <Mail className="size-3.5" />
+            <span>{perfil.email}</span>
+            {perfil.bases.length > 0 ? (
+              <>
+                <span aria-hidden>·</span>
+                <MapPin className="size-3.5" />
+                <span>Base {perfil.bases[0]}</span>
+              </>
+            ) : null}
+          </div>
+
+          {perfil.bases.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {perfil.bases.map((base) => (
+                <Badge key={base} variant="outline">
+                  {base}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
