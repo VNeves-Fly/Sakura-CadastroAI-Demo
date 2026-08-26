@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useExecutivosListaViewModel } from "@/modules/atribuicoes/view-models/use-executivos-lista.view-model";
 import { ExecutivosListaToolbar } from "@/modules/atribuicoes/components/executivos-lista-toolbar";
 import { ExecutivosListaTabela } from "@/modules/atribuicoes/components/executivos-lista-tabela";
-import { ExecutivoEdicaoModal } from "@/modules/atribuicoes/components/executivo-edicao-modal";
 import { ExecutivoCadastroModal } from "@/modules/atribuicoes/components/executivo-cadastro-modal";
 import { PaginacaoSimples } from "@/modules/shared/components/paginacao-simples";
 import { TAMANHO_PAGINA_EXECUTIVOS } from "@/modules/atribuicoes/types/promotor-lista.types";
@@ -42,6 +41,19 @@ export function PromotoresView({
     setPagina,
   } = useExecutivosListaViewModel(gestoresOptions);
 
+  // Um único modal (ExecutivoCadastroModal) atende Novo e Editar — abre em
+  // branco quando modalAberto, ou pré-preenchido quando promotorEmEdicaoId
+  // existe (pedido do usuário, 2026-08-26). onOpenChange(false) zera os dois
+  // estados de uma vez, já que só um fica ativo por vez.
+  function fecharModal(aberto: boolean) {
+    if (aberto) {
+      setModalAberto(true);
+      return;
+    }
+    setModalAberto(false);
+    setPromotorEmEdicaoId(null);
+  }
+
   return (
     <div className="flex w-full flex-col gap-[18px]">
       <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#1A1A2E]">Executivos</h1>
@@ -71,15 +83,10 @@ export function PromotoresView({
         ) : null}
       </div>
 
-      <ExecutivoEdicaoModal
-        promotorId={promotorEmEdicaoId}
-        onOpenChange={(aberto) => setPromotorEmEdicaoId(aberto ? promotorEmEdicaoId : null)}
-        todasBases={todasBases}
-      />
-
       <ExecutivoCadastroModal
         aberto={modalAberto}
-        onOpenChange={setModalAberto}
+        promotorId={promotorEmEdicaoId}
+        onOpenChange={fecharModal}
         gestoresOptions={criacaoGestoresOptions}
         minhasBasesSiglas={minhasBasesSiglas}
         todasBases={todasBases}

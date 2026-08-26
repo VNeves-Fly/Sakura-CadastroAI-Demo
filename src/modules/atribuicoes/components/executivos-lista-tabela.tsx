@@ -41,12 +41,10 @@ function valorOrdenavel(linha: PromotorListaView, chave: ColunaChave): string | 
 // header cinza-lilás #FBFBFE, linhas brancas com hover #FAFAFC, "Vendas
 // ano" em cinza-escuro (não rosa/primary) e "Editar" como texto puro sem
 // borda. Colunas reduzidas ao que o mockup mostra — Aprov./Vend.30d/
-// Paradas+90d/Limite/Saúde e o botão Inativar/Ativar saíram da lista (o
-// Inativar/Ativar continua no modal de edição, ver
-// executivo-edicao-modal.tsx — nenhuma funcionalidade foi perdida, só saiu
-// da linha). Máscara de dados sensíveis (SensitiveValue) também saiu — o
-// mockup não tem o botão de olho na toolbar. Pedido do usuário, 2026-08-24:
-// restilizar /crm/executivos "pixel perfect" com o modelo fornecido.
+// Paradas+90d/Limite/Saúde saíram da lista. Máscara de dados sensíveis
+// (SensitiveValue) também saiu — o mockup não tem o botão de olho na
+// toolbar. Pedido do usuário, 2026-08-24: restilizar /crm/executivos
+// "pixel perfect" com o modelo fornecido.
 export function ExecutivosListaTabela({
   executivos,
   isLoading,
