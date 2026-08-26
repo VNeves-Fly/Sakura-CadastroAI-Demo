@@ -4,13 +4,15 @@ import { useEffect, useRef, useState, useTransition, type FormEvent } from "reac
 import { Loader2 } from "lucide-react";
 import { confirmarBiometriaAction, consultarStatusBiometriaAction } from "./actions";
 import { maskCpf, validarCpfComMensagem } from "@/modules/cadastro/utils/cpf.util";
-import type { ObterStatusBiometriaResult } from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
+import type { ObterStatusBiometriaOutput } from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
+
+type ResultadoOk = Extract<ObterStatusBiometriaOutput, { ok: true }>;
 
 type Status =
   | { kind: "idle" }
   | { kind: "verificando" }
   | { kind: "erro"; mensagem: string }
-  | ({ kind: "confirmado" } & ObterStatusBiometriaResult);
+  | ({ kind: "confirmado" } & Omit<ResultadoOk, "ok">);
 
 // O redirect_url mandado pra Legitimuz é esta mesma página — quando ela
 // termina o widget, o navegador SAI do nosso domínio e volta como uma
@@ -44,7 +46,11 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
   const [isPending, startTransition] = useTransition();
   const cpfConfirmadoRef = useRef<string | null>(null);
 
-  function aplicarResultado(cpfConfirmado: string, resultado: ObterStatusBiometriaResult) {
+  // Só chamada com um resultado ok:true (ver confirmarInicial/efeitos
+  // abaixo, que tratam o ok:false de cada um do jeito que faz sentido pro
+  // contexto — mostrar erro num submit explícito é diferente de cair
+  // quieto pro form numa retomada automática em background).
+  function aplicarResultadoOk(cpfConfirmado: string, resultado: ResultadoOk) {
     cpfConfirmadoRef.current = cpfConfirmado;
     try {
       sessionStorage.setItem(chaveCpfSalvo(token), cpfConfirmado);
@@ -53,15 +59,27 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
       // perde a retomada automática depois do redirect da Legitimuz, o
       // fluxo manual (digitar o CPF de novo) continua funcionando.
     }
-    setStatus({ kind: "confirmado", ...resultado });
+    setStatus({
+      kind: "confirmado",
+      status: resultado.status,
+      legitimuzUrl: resultado.legitimuzUrl,
+      linkAssinatura: resultado.linkAssinatura,
+    });
   }
 
   function confirmarInicial(cpfDigitado: string) {
     startTransition(async () => {
       try {
         const resultado = await confirmarBiometriaAction(token, cpfDigitado);
-        aplicarResultado(cpfDigitado, resultado);
+        if (!resultado.ok) {
+          setStatus({ kind: "erro", mensagem: resultado.motivo });
+          return;
+        }
+        aplicarResultadoOk(cpfDigitado, resultado);
       } catch (error) {
+        // Só cai aqui em falha de verdade inesperada (rede etc.) — CPF
+        // errado/link expirado/rate limit já voltam como ok:false acima,
+        // não como exceção (ver comentário em ObterStatusBiometriaUseCase).
         setStatus({
           kind: "erro",
           mensagem:
@@ -100,7 +118,11 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
     (async () => {
       try {
         const resultado = await consultarStatusBiometriaAction(token, cpfSalvo);
-        aplicarResultado(cpfSalvo, resultado);
+        if (!resultado.ok) {
+          setStatus({ kind: "idle" });
+          return;
+        }
+        aplicarResultadoOk(cpfSalvo, resultado);
       } catch {
         setStatus({ kind: "idle" });
       }
@@ -129,10 +151,20 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
     const intervalo = setInterval(async () => {
       try {
         const resultado = await consultarStatusBiometriaAction(token, cpfAtual);
-        setStatus({ kind: "confirmado", ...resultado });
+        // ok:false aqui (raro — rate limit) só é ignorado, mesmo
+        // tratamento do catch: mantém o status atual, tenta de novo no
+        // próximo tick.
+        if (resultado.ok) {
+          setStatus({
+            kind: "confirmado",
+            status: resultado.status,
+            legitimuzUrl: resultado.legitimuzUrl,
+            linkAssinatura: resultado.linkAssinatura,
+          });
+        }
       } catch {
-        // Falha transitória (rate limit, blip de rede) — mantém o status
-        // atual na tela, tenta de novo no próximo tick.
+        // Falha transitória (blip de rede) — mantém o status atual na
+        // tela, tenta de novo no próximo tick.
       }
     }, INTERVALO_POLL_MS);
     return () => clearInterval(intervalo);

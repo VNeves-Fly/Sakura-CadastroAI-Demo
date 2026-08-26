@@ -126,8 +126,7 @@ export function FilaAssinatura({
               {item.email &&
               item.grupo === "Agência" &&
               gateBiometriaAtivo &&
-              !podeVerLinkAssinaturaSocioComGate &&
-              podeAgirBiometria ? (
+              (podeVerLinkAssinaturaSocioComGate || podeAgirBiometria) ? (
                 <LinkBiometriaButton
                   agenciaId={agenciaId}
                   email={item.email}

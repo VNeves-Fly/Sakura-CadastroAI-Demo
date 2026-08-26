@@ -1,5 +1,4 @@
 import { ObterStatusBiometriaUseCase } from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
-import { NotFoundError, DomainError } from "@/modules/shared/domain/errors";
 import { BiometriaVerificacao } from "@/modules/cadastro/domain/entities/biometria-verificacao.entity";
 import type { BiometriaVerificacaoRepository } from "@/modules/cadastro/domain/repositories/biometria-verificacao-repository";
 import type { ObterLinkAssinaturaUseCase } from "@/modules/cadastro/application/use-cases/obter-link-assinatura.use-case";
@@ -48,16 +47,20 @@ function obterLinkAssinaturaFake(execute = jest.fn()): ObterLinkAssinaturaUseCas
 }
 
 describe("ObterStatusBiometriaUseCase", () => {
-  it("lança NotFoundError quando o token não existe", async () => {
+  // 2026-08-26: devolve ok:false em vez de lançar (CPF errado, link
+  // expirado) — um erro lançado atravessa a Server Action que chama isto
+  // e o Next.js redacta a mensagem em produção (bug real relatado pelo
+  // usuário: só aparecia o digest genérico, nunca "CPF não confere").
+  it("devolve ok:false quando o token não existe", async () => {
     const repo = repositorioFake({ buscarPorToken: jest.fn().mockResolvedValue(null) });
     const useCase = new ObterStatusBiometriaUseCase(repo, obterLinkAssinaturaFake());
 
-    await expect(useCase.execute({ token: "inexistente", cpf: "39053344705" })).rejects.toThrow(
-      NotFoundError,
-    );
+    const resultado = await useCase.execute({ token: "inexistente", cpf: "39053344705" });
+
+    expect(resultado.ok).toBe(false);
   });
 
-  it("lança NotFoundError quando o token existe mas expirou", async () => {
+  it("devolve ok:false quando o token existe mas expirou", async () => {
     const repo = repositorioFake({
       buscarPorToken: jest
         .fn()
@@ -65,18 +68,18 @@ describe("ObterStatusBiometriaUseCase", () => {
     });
     const useCase = new ObterStatusBiometriaUseCase(repo, obterLinkAssinaturaFake());
 
-    await expect(useCase.execute({ token: "token-1", cpf: "39053344705" })).rejects.toThrow(
-      NotFoundError,
-    );
+    const resultado = await useCase.execute({ token: "token-1", cpf: "39053344705" });
+
+    expect(resultado.ok).toBe(false);
   });
 
-  it("lança DomainError sem vazar o motivo quando o CPF não confere", async () => {
+  it("devolve ok:false sem vazar qual dado está errado quando o CPF não confere", async () => {
     const repo = repositorioFake();
     const useCase = new ObterStatusBiometriaUseCase(repo, obterLinkAssinaturaFake());
 
-    await expect(useCase.execute({ token: "token-1", cpf: "00000000000" })).rejects.toThrow(
-      DomainError,
-    );
+    const resultado = await useCase.execute({ token: "token-1", cpf: "00000000000" });
+
+    expect(resultado).toEqual({ ok: false, motivo: expect.any(String) });
   });
 
   it("aceita o CPF com ou sem máscara (compara só dígitos)", async () => {
@@ -85,7 +88,7 @@ describe("ObterStatusBiometriaUseCase", () => {
 
     const resultado = await useCase.execute({ token: "token-1", cpf: "390.533.447-05" });
 
-    expect(resultado.status).toBe("pendente");
+    expect(resultado.ok && resultado.status).toBe("pendente");
   });
 
   it("devolve o legitimuzUrl quando ainda pendente, sem chamar ObterLinkAssinaturaUseCase", async () => {
@@ -96,6 +99,7 @@ describe("ObterStatusBiometriaUseCase", () => {
     const resultado = await useCase.execute({ token: "token-1", cpf: "39053344705" });
 
     expect(resultado).toEqual({
+      ok: true,
       status: "pendente",
       legitimuzUrl: "https://widget.legitimuz.com/token-1",
       linkAssinatura: null,
@@ -119,6 +123,7 @@ describe("ObterStatusBiometriaUseCase", () => {
       email: "fulano@teste.com",
     });
     expect(resultado).toEqual({
+      ok: true,
       status: "aprovado",
       legitimuzUrl: null,
       linkAssinatura: "https://secure.d4sign.com.br/w/i/xyz",
@@ -136,6 +141,11 @@ describe("ObterStatusBiometriaUseCase", () => {
 
     const resultado = await useCase.execute({ token: "token-1", cpf: "39053344705" });
 
-    expect(resultado).toEqual({ status: "aprovado", legitimuzUrl: null, linkAssinatura: null });
+    expect(resultado).toEqual({
+      ok: true,
+      status: "aprovado",
+      legitimuzUrl: null,
+      linkAssinatura: null,
+    });
   });
 });
