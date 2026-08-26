@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { X, TriangleAlert, Loader2 } from "lucide-react";
 import { INPUT_CLASSES } from "./editar-socio-form";
 
@@ -12,6 +13,65 @@ interface ForcarAvancoModalProps {
   proximaEtapaLabel: string;
   forcarAvancoStatusAction: (agenciaId: string, formData: FormData) => Promise<void>;
   disabled?: boolean;
+}
+
+// Precisa viver DENTRO do <form> — useFormStatus só enxerga o form
+// ancestral mais próximo. Fonte confiável de "está enviando" (ver mesma
+// nota em aprovar-complementar-modal.tsx — useState setado direto no
+// callback de `action` fica sujeito ao batching da transição do React e
+// podia nunca repintar, bug relatado pelo usuário 2026-08-26).
+function RodapeForcarAvanco({
+  onVoltar,
+  onPendingChange,
+}: {
+  onVoltar: () => void;
+  onPendingChange: (pending: boolean) => void;
+}) {
+  const { pending } = useFormStatus();
+
+  useEffect(() => {
+    onPendingChange(pending);
+  }, [pending, onPendingChange]);
+
+  return (
+    <>
+      <textarea
+        name="justificativa"
+        required
+        rows={3}
+        placeholder="Justificativa do avanço forçado (obrigatório)"
+        disabled={pending}
+        className={INPUT_CLASSES}
+      />
+
+      {pending ? (
+        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <Loader2 className="size-3.5 animate-spin" />
+          Avançando o cadastro — não feche esta janela.
+        </p>
+      ) : null}
+
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          aria-busy={pending}
+          className="bg-warning text-warning-foreground flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {pending ? <Loader2 className="size-4 animate-spin" /> : null}
+          {pending ? "Enviando..." : "Forçar avanço"}
+        </button>
+        <button
+          type="button"
+          onClick={onVoltar}
+          disabled={pending}
+          className="border-input text-foreground hover:bg-accent rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+      </div>
+    </>
+  );
 }
 
 // Via de escape auditada (quem/quando/por quê, ver ForcarAvancoStatusUseCase)
@@ -26,6 +86,9 @@ export function ForcarAvancoModal({
   disabled = false,
 }: ForcarAvancoModalProps) {
   const [aberto, setAberto] = useState(false);
+  // Espelha o `pending` de useFormStatus (ver RodapeForcarAvanco, via
+  // onPendingChange) — só pra travar o backdrop/botão-X, que ficam FORA
+  // do <form> e não têm como chamar o hook diretamente.
   const [enviando, setEnviando] = useState(false);
 
   return (
@@ -66,13 +129,8 @@ export function ForcarAvancoModal({
 
             <form
               action={async (formData) => {
-                setEnviando(true);
-                try {
-                  await forcarAvancoStatusAction(agenciaId, formData);
-                  setAberto(false);
-                } finally {
-                  setEnviando(false);
-                }
+                await forcarAvancoStatusAction(agenciaId, formData);
+                setAberto(false);
               }}
               className="flex flex-col gap-3 px-5 py-4"
             >
@@ -82,41 +140,7 @@ export function ForcarAvancoModal({
                 histórico do cadastro, com o seu usuário e o motivo.
               </p>
 
-              <textarea
-                name="justificativa"
-                required
-                rows={3}
-                placeholder="Justificativa do avanço forçado (obrigatório)"
-                disabled={enviando}
-                className={INPUT_CLASSES}
-              />
-
-              {enviando ? (
-                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Avançando o cadastro — não feche esta janela.
-                </p>
-              ) : null}
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={enviando}
-                  aria-busy={enviando}
-                  className="bg-warning text-warning-foreground flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {enviando ? <Loader2 className="size-4 animate-spin" /> : null}
-                  {enviando ? "Enviando..." : "Forçar avanço"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAberto(false)}
-                  disabled={enviando}
-                  className="border-input text-foreground hover:bg-accent rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-              </div>
+              <RodapeForcarAvanco onVoltar={() => setAberto(false)} onPendingChange={setEnviando} />
             </form>
           </div>
         </div>
