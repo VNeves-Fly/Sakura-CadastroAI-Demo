@@ -19,13 +19,52 @@ type Status =
 // navegação de página cheia (não uma transição client-side), então todo
 // estado em memória (inclusive o CPF que o sócio já tinha confirmado
 // segundos antes) se perde e ele cairia de novo no formulário de CPF do
-// zero (relatado pelo usuário, 2026-08-26). sessionStorage sobrevive a
-// esse reload (mesma aba) sem precisar mexer em nada do lado da
-// Legitimuz — o CPF só é salvo depois de já ter sido validado contra o
-// registro (ver aplicarResultado), então isso não abre nenhum atalho de
-// segurança novo em relação ao formulário manual.
-function chaveCpfSalvo(tok: string): string {
-  return `biometria-cpf-${tok}`;
+// zero (relatado pelo usuário, 2026-08-26).
+//
+// Cookie em vez de sessionStorage (trocado 2026-08-27) — sessionStorage
+// só é copiado automaticamente pra uma aba nova quando o destino é o
+// MESMO domínio de quem abriu; "Iniciar verificação" abre o widget da
+// Legitimuz num domínio diferente (target="_blank", ver abaixo), então
+// quando ELA redireciona essa aba nova de volta pro nosso redirect_url, a
+// aba chega sem nada salvo (mesmo problema do celular via QR code, só que
+// sem precisar trocar de aparelho). Cookie resolve isso: é enviado pelo
+// navegador em QUALQUER navegação que chegue no nosso domínio, mesmo
+// vindo de um redirect de terceiro — `SameSite=Lax` é o que permite isso
+// (Strict bloquearia, None exigiria contexto de terceiro que não é o
+// caso). `max-age` curto de propósito (2h, não dias) — o objetivo é só
+// sobreviver ao vai-e-volta da verificação, não "lembrar" a pessoa
+// indefinidamente num aparelho compartilhado (mesmo cuidado de quando
+// escolhemos sessionStorage sobre localStorage). O CPF só é salvo depois
+// de já ter sido validado contra o registro (ver aplicarResultadoOk),
+// então isso não abre nenhum atalho de segurança novo em relação ao
+// formulário manual. Continua sem resolver o caso de dispositivo
+// DIFERENTE (celular) — cookie não cruza aparelho, só caminho/aba.
+const COOKIE_MAX_AGE_SEGUNDOS = 2 * 60 * 60;
+
+function nomeCookieCpf(tok: string): string {
+  return `biometria_cpf_${tok}`;
+}
+
+function salvarCpfCookie(tok: string, cpf: string): void {
+  try {
+    const path = `/cadastro/biometria/${tok}`;
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${nomeCookieCpf(tok)}=${encodeURIComponent(cpf)}; path=${path}; max-age=${COOKIE_MAX_AGE_SEGUNDOS}; SameSite=Lax${secure}`;
+  } catch {
+    // Cookies bloqueados (raro) — só perde a retomada automática, o
+    // fluxo manual (digitar o CPF de novo) continua funcionando.
+  }
+}
+
+function lerCpfCookie(tok: string): string | null {
+  try {
+    const nome = nomeCookieCpf(tok);
+    const linha = document.cookie.split("; ").find((item) => item.startsWith(`${nome}=`));
+    if (!linha) return null;
+    return decodeURIComponent(linha.slice(nome.length + 1));
+  } catch {
+    return null;
+  }
 }
 
 // Enquanto pendente/análise manual (ou aprovado mas o link de assinatura
@@ -52,13 +91,7 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
   // quieto pro form numa retomada automática em background).
   function aplicarResultadoOk(cpfConfirmado: string, resultado: ResultadoOk) {
     cpfConfirmadoRef.current = cpfConfirmado;
-    try {
-      sessionStorage.setItem(chaveCpfSalvo(token), cpfConfirmado);
-    } catch {
-      // sessionStorage indisponível (aba anônima/modo privado etc.) — só
-      // perde a retomada automática depois do redirect da Legitimuz, o
-      // fluxo manual (digitar o CPF de novo) continua funcionando.
-    }
+    salvarCpfCookie(token, cpfConfirmado);
     setStatus({
       kind: "confirmado",
       status: resultado.status,
@@ -100,18 +133,14 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
   }
 
   // Retomada automática após o redirect da Legitimuz — reusa o CPF salvo
-  // em sessionStorage (ver chaveCpfSalvo) nesta mesma aba, sem obrigar o
-  // sócio a digitar de novo. Usa consultarStatusBiometriaAction (rate
-  // limit folgado — ver actions.ts) por ser uma reconsulta, não uma nova
-  // tentativa de confirmação; se o CPF salvo não bater mais por algum
+  // no cookie (ver nomeCookieCpf), que sobrevive mesmo quando o caminho
+  // de volta passa por uma aba/domínio diferente (widget da Legitimuz),
+  // sem obrigar o sócio a digitar de novo. Usa consultarStatusBiometriaAction
+  // (rate limit folgado — ver actions.ts) por ser uma reconsulta, não uma
+  // nova tentativa de confirmação; se o CPF salvo não bater mais por algum
   // motivo, só cai de volta pro formulário em vez de mostrar erro.
   useEffect(() => {
-    let cpfSalvo: string | null = null;
-    try {
-      cpfSalvo = sessionStorage.getItem(chaveCpfSalvo(token));
-    } catch {
-      cpfSalvo = null;
-    }
+    const cpfSalvo = lerCpfCookie(token);
     if (!cpfSalvo) return;
 
     setStatus({ kind: "verificando" });
