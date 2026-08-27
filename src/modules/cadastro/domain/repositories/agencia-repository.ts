@@ -366,6 +366,11 @@ export interface ListarCadastrosResult {
 export interface CadastrosKpis {
   emAnalise: number;
   emComplementar: number;
+  // Breakdown do card "Análise de Documentos" por Agencia.infoPendente —
+  // "em aberto" (infoPendente false, aguardando o time analisar) x "info
+  // pendente" (infoPendente true, aguardando retorno da agência), usado no
+  // hover do card (não muda o valor principal, que continua sendo o total).
+  emComplementarPorInfoPendente: { emAberto: number; infoPendente: number };
   aguardandoAssinatura: number;
   // Breakdown do card "Aguardando assinatura" por origem do contrato
   // (contrato gerado pela IA x pelo analista), usado só no hover do card
