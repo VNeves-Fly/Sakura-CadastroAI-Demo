@@ -202,10 +202,12 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
             </a>
           </>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            Estamos preparando seu link de assinatura — esta página atualiza sozinha assim que ficar
-            pronto.
-          </p>
+          <>
+            <Loader2 className="text-muted-foreground size-5 animate-spin" />
+            <p className="text-muted-foreground text-sm">
+              Aguarde, estamos carregando o contrato para assinatura...
+            </p>
+          </>
         )}
       </div>
     );
