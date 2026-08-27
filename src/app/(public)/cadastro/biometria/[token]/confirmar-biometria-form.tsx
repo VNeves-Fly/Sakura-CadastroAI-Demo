@@ -240,15 +240,26 @@ export function ConfirmarBiometriaForm({ token }: { token: string }) {
           </p>
         )}
         {status.legitimuzUrl ? (
+          // target="_blank" de propósito (2026-08-27): sem isso, o clique
+          // navega a MESMA aba pra Legitimuz — se a pessoa terminar a
+          // verificação escaneando um QR code com o celular (fluxo real
+          // observado: PC mostra o QR, a selfie e o redirect_url final
+          // acontecem no navegador do CELULAR), a aba do PC simplesmente
+          // sai do ar (não é mais nossa página, o poll abaixo para de
+          // rodar) e nunca sabe que aprovou. Abrindo em nova aba, a aba
+          // original continua aberta e pollando sozinha — funciona tanto
+          // pra quem termina no mesmo aparelho quanto por QR code.
           <a
             href={status.legitimuzUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-primary text-primary-foreground hover:bg-sakura-600 w-fit rounded-full px-6 py-2.5 text-sm font-semibold transition"
           >
             Iniciar verificação
           </a>
         ) : null}
         <p className="text-muted-foreground text-xs">
-          Esta página atualiza sozinha assim que o resultado sair.
+          Esta página atualiza sozinha assim que o resultado sair — pode deixar esta aba aberta.
         </p>
       </div>
     );
