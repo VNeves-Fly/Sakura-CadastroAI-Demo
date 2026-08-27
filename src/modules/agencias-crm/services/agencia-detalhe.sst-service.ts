@@ -693,7 +693,23 @@ export const agenciaDetalheSstService = {
   // significa "código SICA não existe no SST" (agência não encontrada).
   async obterCadastroComercial(codigoEmpresa: number): Promise<CadastroComercialSst> {
     const baseEmpresa = await buscarBaseEmpresaCadastro(codigoEmpresa);
-    const cadastro = baseEmpresa ? await buscarCadastroPorCnpj(baseEmpresa.CNPJ) : null;
+    // Isolado do `baseEmpresa` acima: só perde o nome do contato (único
+    // campo de `cadastro` sem fallback pra `baseEmpresa`, ver
+    // agencia-detalhe.adapter.ts) — o resto (razão social, CNPJ, endereço,
+    // email, telefone) já cai pro `baseEmpresa`. Sem isolamento, uma falha
+    // aqui (ex.: SST respondendo 500 em /api/agencias/cadastro) derrubava
+    // a Promise inteira e fazia a página inteira cair em notFound() mesmo
+    // com o `baseEmpresa` já obtido com sucesso (bug reportado pelo
+    // usuário, 2026-08-27).
+    const cadastro = baseEmpresa
+      ? await buscarCadastroPorCnpj(baseEmpresa.CNPJ).catch((erro) => {
+          console.error(
+            "[agencias-crm] Falha ao buscar /api/agencias/cadastro — seguindo só com base-empresa-cadastro.",
+            erro,
+          );
+          return null;
+        })
+      : null;
     return { baseEmpresa, cadastro };
   },
 
