@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
-import { formatarMoedaAbreviada } from "@/modules/agencias-crm/utils/formatar-moeda.util";
+import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
 import { cn } from "@/lib/utils";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
@@ -11,20 +10,21 @@ interface AgenciasCarteiraTabelaProps {
   offsetPagina: number;
 }
 
-// Grid de colunas idêntico no header e nas linhas: # | Agência | Código
-// SICA | Base | Executivo | Vendas mês | Vendas ano. Coluna "Margem" da
-// SPEC original removida (pedido do usuário, 2026-08-21) — não tem fonte
-// real na carteira inteira (só o Aéreo por agência individual tem
-// margem/rentabilidade no SST, e isso exigiria uma chamada por agência,
-// ~21 mil chamadas; ver docs/crm-agencias-backend.md).
-const COLS =
-  "44px minmax(240px,1.3fr) 110px 90px minmax(160px,1.4fr) minmax(120px,1fr) minmax(130px,1fr)";
+// Grid de colunas idêntico no header e nas linhas: # | Agência | CNPJ |
+// Código SICA | Base | Executivo. Colunas "Vendas mês"/"Vendas ano"
+// removidas (pedido do usuário, 2026-08-27) — dependiam das métricas reais
+// do SST (`obterMetricasCarteira`), a causa dos ~53s de carregamento a frio
+// (ver docs/otimizacao-lista-agencia.md); substituídas por CNPJ, que já vem
+// no roster sem chamada extra. Coluna "Margem" da SPEC original removida
+// antes (pedido do usuário, 2026-08-21) — não tem fonte real na carteira
+// inteira (ver docs/crm-agencias-backend.md).
+const COLS = "44px minmax(220px,1.2fr) minmax(150px,1fr) 110px 90px minmax(160px,1.2fr)";
 
 // Tabela principal da listagem de Agências (SPEC seção 2.5) — headers são
-// indicadores estáticos (⇅/↓), sem ordenação por coluna real (a ordenação
-// de fato vem do toggle "Top vendas" Ano/Mês da toolbar, ver
-// use-agencias-carteira.view-model.ts). Clique em qualquer ponto da linha
-// navega pra página de detalhe da agência.
+// indicadores estáticos (⇅), sem ordenação nenhuma: a lista mantém a ordem
+// em que o roster do SST devolve (pedido do usuário, 2026-08-27 — nenhuma
+// ordenação, nem alfabética). Clique em qualquer ponto da linha navega pra
+// página de detalhe da agência.
 export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarteiraTabelaProps) {
   const router = useRouter();
 
@@ -37,11 +37,10 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
         >
           <span>#</span>
           <span>Agência ⇅</span>
+          <span>CNPJ</span>
           <span>Código SICA</span>
           <span className="text-center">Base</span>
           <span className="text-center">Executivo</span>
-          <span className="text-right">Vendas mês ⇅</span>
-          <span className="text-primary text-right">Vendas ano ↓</span>
         </div>
 
         {agencias.length === 0 ? (
@@ -68,6 +67,9 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
                 <p className="text-primary truncate pr-2.5 text-[13px] font-bold tracking-[0.01em] group-hover:underline">
                   {agencia.razaoSocial}
                 </p>
+                <span className="truncate text-[12.5px] text-[#6B6B85] tabular-nums">
+                  {agencia.cnpj ? maskCnpj(agencia.cnpj) : "—"}
+                </span>
                 <span className="text-[12.5px] text-[#6B6B85] tabular-nums">
                   {agencia.sica ?? "—"}
                 </span>
@@ -81,16 +83,6 @@ export function AgenciasCarteiraTabela({ agencias, offsetPagina }: AgenciasCarte
                   )}
                 >
                   {agencia.executivoNome ?? "não definido"}
-                </span>
-                <span className="text-right tabular-nums">
-                  <SensitiveValue
-                    value={agencia.vendasMes > 0 ? formatarMoedaAbreviada(agencia.vendasMes) : "—"}
-                  />
-                </span>
-                <span className="text-primary text-right font-semibold tabular-nums">
-                  <SensitiveValue
-                    value={agencia.vendasAno > 0 ? formatarMoedaAbreviada(agencia.vendasAno) : "—"}
-                  />
                 </span>
               </div>
             );

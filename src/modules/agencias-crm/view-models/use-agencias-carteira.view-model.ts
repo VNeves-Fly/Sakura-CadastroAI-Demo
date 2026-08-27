@@ -7,24 +7,21 @@ import type {
 } from "@/modules/agencias-crm/types/agencia-carteira.types";
 import { TAMANHO_PAGINA_AGENCIAS_PADRAO } from "@/modules/agencias-crm/types/agencia-carteira.types";
 
-// Atalho textual da busca (SPEC seção 2.3) — só "críticos" tem dado mock
-// pra se apoiar hoje (paradas +90d); o resto do texto é busca literal
-// normal (razão social/CNPJ/executivo).
-const ATALHO_CRITICOS = "críticos";
-
-export type TopVendas = "vendasAno" | "vendasMes";
-
 // View-model simplificado pra SPEC_AGENCIAS_SAKURA (pixel, 2026-08-21) —
 // a SPEC nova não prevê painel de filtros avançados nem ordenação por
 // coluna (headers viram indicadores estáticos, ver agencias-carteira-
-// tabela.tsx), só busca + 2 abas de status + toggle "Top vendas" Ano/Mês.
-// Paginação foi mantida por pedido explícito do usuário (556+ agências
-// reais não cabem numa única renderização), com tamanho de página
-// configurável (AgenciasPaginacao).
+// tabela.tsx), só busca + 2 abas de status, sem ordenação nenhuma (pedido
+// do usuário, 2026-08-27 — nem alfabética; mantém a ordem do roster).
+// Toggle "Top vendas" Ano/Mês e atalho de busca "críticos" removidos
+// (pedido do usuário, 2026-08-27) — dependiam das métricas reais do SST
+// (vendasAno/vendasMes/diasSemComprar), que deixaram de ser buscadas na
+// listagem (ver agencia-carteira.loader.ts) pra cortar o carregamento a
+// frio de ~53s. Paginação foi mantida por pedido explícito do usuário
+// (556+ agências reais não cabem numa única renderização), com tamanho de
+// página configurável (AgenciasPaginacao).
 export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
   const [statusTab, setStatusTab] = useState<StatusTab>("ativas");
   const [busca, setBusca] = useState("");
-  const [topVendas, setTopVendas] = useState<TopVendas>("vendasAno");
   const [pagina, setPagina] = useState(1);
   const [tamanhoPagina, setTamanhoPaginaState] = useState(TAMANHO_PAGINA_AGENCIAS_PADRAO);
 
@@ -46,11 +43,6 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     setPagina(1);
   }
 
-  function mudarTopVendas(valor: TopVendas) {
-    setTopVendas(valor);
-    setPagina(1);
-  }
-
   const contadores = useMemo(
     () => ({
       ativas: agencias.filter((agencia) => agencia.status === "ativo").length,
@@ -60,19 +52,11 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
   );
 
   const agenciasFiltradas = useMemo(() => {
-    const buscaNormalizada = busca.trim().toLowerCase();
-    const buscaCriticos = buscaNormalizada === ATALHO_CRITICOS;
-    const buscaLiteral = buscaCriticos ? "" : buscaNormalizada;
+    const buscaLiteral = busca.trim().toLowerCase();
 
-    const filtradas = agencias.filter((agencia) => {
+    return agencias.filter((agencia) => {
       if (statusTab === "ativas" && agencia.status !== "ativo") return false;
       if (statusTab === "inativas" && !agencia.reprovadaOuInativa) return false;
-      // `diasSemComprar === null` = nenhuma venda detectada em nenhum
-      // canal (nunca comprou) — o caso mais crítico de todos, por isso
-      // nunca é excluído aqui (tratado como "> 90", não como "0").
-      if (buscaCriticos && agencia.diasSemComprar !== null && agencia.diasSemComprar <= 90) {
-        return false;
-      }
       if (
         buscaLiteral &&
         !agencia.razaoSocial.toLowerCase().includes(buscaLiteral) &&
@@ -83,9 +67,7 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
       }
       return true;
     });
-
-    return [...filtradas].sort((a, b) => b[topVendas] - a[topVendas]);
-  }, [agencias, statusTab, busca, topVendas]);
+  }, [agencias, statusTab, busca]);
 
   const totalPaginas = Math.max(1, Math.ceil(agenciasFiltradas.length / tamanhoPagina));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -100,8 +82,6 @@ export function useAgenciasCarteiraViewModel(agencias: AgenciaCarteiraView[]) {
     contadores,
     busca,
     atualizarBusca,
-    topVendas,
-    mudarTopVendas,
     agencias: agenciasDaPagina,
     total: agenciasFiltradas.length,
     pagina: paginaAtual,
