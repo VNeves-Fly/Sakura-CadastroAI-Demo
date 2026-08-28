@@ -1,22 +1,13 @@
-import { Info, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Info } from "lucide-react";
 
-// Rodapé do card de Resumo quando o filtro "Personalizado" está ativo —
-// só aparece enquanto não há dado real pro intervalo escolhido
-// (carregando, erro, ou antes da primeira aplicação); uma vez que
-// `personalizado.dados` chega (ver filtro-periodo-dashboard.store.ts),
-// o card já mostra o intervalo de verdade e este aviso some.
-export function PersonalizadoAviso({
-  mensagem,
-  carregando,
-}: {
-  mensagem: string;
-  carregando?: boolean;
-}) {
-  const Icone = carregando ? Loader2 : Info;
+// Rodapé do card de Resumo quando o filtro "Personalizado" está ativo e
+// não há dado real pro intervalo escolhido (erro, ou antes da primeira
+// aplicação) — enquanto carrega, quem cobre a tela é o
+// `CarregandoOverlay` (ver resumo-do-dia-card.tsx), não este aviso.
+export function PersonalizadoAviso({ mensagem }: { mensagem: string }) {
   return (
     <p className="text-muted-foreground mt-3 flex items-center gap-1.5 text-xs">
-      <Icone className={cn("size-3.5 shrink-0", carregando && "animate-spin")} />
+      <Info className="size-3.5 shrink-0" />
       {mensagem}
     </p>
   );

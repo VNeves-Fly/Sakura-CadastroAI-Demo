@@ -6,6 +6,7 @@ import { MargemRentabBloco } from "@/modules/dashboard-vendas/components/ui/marg
 import { NacIntMiniBar } from "@/modules/dashboard-vendas/components/ui/nac-int-mini-bar";
 import { FiltroPeriodoDashboardPopover } from "@/modules/dashboard-vendas/components/ui/filtro-periodo-dashboard-popover";
 import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
+import { CarregandoOverlay } from "@/modules/dashboard-vendas/components/ui/carregando-overlay";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
 import { cn } from "@/lib/utils";
 import { formatarMoedaBrl } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
@@ -121,7 +122,8 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
     resumo.terrestre.quantidade > 0 ? resumo.terrestre.valor / resumo.terrestre.quantidade : 0;
 
   return (
-    <div className="border-border bg-card rounded-2xl border p-5">
+    <div className="border-border bg-card relative rounded-2xl border p-5">
+      <CarregandoOverlay ativo={personalizado && personalizadoCarregando} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p
@@ -154,9 +156,6 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
         <FiltroPeriodoDashboardPopover />
       </div>
 
-      {personalizado && personalizadoCarregando ? (
-        <PersonalizadoAviso mensagem="Carregando período personalizado…" carregando />
-      ) : null}
       {personalizado && !personalizadoCarregando && personalizadoErro ? (
         <PersonalizadoAviso mensagem={`${personalizadoErro} Mostrando prévia de "Este mês".`} />
       ) : null}
