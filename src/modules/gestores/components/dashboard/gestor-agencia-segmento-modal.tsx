@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/gestores/utils/formatar-moeda.util";
 import type { AgenciaSegmentoResumo } from "@/modules/gestores/types/gestor-detalhe.types";
 
@@ -95,7 +94,7 @@ export function GestorAgenciaSegmentoModal({
                     <p className="text-muted-foreground font-mono text-xs">{agencia.cnpj}</p>
                   </td>
                   <td className="text-foreground px-2 py-2.5 text-right font-semibold">
-                    <SensitiveValue value={formatarMoedaAbreviada(agencia.valor)} />
+                    {formatarMoedaAbreviada(agencia.valor)}
                   </td>
                 </tr>
               ))}

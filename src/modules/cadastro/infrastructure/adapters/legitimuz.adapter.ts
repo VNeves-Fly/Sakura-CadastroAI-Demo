@@ -28,10 +28,14 @@ export class LegitimuzAdapter implements BiometriaVerificacaoService {
     formData.append("cpf", input.cpf);
     formData.append("ref_id", input.refId);
     formData.append("redirect_url", input.redirectUrl);
-    // kyc-faceindex = "Transactional Liveness" — só liveness + facematch,
-    // sem OCR de documento (o KYC completo, default sem esse parâmetro,
-    // faria captura de documento de novo — redundante com o que a própria
-    // Legitimuz já cobre aqui, decisão do usuário 2026-08-21).
+    // kyc-faceindex = "Transactional Liveness" — decisão original
+    // (2026-08-21) era usar isso achando que NÃO fazia captura de
+    // documento (redundante com o que a Legitimuz já cobre). CORRIGIDO
+    // 2026-08-26: confirmado ao vivo que esse flow TAMBÉM manda um evento
+    // de OCR de documento (CNH) além de liveness/facematch — a suposição
+    // original estava errada. Ver webhook-legitimuz.routes.ts
+    // (ehEventoSoDocumento) pra como tratamos isso sem deixar aprovação
+    // de documento contar como biometria facial aprovada.
     formData.append("flow", "kyc-faceindex");
     // `enableRedirect` (o painel de "Editar domínio" avisa que precisa
     // estar habilitado) É CONFIRMADO como opção do SDK Web embutido

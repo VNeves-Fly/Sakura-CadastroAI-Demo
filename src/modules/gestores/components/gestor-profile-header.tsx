@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 import { Mail, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   gerarGradienteAvatar,
   extrairIniciais,
@@ -127,11 +126,8 @@ export function GestorProfileHeader({ perfil, statsAgenciasSlot }: GestorProfile
         </div>
 
         <div className="flex items-start gap-8">
-          <Stat value={<SensitiveValue value={perfil.totalExecutivos} />} label="Executivos" />
-          <Stat
-            value={statsAgenciasSlot ?? <SensitiveValue value={perfil.totalAgencias} />}
-            label="Agências"
-          />
+          <Stat value={perfil.totalExecutivos} label="Executivos" />
+          <Stat value={statsAgenciasSlot ?? perfil.totalAgencias} label="Agências" />
         </div>
       </div>
     </div>

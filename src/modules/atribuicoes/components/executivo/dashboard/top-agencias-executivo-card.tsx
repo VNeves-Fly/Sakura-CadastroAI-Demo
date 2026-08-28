@@ -1,5 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
 import type { RankingAgenciaHoje } from "@/modules/atribuicoes/utils/canal-resumo-mock.util";
@@ -57,10 +56,10 @@ export function TopAgenciasExecutivoCard({
               </span>
               <span className="shrink-0 text-right">
                 <span className="text-foreground block text-[13.5px] font-bold">
-                  <SensitiveValue value={formatarMoedaAbreviada(item.valor)} />
+                  {formatarMoedaAbreviada(item.valor)}
                 </span>
                 <span className="text-muted-foreground block text-xs">
-                  <SensitiveValue value={item.quantidade} /> bilhetes
+                  {item.quantidade} bilhetes
                 </span>
               </span>
             </li>

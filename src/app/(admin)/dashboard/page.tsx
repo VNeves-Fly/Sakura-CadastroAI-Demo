@@ -26,7 +26,7 @@ export default async function DashboardPage() {
       <DashboardKpisGrid
         novosCadastros30Dias={metricas.novosCadastros30Dias}
         contratosIa30Dias={analiseContratos.porOrigem.ia}
-        emComplementar={kpis.emComplementar}
+        emComplementarPorInfoPendente={kpis.emComplementarPorInfoPendente}
         ativas={kpis.ativas}
         seriesNovosCadastros={metricas.seriesNovosCadastros}
         seriesContratosIa={metricas.seriesContratosIa}

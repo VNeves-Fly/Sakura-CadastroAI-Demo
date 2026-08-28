@@ -8,6 +8,7 @@ import {
   ChevronsRight,
   Bell,
   Clock,
+  Info,
 } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
@@ -522,6 +523,53 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                   className={cardClassName}
                 >
                   {cardConteudo}
+                </Link>
+              );
+            }
+
+            // Breakdown por Agencia.infoPendente (ver
+            // CadastrosKpis.emComplementarPorInfoPendente): "em aberto"
+            // (aguardando o time analisar) x "info pendente" (aguardando
+            // retorno da agência) — mesmo tratamento do card equivalente no
+            // /dashboard.
+            if (fila.status === STATUS_EM_COMPLEMENTAR) {
+              const { emAberto, infoPendente } = kpis.emComplementarPorInfoPendente;
+              return (
+                <Link
+                  key={fila.status}
+                  href={construirHref(searchParams, {
+                    status: ativa ? undefined : fila.status,
+                    page: undefined,
+                  })}
+                  className={cardClassName}
+                  style={cardStyle}
+                >
+                  <span className="text-muted-foreground line-clamp-2 flex min-h-[2rem] items-start gap-1 text-xs font-medium tracking-wide">
+                    {fila.label}
+                    <Tooltip>
+                      {/* render=<span> (não <button>, default do TooltipTrigger) —
+                          este card inteiro já é um <Link>, e HTML não permite
+                          elemento interativo aninhado dentro de outro. */}
+                      <TooltipTrigger render={<span className="mt-0.5 inline-flex shrink-0" />}>
+                        <Info className="size-3" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p>
+                            <strong>{emAberto}</strong> em aberto — aguardando análise do time
+                          </p>
+                          <p>
+                            <strong>{infoPendente}</strong> com informação pendente — aguardando
+                            retorno da agência (reenvio de documento solicitado)
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                  <p className="mt-1 text-3xl font-bold" style={{ color: fila.cor }}>
+                    {emAberto} | {infoPendente}
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-xs">{fila.sublabel}</p>
                 </Link>
               );
             }

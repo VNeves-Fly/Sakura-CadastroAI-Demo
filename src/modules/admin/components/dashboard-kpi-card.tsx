@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { Info, type LucideIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Periodo = "dia" | "mes" | "ano";
 
@@ -27,6 +29,9 @@ interface DashboardKpiCardProps {
   descricao: string;
   cor: string;
   series: { dia: SeriePeriodoItem[]; mes: SeriePeriodoItem[]; ano: SeriePeriodoItem[] };
+  // Explica um `valor` que não é autoexplicativo (ex.: breakdown "10 | 94")
+  // — some quando não passado, não é obrigatório pros demais cards.
+  tooltip?: ReactNode;
 }
 
 // Mapeia as quantidades reais (inteiros pequenos, ex.: 0-8 movimentações
@@ -175,6 +180,7 @@ export function DashboardKpiCard({
   descricao,
   cor,
   series,
+  tooltip,
 }: DashboardKpiCardProps) {
   const [periodo, setPeriodo] = useState<Periodo>("dia");
   const quantidades = series[periodo].map((item) => item.quantidade);
@@ -195,6 +201,16 @@ export function DashboardKpiCard({
           >
             {titulo}
           </h2>
+          {tooltip ? (
+            <Tooltip>
+              <TooltipTrigger>
+                <Info className="text-muted-foreground size-4 shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                {tooltip}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
 
         <div className="bg-muted flex shrink-0 items-center gap-1 rounded-full p-1">

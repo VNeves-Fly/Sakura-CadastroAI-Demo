@@ -10,6 +10,8 @@ import { createEmailSender } from "@/modules/users/infrastructure/factories/emai
 import { CreateUserUseCase } from "@/modules/users/application/use-cases/create-user.use-case";
 import { ListUsersUseCase } from "@/modules/users/application/use-cases/list-users.use-case";
 import { GetUserByIdUseCase } from "@/modules/users/application/use-cases/get-user-by-id.use-case";
+import { UpdateUserUseCase } from "@/modules/users/application/use-cases/update-user.use-case";
+import { DeactivateUserUseCase } from "@/modules/users/application/use-cases/deactivate-user.use-case";
 import {
   ChangePasswordUseCase,
   type ChangePasswordInput,
@@ -27,6 +29,7 @@ import {
   type ResetPasswordInput,
 } from "@/modules/users/application/use-cases/reset-password.use-case";
 import type { CreateUserInput } from "@/modules/users/application/dto/create-user.dto";
+import type { UpdateUserInput } from "@/modules/users/application/dto/update-user.dto";
 
 // Composition root do módulo users: única camada que conhece Prisma/bcrypt
 // concretos, mantendo domínio e casos de uso dependentes apenas de abstrações.
@@ -56,6 +59,16 @@ export const usersController = {
 
   getById(id: string) {
     const useCase = new GetUserByIdUseCase(userRepository);
+    return useCase.execute(id);
+  },
+
+  update(id: string, data: UpdateUserInput) {
+    const useCase = new UpdateUserUseCase(userRepository);
+    return useCase.execute({ id, data });
+  },
+
+  deactivate(id: string) {
+    const useCase = new DeactivateUserUseCase(userRepository);
     return useCase.execute(id);
   },
 

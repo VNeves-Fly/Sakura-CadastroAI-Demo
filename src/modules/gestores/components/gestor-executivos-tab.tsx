@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { BuscaListaInput } from "@/modules/shared/components/busca-lista-input";
 import {
   SortableDataTable,
@@ -79,10 +78,11 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       sortValue: (linha) => linha.vendendo30d,
       headerClassName: "w-[15%]",
       render: (linha) => (
-        <SensitiveValue
+        <span
           className={linha.vendendo30d > 0 ? "text-success font-medium" : "text-muted-foreground"}
-          value={linha.vendendo30d}
-        />
+        >
+          {linha.vendendo30d}
+        </span>
       ),
     },
     {
@@ -98,7 +98,7 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
             Sem venda
           </Badge>
         ) : (
-          <SensitiveValue value={formatarMoedaAbreviada(linha.vendasMes)} />
+          formatarMoedaAbreviada(linha.vendasMes)
         ),
     },
     {
@@ -109,10 +109,9 @@ export function GestorExecutivosTab({ executivos }: GestorExecutivosTabProps) {
       sortValue: (linha) => linha.vendasAno,
       headerClassName: "w-[15%]",
       render: (linha) => (
-        <SensitiveValue
-          className="text-primary font-semibold"
-          value={formatarMoedaAbreviada(linha.vendasAno)}
-        />
+        <span className="text-primary font-semibold">
+          {formatarMoedaAbreviada(linha.vendasAno)}
+        </span>
       ),
     },
     {

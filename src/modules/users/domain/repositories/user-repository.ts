@@ -9,6 +9,16 @@ export interface CreateUserData {
   cargo: Cargo;
   mustChangePassword: boolean;
   passwordHash: string;
+  ativo: boolean;
+}
+
+export interface UpdateUserData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  cargo: Cargo;
+  ativo: boolean;
 }
 
 export interface UserRepository {
@@ -16,5 +26,9 @@ export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
   findAll(): Promise<User[]>;
   create(data: CreateUserData): Promise<User>;
+  update(id: string, data: UpdateUserData): Promise<User>;
+  // "Remover usuário" em /usuarios — desativa (ativo=false) em vez de
+  // apagar a linha, ver comentário em schema.prisma no campo `ativo`.
+  deactivate(id: string): Promise<User>;
   updatePassword(id: string, passwordHash: string): Promise<void>;
 }

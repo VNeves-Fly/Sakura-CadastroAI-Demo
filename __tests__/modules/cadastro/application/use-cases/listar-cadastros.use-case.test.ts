@@ -15,6 +15,7 @@ import {
 const KPIS_VAZIOS: CadastrosKpis = {
   emAnalise: 0,
   emComplementar: 0,
+  emComplementarPorInfoPendente: { emAberto: 0, infoPendente: 0 },
   aguardandoAssinatura: 0,
   aguardandoAssinaturaPorOrigem: { ia: 0, humano: 0 },
   aguardandoValidacao: 0,

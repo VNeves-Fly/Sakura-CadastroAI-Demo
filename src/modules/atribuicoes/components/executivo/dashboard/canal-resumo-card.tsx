@@ -1,5 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   formatarMoedaCompleta,
   formatarPercentual,
@@ -51,7 +50,7 @@ export function CanalResumoCard({
 
           <div className="flex flex-wrap items-center gap-3.5">
             <p className="text-foreground text-[22px] leading-tight font-extrabold tracking-tight">
-              <SensitiveValue value={formatarMoedaCompleta(canal.valor)} />
+              {formatarMoedaCompleta(canal.valor)}
             </p>
 
             <MargemRentabBloco
@@ -66,10 +65,10 @@ export function CanalResumoCard({
           </div>
 
           <p className="text-muted-foreground mt-0.5 text-[13px]">
-            <SensitiveValue value={canal.quantidade} /> {unidade}
+            {canal.quantidade} {unidade}
           </p>
           <p className="text-muted-foreground text-[13px]">
-            Ticket médio: <SensitiveValue value={formatarMoedaCompleta(canal.ticketMedio)} />
+            Ticket médio: {formatarMoedaCompleta(canal.ticketMedio)}
           </p>
         </div>
       </div>

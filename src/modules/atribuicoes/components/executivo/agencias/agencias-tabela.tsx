@@ -6,7 +6,6 @@ import {
   SortableDataTable,
   type SortableColumn,
 } from "@/modules/shared/components/sortable-data-table";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { valorNoPeriodo } from "@/modules/atribuicoes/adapters/executivo-agencias.adapter";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type {
@@ -87,9 +86,7 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       align: "right",
       sortable: true,
       sortValue: (a) => valorNoPeriodo(a, periodo).vendas,
-      render: (a) => (
-        <SensitiveValue value={formatarMoedaAbreviada(valorNoPeriodo(a, periodo).vendas)} />
-      ),
+      render: (a) => <>{formatarMoedaAbreviada(valorNoPeriodo(a, periodo).vendas)}</>,
     },
     {
       key: "bilhetes",
@@ -97,7 +94,7 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       align: "right",
       sortable: true,
       sortValue: (a) => valorNoPeriodo(a, periodo).bilhetes,
-      render: (a) => <SensitiveValue value={valorNoPeriodo(a, periodo).bilhetes} />,
+      render: (a) => <>{valorNoPeriodo(a, periodo).bilhetes}</>,
     },
     {
       key: "ticketMedio",
@@ -105,9 +102,7 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       align: "right",
       sortable: true,
       sortValue: (a) => valorNoPeriodo(a, periodo).ticketMedio,
-      render: (a) => (
-        <SensitiveValue value={formatarMoedaAbreviada(valorNoPeriodo(a, periodo).ticketMedio)} />
-      ),
+      render: (a) => <>{formatarMoedaAbreviada(valorNoPeriodo(a, periodo).ticketMedio)}</>,
     },
     {
       key: "vendasAno",
@@ -116,9 +111,7 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       sortable: true,
       sortValue: (a) => a.vendasAno,
       render: (a) => (
-        <span className="text-primary font-semibold">
-          <SensitiveValue value={formatarMoedaAbreviada(a.vendasAno)} />
-        </span>
+        <span className="text-primary font-semibold">{formatarMoedaAbreviada(a.vendasAno)}</span>
       ),
     },
     {
@@ -142,7 +135,7 @@ export function AgenciasTabela({ agencias, periodo }: AgenciasTabelaProps) {
       sortValue: (a) => a.limite,
       render: (a) => (
         <span className="inline-flex items-center justify-end gap-1.5">
-          <SensitiveValue value={formatarMoedaAbreviada(a.limite)} />
+          {formatarMoedaAbreviada(a.limite)}
           <ExternalLink className="text-muted-foreground size-3.5" />
         </span>
       ),

@@ -65,10 +65,21 @@ export function FilaAssinatura({
   fila,
   agenciaId,
   gateBiometriaAtivo,
+  podeVerLinkAssinaturaSocioComGate,
+  podeAgirBiometria,
 }: {
   fila: SignatarioFila[];
   agenciaId: string;
   gateBiometriaAtivo: boolean;
+  // Com o gate ativo, o link direto de assinatura (D4Sign) do SÓCIO fica
+  // restrito a Admin/Diretor de Analistas — decisão do usuário,
+  // 2026-08-26 (ver page.tsx). Signatário fixo da Sakura (grupo !==
+  // "Agência") nunca é afetado por isso, sempre mostra o link normalmente.
+  podeVerLinkAssinaturaSocioComGate: boolean;
+  // O botão de reenvio de biometria só aparece pro analista que está de
+  // fato em atendimento desta agência (mesmo `podeAgir` calculado na
+  // page.tsx) — não pra quem só está espiando a ficha.
+  podeAgirBiometria: boolean;
 }) {
   const totalAssinados = fila.filter((item) => item.assinado).length;
 
@@ -101,14 +112,21 @@ export function FilaAssinatura({
               {item.email ? (
                 <span className="text-muted-foreground text-xs break-all">{item.email}</span>
               ) : null}
-              {item.email && item.keySigner ? (
+              {item.email &&
+              item.keySigner &&
+              (item.grupo !== "Agência" ||
+                !gateBiometriaAtivo ||
+                podeVerLinkAssinaturaSocioComGate) ? (
                 <LinkAssinaturaButton
                   agenciaId={agenciaId}
                   email={item.email}
                   obterLinkAssinaturaAction={obterLinkAssinaturaAction}
                 />
               ) : null}
-              {item.email && item.grupo === "Agência" && gateBiometriaAtivo ? (
+              {item.email &&
+              item.grupo === "Agência" &&
+              gateBiometriaAtivo &&
+              (podeVerLinkAssinaturaSocioComGate || podeAgirBiometria) ? (
                 <LinkBiometriaButton
                   agenciaId={agenciaId}
                   email={item.email}

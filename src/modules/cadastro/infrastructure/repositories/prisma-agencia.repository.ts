@@ -1217,6 +1217,7 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     const [
       emAnalise,
       emComplementar,
+      emComplementarInfoPendente,
       aguardandoAssinatura,
       aguardandoAssinaturaIa,
       aguardandoAssinaturaHumano,
@@ -1231,6 +1232,13 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       }),
       this.prisma.agencia.count({
         where: { status: STATUS_EM_COMPLEMENTAR as PrismaStatusAgencia },
+      }),
+      // Sub-contagem do breakdown "em aberto" x "info pendente" (ver
+      // CadastrosKpis.emComplementarPorInfoPendente) — "em aberto" é
+      // derivado (emComplementar - infoPendente) pra não precisar de mais
+      // uma query.
+      this.prisma.agencia.count({
+        where: { status: STATUS_EM_COMPLEMENTAR as PrismaStatusAgencia, infoPendente: true },
       }),
       this.prisma.agencia.count({
         where: { status: STATUS_AGUARDANDO_ASSINATURA as PrismaStatusAgencia },
@@ -1266,6 +1274,10 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
     return {
       emAnalise,
       emComplementar,
+      emComplementarPorInfoPendente: {
+        emAberto: emComplementar - emComplementarInfoPendente,
+        infoPendente: emComplementarInfoPendente,
+      },
       aguardandoAssinatura,
       aguardandoAssinaturaPorOrigem: {
         ia: aguardandoAssinaturaIa,

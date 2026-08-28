@@ -1,5 +1,4 @@
 import { Plane } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaCompleta } from "@/modules/agencias-crm/utils/formatar-moeda.util";
 import type { TopCompanhiaAgencia } from "@/modules/agencias-crm/types/agencia-detalhe.types";
 
@@ -65,7 +64,7 @@ export function AgenciaTopCompanhiasCard({ companhias }: AgenciaTopCompanhiasCar
                   {companhia.nome}
                 </span>
                 <span className="text-[13.5px] font-bold text-[#1A1A2E] tabular-nums">
-                  <SensitiveValue value={formatarMoedaCompleta(companhia.volume)} />
+                  {formatarMoedaCompleta(companhia.volume)}
                 </span>
               </div>
               <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#F2F2F8]">
