@@ -8,6 +8,8 @@ import { gerarAtualizadoEm } from "@/modules/agencias-crm/utils/canal-margem-moc
 import { AgenciaMargemRentabBloco } from "@/modules/agencias-crm/components/detalhe/agencia-margem-rentab-bloco";
 import { AgenciaCanalResumoCard } from "@/modules/agencias-crm/components/detalhe/agencia-canal-resumo-card";
 import { FiltroPeriodoAgenciaPopover } from "@/modules/agencias-crm/components/detalhe/filtro-periodo-agencia-popover";
+import { AgenciaCarregandoOverlay } from "@/modules/agencias-crm/components/detalhe/agencia-carregando-overlay";
+import { AgenciaPersonalizadoAviso } from "@/modules/agencias-crm/components/detalhe/agencia-personalizado-aviso";
 import {
   useFiltroPeriodoAgenciaStore,
   resolverPeriodoAgencia,
@@ -16,6 +18,11 @@ import type { AgenciaDetalheVendas } from "@/modules/agencias-crm/types/agencia-
 
 interface AgenciaVolumeTotalCardProps {
   agenciaId: string;
+  // Código SICA desta agência (null = dossiê local sem integração real,
+  // ver AgenciaDetalhePerfilComercial.sica) — passado adiante pro
+  // popover, que precisa dele pra buscar o intervalo "Personalizado" no
+  // SST filtrado por esta agência (parâmetro `codigoEmpresa`).
+  sicaCodigo: string | null;
   vendas: AgenciaDetalheVendas;
 }
 
@@ -47,14 +54,25 @@ function ponderar(
 // anual, real ou mock), assim como "Atualizado em". Por isso o valor
 // grande aqui segue a cor sólida `var(--color-primary)` pedida na SPEC,
 // não o gradiente rosa→roxo→azul usado no Dashboard CRM/Executivo/Gestor.
-export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotalCardProps) {
+export function AgenciaVolumeTotalCard({
+  agenciaId,
+  sicaCodigo,
+  vendas,
+}: AgenciaVolumeTotalCardProps) {
   const filtro = useFiltroPeriodoAgenciaStore((estado) => estado.filtro);
+  const {
+    dados: personalizadoDados,
+    carregando: personalizadoCarregando,
+    erro: personalizadoErro,
+  } = useFiltroPeriodoAgenciaStore((estado) => estado.personalizado);
+  const personalizado = filtro === "personalizado";
   const periodo = resolverPeriodoAgencia(filtro);
   const { margemAereo, margemTerrestre } = vendas;
 
   const atualizadoEm = useMemo(() => gerarAtualizadoEm(hashParaNumero(agenciaId)), [agenciaId]);
 
-  const periodoDados = vendas.porPeriodo[periodo];
+  const periodoDados =
+    personalizado && personalizadoDados ? personalizadoDados : vendas.porPeriodo[periodo];
   const valorDoPeriodo = periodoDados.valor;
   const volumeAereo = periodoDados.volumeAereo;
   const volumeTerrestre = periodoDados.volumeTerrestre;
@@ -92,7 +110,8 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
   );
 
   return (
-    <div className="border-border rounded-xl border p-[18px_22px]">
+    <div className="border-border relative rounded-xl border p-[18px_22px]">
+      <AgenciaCarregandoOverlay ativo={personalizado && personalizadoCarregando} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
           <p className="text-primary text-[clamp(36px,4vw,42px)] leading-none font-black">
@@ -109,7 +128,7 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
           />
         </div>
         <div className="flex flex-col items-end gap-2">
-          <FiltroPeriodoAgenciaPopover />
+          <FiltroPeriodoAgenciaPopover sicaCodigo={sicaCodigo} />
         </div>
       </div>
 
@@ -117,6 +136,13 @@ export function AgenciaVolumeTotalCard({ agenciaId, vendas }: AgenciaVolumeTotal
         <Clock className="size-3" />
         Atualizado em {atualizadoEm}
       </p>
+
+      {personalizado && !personalizadoCarregando && personalizadoErro ? (
+        <AgenciaPersonalizadoAviso mensagem={`${personalizadoErro} Mostrando prévia de "Mês".`} />
+      ) : null}
+      {personalizado && !personalizadoCarregando && !personalizadoErro && !personalizadoDados ? (
+        <AgenciaPersonalizadoAviso mensagem='Prévia com os dados de "Mês" — selecione um período no calendário.' />
+      ) : null}
 
       <div className="mt-3.5 flex flex-wrap gap-3.5">
         <AgenciaCanalResumoCard

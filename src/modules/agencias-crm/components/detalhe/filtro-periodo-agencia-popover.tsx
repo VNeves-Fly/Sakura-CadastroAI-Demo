@@ -125,9 +125,16 @@ function PainelMes({
 // Filtro do card "Volume total" do detalhe de Agência — mesmo
 // componente/UX do filtro "📅 Período" do Dashboard CRM e do Executivo,
 // com store própria (ver filtro-periodo-agencia.store.ts).
-export function FiltroPeriodoAgenciaPopover() {
-  const { filtro, setFiltro, dataInicial, setDataInicial, dataFinal, setDataFinal } =
-    useFiltroPeriodoAgenciaStore();
+export function FiltroPeriodoAgenciaPopover({ sicaCodigo }: { sicaCodigo: string | null }) {
+  const {
+    filtro,
+    setFiltro,
+    dataInicial,
+    setDataInicial,
+    dataFinal,
+    setDataFinal,
+    carregarPersonalizado,
+  } = useFiltroPeriodoAgenciaStore();
 
   const hoje = startOfDay(new Date());
   const padraoInicio = startOfMonth(hoje);
@@ -177,6 +184,11 @@ export function FiltroPeriodoAgenciaPopover() {
     setDataFinal(format(rascunhoFim, FORMATO));
     setFiltro("personalizado");
     setAberto(false);
+    void carregarPersonalizado(
+      sicaCodigo,
+      format(rascunhoInicio, "yyyy-MM-dd"),
+      format(rascunhoFim, "yyyy-MM-dd"),
+    );
   }
 
   const mesDireita = addMonths(mesEsquerda, 1);
