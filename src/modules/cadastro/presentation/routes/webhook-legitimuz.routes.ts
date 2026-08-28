@@ -101,7 +101,6 @@ export async function processarWebhookLegitimuzRoute(request: Request) {
       return httpError("Assinatura inválida.", 401);
     }
   }
-  console.log("Webhook Legitimuz: body:", body);
   const { refId, status } = extrairCampos(body);
 
   if (typeof refId !== "string" || !refId) {
