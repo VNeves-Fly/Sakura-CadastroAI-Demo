@@ -25,7 +25,7 @@ interface SeriesMovimentacao {
 interface DashboardKpisGridProps {
   novosCadastros30Dias: number;
   contratosIa30Dias: number;
-  emComplementar: number;
+  emComplementarPorInfoPendente: { emAberto: number; infoPendente: number };
   ativas: number;
   seriesNovosCadastros: SeriesMovimentacao;
   seriesContratosIa: SeriesMovimentacao;
@@ -45,13 +45,15 @@ interface DashboardKpisGridProps {
 export function DashboardKpisGrid({
   novosCadastros30Dias,
   contratosIa30Dias,
-  emComplementar,
+  emComplementarPorInfoPendente,
   ativas,
   seriesNovosCadastros,
   seriesContratosIa,
   seriesEmComplementar,
   seriesAtivas,
 }: DashboardKpisGridProps) {
+  const { emAberto, infoPendente } = emComplementarPorInfoPendente;
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       <DashboardKpiCard
@@ -73,10 +75,21 @@ export function DashboardKpisGrid({
       <DashboardKpiCard
         icon={FileEdit}
         titulo="Análise de Documentos"
-        valor={String(emComplementar)}
-        descricao="cadastros em análise de documentos"
+        valor={`${emAberto} | ${infoPendente}`}
+        descricao="em aberto | com informação pendente"
         cor={COR_COMPLEMENTAR}
         series={seriesEmComplementar}
+        tooltip={
+          <div className="space-y-1">
+            <p>
+              <strong>{emAberto}</strong> em aberto — aguardando análise do time
+            </p>
+            <p>
+              <strong>{infoPendente}</strong> com informação pendente — aguardando retorno da
+              agência (reenvio de documento solicitado)
+            </p>
+          </div>
+        }
       />
       <DashboardKpiCard
         icon={CheckCircle2}
