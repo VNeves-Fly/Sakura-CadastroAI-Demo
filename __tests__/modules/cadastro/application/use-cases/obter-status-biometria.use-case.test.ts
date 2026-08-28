@@ -21,7 +21,10 @@ function verificacaoFake(
     tentativasLembrete: 0,
     linkEnviadoEm: new Date("2026-08-21"),
     resolvidoEm: null,
-    expiraEm: new Date("2026-08-28"),
+    // Data bem distante no futuro (não usar algo "perto" da data de criação
+    // do teste — o teste anterior usava 2026-08-28 e quebrou sozinho ao
+    // chegar essa data real, já que `expirado` compara com Date.now()).
+    expiraEm: new Date("2099-01-01"),
     createdAt: new Date("2026-08-21"),
     updatedAt: new Date("2026-08-21"),
     ...overrides,
