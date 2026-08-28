@@ -35,7 +35,17 @@ export function MargemRentabBlocoGestor({
   const grande = tamanho === "grande";
 
   return (
-    <div className={cn("flex items-center", grande ? "gap-4" : "gap-3.5")}>
+    // `flex-wrap`: em telas estreitas (card de canal no mobile) os dois
+    // segmentos não cabem lado a lado — sem isto o bloco vazava pra fora
+    // do card (pedido do usuário, 2026-08-28, mesmo fix aplicado ao
+    // dashboard-vendas/executivo). O segmento RENTAB. LY quebra pra uma
+    // segunda linha em vez de estourar a largura do card.
+    <div
+      className={cn(
+        "flex flex-wrap items-start",
+        grande ? "gap-x-4 gap-y-2" : "gap-x-3.5 gap-y-1.5",
+      )}
+    >
       <div
         className={cn(
           "border-border flex flex-col gap-0.5 border-l",
