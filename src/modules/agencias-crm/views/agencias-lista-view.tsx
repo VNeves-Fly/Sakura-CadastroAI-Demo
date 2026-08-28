@@ -24,8 +24,6 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
     contadores,
     busca,
     atualizarBusca,
-    topVendas,
-    mudarTopVendas,
     agencias: agenciasDaPagina,
     total,
     pagina,
@@ -46,13 +44,7 @@ export function AgenciasListaView({ agencias, atualizadoEm }: AgenciasListaViewP
       </div>
 
       <div className="px-[22px] pb-[18px]">
-        <AgenciasToolbar
-          busca={busca}
-          onBuscaChange={atualizarBusca}
-          topVendas={topVendas}
-          onTopVendasChange={mudarTopVendas}
-          atualizadoEm={atualizadoEm}
-        />
+        <AgenciasToolbar busca={busca} onBuscaChange={atualizarBusca} atualizadoEm={atualizadoEm} />
       </div>
 
       <div className="px-[22px]">

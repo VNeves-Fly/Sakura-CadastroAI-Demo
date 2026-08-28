@@ -1,4 +1,3 @@
-import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
 import {
   __limparCacheParaTestes,
   dashboardVendasSstService,
@@ -591,7 +590,7 @@ describe("dashboardVendasSstService", () => {
     expect(projecao.curva[9]!.esperado).toBeGreaterThan(0);
   });
 
-  it("degrada só projecao pro mock quando o SST falha nessas chamadas, sem afetar vendasMensais", async () => {
+  it("degrada só projecao pra zero/vazio honesto quando o SST falha nessas chamadas, sem afetar vendasMensais (decisão do usuário, 2026-08-25: nunca mais mock disfarçado, ver docs/faltante.md)", async () => {
     global.fetch = jest.fn(async (url: RequestInfo | URL) => {
       const urlStr = String(url);
       if (urlStr.includes("/api/consolidado/nacional-vs-internacional")) {
@@ -603,13 +602,23 @@ describe("dashboardVendasSstService", () => {
       return { ok: true, status: 200, json: async () => respostaPara(urlStr) };
     }) as unknown as typeof fetch;
 
-    const [projecao, mockEstatico, vendasMensais] = await Promise.all([
+    const [projecao, vendasMensais] = await Promise.all([
       dashboardVendasSstService.obterProjecao(),
-      dashboardVendasMockService.obterProjecao(),
       dashboardVendasSstService.obterVendasMensais(),
     ]);
 
-    expect(projecao).toEqual(mockEstatico);
+    expect(projecao.atualizadoEm).toBeInstanceOf(Date);
+    expect(projecao).toMatchObject({
+      percentualDiaTranscorrido: 0,
+      fechamentoEsperado: 0,
+      faixaMin: 0,
+      faixaMax: 0,
+      realizado: 0,
+      aEmitir: 0,
+      nacional: { projecao: 0, realizado: 0 },
+      internacional: { projecao: 0, realizado: 0 },
+      curva: [],
+    });
     expect(vendasMensais.length).toBeGreaterThan(0);
   });
 

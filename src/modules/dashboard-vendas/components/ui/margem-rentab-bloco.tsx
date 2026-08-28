@@ -1,12 +1,12 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import {
-  formatarMoedaCompleta,
-  formatarPercentual,
-} from "@/modules/gestores/utils/formatar-moeda.util";
 import { cn } from "@/lib/utils";
+import {
+  formatarMoedaBrl,
+  formatarPercentual,
+} from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 
-interface MargemRentabBlocoGestorProps {
-  margemLabel: string; // "MARGEM TOTAL" (receita total) ou "MARGEM" (canal)
+interface MargemRentabBlocoProps {
+  margemLabel: string; // "MARGEM TOTAL" (resumo do dia) ou "MARGEM" (canal)
   margemPct: number;
   margemLYPct: number;
   margemVariacaoPct: number;
@@ -15,13 +15,14 @@ interface MargemRentabBlocoGestorProps {
   tamanho?: "grande" | "pequeno";
 }
 
-// Bloco "MARGEM.../RENTAB. LY" do card de receita total e dos cartões de
-// canal (Aéreo/Terrestre) — mesmo componente/lógica de MargemRentabBloco
-// do dashboard de Executivo (duplicado por isolamento de módulo): dois
-// segmentos lado a lado, cada um com sua própria divisória e 2 linhas
-// internas, em vez de uma única divisória com as duas linhas empilhadas
-// (pedido do usuário, 2026-08-21, print de referência).
-export function MargemRentabBlocoGestor({
+// Bloco "MARGEM.../RENTAB. LY" — mesmo componente (mesmo markup/classes) do
+// dashboard do Executivo (ver margem-rentab-bloco.tsx em
+// atribuicoes/components/executivo/dashboard), duplicado aqui em vez de
+// importado entre módulos (pedido do usuário, 2026-08-28: layout idêntico
+// nos dois dashboards) — mesmo padrão de isolamento entre módulos já usado
+// pelo resto do projeto (ex.: agencia-margem-rentab-bloco.tsx em
+// agencias-crm, margem-rentab-bloco.tsx em gestores).
+export function MargemRentabBloco({
   margemLabel,
   margemPct,
   margemLYPct,
@@ -29,16 +30,15 @@ export function MargemRentabBlocoGestor({
   rentabLYValor,
   rentabLYVariacaoPct,
   tamanho = "grande",
-}: MargemRentabBlocoGestorProps) {
+}: MargemRentabBlocoProps) {
   const margemNegativa = margemVariacaoPct < 0;
   const grande = tamanho === "grande";
 
   return (
     // `flex-wrap`: em telas estreitas (card de canal no mobile) os dois
     // segmentos não cabem lado a lado — sem isto o bloco vazava pra fora
-    // do card (pedido do usuário, 2026-08-28, mesmo fix aplicado ao
-    // dashboard-vendas/executivo). O segmento RENTAB. LY quebra pra uma
-    // segunda linha em vez de estourar a largura do card.
+    // do card (pedido do usuário, 2026-08-28). O segmento RENTAB. LY quebra
+    // pra uma segunda linha em vez de estourar a largura do card.
     <div
       className={cn(
         "flex flex-wrap items-start",
@@ -82,11 +82,20 @@ export function MargemRentabBlocoGestor({
         <span className="text-muted-foreground/70 font-bold tracking-wide">RENTAB. LY ·</span>
         <span className="flex items-center gap-1.5">
           <span className="text-muted-foreground font-semibold">
-            {formatarMoedaCompleta(rentabLYValor)}
+            {formatarMoedaBrl(rentabLYValor)}
           </span>
-          <span className="text-success inline-flex items-center gap-0.5 font-bold">
-            <ArrowUpRight className="size-3" />
-            {formatarPercentual(rentabLYVariacaoPct)}
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 font-bold",
+              rentabLYVariacaoPct < 0 ? "text-destructive" : "text-success",
+            )}
+          >
+            {rentabLYVariacaoPct < 0 ? (
+              <ArrowDownRight className="size-3" />
+            ) : (
+              <ArrowUpRight className="size-3" />
+            )}
+            {formatarPercentual(Math.abs(rentabLYVariacaoPct))}
           </span>
         </span>
       </div>

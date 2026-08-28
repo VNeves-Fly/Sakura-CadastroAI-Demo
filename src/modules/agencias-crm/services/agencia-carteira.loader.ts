@@ -21,27 +21,8 @@ import { usaSstReal } from "@/modules/agencias-crm/infrastructure/agencia-sst-cl
 import {
   agenciaCarteiraSstService,
   type AgenciaRosterSst,
-  type MetricasCarteiraSst,
 } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
 import type { AgenciaCarteiraView } from "@/modules/agencias-crm/types/agencia-carteira.types";
-
-// Sem SST_API_KEY, ou se a chamada falhar, a listagem inteira segue
-// 100% mock (comportamento idêntico ao de antes desta integração) — não
-// derruba a página por causa do SST, mesmo padrão de comFallback usado
-// dentro de agencia-carteira.sst-service.ts, só que numa granularidade
-// maior (a seção inteira "métricas reais", não sub-seções).
-async function obterMetricasReaisOuNull(): Promise<Map<string, MetricasCarteiraSst> | null> {
-  if (!usaSstReal()) return null;
-  try {
-    return await agenciaCarteiraSstService.obterMetricasCarteira();
-  } catch (erro) {
-    console.error(
-      "[agencias-crm] Falha ao buscar métricas reais do SST — listagem segue 100% mock.",
-      erro,
-    );
-    return null;
-  }
-}
 
 // Sem SST_API_KEY, ou se a chamada ao roster falhar, a listagem fica
 // vazia — não existe fonte alternativa de identidade de agência pra
@@ -152,15 +133,14 @@ export async function carregarAgenciasCarteira(): Promise<AgenciaCarteiraView[]>
       ]),
   );
 
-  const [roster, metricasReaisPorSica] = await Promise.all([
-    obterRosterOuVazio(),
-    obterMetricasReaisOuNull(),
-  ]);
+  const roster = await obterRosterOuVazio();
 
-  return montarAgenciasCarteiraViewList(
-    roster,
-    promotorPorSica,
-    regiaoPorBase,
-    metricasReaisPorSica,
-  );
+  // Pedido do usuário, 2026-08-27: a listagem não mostra mais Vendas
+  // mês/ano (trocadas por CNPJ na tabela), então as métricas reais do SST
+  // (`obterMetricasCarteira`) deixaram de ser buscadas aqui — eram a causa
+  // dos ~53s a frio (paginação de ~121 páginas de /api/resumos/terrestre,
+  // ver docs/otimizacao-tempo.md). `metricasReaisPorSica: null` faz o
+  // adapter preencher canal/bilhetes/vendas/diasSemComprar honestamente
+  // zerados/nulos, exatamente como já fazia quando o SST falhava.
+  return montarAgenciasCarteiraViewList(roster, promotorPorSica, regiaoPorBase, null);
 }
