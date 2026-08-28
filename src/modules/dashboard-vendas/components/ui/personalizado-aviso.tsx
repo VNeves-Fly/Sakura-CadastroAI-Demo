@@ -1,16 +1,23 @@
-import { Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// Aviso do filtro "Personalizado" — mostrado enquanto o cálculo real por
-// intervalo de datas não existe (exigiria consulta nova no back-end,
-// fora do escopo atual, que é só front-end; decisão do usuário,
-// 2026-08-18). `periodoPreviaLabel` é o período cujo dado real está
-// sendo mostrado como prévia (ex.: "Este mês").
-export function PersonalizadoAviso({ periodoPreviaLabel }: { periodoPreviaLabel: string }) {
+// Rodapé do card de Resumo quando o filtro "Personalizado" está ativo —
+// só aparece enquanto não há dado real pro intervalo escolhido
+// (carregando, erro, ou antes da primeira aplicação); uma vez que
+// `personalizado.dados` chega (ver filtro-periodo-dashboard.store.ts),
+// o card já mostra o intervalo de verdade e este aviso some.
+export function PersonalizadoAviso({
+  mensagem,
+  carregando,
+}: {
+  mensagem: string;
+  carregando?: boolean;
+}) {
+  const Icone = carregando ? Loader2 : Info;
   return (
     <p className="text-muted-foreground mt-3 flex items-center gap-1.5 text-xs">
-      <Info className="size-3.5 shrink-0" />
-      Prévia com os dados de &ldquo;{periodoPreviaLabel}&rdquo; — filtro por intervalo de datas
-      ainda não conectado a um cálculo real.
+      <Icone className={cn("size-3.5 shrink-0", carregando && "animate-spin")} />
+      {mensagem}
     </p>
   );
 }

@@ -54,13 +54,19 @@ interface TopAgenciasCardProps {
 // cada escopo, ver tipo-rota.util.ts.
 export function TopAgenciasCard({ rankingPorPeriodo }: TopAgenciasCardProps) {
   const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
+  const personalizadoDados = useFiltroPeriodoDashboardStore((estado) => estado.personalizado.dados);
   const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
 
+  const usandoPersonalizado = filtro === "personalizado" && personalizadoDados !== null;
   const periodoComDados = resolverPeriodo(filtro);
+  const tituloPeriodo = usandoPersonalizado
+    ? "Personalizado"
+    : LABEL_PERIODO_TITULO[periodoComDados];
   const rankingCompleto = useMemo(
-    () => rankingPorPeriodo[periodoComDados] ?? [],
-    [rankingPorPeriodo, periodoComDados],
+    () =>
+      usandoPersonalizado ? personalizadoDados.ranking : (rankingPorPeriodo[periodoComDados] ?? []),
+    [usandoPersonalizado, personalizadoDados, rankingPorPeriodo, periodoComDados],
   );
 
   const rankingFiltrado = useMemo(() => {
@@ -90,7 +96,7 @@ export function TopAgenciasCard({ rankingPorPeriodo }: TopAgenciasCardProps) {
     <>
       <RankedList
         icon={Trophy}
-        titulo={`Top 10 Agências (${LABEL_PERIODO_TITULO[periodoComDados]})`}
+        titulo={`Top 10 Agências (${tituloPeriodo})`}
         subtitulo="Modalidade: Aéreo + Terrestre"
         aoClicar={() => setModalAberto(true)}
         acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
@@ -111,7 +117,7 @@ export function TopAgenciasCard({ rankingPorPeriodo }: TopAgenciasCardProps) {
       <TopAgenciasDetalheModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
-        titulo={`Top Agências (${LABEL_PERIODO_TITULO[periodoComDados]})`}
+        titulo={`Top Agências (${tituloPeriodo})`}
         itens={rankingCompleto}
       />
     </>

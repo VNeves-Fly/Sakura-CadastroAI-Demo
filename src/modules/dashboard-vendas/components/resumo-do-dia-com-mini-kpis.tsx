@@ -28,12 +28,17 @@ export function ResumoDoDiaComMiniKpis({
   miniKpisPorPeriodo,
 }: ResumoDoDiaComMiniKpisProps) {
   const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
+  const personalizadoDados = useFiltroPeriodoDashboardStore((estado) => estado.personalizado.dados);
   const periodoComDados = resolverPeriodo(filtro);
+  const miniKpis =
+    filtro === "personalizado" && personalizadoDados
+      ? personalizadoDados.miniKpis
+      : miniKpisPorPeriodo[periodoComDados];
 
   return (
     <>
       <ResumoDoDiaCard resumoPorPeriodo={resumoPorPeriodo} />
-      <MiniKpisGrid {...miniKpisPorPeriodo[periodoComDados]} />
+      <MiniKpisGrid {...miniKpis} />
     </>
   );
 }

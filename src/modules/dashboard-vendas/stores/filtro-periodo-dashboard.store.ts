@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import type { PeriodoResumo } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
+import { obterResumoPersonalizadoAction } from "@/modules/dashboard-vendas/actions/dashboard-vendas.actions";
+import type {
+  PeriodoResumo,
+  ResumoPersonalizado,
+} from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 // Filtro de período do cabeçalho do Dashboard CRM (Hoje/Ontem/Este mês/
 // Este ano/Personalizado) — fonte única pra página toda: dirige o card de
@@ -14,27 +18,69 @@ import type { PeriodoResumo } from "@/modules/dashboard-vendas/types/dashboard-v
 // nos outros módulos (ver modules/bases/stores, por exemplo).
 export type FiltroPeriodoDashboard = PeriodoResumo | "personalizado";
 
-// "Personalizado" ainda é só de UI — sem fonte de dados pra um intervalo
-// arbitrário (decisão do usuário, 2026-08-18/19). Enquanto isso, todo
-// consumidor cai na prévia de "Este mês" — ver resolverPeriodo.
+// Fallback enquanto o intervalo real ainda não chegou (`personalizado.
+// dados === null` — primeiro instante depois de aplicar, erro de rede, ou
+// SST não configurado neste ambiente) — todo consumidor usa a prévia de
+// "Este mês" nesses casos, ver resolverPeriodo. Antes (2026-08-18/19) era
+// o único comportamento possível porque não existia fonte de dados pra
+// um intervalo arbitrário; agora existe (`/api/consolidado/
+// overview-intervalo`, ver dashboard-vendas.sst-service.ts), então isto
+// vira só um fallback de estado transitório/erro, não mais definitivo.
 export const PERIODO_PREVIA_PERSONALIZADO: PeriodoResumo = "mes";
+
+// Resultado (real, via SST) do último intervalo aplicado no calendário —
+// separado do resto do estado porque é assíncrono e tem vida própria
+// (carregando/erro), diferente de resumoPorPeriodo/rankingPorPeriodo
+// (pré-computados no carregamento da página, chegam prontos via props).
+interface EstadoPersonalizado {
+  dados: ResumoPersonalizado | null;
+  carregando: boolean;
+  erro: string | null;
+}
 
 interface FiltroPeriodoDashboardState {
   filtro: FiltroPeriodoDashboard;
   dataInicial: string;
   dataFinal: string;
+  personalizado: EstadoPersonalizado;
   setFiltro: (filtro: FiltroPeriodoDashboard) => void;
   setDataInicial: (valor: string) => void;
   setDataFinal: (valor: string) => void;
+  // Chamada pelo popover ao clicar "Aplicar período" — dispara a Server
+  // Action (dashboard-vendas.actions.ts) contra o SST real
+  // (/api/consolidado/overview-intervalo + agencias/top + ranking-cias).
+  carregarPersonalizado: (inicioIso: string, fimIso: string) => Promise<void>;
 }
 
 export const useFiltroPeriodoDashboardStore = create<FiltroPeriodoDashboardState>((set) => ({
   filtro: "hoje",
   dataInicial: "",
   dataFinal: "",
+  personalizado: { dados: null, carregando: false, erro: null },
   setFiltro: (filtro) => set({ filtro }),
   setDataInicial: (dataInicial) => set({ dataInicial }),
   setDataFinal: (dataFinal) => set({ dataFinal }),
+  carregarPersonalizado: async (inicioIso, fimIso) => {
+    set({ personalizado: { dados: null, carregando: true, erro: null } });
+    try {
+      const dados = await obterResumoPersonalizadoAction(inicioIso, fimIso);
+      set({
+        personalizado: {
+          dados,
+          carregando: false,
+          erro: dados ? null : "SST não configurado neste ambiente.",
+        },
+      });
+    } catch (erro) {
+      set({
+        personalizado: {
+          dados: null,
+          carregando: false,
+          erro: erro instanceof Error ? erro.message : "Falha ao carregar o período personalizado.",
+        },
+      });
+    }
+  },
 }));
 
 // Resolve o filtro (que pode ser "personalizado") pra uma chave real de

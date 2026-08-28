@@ -203,6 +203,19 @@ export interface AgenciaCruzamentoDetalhe {
   ultimaTerrestre: string | null;
 }
 
+// Resultado de um intervalo livre (filtro "Personalizado" do cabeçalho) —
+// mesmo formato de uma fatia única de resumoPorPeriodo/miniKpis/
+// rankingPorPeriodo/fornecedoresPorPeriodo, mas buscado sob demanda (não
+// pré-computado no carregamento da página, ver
+// dashboard-vendas.actions.ts) porque não dá pra pré-computar todo
+// intervalo de datas possível como os 4 períodos fixos.
+export interface ResumoPersonalizado {
+  resumo: ResumoDia;
+  miniKpis: MiniKpis;
+  ranking: TopAgencia[];
+  fornecedores: TopFornecedor[];
+}
+
 export interface DashboardVendasData {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
   // Um conjunto de mini-KPIs por período (mesma chave de

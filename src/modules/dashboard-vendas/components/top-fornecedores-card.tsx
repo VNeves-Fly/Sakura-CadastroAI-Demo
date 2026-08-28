@@ -55,13 +55,24 @@ interface TopFornecedoresCardProps {
 // cada escopo, ver tipo-rota.util.ts.
 export function TopFornecedoresCard({ fornecedoresPorPeriodo }: TopFornecedoresCardProps) {
   const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
+  const personalizadoDados = useFiltroPeriodoDashboardStore((estado) => estado.personalizado.dados);
   const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
 
+  const usandoPersonalizado = filtro === "personalizado" && personalizadoDados !== null;
   const periodoComDados = resolverPeriodo(filtro);
+  const tituloPeriodo = usandoPersonalizado
+    ? "Personalizado"
+    : LABEL_PERIODO_TITULO[periodoComDados];
+  const preposicaoPeriodo = usandoPersonalizado
+    ? "no período"
+    : LABEL_PERIODO_PREPOSICAO[periodoComDados];
   const rankingCompleto = useMemo(
-    () => fornecedoresPorPeriodo[periodoComDados] ?? [],
-    [fornecedoresPorPeriodo, periodoComDados],
+    () =>
+      usandoPersonalizado
+        ? personalizadoDados.fornecedores
+        : (fornecedoresPorPeriodo[periodoComDados] ?? []),
+    [usandoPersonalizado, personalizadoDados, fornecedoresPorPeriodo, periodoComDados],
   );
 
   const rankingFiltrado = useMemo(() => {
@@ -89,8 +100,8 @@ export function TopFornecedoresCard({ fornecedoresPorPeriodo }: TopFornecedoresC
     <>
       <RankedList
         icon={Plane}
-        titulo={`Top 10 Fornecedores (${LABEL_PERIODO_TITULO[periodoComDados]})`}
-        subtitulo={`% = participação no volume ${LABEL_PERIODO_PREPOSICAO[periodoComDados]}`}
+        titulo={`Top 10 Fornecedores (${tituloPeriodo})`}
+        subtitulo={`% = participação no volume ${preposicaoPeriodo}`}
         aoClicar={() => setModalAberto(true)}
         acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
         itens={top10.map((fornecedor) => ({
@@ -105,7 +116,7 @@ export function TopFornecedoresCard({ fornecedoresPorPeriodo }: TopFornecedoresC
       <TopFornecedoresDetalheModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
-        titulo={`Top Fornecedores (${LABEL_PERIODO_TITULO[periodoComDados]})`}
+        titulo={`Top Fornecedores (${tituloPeriodo})`}
         itens={rankingCompleto}
       />
     </>

@@ -17,7 +17,11 @@ function calcularParticipacao(canal: CanalResumo, totalGeral: number): CanalResu
   };
 }
 
-function normalizarResumo(resumo: ResumoDia): ResumoDia {
+// Exportada (além de normalizarResumoPorPeriodo) pra normalizar o
+// resultado do filtro "Personalizado" — um ResumoDia avulso, não um
+// Record<PeriodoResumo, ...> (ver dashboard-vendas.controller.ts,
+// obterResumoPersonalizado).
+export function normalizarResumo(resumo: ResumoDia): ResumoDia {
   const totalGeral = resumo.aereo.valor + resumo.terrestre.valor;
   return {
     ...resumo,
