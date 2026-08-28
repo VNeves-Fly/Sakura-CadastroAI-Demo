@@ -5,7 +5,6 @@ import { useGestoresListaViewModel } from "@/modules/gestores/view-models/use-ge
 import { GestoresListaToolbar } from "@/modules/gestores/components/gestores-lista-toolbar";
 import { GestoresListaTabela } from "@/modules/gestores/components/gestores-lista-tabela";
 import { GestorCadastroModal } from "@/modules/gestores/components/gestor-cadastro-modal";
-import { GestorEdicaoModal } from "@/modules/gestores/components/gestor-edicao-modal";
 import { PaginacaoSimples } from "@/modules/shared/components/paginacao-simples";
 import { TAMANHO_PAGINA_GESTORES } from "@/modules/gestores/types/gestor-lista.types";
 import type { RawGestorResponse } from "@/modules/gestores/services/gestores.service";
@@ -42,7 +41,18 @@ export function GestoresView({
     setPagina,
   } = useGestoresListaViewModel(executivosPorGestor, vendasPorGestor, initialGestores);
 
-  const gestorEmEdicao = gestores.find((gestor) => gestor.id === gestorEmEdicaoId);
+  // Um único modal (GestorCadastroModal) atende Novo e Editar — abre em
+  // branco quando modalAberto, ou pré-preenchido quando gestorEmEdicaoId
+  // existe (pedido do usuário, 2026-08-26). onOpenChange(false) zera os dois
+  // estados de uma vez, já que só um fica ativo por vez.
+  function fecharModal(aberto: boolean) {
+    if (aberto) {
+      setModalAberto(true);
+      return;
+    }
+    setModalAberto(false);
+    setGestorEmEdicaoId(null);
+  }
 
   return (
     <div className="flex w-full flex-col gap-[18px]">
@@ -75,14 +85,8 @@ export function GestoresView({
 
       <GestorCadastroModal
         aberto={modalAberto}
-        onOpenChange={setModalAberto}
-        basesOptions={basesOptions}
-      />
-
-      <GestorEdicaoModal
         gestorId={gestorEmEdicaoId}
-        executivosCount={gestorEmEdicao?.executivos ?? 0}
-        onOpenChange={(aberto) => setGestorEmEdicaoId(aberto ? gestorEmEdicaoId : null)}
+        onOpenChange={fecharModal}
         basesOptions={basesOptions}
       />
     </div>

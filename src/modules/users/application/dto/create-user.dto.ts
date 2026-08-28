@@ -9,6 +9,7 @@ export interface CreateUserInput {
   password?: string;
   mustChangePassword: boolean;
   useTemporaryPassword: boolean;
+  ativo: boolean;
 }
 
 export interface UserOutput {
@@ -19,6 +20,8 @@ export interface UserOutput {
   phone: string;
   cargo: Cargo;
   mustChangePassword: boolean;
+  ativo: boolean;
+  lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
   // Só preenchido quando mustChangePassword e/ou useTemporaryPassword foram

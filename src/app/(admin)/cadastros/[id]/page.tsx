@@ -290,6 +290,14 @@ export default async function DossieAgenciaPage({
   const podeReanalisarDocumento = cargo === "ADMIN" || cargo === "DIRETOR_ANALISTA";
   // Mesmo cargo de podeReanalisarDocumento — ver definirGateBiometriaAction.
   const podeDefinirGateBiometria = cargo === "ADMIN" || cargo === "DIRETOR_ANALISTA";
+  // Com o gate de biometria ativo, o link direto de assinatura do sócio
+  // (D4Sign) fica restrito a Admin/Diretor de Analistas — decisão do
+  // usuário, 2026-08-26: dá uma via de escape supervisionada sem abrir
+  // esse atalho pra qualquer analista contornar a biometria no dia a dia.
+  // O analista em atendimento vê o botão de biometria no lugar (ver
+  // FilaAssinatura). Sem o gate, o link continua visível pra todo mundo
+  // como sempre.
+  const podeVerLinkAssinaturaSocioComGate = cargo === "ADMIN" || cargo === "DIRETOR_ANALISTA";
 
   const [atendimentoAtual, historicoAtendimento] = await Promise.all([
     atendimentoController.obterAtendimentoAgenciaAtual(view.agencia.id),
@@ -996,6 +1004,8 @@ export default async function DossieAgenciaPage({
                 fila={filaAssinatura}
                 agenciaId={agencia.id}
                 gateBiometriaAtivo={agencia.gateBiometriaAtivo}
+                podeVerLinkAssinaturaSocioComGate={podeVerLinkAssinaturaSocioComGate}
+                podeAgirBiometria={podeAgir}
               />
               {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 
@@ -1143,6 +1153,8 @@ export default async function DossieAgenciaPage({
                 fila={filaAssinatura}
                 agenciaId={agencia.id}
                 gateBiometriaAtivo={agencia.gateBiometriaAtivo}
+                podeVerLinkAssinaturaSocioComGate={podeVerLinkAssinaturaSocioComGate}
+                podeAgirBiometria={podeAgir}
               />
               {podeAgir ? <SincronizarContratoD4SignButton agenciaId={agencia.id} /> : null}
 

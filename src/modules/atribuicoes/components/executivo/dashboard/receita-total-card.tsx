@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { ArrowDownRight, ArrowUpRight, Bus, Clock, Plane } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { FiltroPeriodoExecutivoPopover } from "@/modules/atribuicoes/components/executivo/dashboard/filtro-periodo-executivo-popover";
 import { CanalResumoCard } from "@/modules/atribuicoes/components/executivo/dashboard/canal-resumo-card";
 import { MargemRentabBloco } from "@/modules/atribuicoes/components/executivo/dashboard/margem-rentab-bloco";
@@ -61,7 +60,7 @@ export function ReceitaTotalCard({ hero, margemRentab, perfilId }: ReceitaTotalC
               className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
               style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
             >
-              <SensitiveValue value={formatarMoedaCompleta(dadosDoPeriodo.valor)} />
+              {formatarMoedaCompleta(dadosDoPeriodo.valor)}
             </p>
             <MargemRentabBloco
               margemLabel="MARGEM TOTAL"
@@ -90,7 +89,7 @@ export function ReceitaTotalCard({ hero, margemRentab, perfilId }: ReceitaTotalC
             }
           >
             {negativo ? <ArrowDownRight className="size-4" /> : <ArrowUpRight className="size-4" />}
-            <SensitiveValue value={formatarPercentual(Math.abs(dadosDoPeriodo.variacaoPct))} />
+            {formatarPercentual(Math.abs(dadosDoPeriodo.variacaoPct))}
           </span>
         </div>
       </div>

@@ -112,6 +112,67 @@ describe("processarWebhookLegitimuzRoute", () => {
     expect(mockProcessar).toHaveBeenCalledWith({ refId: "token-1", status: "Aprovado" });
   });
 
+  it("extrai o status de liveness.status quando o payload não tem status na raiz (formato real do flow kyc-faceindex, confirmado ao vivo 2026-08-26)", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.LEGITIMUZ_WEBHOOK_SECRET;
+    mockProcessar.mockResolvedValueOnce({ processado: true });
+
+    // Payload real recebido em produção — sem `status` na raiz, o
+    // resultado vem aninhado em liveness/facematch.
+    const request = buildJsonRequest({
+      integration: {
+        id: 30425,
+        uuid: "9c35b379-4ca7-4f38-b090-5654436fcf08",
+        domain: "painel.sakuraclick.com.br",
+      },
+      ref_id: "a67e2aec7b0e2dda6cd9e17bfd147ed991b96e6acb33ef22dc900a06eb8e397a",
+      cliente: { cpf: "13070985688", nome: "Newton Sergio Fonseca Junior" },
+      liveness: {
+        validated: true,
+        status: "Liveness Aprovado",
+        confidence: 100,
+        similarity: 99.99979400634766,
+      },
+      facematch: {
+        validated: true,
+        status: "Liveness Aprovado",
+        similarity: { total: 99.99979400634766 },
+      },
+      personId: 732910620,
+    });
+    const response = await processarWebhookLegitimuzRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).toHaveBeenCalledWith({
+      refId: "a67e2aec7b0e2dda6cd9e17bfd147ed991b96e6acb33ef22dc900a06eb8e397a",
+      status: "Liveness Aprovado",
+    });
+  });
+
+  it("reconhece (200, sem chamar o use-case) um evento só de OCR de documento — não conta como biometria aprovada", async () => {
+    process.env = { ...originalEnv };
+    delete process.env.LEGITIMUZ_WEBHOOK_SECRET;
+
+    // Payload real recebido em produção — etapa de OCR/captura de
+    // documento do próprio flow kyc-faceindex, sem liveness/facematch
+    // nenhum (contrário ao que a doc original previa pra esse flow).
+    const request = buildJsonRequest({
+      integration: { id: 30425, domain: "painel.sakuraclick.com.br" },
+      ref_id: "11820988f971104e71796e19e73baf366501d5ecab4e5fbd079de8ba1e04c845",
+      cliente: { cpf: "37576153873", nome: "Adriano Laino Simoes" },
+      ocr: {
+        validated: true,
+        status: "Documento Aprovado",
+        check: { doc_frente: "Documento Aprovado", doc_verso: "Documento Aprovado" },
+      },
+      personId: 733102438,
+    });
+    const response = await processarWebhookLegitimuzRoute(request);
+
+    expect(response.status).toBe(200);
+    expect(mockProcessar).not.toHaveBeenCalled();
+  });
+
   it("sempre responde 200 mesmo quando o use-case não reconhece o evento (evita retry)", async () => {
     process.env = { ...originalEnv };
     delete process.env.LEGITIMUZ_WEBHOOK_SECRET;

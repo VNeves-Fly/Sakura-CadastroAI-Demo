@@ -1,5 +1,4 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import {
   formatarMoedaCompleta,
   formatarPercentual,
@@ -83,7 +82,7 @@ export function AgenciaMargemRentabBloco({
         <span className="text-muted-foreground/70 font-bold tracking-wide">RENTAB. LY ·</span>
         <span className="flex items-center gap-1.5">
           <span className="text-muted-foreground font-semibold">
-            <SensitiveValue value={formatarMoedaCompleta(rentabLYValor)} />
+            {formatarMoedaCompleta(rentabLYValor)}
           </span>
           <span className="text-success inline-flex items-center gap-0.5 font-bold">
             <ArrowUpRight className="size-3" />

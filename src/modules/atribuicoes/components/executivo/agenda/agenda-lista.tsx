@@ -1,6 +1,5 @@
 import { TableCell } from "@/components/ui/table";
 import { SortableDataTable } from "@/modules/shared/components/sortable-data-table";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import type { AgendaAgenciaView } from "@/modules/atribuicoes/types/executivo-agenda.types";
 
@@ -34,9 +33,7 @@ export function AgendaLista({ agencias }: AgendaListaProps) {
       <p className="text-muted-foreground text-sm">
         <span className="text-foreground font-semibold">{agencias.length}</span> agência(s) · Mês
         atual ({mesAtual}) · Total{" "}
-        <span className="text-primary font-bold">
-          <SensitiveValue value={formatarMoedaAbreviada(totalGeral)} />
-        </span>
+        <span className="text-primary font-bold">{formatarMoedaAbreviada(totalGeral)}</span>
       </p>
 
       <div className="border-border bg-card rounded-2xl border">
@@ -60,9 +57,7 @@ export function AgendaLista({ agencias }: AgendaListaProps) {
               align: "right",
               sortable: true,
               sortValue: (a) => a.aereoInternacional,
-              render: (a) => (
-                <SensitiveValue value={formatarMoedaAbreviada(a.aereoInternacional)} />
-              ),
+              render: (a) => <>{formatarMoedaAbreviada(a.aereoInternacional)}</>,
             },
             {
               key: "aereoNacional",
@@ -70,7 +65,7 @@ export function AgendaLista({ agencias }: AgendaListaProps) {
               align: "right",
               sortable: true,
               sortValue: (a) => a.aereoNacional,
-              render: (a) => <SensitiveValue value={formatarMoedaAbreviada(a.aereoNacional)} />,
+              render: (a) => <>{formatarMoedaAbreviada(a.aereoNacional)}</>,
             },
             {
               key: "terrestre",
@@ -78,7 +73,7 @@ export function AgendaLista({ agencias }: AgendaListaProps) {
               align: "right",
               sortable: true,
               sortValue: (a) => a.terrestre,
-              render: (a) => <SensitiveValue value={formatarMoedaAbreviada(a.terrestre)} />,
+              render: (a) => <>{formatarMoedaAbreviada(a.terrestre)}</>,
             },
             {
               key: "total",
@@ -88,11 +83,7 @@ export function AgendaLista({ agencias }: AgendaListaProps) {
               sortValue: (a) => a.aereoNacional + a.aereoInternacional + a.terrestre,
               render: (a) => (
                 <span className="text-primary font-bold">
-                  <SensitiveValue
-                    value={formatarMoedaAbreviada(
-                      a.aereoNacional + a.aereoInternacional + a.terrestre,
-                    )}
-                  />
+                  {formatarMoedaAbreviada(a.aereoNacional + a.aereoInternacional + a.terrestre)}
                 </span>
               ),
             },
@@ -112,15 +103,13 @@ export function AgendaLista({ agencias }: AgendaListaProps) {
                 {indice === 0 ? (
                   "Total"
                 ) : coluna.key === "aereoInternacional" ? (
-                  <SensitiveValue value={formatarMoedaAbreviada(totais.internacional)} />
+                  formatarMoedaAbreviada(totais.internacional)
                 ) : coluna.key === "aereoNacional" ? (
-                  <SensitiveValue value={formatarMoedaAbreviada(totais.nacional)} />
+                  formatarMoedaAbreviada(totais.nacional)
                 ) : coluna.key === "terrestre" ? (
-                  <SensitiveValue value={formatarMoedaAbreviada(totais.terrestre)} />
+                  formatarMoedaAbreviada(totais.terrestre)
                 ) : coluna.key === "total" ? (
-                  <span className="text-primary">
-                    <SensitiveValue value={formatarMoedaAbreviada(totalGeral)} />
-                  </span>
+                  <span className="text-primary">{formatarMoedaAbreviada(totalGeral)}</span>
                 ) : null}
               </TableCell>
             ))

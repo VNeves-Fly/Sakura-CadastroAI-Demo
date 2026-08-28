@@ -3,8 +3,7 @@
 import { headers } from "next/headers";
 import { cadastroPublicoController } from "@/modules/cadastro/presentation/controllers/cadastro-publico.controller";
 import { verificarRateLimit } from "@/modules/shared/infrastructure/rate-limiter";
-import { RateLimitError } from "@/modules/shared/domain/errors";
-import type { ObterStatusBiometriaResult } from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
+import type { ObterStatusBiometriaOutput } from "@/modules/cadastro/application/use-cases/obter-status-biometria.use-case";
 import { unmaskCpf } from "@/modules/cadastro/utils/cpf.util";
 
 // Página sem login (token opaco na URL + confirmação de CPF) — protege
@@ -35,12 +34,15 @@ function ipCliente(): string {
   return cabecalhos.get("x-real-ip") ?? "desconhecido";
 }
 
+// ok:false (nunca lança) pro mesmo motivo de ObterStatusBiometriaUseCase —
+// erro LANÇADO daqui atravessaria a Server Action e o Next.js redacta a
+// mensagem em produção, virando o digest genérico em vez do aviso real.
 export async function confirmarBiometriaAction(
   token: string,
   cpfMascarado: string,
-): Promise<ObterStatusBiometriaResult> {
+): Promise<ObterStatusBiometriaOutput> {
   if (!verificarRateLimit(`biometria:confirmar:${ipCliente()}`, RATE_LIMIT_CONFIRMAR_BIOMETRIA)) {
-    throw new RateLimitError();
+    return { ok: false, motivo: "Muitas tentativas. Aguarde um momento antes de tentar de novo." };
   }
 
   return cadastroPublicoController.obterStatusBiometria({
@@ -54,9 +56,9 @@ export async function confirmarBiometriaAction(
 export async function consultarStatusBiometriaAction(
   token: string,
   cpfMascarado: string,
-): Promise<ObterStatusBiometriaResult> {
+): Promise<ObterStatusBiometriaOutput> {
   if (!verificarRateLimit(`biometria:status:${ipCliente()}`, RATE_LIMIT_CONSULTAR_STATUS)) {
-    throw new RateLimitError();
+    return { ok: false, motivo: "Muitas tentativas. Aguarde um momento antes de tentar de novo." };
   }
 
   return cadastroPublicoController.obterStatusBiometria({

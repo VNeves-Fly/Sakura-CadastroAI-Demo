@@ -20,7 +20,12 @@ export class PrismaCredentialsRepository implements CredentialsRepository {
       email: user.email,
       passwordHash: user.password,
       mustChangePassword: user.mustChangePassword,
+      ativo: user.ativo,
       cargo: user.cargo,
     };
+  }
+
+  async touchLastLogin(id: string): Promise<void> {
+    await this.prisma.user.update({ where: { id }, data: { lastLoginAt: new Date() } });
   }
 }

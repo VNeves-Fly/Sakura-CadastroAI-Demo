@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatarMoedaAbreviada } from "@/modules/atribuicoes/utils/formatar-moeda.util";
 import { labelDoNivel } from "@/modules/gestores/types/gestor-nivel.types";
+import { GestoresListaTabelaSkeleton } from "@/modules/gestores/components/gestores-lista-tabela-skeleton";
 import type { GestorListaView } from "@/modules/gestores/types/gestor-lista.types";
 import { cn } from "@/lib/utils";
 
@@ -15,8 +16,9 @@ interface GestoresListaTabelaProps {
 }
 
 // Grid de colunas idêntico no header e nas linhas (mockup Claude Design,
-// 2026-08-24, "Gestores").
-const COLS =
+// 2026-08-24, "Gestores") — exportado pra GestoresListaTabelaSkeleton
+// reusar o mesmo template e o skeleton bater pixel a pixel com a tabela real.
+export const COLS =
   "minmax(200px,1.6fr) minmax(140px,1fr) minmax(110px,0.8fr) minmax(130px,1fr) minmax(130px,1fr) 90px";
 
 type ColunaChave = "nome" | "nivel" | "executivos" | "vendasMes" | "vendasAno";
@@ -40,12 +42,8 @@ function valorOrdenavel(linha: GestorListaView, chave: ColunaChave): string | nu
 // SortableDataTable/<Table> genérica nem StickyHorizontalScrollbar (o
 // mockup não precisa — só 6 colunas, mais estreitas que a versão
 // anterior). Colunas reduzidas ao que o mockup mostra — Total/Vend.30d/
-// Paradas+90d/Limite/Saúde e o botão Inativar/Ativar saíram da lista (o
-// Inativar/Ativar continua no modal de edição, ver gestor-edicao-modal.tsx
-// — nenhuma funcionalidade foi perdida, só saiu da linha). Máscara de
-// dados sensíveis (SensitiveValue) também saiu — o mockup não tem o botão
-// de olho na toolbar. Pedido do usuário, 2026-08-24: restilizar
-// /crm/gestores "pixel perfect" com o modelo fornecido.
+// Paradas+90d/Limite/Saúde saíram da lista. Pedido do usuário, 2026-08-24:
+// restilizar /crm/gestores "pixel perfect" com o modelo fornecido.
 export function GestoresListaTabela({
   gestores,
   isLoading,
@@ -78,7 +76,7 @@ export function GestoresListaTabela({
   }
 
   if (isLoading) {
-    return <p className="text-sm text-[#6B6B85]">Carregando gestores...</p>;
+    return <GestoresListaTabelaSkeleton />;
   }
 
   if (error) {

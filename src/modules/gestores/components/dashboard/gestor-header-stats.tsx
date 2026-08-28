@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SensitiveValue } from "@/modules/shared/components/sensitive-value";
+import { LoadingBall } from "@/components/ui/loading-ball";
 import type { gestorDashboardController } from "@/modules/gestores/presentation/controllers/gestor-dashboard.controller";
 
 interface GestorHeaderStatsProps {
@@ -13,36 +13,37 @@ interface GestorHeaderStatsProps {
 // (mesma promise de GestorSaudeCarteiraSecao, sem custo adicional).
 export async function GestorHeaderAgenciasStat({ crossCanalPromise }: GestorHeaderStatsProps) {
   const { miniStats } = await crossCanalPromise;
-  return <SensitiveValue value={miniStats.agencias} />;
+  return <>{miniStats.agencias}</>;
 }
 
 export async function GestorHeaderVendendo30dStat({ crossCanalPromise }: GestorHeaderStatsProps) {
   const { miniStats } = await crossCanalPromise;
   return (
     <>
-      <p className="text-success text-xl font-bold">
-        <SensitiveValue value={miniStats.vendendo30d} />
-      </p>
+      <p className="text-success text-xl font-bold">{miniStats.vendendo30d}</p>
       <p className="text-muted-foreground text-center text-[10.5px] font-semibold tracking-wide uppercase">
-        Venderam 30D · <SensitiveValue value={`${miniStats.vendendo30dPct}%`} />
+        Venderam 30D · {`${miniStats.vendendo30dPct}%`}
       </p>
     </>
   );
 }
 
-// `<span>`, não `Skeleton` (que renderiza um `<div>`) — este fallback vai
+// `LoadingBall` já é um `<span>` (não um `<div>`) — este fallback vai
 // dentro do `<p>` de "Agências" em gestor-profile-header.tsx, e um `<div>`
 // dentro de `<p>` é HTML inválido (o navegador fecha a tag `<p>` antes da
 // hora, divergindo da árvore que o React espera) — mesma causa de erro de
-// hidratação já documentada em executivo-header-stats.tsx.
+// hidratação já documentada em executivo-header-stats.tsx. Bolinha rosa
+// quicando em vez de barra cinza estática (pedido do usuário, 2026-08-26).
 export function GestorHeaderAgenciasStatSkeleton() {
-  return <span className="bg-muted inline-block h-6 w-8 animate-pulse rounded-md align-middle" />;
+  return <LoadingBall size="sm" className="align-middle" />;
 }
 
 export function GestorHeaderVendendo30dStatSkeleton() {
   return (
     <>
-      <Skeleton className="h-6 w-10" />
+      <div className="flex h-6 items-center">
+        <LoadingBall size="default" />
+      </div>
       <Skeleton className="mt-1 h-2.5 w-28" />
     </>
   );

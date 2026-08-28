@@ -31,6 +31,8 @@ function criarMocks(record: PasswordResetRecord | null) {
     findByEmail: jest.fn(),
     findAll: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+    deactivate: jest.fn(),
     updatePassword: jest.fn(),
   };
 
