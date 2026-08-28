@@ -1,32 +1,96 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import { Bus, Clock, Plane } from "lucide-react";
-import { KpiCard } from "@/modules/dashboard-vendas/components/ui/kpi-card";
+import { MargemRentabBloco } from "@/modules/dashboard-vendas/components/ui/margem-rentab-bloco";
 import { NacIntMiniBar } from "@/modules/dashboard-vendas/components/ui/nac-int-mini-bar";
 import { FiltroPeriodoDashboardPopover } from "@/modules/dashboard-vendas/components/ui/filtro-periodo-dashboard-popover";
 import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
-import {
-  formatarMoedaBrl,
-  formatarPercentual,
-} from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
-import {
-  COR_AZUL,
-  COR_AZUL_BG,
-  COR_ROSA,
-  COR_ROSA_BG,
-} from "@/modules/dashboard-vendas/constants/dashboard-vendas.constants";
+import { cn } from "@/lib/utils";
+import { formatarMoedaBrl } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
 import {
   useFiltroPeriodoDashboardStore,
   resolverPeriodo,
 } from "@/modules/dashboard-vendas/stores/filtro-periodo-dashboard.store";
 import type {
+  CanalResumo,
   PeriodoResumo,
   ResumoDia,
 } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 interface ResumoDoDiaCardProps {
   resumoPorPeriodo: Record<PeriodoResumo, ResumoDia>;
+}
+
+interface CanalCardProps {
+  canal: CanalResumo;
+  titulo: string;
+  unidade: string;
+  icon: LucideIcon;
+  tema: "rosa" | "azul";
+  ticketMedio: number;
+}
+
+// Cartão de canal (Aéreo/Terrestre) — mesmo layout de
+// canal-resumo-card.tsx do dashboard do Executivo (ícone + valor +
+// MargemRentabBloco "pequeno" lado a lado, quantidade/ticket médio
+// embaixo), pedido do usuário (2026-08-28) pra manter os dois dashboards
+// visualmente idênticos.
+function CanalCard({ canal, titulo, unidade, icon: Icon, tema, ticketMedio }: CanalCardProps) {
+  return (
+    <div>
+      <div className="border-border rounded-xl border p-4">
+        <div className="flex gap-4">
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-[10px]",
+              tema === "rosa" ? "bg-primary/10 text-primary" : "bg-info/10 text-info",
+            )}
+          >
+            <Icon className="size-4.5" />
+          </span>
+
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <p
+              className={cn(
+                "text-[11px] font-extrabold tracking-[0.1em] uppercase",
+                tema === "rosa" ? "text-primary" : "text-info",
+              )}
+            >
+              {titulo}
+            </p>
+
+            <p className="text-foreground text-[22px] leading-tight font-extrabold tracking-tight">
+              {formatarMoedaBrl(canal.valor)}
+            </p>
+
+            {/* Abaixo do valor (não mais ao lado) — pedido do usuário,
+                2026-08-28. */}
+            <div className="mt-1">
+              <MargemRentabBloco
+                margemLabel="MARGEM"
+                margemPct={canal.margemPct}
+                margemLYPct={canal.margemLYPct}
+                margemVariacaoPct={canal.margemVariacaoPct}
+                rentabLYValor={canal.rentabLYValor}
+                rentabLYVariacaoPct={canal.rentabLYVariacaoPct}
+                tamanho="pequeno"
+              />
+            </div>
+
+            <p className="text-muted-foreground mt-1 text-[13px]">
+              {canal.quantidade} {unidade}
+            </p>
+            <p className="text-muted-foreground text-[13px]">
+              Ticket médio: {formatarMoedaBrl(ticketMedio)}
+            </p>
+          </div>
+        </div>
+      </div>
+      <NacIntMiniBar nacIntDetalhe={canal.nacIntDetalhe} />
+    </div>
+  );
 }
 
 // 4.1 — KPI principal do topo, seletor de período e o par Aéreo/Terrestre,
@@ -52,23 +116,28 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
     <div className="border-border bg-card rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p
-              className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
-              style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
-            >
-              {formatarMoedaBrl(totalPeriodo)}
-            </p>
-            {/* Margem combinada Aéreo+Terrestre (overview.filial.total),
-                separada da margem de cada canal mostrada nos cards abaixo
-                (pedido do usuário, 2026-08-19). Rosa sem fundo (pedido do
-                usuário, 2026-08-21) — mesmo tratamento do badge "MARGEM X%"
-                do KpiCard. */}
-            <span className="text-primary text-xs font-bold">
-              MARGEM TOTAL {formatarPercentual(resumo.margemTotalPct)}
-            </span>
+          <p
+            className="bg-clip-text text-4xl font-black break-words text-transparent sm:text-[42px]"
+            style={{ backgroundImage: "linear-gradient(90deg, #EC0C8C, #8B5CF6, #3B82F6)" }}
+          >
+            {formatarMoedaBrl(totalPeriodo)}
+          </p>
+          {/* Mesmo bloco "MARGEM.../RENTAB. LY" do dashboard do Executivo
+              (ver margem-rentab-bloco.tsx), abaixo do valor total — não
+              mais ao lado (pedido do usuário, 2026-08-28), pra manter os
+              dois dashboards visualmente idênticos. */}
+          <div className="mt-2">
+            <MargemRentabBloco
+              margemLabel="MARGEM TOTAL"
+              margemPct={resumo.margemTotalPct}
+              margemLYPct={resumo.margemTotalLYPct}
+              margemVariacaoPct={resumo.margemTotalVariacaoPct}
+              rentabLYValor={resumo.rentabTotalLYValor}
+              rentabLYVariacaoPct={resumo.rentabTotalLYVariacaoPct}
+              tamanho="grande"
+            />
           </div>
-          <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
+          <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
             <Clock className="size-3.5" />
             Atualizado em {formatarAtualizadoEm(resumo.atualizadoEm)}
           </p>
@@ -79,52 +148,27 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
 
       {personalizado ? <PersonalizadoAviso periodoPreviaLabel="Este mês" /> : null}
 
-      {/* Grid Aéreo/Terrestre — substitui a barra única de proporção
-          Aéreo x Terrestre que existia antes aqui (pedido do usuário,
-          2026-08-19, print de referência). Cada canal tem seu próprio
-          share Nacional/Internacional (nacIntDetalhe vem do mesmo bucket
-          de origem que valor/margem daquele canal — não é o mesmo dado
-          duplicado entre os dois). */}
+      {/* Grid Aéreo/Terrestre — cada canal tem seu próprio share Nacional/
+          Internacional (nacIntDetalhe vem do mesmo bucket de origem que
+          valor/margem daquele canal — não é o mesmo dado duplicado entre
+          os dois). */}
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <KpiCard
-            icon={Plane}
-            cor={COR_ROSA}
-            corFundoIcone={COR_ROSA_BG}
-            label="Aéreo"
-            valor={formatarMoedaBrl(resumo.aereo.valor)}
-            legenda={
-              <>
-                {resumo.aereo.quantidade} bilhetes
-                <br />
-                Ticket médio: {formatarMoedaBrl(ticketMedioAereo)}
-              </>
-            }
-            badgeRodape={`MARGEM ${formatarPercentual(resumo.aereo.margemPct)}`}
-            orientacao="horizontal"
-          />
-          <NacIntMiniBar nacIntDetalhe={resumo.aereo.nacIntDetalhe} />
-        </div>
-
-        <div>
-          <KpiCard
-            icon={Bus}
-            cor={COR_AZUL}
-            corFundoIcone={COR_AZUL_BG}
-            label="Terrestre"
-            valor={formatarMoedaBrl(resumo.terrestre.valor)}
-            legenda={
-              <>
-                {resumo.terrestre.quantidade} vendas
-                <br />
-                Ticket médio: {formatarMoedaBrl(ticketMedioTerrestre)}
-              </>
-            }
-            badgeRodape={`MARGEM ${formatarPercentual(resumo.terrestre.margemPct)}`}
-            orientacao="horizontal"
-          />
-          <NacIntMiniBar nacIntDetalhe={resumo.terrestre.nacIntDetalhe} />
-        </div>
+        <CanalCard
+          canal={resumo.aereo}
+          titulo="Aéreo"
+          unidade="bilhetes"
+          icon={Plane}
+          tema="rosa"
+          ticketMedio={ticketMedioAereo}
+        />
+        <CanalCard
+          canal={resumo.terrestre}
+          titulo="Terrestre"
+          unidade="vendas"
+          icon={Bus}
+          tema="azul"
+          ticketMedio={ticketMedioTerrestre}
+        />
       </div>
     </div>
   );

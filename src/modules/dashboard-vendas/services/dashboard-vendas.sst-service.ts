@@ -109,6 +109,16 @@ function ontemIso(): string {
   return formatarDataIsoBrasilia(ontem);
 }
 
+// Mesma data de calendário, exatamente 1 ano atrás — ponto de comparação
+// "LY" (last-year) de margem/rentabilidade real, mesmo critério de
+// executivo-dashboard.sst-service.ts (não trata 29/fev especialmente,
+// irrelevante na prática pra essa comparação).
+function mesmoDiaAnoAnteriorIso(): string {
+  const data = new Date();
+  data.setFullYear(data.getFullYear() - 1);
+  return formatarDataIsoBrasilia(data);
+}
+
 function inicioMesIso(): string {
   const [ano, mes] = hojeIso().split("-");
   return `${ano}-${mes}-01`;
@@ -283,10 +293,13 @@ async function comFallback<T>(rotulo: string, tarefa: Promise<T>, valorMock: T):
 // já vem embutido aqui — sem precisar de chamada separada a
 // /api/relatorios/nacional-vs-internacional pra hoje/ontem (só mês/ano
 // continuam usando `buscarNacInt`, que também alimenta vendasMensais via
-// cache compartilhado, ver obterResumoEDia).
+// cache compartilhado, ver obterResumoEDia). `rentabilidade` também vem
+// nesse mesmo payload (reconfirmado em executivo-dashboard.sst-service.ts,
+// 2026-08-24) — só não era lido aqui até a comparação LY existir.
 interface RawPeriodoOverview {
   tarifa: number;
   margem: number;
+  rentabilidade: number;
   clientes: number;
   tickets: number;
   ticket_medio: number;
@@ -543,7 +556,12 @@ async function contarAgenciasAtivasAmbos(inicio: string, fim: string): Promise<n
   return new Set([...aereo, ...terrestre]).size;
 }
 
-function paraCanalResumo(periodo: RawPeriodoOverview): CanalResumo {
+// `ly` é o mesmo bucket do overview de 1 ano atrás (ver
+// mesmoDiaAnoAnteriorIso) — mesmo padrão de
+// executivo-dashboard.sst-service.ts/paraCanalMargemPeriodo. `rentabilidade`
+// vem pronta do SST (não deriva de tarifa×margem), evita drift de
+// arredondamento vs. o valor que o próprio SST calculou.
+function paraCanalResumo(periodo: RawPeriodoOverview, ly: RawPeriodoOverview): CanalResumo {
   return {
     valor: periodo.tarifa,
     quantidade: periodo.tickets,
@@ -551,6 +569,11 @@ function paraCanalResumo(periodo: RawPeriodoOverview): CanalResumo {
     // nunca vem pronto da origem (mesmo contrato do mock).
     participacaoPct: 0,
     margemPct: periodo.margem,
+    margemLYPct: ly.margem,
+    margemVariacaoPct: calcularVariacaoPct(periodo.margem, ly.margem),
+    rentabValor: periodo.rentabilidade,
+    rentabLYValor: ly.rentabilidade,
+    rentabLYVariacaoPct: calcularVariacaoPct(periodo.rentabilidade, ly.rentabilidade),
     // nacInter já vem embutido no mesmo bucket — cada canal (aéreo,
     // terrestre) tem o seu próprio, não é o mesmo valor duplicado (ver
     // comentário em CanalResumo).
@@ -558,15 +581,29 @@ function paraCanalResumo(periodo: RawPeriodoOverview): CanalResumo {
   };
 }
 
-function paraResumoDia(overview: RawOverviewResponse, periodo: "dia" | "mes" | "ano"): ResumoDia {
+function paraResumoDia(
+  overview: RawOverviewResponse,
+  overviewLY: RawOverviewResponse,
+  periodo: "dia" | "mes" | "ano",
+): ResumoDia {
+  const totalAtual = overview.filial.total[periodo];
+  const totalLY = overviewLY.filial.total[periodo];
   return {
     atualizadoEm: new Date(),
-    aereo: paraCanalResumo(overview.filial.aereo[periodo]),
-    terrestre: paraCanalResumo(overview.filial.terrestre[periodo]),
+    aereo: paraCanalResumo(overview.filial.aereo[periodo], overviewLY.filial.aereo[periodo]),
+    terrestre: paraCanalResumo(
+      overview.filial.terrestre[periodo],
+      overviewLY.filial.terrestre[periodo],
+    ),
     // Margem combinada (Aéreo + Terrestre) — vem do bucket "total" do
     // overview, separado da margem de cada canal (pedido do usuário,
     // 2026-08-19).
-    margemTotalPct: overview.filial.total[periodo].margem,
+    margemTotalPct: totalAtual.margem,
+    margemTotalLYPct: totalLY.margem,
+    margemTotalVariacaoPct: calcularVariacaoPct(totalAtual.margem, totalLY.margem),
+    rentabTotalValor: totalAtual.rentabilidade,
+    rentabTotalLYValor: totalLY.rentabilidade,
+    rentabTotalLYVariacaoPct: calcularVariacaoPct(totalAtual.rentabilidade, totalLY.rentabilidade),
   };
 }
 
@@ -1314,12 +1351,14 @@ async function obterResumoEDia(): Promise<
 > {
   const hoje = hojeIso();
   const ontem = ontemIso();
+  const anoAnterior = mesmoDiaAnoAnteriorIso();
   const inicioMes = inicioMesIso();
   const inicioAno = inicioAnoIso();
 
   const [
     overviewHoje,
     overviewOntem,
+    overviewAnoAnterior,
     topAgenciasHoje,
     topAgenciasOntem,
     topAgenciasMes,
@@ -1338,6 +1377,16 @@ async function obterResumoEDia(): Promise<
     }),
     sstGet<RawOverviewResponse>("/api/consolidado/overview", {
       data: ontem,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    }),
+    // Ponto de comparação "LY" (last-year) de margem/rentabilidade real —
+    // mesma data de calendário, 1 ano atrás. Só uma chamada: "ontem"
+    // reaproveita o mesmo ponto LY de "dia" (mesma simplificação de
+    // executivo-dashboard.sst-service.ts — não existe um "mesmo dia 1 ano
+    // atrás, menos 1 dia" barato de buscar).
+    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+      data: anoAnterior,
       painel: "FILIAL",
       situacao: "ATIVOS",
     }),
@@ -1398,10 +1447,10 @@ async function obterResumoEDia(): Promise<
 
   return {
     resumoPorPeriodo: {
-      hoje: paraResumoDia(overviewHoje, "dia"),
-      ontem: paraResumoDia(overviewOntem, "dia"),
-      mes: paraResumoDia(overviewHoje, "mes"),
-      ano: paraResumoDia(overviewHoje, "ano"),
+      hoje: paraResumoDia(overviewHoje, overviewAnoAnterior, "dia"),
+      ontem: paraResumoDia(overviewOntem, overviewAnoAnterior, "dia"),
+      mes: paraResumoDia(overviewHoje, overviewAnoAnterior, "mes"),
+      ano: paraResumoDia(overviewHoje, overviewAnoAnterior, "ano"),
     },
     miniKpis: paraMiniKpisPorPeriodo(overviewHoje, overviewOntem),
     rankingPorPeriodo: {
@@ -1428,8 +1477,9 @@ async function obterResumoEDia(): Promise<
 // logo abaixo), `obterResumoEDia` ficava SEM proteção — um 500 real do
 // SST aqui (ex.: "[sica] rawQuery failed", visto em produção 2026-08-25)
 // derrubava a página inteira com um Unhandled Runtime Error em vez de só
-// degradar essa seção pro mock. É a seção mais pesada (12 chamadas
-// concorrentes ao SST — overview, top-agências, ranking-cias, nac/int) e
+// degradar essa seção pro mock. É a seção mais pesada (13 chamadas
+// concorrentes ao SST — overview (hoje/ontem/ano anterior), top-agências,
+// ranking-cias, nac/int) e
 // a primeira da fila (`depoisDe`, ver dashboard-vendas-view.tsx), então
 // era também a mais provável de falhar sob esse volume.
 async function obterResumoEDiaComFallback(): Promise<

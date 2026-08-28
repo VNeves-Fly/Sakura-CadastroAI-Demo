@@ -12,6 +12,14 @@ export interface CanalResumo {
   quantidade: number;
   participacaoPct: number;
   margemPct: number;
+  // Margem/rentabilidade do mesmo canal 1 ano atrás (mesma data de
+  // calendário) — ponto de comparação "LY", real via SST (ver
+  // dashboard-vendas.sst-service.ts, paraCanalResumo).
+  margemLYPct: number;
+  margemVariacaoPct: number;
+  rentabValor: number;
+  rentabLYValor: number;
+  rentabLYVariacaoPct: number;
   // Share Nacional/Internacional (valor + bilhetes de cada lado, não só
   // %) deste canal especificamente — Aéreo e Terrestre têm splits
   // diferentes (não é o mesmo dado duplicado, cada canal tem seu próprio
@@ -28,6 +36,13 @@ export interface ResumoDia {
   // overview.filial.total[periodo].margem no serviço real (pedido do
   // usuário, 2026-08-19).
   margemTotalPct: number;
+  // Total (Aéreo + Terrestre) 1 ano atrás — mesmo ponto de comparação LY
+  // de CanalResumo, mas pro bucket "total" do overview.
+  margemTotalLYPct: number;
+  margemTotalVariacaoPct: number;
+  rentabTotalValor: number;
+  rentabTotalLYValor: number;
+  rentabTotalLYVariacaoPct: number;
 }
 
 export interface MiniKpis {

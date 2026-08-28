@@ -97,6 +97,33 @@ function derivarNacInt(valor: number, quantidade: number, nacionalPct: number) {
   };
 }
 
+// Margem/rentabilidade LY (last-year) mock — sem fonte real aqui (esse
+// serviço não é mais o caminho ao vivo, ver comentário em
+// dashboard-vendas.controller.ts/obterDashboard), valores só plausíveis
+// pra manter o contrato de tipo (mesmo espírito do resto da fixture).
+function margemLYMock(margemAtual: number): { margemLYPct: number; margemVariacaoPct: number } {
+  const margemLYPct = Math.round((margemAtual - 0.4) * 100) / 100;
+  return { margemLYPct, margemVariacaoPct: calcularVariacaoPctMock(margemAtual, margemLYPct) };
+}
+
+function calcularVariacaoPctMock(atual: number, anterior: number): number {
+  return anterior > 0 ? Math.round(((atual - anterior) / anterior) * 10000) / 100 : 0;
+}
+
+function rentabLYMock(valorAtual: number): {
+  rentabValor: number;
+  rentabLYValor: number;
+  rentabLYVariacaoPct: number;
+} {
+  const rentabValor = Math.round(valorAtual * 0.04 * 100) / 100;
+  const rentabLYValor = Math.round(rentabValor * 0.85 * 100) / 100;
+  return {
+    rentabValor,
+    rentabLYValor,
+    rentabLYVariacaoPct: calcularVariacaoPctMock(rentabValor, rentabLYValor),
+  };
+}
+
 function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
   const base: Record<
     PeriodoResumo,
@@ -153,6 +180,8 @@ function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
         quantidade: aereoQuantidade,
         participacaoPct: 0,
         margemPct: aereoMargem,
+        ...margemLYMock(aereoMargem),
+        ...rentabLYMock(aereoValor),
         nacIntDetalhe: derivarNacInt(aereoValor, aereoQuantidade, aereoNacionalPct),
       },
       terrestre: {
@@ -160,9 +189,16 @@ function construirResumoPorPeriodo(): Record<PeriodoResumo, ResumoDia> {
         quantidade: terrestreQuantidade,
         participacaoPct: 0,
         margemPct: terrestreMargem,
+        ...margemLYMock(terrestreMargem),
+        ...rentabLYMock(terrestreValor),
         nacIntDetalhe: derivarNacInt(terrestreValor, terrestreQuantidade, terrestreNacionalPct),
       },
       margemTotalPct: item.margemTotalPct,
+      margemTotalLYPct: margemLYMock(item.margemTotalPct).margemLYPct,
+      margemTotalVariacaoPct: margemLYMock(item.margemTotalPct).margemVariacaoPct,
+      rentabTotalValor: rentabLYMock(aereoValor + terrestreValor).rentabValor,
+      rentabTotalLYValor: rentabLYMock(aereoValor + terrestreValor).rentabLYValor,
+      rentabTotalLYVariacaoPct: rentabLYMock(aereoValor + terrestreValor).rentabLYVariacaoPct,
     };
   }
   return resultado;

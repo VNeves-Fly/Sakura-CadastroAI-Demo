@@ -41,6 +41,11 @@ function canalResumoVazio(): CanalResumo {
     quantidade: 0,
     participacaoPct: 0,
     margemPct: 0,
+    margemLYPct: 0,
+    margemVariacaoPct: 0,
+    rentabValor: 0,
+    rentabLYValor: 0,
+    rentabLYVariacaoPct: 0,
     nacIntDetalhe: nacionalInternacionalVazio(),
   };
 }
@@ -51,6 +56,11 @@ function resumoDiaVazio(): ResumoDia {
     aereo: canalResumoVazio(),
     terrestre: canalResumoVazio(),
     margemTotalPct: 0,
+    margemTotalLYPct: 0,
+    margemTotalVariacaoPct: 0,
+    rentabTotalValor: 0,
+    rentabTotalLYValor: 0,
+    rentabTotalLYVariacaoPct: 0,
   };
 }
 
