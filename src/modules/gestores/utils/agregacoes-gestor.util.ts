@@ -29,8 +29,9 @@ import type {
   VendasMesHeroGestor,
 } from "@/modules/gestores/types/gestor-detalhe.types";
 
-// Soma um período do hero (dia/ontem/mes/ano) de N executivos.
-function somarPeriodoHero(periodos: VendasMesHero[]): VendasMesHeroGestor {
+// Soma um período do hero (dia/ontem/mes/ano, ou o intervalo do filtro
+// "Personalizado" — ver gestor-dashboard.actions.ts) de N executivos.
+export function somarPeriodoHero(periodos: VendasMesHero[]): VendasMesHeroGestor {
   let somaValor = 0;
   let somaBilhetes = 0;
   let somaAgenciasVendendo = 0;
@@ -110,7 +111,10 @@ function somarCanalMargem(canais: CanalMargemPeriodo[]): CanalMargemPeriodoGesto
   };
 }
 
-function somarCanalMargemResumo(resumos: CanalMargemResumo[]): CanalMargemResumoGestor {
+// Exportada pelo mesmo motivo de somarPeriodoHero acima — reaproveitada
+// pelo filtro "Personalizado" (gestor-dashboard.actions.ts), que agrega um
+// único intervalo em vez de um Record<Periodo, ...>.
+export function somarCanalMargemResumo(resumos: CanalMargemResumo[]): CanalMargemResumoGestor {
   return {
     total: somarCanalMargem(resumos.map((r) => r.total)),
     aereo: somarCanalMargem(resumos.map((r) => r.aereo)),

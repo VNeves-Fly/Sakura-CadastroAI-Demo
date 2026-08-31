@@ -58,6 +58,7 @@ export function GestorDashboardView({ perfil, executivos }: GestorDashboardViewP
           heroKpisPromise={heroKpisPromise}
           crossCanalPromise={crossCanalPromise}
           atualizadoEm={atualizadoEm}
+          executivos={executivos}
         />
       </Suspense>
 

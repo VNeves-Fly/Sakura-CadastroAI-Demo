@@ -6,6 +6,9 @@ interface GestorHeroKpisSecaoProps {
   heroKpisPromise: ReturnType<typeof gestorDashboardController.obterHeroKpisAgregado>;
   crossCanalPromise: ReturnType<typeof gestorDashboardController.obterCrossCanalAgregado>;
   atualizadoEm: string;
+  // Lista de executivos subordinados (id+sica) — repassada pro card
+  // "Receita total" alimentar o filtro "Personalizado".
+  executivos: { id: string; sica: number | null }[];
 }
 
 // Recebe as buscas já disparadas pelo pai (GestorDashboardView), não as
@@ -17,11 +20,17 @@ export async function GestorHeroKpisSecao({
   heroKpisPromise,
   crossCanalPromise,
   atualizadoEm,
+  executivos,
 }: GestorHeroKpisSecaoProps) {
   const { hero, kpis, margemRentab } = await heroKpisPromise;
   return (
     <>
-      <GestorReceitaTotalCard hero={hero} margemRentab={margemRentab} atualizadoEm={atualizadoEm} />
+      <GestorReceitaTotalCard
+        hero={hero}
+        margemRentab={margemRentab}
+        atualizadoEm={atualizadoEm}
+        executivos={executivos}
+      />
       <GestorKpisSecundariosGrid kpis={kpis} crossCanalPromise={crossCanalPromise} />
     </>
   );

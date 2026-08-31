@@ -125,10 +125,24 @@ function PainelMes({
 
 // Filtro único do card de receita total do Gestor (SPEC 3.5) — mesmo
 // componente/UX do filtro "📅 Período" do Dashboard CRM/Executivo, com
-// store própria (ver filtro-periodo-gestor.store.ts).
-export function FiltroPeriodoGestorPopover() {
-  const { filtro, setFiltro, dataInicial, setDataInicial, dataFinal, setDataFinal } =
-    useFiltroPeriodoGestorStore();
+// store própria (ver filtro-periodo-gestor.store.ts). `executivos` é a
+// lista de subordinados (id+sica) — o Gestor não tem SICA próprio, então
+// "Personalizado" precisa dessa lista pra buscar+agregar o intervalo de
+// cada um (ver carregarPersonalizado na store).
+export function FiltroPeriodoGestorPopover({
+  executivos,
+}: {
+  executivos: { id: string; sica: number | null }[];
+}) {
+  const {
+    filtro,
+    setFiltro,
+    dataInicial,
+    setDataInicial,
+    dataFinal,
+    setDataFinal,
+    carregarPersonalizado,
+  } = useFiltroPeriodoGestorStore();
 
   const hoje = startOfDay(new Date());
   const padraoInicio = startOfMonth(hoje);
@@ -178,6 +192,11 @@ export function FiltroPeriodoGestorPopover() {
     setDataFinal(format(rascunhoFim, FORMATO));
     setFiltro("personalizado");
     setAberto(false);
+    void carregarPersonalizado(
+      executivos,
+      format(rascunhoInicio, "yyyy-MM-dd"),
+      format(rascunhoFim, "yyyy-MM-dd"),
+    );
   }
 
   const mesDireita = addMonths(mesEsquerda, 1);
