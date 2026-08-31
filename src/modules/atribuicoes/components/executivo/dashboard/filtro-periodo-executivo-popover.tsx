@@ -127,9 +127,20 @@ function PainelMes({
 // Filtro único do card de receita total do Executivo (SPEC 3.5) — mesmo
 // componente/UX do filtro "📅 Período" do Dashboard CRM, com store própria
 // (ver filtro-periodo-executivo.store.ts).
-export function FiltroPeriodoExecutivoPopover() {
-  const { filtro, setFiltro, dataInicial, setDataInicial, dataFinal, setDataFinal } =
-    useFiltroPeriodoExecutivoStore();
+export function FiltroPeriodoExecutivoPopover({
+  codigoExecutivo,
+}: {
+  codigoExecutivo: number | null;
+}) {
+  const {
+    filtro,
+    setFiltro,
+    dataInicial,
+    setDataInicial,
+    dataFinal,
+    setDataFinal,
+    carregarPersonalizado,
+  } = useFiltroPeriodoExecutivoStore();
 
   const hoje = startOfDay(new Date());
   const padraoInicio = startOfMonth(hoje);
@@ -179,6 +190,11 @@ export function FiltroPeriodoExecutivoPopover() {
     setDataFinal(format(rascunhoFim, FORMATO));
     setFiltro("personalizado");
     setAberto(false);
+    void carregarPersonalizado(
+      codigoExecutivo,
+      format(rascunhoInicio, "yyyy-MM-dd"),
+      format(rascunhoFim, "yyyy-MM-dd"),
+    );
   }
 
   const mesDireita = addMonths(mesEsquerda, 1);
