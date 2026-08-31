@@ -73,22 +73,53 @@ const TAMANHO_RANKING_FORNECEDORES = 200;
 const TTL_CACHE_MS = 10 * 60 * 1000;
 const cacheConsolidado = new Map<string, { expiraEm: number; valor: unknown }>();
 
+// Deduplica chamadas concorrentes pra mesma chave (ex.: duas janelas de um
+// mesmo Promise.all que coincidem por acaso — "30 dias atrás" cai no dia 1
+// do mês corrente no último dia de meses de 31 dias, fazendo
+// buscarNonAir(inicioMes, hoje) e buscarNonAir(trintaDiasAtras, hoje)
+// pedirem a mesma chave em paralelo). Sem isto, as duas viam
+// `cacheConsolidado` vazio ao mesmo tempo — a primeira ainda não tinha
+// gravado — e cada uma disparava seu próprio `fetch` ao SST (achado real,
+// não hipotético: bug pego pelo teste "reaproveita nacint/nonair... guardrail
+// contra paralelizar o waterfall"). Só guarda a Promise enquanto ela está em
+// voo — resolvida ou rejeitada, sai do Map (ver finally), então uma chamada
+// futura de verdade tenta de novo em vez de ficar presa numa promise antiga.
+const chamadasEmVoo = new Map<string, Promise<unknown>>();
+
 async function comCache<T>(chave: string, buscar: () => Promise<T>): Promise<T> {
   const cacheado = cacheConsolidado.get(chave);
   if (cacheado && cacheado.expiraEm > Date.now()) {
     return cacheado.valor as T;
   }
 
-  const doValkey = await valkeyGet<T>(chave);
-  if (doValkey !== undefined) {
-    cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor: doValkey });
-    return doValkey;
+  const emVoo = chamadasEmVoo.get(chave);
+  if (emVoo) {
+    return emVoo as Promise<T>;
   }
 
-  const valor = await buscar();
-  cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor });
-  await valkeySet(chave, valor, TTL_CACHE_MS / 1000);
-  return valor;
+  const promessa = (async (): Promise<T> => {
+    try {
+      const doValkey = await valkeyGet<T>(chave);
+      if (doValkey !== undefined) {
+        cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor: doValkey });
+        return doValkey;
+      }
+
+      const valor = await buscar();
+      cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor });
+      await valkeySet(chave, valor, TTL_CACHE_MS / 1000);
+      return valor;
+    } finally {
+      chamadasEmVoo.delete(chave);
+    }
+  })();
+
+  // Set síncrono, sem `await` entre o `.get` acima e este `.set` — é isso
+  // que fecha a corrida: dentro de um único Promise.all, cada chamada
+  // roda sincronamente até seu primeiro `await` interno, então a segunda
+  // chamada pra mesma chave já encontra a Promise em voo aqui.
+  chamadasEmVoo.set(chave, promessa);
+  return promessa;
 }
 
 function formatarDataIsoBrasilia(data: Date): string {
