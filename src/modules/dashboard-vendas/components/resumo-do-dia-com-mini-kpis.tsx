@@ -2,6 +2,7 @@
 
 import { ResumoDoDiaCard } from "@/modules/dashboard-vendas/components/resumo-do-dia-card";
 import { MiniKpisGrid } from "@/modules/dashboard-vendas/components/mini-kpis-grid";
+import { CarregandoOverlay } from "@/modules/dashboard-vendas/components/ui/carregando-overlay";
 import {
   useFiltroPeriodoDashboardStore,
   resolverPeriodo,
@@ -28,12 +29,21 @@ export function ResumoDoDiaComMiniKpis({
   miniKpisPorPeriodo,
 }: ResumoDoDiaComMiniKpisProps) {
   const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
+  const { dados: personalizadoDados, carregando: personalizadoCarregando } =
+    useFiltroPeriodoDashboardStore((estado) => estado.personalizado);
   const periodoComDados = resolverPeriodo(filtro);
+  const miniKpis =
+    filtro === "personalizado" && personalizadoDados
+      ? personalizadoDados.miniKpis
+      : miniKpisPorPeriodo[periodoComDados];
 
   return (
     <>
       <ResumoDoDiaCard resumoPorPeriodo={resumoPorPeriodo} />
-      <MiniKpisGrid {...miniKpisPorPeriodo[periodoComDados]} />
+      <div className="relative">
+        <CarregandoOverlay ativo={filtro === "personalizado" && personalizadoCarregando} />
+        <MiniKpisGrid {...miniKpis} />
+      </div>
     </>
   );
 }

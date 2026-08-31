@@ -5,6 +5,7 @@ import { Plane } from "lucide-react";
 import { RankedList } from "@/modules/dashboard-vendas/components/ui/ranked-list";
 import { FiltroTipoRotaPopover } from "@/modules/dashboard-vendas/components/ui/filtro-tipo-rota-popover";
 import { TopFornecedoresDetalheModal } from "@/modules/dashboard-vendas/components/top-fornecedores-detalhe-modal";
+import { CarregandoOverlay } from "@/modules/dashboard-vendas/components/ui/carregando-overlay";
 import {
   formatarMoedaAbreviada,
   formatarNumero,
@@ -55,13 +56,25 @@ interface TopFornecedoresCardProps {
 // cada escopo, ver tipo-rota.util.ts.
 export function TopFornecedoresCard({ fornecedoresPorPeriodo }: TopFornecedoresCardProps) {
   const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
+  const { dados: personalizadoDados, carregando: personalizadoCarregando } =
+    useFiltroPeriodoDashboardStore((estado) => estado.personalizado);
   const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
 
+  const usandoPersonalizado = filtro === "personalizado" && personalizadoDados !== null;
   const periodoComDados = resolverPeriodo(filtro);
+  const tituloPeriodo = usandoPersonalizado
+    ? "Personalizado"
+    : LABEL_PERIODO_TITULO[periodoComDados];
+  const preposicaoPeriodo = usandoPersonalizado
+    ? "no período"
+    : LABEL_PERIODO_PREPOSICAO[periodoComDados];
   const rankingCompleto = useMemo(
-    () => fornecedoresPorPeriodo[periodoComDados] ?? [],
-    [fornecedoresPorPeriodo, periodoComDados],
+    () =>
+      usandoPersonalizado
+        ? personalizadoDados.fornecedores
+        : (fornecedoresPorPeriodo[periodoComDados] ?? []),
+    [usandoPersonalizado, personalizadoDados, fornecedoresPorPeriodo, periodoComDados],
   );
 
   const rankingFiltrado = useMemo(() => {
@@ -87,25 +100,28 @@ export function TopFornecedoresCard({ fornecedoresPorPeriodo }: TopFornecedoresC
 
   return (
     <>
-      <RankedList
-        icon={Plane}
-        titulo={`Top 10 Fornecedores (${LABEL_PERIODO_TITULO[periodoComDados]})`}
-        subtitulo={`% = participação no volume ${LABEL_PERIODO_PREPOSICAO[periodoComDados]}`}
-        aoClicar={() => setModalAberto(true)}
-        acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
-        itens={top10.map((fornecedor) => ({
-          icone: <LogoFornecedor nome={fornecedor.nome} />,
-          nome: fornecedor.nome,
-          subtitulo: `${formatarNumero(fornecedor.qtdExibida)} bilhetes · AÉREO`,
-          valorPrincipal: formatarMoedaAbreviada(fornecedor.valorExibido),
-          valorSecundario: formatarPercentual(fornecedor.participacaoPct),
-        }))}
-      />
+      <div className="relative">
+        <CarregandoOverlay ativo={filtro === "personalizado" && personalizadoCarregando} />
+        <RankedList
+          icon={Plane}
+          titulo={`Top 10 Fornecedores (${tituloPeriodo})`}
+          subtitulo={`% = participação no volume ${preposicaoPeriodo}`}
+          aoClicar={() => setModalAberto(true)}
+          acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
+          itens={top10.map((fornecedor) => ({
+            icone: <LogoFornecedor nome={fornecedor.nome} />,
+            nome: fornecedor.nome,
+            subtitulo: `${formatarNumero(fornecedor.qtdExibida)} bilhetes · AÉREO`,
+            valorPrincipal: formatarMoedaAbreviada(fornecedor.valorExibido),
+            valorSecundario: formatarPercentual(fornecedor.participacaoPct),
+          }))}
+        />
+      </div>
 
       <TopFornecedoresDetalheModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
-        titulo={`Top Fornecedores (${LABEL_PERIODO_TITULO[periodoComDados]})`}
+        titulo={`Top Fornecedores (${tituloPeriodo})`}
         itens={rankingCompleto}
       />
     </>

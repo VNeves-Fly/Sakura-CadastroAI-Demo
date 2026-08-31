@@ -6,6 +6,7 @@ import { MargemRentabBloco } from "@/modules/dashboard-vendas/components/ui/marg
 import { NacIntMiniBar } from "@/modules/dashboard-vendas/components/ui/nac-int-mini-bar";
 import { FiltroPeriodoDashboardPopover } from "@/modules/dashboard-vendas/components/ui/filtro-periodo-dashboard-popover";
 import { PersonalizadoAviso } from "@/modules/dashboard-vendas/components/ui/personalizado-aviso";
+import { CarregandoOverlay } from "@/modules/dashboard-vendas/components/ui/carregando-overlay";
 import { formatarAtualizadoEm } from "@/modules/dashboard-vendas/utils/formatar-data.util";
 import { cn } from "@/lib/utils";
 import { formatarMoedaBrl } from "@/modules/dashboard-vendas/utils/formatar-moeda.util";
@@ -101,9 +102,17 @@ function CanalCard({ canal, titulo, unidade, icon: Icon, tema, ticketMedio }: Ca
 // deste card, levantado uma vez até `ResumoDoDiaComMiniKpis` em 2026-08-19).
 export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
   const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
+  const {
+    dados: personalizadoDados,
+    carregando: personalizadoCarregando,
+    erro: personalizadoErro,
+  } = useFiltroPeriodoDashboardStore((estado) => estado.personalizado);
   const personalizado = filtro === "personalizado";
   const periodoComDados: PeriodoResumo = resolverPeriodo(filtro);
-  const resumo = resumoPorPeriodo[periodoComDados];
+  const resumo =
+    personalizado && personalizadoDados
+      ? personalizadoDados.resumo
+      : resumoPorPeriodo[periodoComDados];
   const totalPeriodo = resumo.aereo.valor + resumo.terrestre.valor;
   // Ticket médio por canal — computado aqui mesmo (valor / quantidade),
   // sem precisar de dado novo (pedido do usuário, 2026-08-19).
@@ -113,7 +122,8 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
     resumo.terrestre.quantidade > 0 ? resumo.terrestre.valor / resumo.terrestre.quantidade : 0;
 
   return (
-    <div className="border-border bg-card rounded-2xl border p-5">
+    <div className="border-border bg-card relative rounded-2xl border p-5">
+      <CarregandoOverlay ativo={personalizado && personalizadoCarregando} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p
@@ -146,7 +156,12 @@ export function ResumoDoDiaCard({ resumoPorPeriodo }: ResumoDoDiaCardProps) {
         <FiltroPeriodoDashboardPopover />
       </div>
 
-      {personalizado ? <PersonalizadoAviso periodoPreviaLabel="Este mês" /> : null}
+      {personalizado && !personalizadoCarregando && personalizadoErro ? (
+        <PersonalizadoAviso mensagem={`${personalizadoErro} Mostrando prévia de "Este mês".`} />
+      ) : null}
+      {personalizado && !personalizadoCarregando && !personalizadoErro && !personalizadoDados ? (
+        <PersonalizadoAviso mensagem='Prévia com os dados de "Este mês" — selecione um período no calendário.' />
+      ) : null}
 
       {/* Grid Aéreo/Terrestre — cada canal tem seu próprio share Nacional/
           Internacional (nacIntDetalhe vem do mesmo bucket de origem que

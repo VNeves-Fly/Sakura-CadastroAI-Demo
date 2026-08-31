@@ -188,6 +188,23 @@ function paraIso(ano: number, mes: number, dia: number): string {
   return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 }
 
+// Mesmo intervalo (mesma quantidade de dias corridos), 1 ano atrás —
+// comparação "LY" do filtro Personalizado, equivalente a
+// mesmoDiaAnoAnteriorIso mas para um range em vez de um dia só. Mesmo
+// critério de dashboard-vendas.sst-service.ts (ajusta o dia se o mês de
+// destino for mais curto).
+function mesmoIntervaloAnoAnteriorIso(
+  inicio: string,
+  fim: string,
+): { inicio: string; fim: string } {
+  const umAnoAtras = (iso: string): string => {
+    const [ano, mes, dia] = iso.split("-").map(Number) as [number, number, number];
+    const anoAnterior = ano - 1;
+    return paraIso(anoAnterior, mes, Math.min(dia, ultimoDiaDoMes(anoAnterior, mes)));
+  };
+  return { inicio: umAnoAtras(inicio), fim: umAnoAtras(fim) };
+}
+
 // Mesmo intervalo do mês anterior (dia 1 até o mesmo dia de hoje, com
 // ajuste se o mês anterior for mais curto) — mesma convenção de
 // dashboard-vendas.sst-service.ts (mês-a-data, não mês fechado).
@@ -433,6 +450,69 @@ function margemResumoDoPeriodo(
       overview.filial.terrestre[chave],
       overviewLY.filial.terrestre[chave],
     ),
+  };
+}
+
+// GET /api/consolidado/overview-intervalo — mesmo endpoint pedido pro
+// filtro "Personalizado" do Dashboard CRM e do detalhe de Agência (ver
+// dashboard-vendas.sst-service.ts / agencia-detalhe.sst-service.ts e
+// docs/filtro-personalizado.md), aqui filtrado por `codigoExecutivo`
+// (mesmo parâmetro já usado em `/overview`, `/air` e `/non-air` deste
+// arquivo). Mesmo shape de RawPeriodoOverview por canal, já com margem/
+// rentabilidade/nacInter — diferente do detalhe de Agência (onde só o
+// volume reage ao filtro), aqui margemRentab do card "Receita total"
+// reage 100% ao período (ver receita-total-card.tsx), então precisa do
+// payload completo, não só tarifa/tickets.
+interface RawOverviewIntervaloResponse {
+  filial: {
+    total: RawPeriodoOverview;
+    aereo: RawPeriodoOverview;
+    terrestre: RawPeriodoOverview;
+  };
+}
+
+export interface DashboardPersonalizadoSst {
+  hero: VendasMesHero;
+  margemRentab: CanalMargemResumo;
+}
+
+async function buscarOverviewIntervalo(
+  codigoExecutivo: number,
+  inicio: string,
+  fim: string,
+): Promise<RawOverviewIntervaloResponse> {
+  return sstGet<RawOverviewIntervaloResponse>("/api/consolidado/overview-intervalo", {
+    codigoExecutivo,
+    startDate: inicio,
+    endDate: fim,
+    painel: "FILIAL",
+    situacao: "ATIVOS",
+  });
+}
+
+async function obterDashboardPersonalizado(
+  codigoExecutivo: number,
+  inicioIso: string,
+  fimIso: string,
+): Promise<DashboardPersonalizadoSst> {
+  const ly = mesmoIntervaloAnoAnteriorIso(inicioIso, fimIso);
+  const [atual, anterior] = await Promise.all([
+    buscarOverviewIntervalo(codigoExecutivo, inicioIso, fimIso),
+    buscarOverviewIntervalo(codigoExecutivo, ly.inicio, ly.fim),
+  ]);
+
+  return {
+    hero: {
+      valor: atual.filial.total.tarifa,
+      bilhetes: atual.filial.total.tickets,
+      agenciasVendendo: atual.filial.total.clientes,
+      variacaoPct: calcularVariacaoPct(atual.filial.total.tarifa, anterior.filial.total.tarifa),
+    },
+    margemRentab: {
+      total: paraCanalMargemPeriodo(atual.filial.total, anterior.filial.total),
+      aereo: paraCanalMargemPeriodo(atual.filial.aereo, anterior.filial.aereo),
+      terrestre: paraCanalMargemPeriodo(atual.filial.terrestre, anterior.filial.terrestre),
+    },
   };
 }
 
@@ -889,4 +969,5 @@ export const executivoDashboardSstService = {
   obterHeroKpis,
   obterCrossCanalEMiniStats,
   obterVendasResumo,
+  obterDashboardPersonalizado,
 };

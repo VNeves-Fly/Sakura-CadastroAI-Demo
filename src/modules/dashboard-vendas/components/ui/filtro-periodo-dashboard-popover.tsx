@@ -139,8 +139,15 @@ function PainelMes({
 // exigindo "Aplicar período" (é um gesto de dois cliques — início e fim
 // —, não dá pra aplicar sozinho no primeiro clique).
 export function FiltroPeriodoDashboardPopover() {
-  const { filtro, setFiltro, dataInicial, setDataInicial, dataFinal, setDataFinal } =
-    useFiltroPeriodoDashboardStore();
+  const {
+    filtro,
+    setFiltro,
+    dataInicial,
+    setDataInicial,
+    dataFinal,
+    setDataFinal,
+    carregarPersonalizado,
+  } = useFiltroPeriodoDashboardStore();
 
   const hoje = startOfDay(new Date());
   const padraoInicio = startOfMonth(hoje);
@@ -194,6 +201,13 @@ export function FiltroPeriodoDashboardPopover() {
     setDataFinal(format(rascunhoFim, FORMATO));
     setFiltro("personalizado");
     setAberto(false);
+    // Dispara a busca real (SST /api/consolidado/overview-intervalo) em
+    // paralelo com o fechamento do popover — os cards mostram a prévia de
+    // "Este mês" (ver PERIODO_PREVIA_PERSONALIZADO) até isto resolver.
+    void carregarPersonalizado(
+      format(rascunhoInicio, "yyyy-MM-dd"),
+      format(rascunhoFim, "yyyy-MM-dd"),
+    );
   }
 
   const mesDireita = addMonths(mesEsquerda, 1);

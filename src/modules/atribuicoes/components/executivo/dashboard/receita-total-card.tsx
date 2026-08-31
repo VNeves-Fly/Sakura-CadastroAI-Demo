@@ -5,6 +5,8 @@ import { ArrowDownRight, ArrowUpRight, Bus, Clock, Plane } from "lucide-react";
 import { FiltroPeriodoExecutivoPopover } from "@/modules/atribuicoes/components/executivo/dashboard/filtro-periodo-executivo-popover";
 import { CanalResumoCard } from "@/modules/atribuicoes/components/executivo/dashboard/canal-resumo-card";
 import { MargemRentabBloco } from "@/modules/atribuicoes/components/executivo/dashboard/margem-rentab-bloco";
+import { ExecutivoCarregandoOverlay } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-carregando-overlay";
+import { ExecutivoPersonalizadoAviso } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-personalizado-aviso";
 import {
   useFiltroPeriodoExecutivoStore,
   resolverPeriodoExecutivo,
@@ -25,6 +27,11 @@ interface ReceitaTotalCardProps {
   hero: Record<PeriodoVendasMesHero, VendasMesHero>;
   margemRentab: MargemRentabExecutivo;
   perfilId: string;
+  // Código SICA deste executivo (null = sem integração real, ver
+  // ExecutivoPerfil.sica) — passado adiante pro popover, que precisa dele
+  // pra buscar o intervalo "Personalizado" no SST filtrado por este
+  // executivo (parâmetro `codigoExecutivo`).
+  codigoExecutivo: number | null;
 }
 
 // Card "Receita total" (SPEC 3.5+3.6) — número principal do dashboard do
@@ -36,17 +43,31 @@ interface ReceitaTotalCardProps {
 // margemRentab) — só o timestamp "Atualizado em" continua mock
 // (`perfilId` serve de seed determinístico só pra isso, sem fonte real de
 // "hora de sincronização" no SST).
-export function ReceitaTotalCard({ hero, margemRentab, perfilId }: ReceitaTotalCardProps) {
+export function ReceitaTotalCard({
+  hero,
+  margemRentab,
+  perfilId,
+  codigoExecutivo,
+}: ReceitaTotalCardProps) {
   const filtro = useFiltroPeriodoExecutivoStore((estado) => estado.filtro);
+  const {
+    dados: personalizadoDados,
+    carregando: personalizadoCarregando,
+    erro: personalizadoErro,
+  } = useFiltroPeriodoExecutivoStore((estado) => estado.personalizado);
+  const personalizado = filtro === "personalizado";
   const periodo = resolverPeriodoExecutivo(filtro);
-  const dadosDoPeriodo = hero[periodo];
-  const margemDoPeriodo = margemRentab[periodo];
+  const dadosDoPeriodo =
+    personalizado && personalizadoDados ? personalizadoDados.hero : hero[periodo];
+  const margemDoPeriodo =
+    personalizado && personalizadoDados ? personalizadoDados.margemRentab : margemRentab[periodo];
   const negativo = dadosDoPeriodo.variacaoPct < 0;
 
   const atualizadoEm = useMemo(() => gerarAtualizadoEm(hashParaNumero(perfilId)), [perfilId]);
 
   return (
-    <div className="border-border bg-card rounded-2xl border p-5">
+    <div className="border-border bg-card relative rounded-2xl border p-5">
+      <ExecutivoCarregandoOverlay ativo={personalizado && personalizadoCarregando} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           {/* items-center (não items-baseline): o valor grande e o bloco de
@@ -80,7 +101,7 @@ export function ReceitaTotalCard({ hero, margemRentab, perfilId }: ReceitaTotalC
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <FiltroPeriodoExecutivoPopover />
+          <FiltroPeriodoExecutivoPopover codigoExecutivo={codigoExecutivo} />
           <span
             className={
               negativo
@@ -93,6 +114,13 @@ export function ReceitaTotalCard({ hero, margemRentab, perfilId }: ReceitaTotalC
           </span>
         </div>
       </div>
+
+      {personalizado && !personalizadoCarregando && personalizadoErro ? (
+        <ExecutivoPersonalizadoAviso mensagem={`${personalizadoErro} Mostrando prévia de "Mês".`} />
+      ) : null}
+      {personalizado && !personalizadoCarregando && !personalizadoErro && !personalizadoDados ? (
+        <ExecutivoPersonalizadoAviso mensagem='Prévia com os dados de "Mês" — selecione um período no calendário.' />
+      ) : null}
 
       <div className="mt-3.5 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <CanalResumoCard

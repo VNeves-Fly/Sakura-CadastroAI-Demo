@@ -5,6 +5,9 @@ import type { executivoDashboardController } from "@/modules/atribuicoes/present
 interface ExecutivoHeroKpisSecaoProps {
   heroKpisPromise: ReturnType<typeof executivoDashboardController.obterHeroKpis>;
   perfilId: string;
+  // Código SICA deste executivo (null = sem integração real) — repassado
+  // pro card "Receita total" alimentar o filtro "Personalizado".
+  codigoExecutivo: number | null;
   crossCanalPromise: ReturnType<typeof executivoDashboardController.obterCrossCanalEMiniStats>;
 }
 
@@ -16,12 +19,18 @@ interface ExecutivoHeroKpisSecaoProps {
 export async function ExecutivoHeroKpisSecao({
   heroKpisPromise,
   perfilId,
+  codigoExecutivo,
   crossCanalPromise,
 }: ExecutivoHeroKpisSecaoProps) {
   const { hero, kpis, margemRentab } = await heroKpisPromise;
   return (
     <>
-      <ReceitaTotalCard hero={hero} margemRentab={margemRentab} perfilId={perfilId} />
+      <ReceitaTotalCard
+        hero={hero}
+        margemRentab={margemRentab}
+        perfilId={perfilId}
+        codigoExecutivo={codigoExecutivo}
+      />
       <KpisSecundariosGrid kpis={kpis} crossCanalPromise={crossCanalPromise} />
     </>
   );

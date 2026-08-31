@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Bus, Plane, Trophy, Users } from "lucide-react";
 import { RankedList } from "@/modules/dashboard-vendas/components/ui/ranked-list";
 import { FiltroTipoRotaPopover } from "@/modules/dashboard-vendas/components/ui/filtro-tipo-rota-popover";
+import { CarregandoOverlay } from "@/modules/dashboard-vendas/components/ui/carregando-overlay";
 import { TopAgenciasDetalheModal } from "@/modules/dashboard-vendas/components/top-agencias-detalhe-modal";
 import {
   formatarMoedaAbreviada,
@@ -54,13 +55,20 @@ interface TopAgenciasCardProps {
 // cada escopo, ver tipo-rota.util.ts.
 export function TopAgenciasCard({ rankingPorPeriodo }: TopAgenciasCardProps) {
   const filtro = useFiltroPeriodoDashboardStore((estado) => estado.filtro);
+  const { dados: personalizadoDados, carregando: personalizadoCarregando } =
+    useFiltroPeriodoDashboardStore((estado) => estado.personalizado);
   const [tipoRota, setTipoRota] = useState<TipoRota>("todos");
   const [modalAberto, setModalAberto] = useState(false);
 
+  const usandoPersonalizado = filtro === "personalizado" && personalizadoDados !== null;
   const periodoComDados = resolverPeriodo(filtro);
+  const tituloPeriodo = usandoPersonalizado
+    ? "Personalizado"
+    : LABEL_PERIODO_TITULO[periodoComDados];
   const rankingCompleto = useMemo(
-    () => rankingPorPeriodo[periodoComDados] ?? [],
-    [rankingPorPeriodo, periodoComDados],
+    () =>
+      usandoPersonalizado ? personalizadoDados.ranking : (rankingPorPeriodo[periodoComDados] ?? []),
+    [usandoPersonalizado, personalizadoDados, rankingPorPeriodo, periodoComDados],
   );
 
   const rankingFiltrado = useMemo(() => {
@@ -88,30 +96,33 @@ export function TopAgenciasCard({ rankingPorPeriodo }: TopAgenciasCardProps) {
 
   return (
     <>
-      <RankedList
-        icon={Trophy}
-        titulo={`Top 10 Agências (${LABEL_PERIODO_TITULO[periodoComDados]})`}
-        subtitulo="Modalidade: Aéreo + Terrestre"
-        aoClicar={() => setModalAberto(true)}
-        acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
-        itens={top10.map((agencia) => {
-          const Icone = ICONE_CANAL[agencia.canal];
-          return {
-            posicao: agencia.posicao,
-            icone: (
-              <Icone className="size-3.5 shrink-0" style={{ color: COR_CANAL[agencia.canal] }} />
-            ),
-            nome: agencia.nome,
-            valorPrincipal: formatarMoedaAbreviada(agencia.valorExibido),
-            valorSecundario: formatarNumero(agencia.qtdExibida),
-          };
-        })}
-      />
+      <div className="relative">
+        <CarregandoOverlay ativo={filtro === "personalizado" && personalizadoCarregando} />
+        <RankedList
+          icon={Trophy}
+          titulo={`Top 10 Agências (${tituloPeriodo})`}
+          subtitulo="Modalidade: Aéreo + Terrestre"
+          aoClicar={() => setModalAberto(true)}
+          acoes={<FiltroTipoRotaPopover valor={tipoRota} onChange={setTipoRota} />}
+          itens={top10.map((agencia) => {
+            const Icone = ICONE_CANAL[agencia.canal];
+            return {
+              posicao: agencia.posicao,
+              icone: (
+                <Icone className="size-3.5 shrink-0" style={{ color: COR_CANAL[agencia.canal] }} />
+              ),
+              nome: agencia.nome,
+              valorPrincipal: formatarMoedaAbreviada(agencia.valorExibido),
+              valorSecundario: formatarNumero(agencia.qtdExibida),
+            };
+          })}
+        />
+      </div>
 
       <TopAgenciasDetalheModal
         aberto={modalAberto}
         onOpenChange={setModalAberto}
-        titulo={`Top Agências (${LABEL_PERIODO_TITULO[periodoComDados]})`}
+        titulo={`Top Agências (${tituloPeriodo})`}
         itens={rankingCompleto}
       />
     </>

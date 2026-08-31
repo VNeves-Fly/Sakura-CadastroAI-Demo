@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { obterDashboardPersonalizadoAction } from "@/modules/atribuicoes/actions/executivo-dashboard.actions";
+import type { DashboardPersonalizadoSst } from "@/modules/atribuicoes/services/executivo-dashboard.sst-service";
 import type { PeriodoVendasMesHero } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 // Filtro de período do card "Receita total" do Executivo (SPEC 3.5) —
@@ -11,27 +13,76 @@ import type { PeriodoVendasMesHero } from "@/modules/atribuicoes/types/executivo
 // PeriodoVendasMesHero que já existia no hero desta página.
 export type FiltroPeriodoExecutivo = PeriodoVendasMesHero | "personalizado";
 
-// "Personalizado" ainda é só de UI — sem fonte de dados pra um intervalo
-// arbitrário (mesma decisão já tomada no dashboard-vendas). Todo consumidor
-// cai na prévia de "Mês" enquanto isso.
+// Fallback enquanto o intervalo real ainda não chegou (primeiro instante
+// depois de aplicar, erro, ou executivo sem código SICA/SST desligado) —
+// mesmo critério de PERIODO_PREVIA_PERSONALIZADO_AGENCIA em
+// filtro-periodo-agencia.store.ts.
 export const PERIODO_PREVIA_PERSONALIZADO: PeriodoVendasMesHero = "mes";
+
+interface EstadoPersonalizadoExecutivo {
+  dados: DashboardPersonalizadoSst | null;
+  carregando: boolean;
+  erro: string | null;
+}
 
 interface FiltroPeriodoExecutivoState {
   filtro: FiltroPeriodoExecutivo;
   dataInicial: string;
   dataFinal: string;
+  personalizado: EstadoPersonalizadoExecutivo;
   setFiltro: (filtro: FiltroPeriodoExecutivo) => void;
   setDataInicial: (valor: string) => void;
   setDataFinal: (valor: string) => void;
+  // `codigoExecutivo` é o código SICA deste executivo (null = executivo
+  // sem SICA vinculado, ver ExecutivoPerfil.sica) — chamada pelo popover
+  // ao clicar "Aplicar período".
+  carregarPersonalizado: (
+    codigoExecutivo: number | null,
+    inicioIso: string,
+    fimIso: string,
+  ) => Promise<void>;
 }
 
 export const useFiltroPeriodoExecutivoStore = create<FiltroPeriodoExecutivoState>((set) => ({
   filtro: "mes",
   dataInicial: "",
   dataFinal: "",
+  personalizado: { dados: null, carregando: false, erro: null },
   setFiltro: (filtro) => set({ filtro }),
   setDataInicial: (dataInicial) => set({ dataInicial }),
   setDataFinal: (dataFinal) => set({ dataFinal }),
+  carregarPersonalizado: async (codigoExecutivo, inicioIso, fimIso) => {
+    if (!codigoExecutivo) {
+      set({
+        personalizado: {
+          dados: null,
+          carregando: false,
+          erro: "Este executivo não tem código SICA vinculado.",
+        },
+      });
+      return;
+    }
+
+    set({ personalizado: { dados: null, carregando: true, erro: null } });
+    try {
+      const dados = await obterDashboardPersonalizadoAction(codigoExecutivo, inicioIso, fimIso);
+      set({
+        personalizado: {
+          dados,
+          carregando: false,
+          erro: dados ? null : "SST não configurado neste ambiente.",
+        },
+      });
+    } catch (erro) {
+      set({
+        personalizado: {
+          dados: null,
+          carregando: false,
+          erro: erro instanceof Error ? erro.message : "Falha ao carregar o período personalizado.",
+        },
+      });
+    }
+  },
 }));
 
 export function resolverPeriodoExecutivo(filtro: FiltroPeriodoExecutivo): PeriodoVendasMesHero {

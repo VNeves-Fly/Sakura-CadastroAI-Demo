@@ -2,6 +2,7 @@ import { cache } from "react";
 import {
   dashboardVendasAdapter,
   normalizarCruzamento,
+  normalizarResumo,
   normalizarResumoPorPeriodo,
 } from "@/modules/dashboard-vendas/adapters/dashboard-vendas.adapter";
 import { dashboardVendasMockService } from "@/modules/dashboard-vendas/services/dashboard-vendas.mock-service";
@@ -12,6 +13,7 @@ import {
   recenciaECruzamentoVazio,
   resumoEDiaVazio,
 } from "@/modules/dashboard-vendas/utils/dashboard-vendas-vazio.util";
+import type { ResumoPersonalizado } from "@/modules/dashboard-vendas/types/dashboard-vendas.types";
 
 // Ponto único que a Server Component (`page.tsx`) chama — mesmo padrão do
 // `cadastroAdminController`. Adapter sempre antes do consumo dos dados do
@@ -79,5 +81,20 @@ export const dashboardVendasController = {
       ? await dashboardVendasSstService.obterRecenciaECruzamento()
       : recenciaECruzamentoVazio();
     return { ...dados, cruzamentoCanais: normalizarCruzamento(dados.cruzamentoCanais) };
+  },
+  // Sob demanda (não faz parte do carregamento inicial da página) — só
+  // chamado pela Server Action do filtro "Personalizado"
+  // (dashboard-vendas.actions.ts) quando o usuário aplica um intervalo.
+  // `null` = SST não configurado neste ambiente (sem `SST_API_KEY`);
+  // diferente dos métodos acima, não tem "0/vazio honesto" aqui porque
+  // não existe um intervalo "vazio" óbvio pra devolver — melhor deixar o
+  // client saber que não há fonte real, em vez de fabricar zeros.
+  async obterResumoPersonalizado(
+    inicioIso: string,
+    fimIso: string,
+  ): Promise<ResumoPersonalizado | null> {
+    if (!SST_ATIVO) return null;
+    const dados = await dashboardVendasSstService.obterResumoPersonalizado(inicioIso, fimIso);
+    return { ...dados, resumo: normalizarResumo(dados.resumo) };
   },
 };

@@ -4,15 +4,16 @@ import type { AgenciaDetalheVendas } from "@/modules/agencias-crm/types/agencia-
 
 interface AgenciaDashboardTabProps {
   agenciaId: string;
+  sicaCodigo: string | null;
   vendas: AgenciaDetalheVendas;
 }
 
 // Aba "Dashboard" do detalhe de Agência — aba padrão ao abrir a página
 // (SPEC_AGENCIAS_SAKURA seção 3.5).
-export function AgenciaDashboardTab({ agenciaId, vendas }: AgenciaDashboardTabProps) {
+export function AgenciaDashboardTab({ agenciaId, sicaCodigo, vendas }: AgenciaDashboardTabProps) {
   return (
     <div className="flex flex-col gap-5">
-      <AgenciaVolumeTotalCard agenciaId={agenciaId} vendas={vendas} />
+      <AgenciaVolumeTotalCard agenciaId={agenciaId} sicaCodigo={sicaCodigo} vendas={vendas} />
       <AgenciaTopCompanhiasCard companhias={vendas.topCompanhias} />
     </div>
   );

@@ -117,7 +117,11 @@ export function AgenciaDetalheView({ detalhe }: AgenciaDetalheViewProps) {
 
         <div className="p-5">
           {aba === "dashboard" ? (
-            <AgenciaDashboardTab agenciaId={detalhe.id} vendas={detalhe.vendas} />
+            <AgenciaDashboardTab
+              agenciaId={detalhe.id}
+              sicaCodigo={detalhe.perfilComercial.sica}
+              vendas={detalhe.vendas}
+            />
           ) : null}
           {aba === "dados" ? (
             <div className="flex flex-col gap-6">

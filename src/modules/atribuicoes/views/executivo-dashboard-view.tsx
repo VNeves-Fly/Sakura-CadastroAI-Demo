@@ -97,6 +97,7 @@ export function ExecutivoDashboardView({ perfil, agencias }: ExecutivoDashboardV
         <ExecutivoHeroKpisSecao
           heroKpisPromise={heroKpisPromise}
           perfilId={perfil.id}
+          codigoExecutivo={perfil.sica}
           crossCanalPromise={crossCanalPromise}
         />
       </Suspense>

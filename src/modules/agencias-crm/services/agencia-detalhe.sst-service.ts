@@ -519,6 +519,46 @@ async function buscarOverview(data: string, codigoEmpresa: string): Promise<RawO
   );
 }
 
+// GET /api/consolidado/overview-intervalo — mesmo endpoint pedido pro
+// filtro "Personalizado" do Dashboard CRM (ver
+// dashboard-vendas.sst-service.ts e docs/filtro-personalizado.md), aqui
+// filtrado por `codigoEmpresa` (parâmetro que o endpoint já aceita) em
+// vez de olhar a base inteira. Mesmo shape de RawPeriodoOverview por
+// canal, mas para o intervalo pedido — sem os buckets fixos dia/mês do
+// `/overview`. Sem chamada de comparação LY aqui: margem/rentabilidade
+// do card "Volume total" não reage ao filtro de período (sempre a janela
+// anual, ver paraPeriodoOverview/AgenciaVolumeTotalCard) — só os campos
+// de volume/tickets precisam do intervalo real.
+interface RawOverviewIntervaloResponse {
+  filial: {
+    total: RawPeriodoOverview;
+    aereo: RawPeriodoOverview;
+    terrestre: RawPeriodoOverview;
+  };
+}
+
+async function obterVolumePersonalizado(
+  codigoEmpresa: string,
+  inicioIso: string,
+  fimIso: string,
+): Promise<VolumeCanalPeriodoSst> {
+  const overview = await sstGet<RawOverviewIntervaloResponse>(
+    "/api/consolidado/overview-intervalo",
+    {
+      codigoEmpresa,
+      startDate: inicioIso,
+      endDate: fimIso,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    },
+  );
+  return paraPeriodoOverview(
+    overview.filial.total,
+    overview.filial.aereo,
+    overview.filial.terrestre,
+  );
+}
+
 export interface VolumeCanalPeriodoSst {
   valor: number;
   volumeAereo: number;
@@ -877,4 +917,9 @@ export const agenciaDetalheSstService = {
       porPeriodo,
     };
   },
+
+  // Sob demanda (não faz parte de obterVendas) — só chamado pela Server
+  // Action do filtro "Personalizado" (agencia-detalhe.actions.ts) quando
+  // o usuário aplica um intervalo no calendário do card "Volume total".
+  obterVolumePersonalizado,
 };

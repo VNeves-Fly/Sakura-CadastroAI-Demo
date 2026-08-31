@@ -35,6 +35,7 @@ import type {
   ProjecaoDia,
   RecenciaAgencias,
   ResumoDia,
+  ResumoPersonalizado,
   TopAgencia,
   TopFornecedor,
   VendaDiaria,
@@ -72,22 +73,53 @@ const TAMANHO_RANKING_FORNECEDORES = 200;
 const TTL_CACHE_MS = 10 * 60 * 1000;
 const cacheConsolidado = new Map<string, { expiraEm: number; valor: unknown }>();
 
+// Deduplica chamadas concorrentes pra mesma chave (ex.: duas janelas de um
+// mesmo Promise.all que coincidem por acaso — "30 dias atrás" cai no dia 1
+// do mês corrente no último dia de meses de 31 dias, fazendo
+// buscarNonAir(inicioMes, hoje) e buscarNonAir(trintaDiasAtras, hoje)
+// pedirem a mesma chave em paralelo). Sem isto, as duas viam
+// `cacheConsolidado` vazio ao mesmo tempo — a primeira ainda não tinha
+// gravado — e cada uma disparava seu próprio `fetch` ao SST (achado real,
+// não hipotético: bug pego pelo teste "reaproveita nacint/nonair... guardrail
+// contra paralelizar o waterfall"). Só guarda a Promise enquanto ela está em
+// voo — resolvida ou rejeitada, sai do Map (ver finally), então uma chamada
+// futura de verdade tenta de novo em vez de ficar presa numa promise antiga.
+const chamadasEmVoo = new Map<string, Promise<unknown>>();
+
 async function comCache<T>(chave: string, buscar: () => Promise<T>): Promise<T> {
   const cacheado = cacheConsolidado.get(chave);
   if (cacheado && cacheado.expiraEm > Date.now()) {
     return cacheado.valor as T;
   }
 
-  const doValkey = await valkeyGet<T>(chave);
-  if (doValkey !== undefined) {
-    cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor: doValkey });
-    return doValkey;
+  const emVoo = chamadasEmVoo.get(chave);
+  if (emVoo) {
+    return emVoo as Promise<T>;
   }
 
-  const valor = await buscar();
-  cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor });
-  await valkeySet(chave, valor, TTL_CACHE_MS / 1000);
-  return valor;
+  const promessa = (async (): Promise<T> => {
+    try {
+      const doValkey = await valkeyGet<T>(chave);
+      if (doValkey !== undefined) {
+        cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor: doValkey });
+        return doValkey;
+      }
+
+      const valor = await buscar();
+      cacheConsolidado.set(chave, { expiraEm: Date.now() + TTL_CACHE_MS, valor });
+      await valkeySet(chave, valor, TTL_CACHE_MS / 1000);
+      return valor;
+    } finally {
+      chamadasEmVoo.delete(chave);
+    }
+  })();
+
+  // Set síncrono, sem `await` entre o `.get` acima e este `.set` — é isso
+  // que fecha a corrida: dentro de um único Promise.all, cada chamada
+  // roda sincronamente até seu primeiro `await` interno, então a segunda
+  // chamada pra mesma chave já encontra a Promise em voo aqui.
+  chamadasEmVoo.set(chave, promessa);
+  return promessa;
 }
 
 function formatarDataIsoBrasilia(data: Date): string {
@@ -117,6 +149,23 @@ function mesmoDiaAnoAnteriorIso(): string {
   const data = new Date();
   data.setFullYear(data.getFullYear() - 1);
   return formatarDataIsoBrasilia(data);
+}
+
+// Mesmo intervalo (mesma quantidade de dias corridos), 1 ano atrás —
+// comparação "LY" do filtro Personalizado, equivalente a
+// mesmoDiaAnoAnteriorIso mas para um range em vez de um dia só. Ajusta o
+// dia se o mês de destino for mais curto (mesmo critério de
+// janelaMesAnterior, ver ultimoDiaDoMes abaixo).
+function mesmoIntervaloAnoAnteriorIso(
+  inicio: string,
+  fim: string,
+): { inicio: string; fim: string } {
+  const umAnoAtras = (iso: string): string => {
+    const [ano, mes, dia] = iso.split("-").map(Number) as [number, number, number];
+    const anoAnterior = ano - 1;
+    return paraIso(anoAnterior, mes, Math.min(dia, ultimoDiaDoMes(anoAnterior, mes)));
+  };
+  return { inicio: umAnoAtras(inicio), fim: umAnoAtras(fim) };
 }
 
 function inicioMesIso(): string {
@@ -318,6 +367,20 @@ interface RawOverviewResponse {
     total: RawCanalOverview;
     aereo: RawCanalOverview;
     terrestre: RawCanalOverview;
+  };
+}
+
+// GET /api/consolidado/overview-intervalo — mesmo shape de
+// RawPeriodoOverview por canal (total/aereo/terrestre), mas para um único
+// intervalo (startDate/endDate) em vez dos 3 buckets fixos dia/mes/ano do
+// /overview — pedido ao SST especificamente pro filtro "Personalizado"
+// (ver docs/filtro-personalizado.md; spec confirmada contra
+// https://sst.flysakura.com/docs-json em 2026-08-28).
+interface RawOverviewIntervaloResponse {
+  filial: {
+    total: RawPeriodoOverview;
+    aereo: RawPeriodoOverview;
+    terrestre: RawPeriodoOverview;
   };
 }
 
@@ -598,6 +661,29 @@ function paraResumoDia(
     // Margem combinada (Aéreo + Terrestre) — vem do bucket "total" do
     // overview, separado da margem de cada canal (pedido do usuário,
     // 2026-08-19).
+    margemTotalPct: totalAtual.margem,
+    margemTotalLYPct: totalLY.margem,
+    margemTotalVariacaoPct: calcularVariacaoPct(totalAtual.margem, totalLY.margem),
+    rentabTotalValor: totalAtual.rentabilidade,
+    rentabTotalLYValor: totalLY.rentabilidade,
+    rentabTotalLYVariacaoPct: calcularVariacaoPct(totalAtual.rentabilidade, totalLY.rentabilidade),
+  };
+}
+
+// Mesmo cálculo de paraResumoDia, mas a partir de
+// RawOverviewIntervaloResponse — não tem os buckets dia/mes/ano pra
+// indexar, o próprio endpoint já devolve o intervalo pedido direto em
+// filial.<canal> (ver obterResumoPersonalizado).
+function paraResumoIntervalo(
+  overview: RawOverviewIntervaloResponse,
+  overviewLY: RawOverviewIntervaloResponse,
+): ResumoDia {
+  const totalAtual = overview.filial.total;
+  const totalLY = overviewLY.filial.total;
+  return {
+    atualizadoEm: new Date(),
+    aereo: paraCanalResumo(overview.filial.aereo, overviewLY.filial.aereo),
+    terrestre: paraCanalResumo(overview.filial.terrestre, overviewLY.filial.terrestre),
     margemTotalPct: totalAtual.margem,
     margemTotalLYPct: totalLY.margem,
     margemTotalVariacaoPct: calcularVariacaoPct(totalAtual.margem, totalLY.margem),
@@ -1472,6 +1558,58 @@ async function obterResumoEDia(): Promise<
   };
 }
 
+// Filtro "Personalizado" do cabeçalho — diferente de `obterResumoEDia`
+// (4 períodos fixos, pré-computados no carregamento da página), este é
+// buscado sob demanda pelo client via Server Action
+// (dashboard-vendas.actions.ts) quando o usuário aplica um intervalo no
+// calendário, porque não dá pra pré-computar todo intervalo possível.
+// Usa `/api/consolidado/overview-intervalo` (pedido ao SST nesta rodada,
+// ver docs/filtro-personalizado.md) pro resumo/miniKpis, e os mesmos
+// `/api/agencias/top`/`/api/reports/ranking-cias` já usados pra "mês"/
+// "ano" em `obterResumoEDia` (já aceitavam `startDate`/`endDate`
+// arbitrário, sem mudança nenhuma). Sem fallback pra mock aqui de
+// propósito: um erro numa consulta sob demanda deve aparecer pro usuário
+// (ver dashboard-vendas.actions.ts), não virar silenciosamente o dado de
+// outro período.
+async function obterResumoPersonalizado(
+  inicioIso: string,
+  fimIso: string,
+): Promise<ResumoPersonalizado> {
+  const { inicio: inicioLY, fim: fimLY } = mesmoIntervaloAnoAnteriorIso(inicioIso, fimIso);
+
+  const [overviewAtual, overviewLY, topAgencias, rankingCias] = await Promise.all([
+    sstGet<RawOverviewIntervaloResponse>("/api/consolidado/overview-intervalo", {
+      startDate: inicioIso,
+      endDate: fimIso,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    }),
+    sstGet<RawOverviewIntervaloResponse>("/api/consolidado/overview-intervalo", {
+      startDate: inicioLY,
+      endDate: fimLY,
+      painel: "FILIAL",
+      situacao: "ATIVOS",
+    }),
+    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+      startDate: inicioIso,
+      endDate: fimIso,
+      limit: TAMANHO_RANKING,
+    }),
+    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+      startDate: inicioIso,
+      endDate: fimIso,
+      limit: TAMANHO_RANKING_FORNECEDORES,
+    }),
+  ]);
+
+  return {
+    resumo: paraResumoIntervalo(overviewAtual, overviewLY),
+    miniKpis: paraMiniKpis(overviewAtual.filial.aereo),
+    ranking: paraTopAgencias(topAgencias.data),
+    fornecedores: paraTopFornecedores(rankingCias.data),
+  };
+}
+
 // Diferente das outras seções pesadas (projeção, vendas mensais/diárias,
 // conversão, recência×cruzamento — todas com sua própria *ComFallback*
 // logo abaixo), `obterResumoEDia` ficava SEM proteção — um 500 real do
@@ -1538,6 +1676,7 @@ async function obterRecenciaECruzamentoComFallback(): Promise<
 
 export const dashboardVendasSstService = {
   obterResumoEDia: obterResumoEDiaComFallback,
+  obterResumoPersonalizado,
   obterVendasMensais: obterVendasMensaisComFallback,
   obterVendasDiarias: obterVendasDiariasComFallback,
   obterConversao: obterConversaoComFallback,
