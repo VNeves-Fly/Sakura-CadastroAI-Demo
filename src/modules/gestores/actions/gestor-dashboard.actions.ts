@@ -19,9 +19,12 @@ import type {
   VendasMesHeroGestor,
 } from "@/modules/gestores/types/gestor-detalhe.types";
 
-// Mesmo guard de /crm/gestores/[id]/page.tsx — Server Actions são
-// endpoints próprios (POST), não herdam o redirect da página.
-const CARGOS_COM_ACESSO = new Set(["ADMIN", "DIRETOR_ANALISTA", "GESTOR"]);
+// Mesmo guard de /crm/gestores/[id]/page.tsx (CARGOS_GESTAO_DE_GESTORES) —
+// Server Actions são endpoints próprios (POST), não herdam o redirect da
+// página. Diferente do Executivo (que permite GESTOR ver a própria
+// página), a página do Gestor NÃO permite cargo GESTOR — não replicar o
+// conjunto de cargos do Executivo aqui sem checar o guard desta página.
+const CARGOS_COM_ACESSO = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 const FORMATO_DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 async function garantirAcesso(): Promise<void> {
