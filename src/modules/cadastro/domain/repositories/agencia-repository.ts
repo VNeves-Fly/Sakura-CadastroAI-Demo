@@ -106,6 +106,13 @@ export interface SeriesMovimentacao {
   ano: SeriePeriodoItem[];
 }
 
+// Página do feed de movimentações (ver listarUltimasMovimentacoesEtapaPaginado)
+// — usado pelo modal "Ver mais" do dashboard; `total` alimenta a paginação.
+export interface HistoricoEtapaCadastroPaginado {
+  items: HistoricoEtapaCadastroItem[];
+  total: number;
+}
+
 // `apenasCriacao` conta o registro inicial de cada cadastro (statusAnterior
 // nulo — ver create() em PrismaAgenciaRepository); `statusNovo`/`origem`
 // contam quem ENTROU numa etapa específica (opcionalmente só por uma
@@ -550,6 +557,13 @@ export interface AgenciaRepository {
   // Feed global (todas as agências) das últimas transições de etapa, mais
   // recente primeiro — usado na lista "Últimas movimentações" do dashboard.
   listarUltimasMovimentacoesEtapa(limite: number): Promise<HistoricoEtapaCadastroItem[]>;
+  // Mesmo feed, paginado — usado pelo modal "Ver mais" (ver
+  // HistoricoEtapaCadastroPaginado), que precisa navegar além dos
+  // primeiros itens mostrados na tela principal.
+  listarUltimasMovimentacoesEtapaPaginado(
+    pagina: number,
+    tamanhoPagina: number,
+  ): Promise<HistoricoEtapaCadastroPaginado>;
   // Série pro seletor DIA/MÊS/ANO dos cards de KPI (ver
   // FiltroSerieMovimentacao/SeriesMovimentacao) — uma chamada por métrica,
   // já devolve as 3 granularidades juntas.

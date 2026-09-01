@@ -53,7 +53,7 @@ interface AdminNavGrupo {
   itens: AdminNavItem[];
 }
 
-const ROTAS_EXATAS = new Set(["/cadastros", "/dashboard"]);
+const ROTAS_EXATAS = new Set(["/cadastros", "/cadastros/dashboard"]);
 
 const CARGOS_INTERNOS_APENAS: Cargo[] = ["GESTOR", "EXECUTIVO"];
 // "Gestores" só pra quem pode cadastrar Gestor (decisão do usuário,
@@ -76,7 +76,7 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
   {
     label: "Onboarding",
     itens: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Dashboard", href: "/cadastros/dashboard", icon: LayoutDashboard },
       { label: "Cadastros", href: "/cadastros", icon: ClipboardList },
       {
         label: "Atendimento",
@@ -241,12 +241,11 @@ export function AdminSidebar({ cargo }: { cargo: Cargo }) {
                       <SidebarMenuButton
                         isActive={
                           // "/cadastros" é prefixo de toda subrota (usuários,
-                          // eventos, messenger) — precisa de match exato,
-                          // senão o item errado também fica ativo. "Dashboard
-                          // CRM" (ex-"Dashboard (novo)") é /crm/dashboard
-                          // (renomeado de /crm/dashboard-new em 2026-08-18)
-                          // e não colide com "/dashboard", mas o match exato
-                          // continua valendo pro item raiz.
+                          // eventos, messenger, dashboard) — precisa de match
+                          // exato, senão o item errado também fica ativo.
+                          // "Dashboard CRM" (ex-"Dashboard (novo)") é
+                          // /crm/dashboard (renomeado de /crm/dashboard-new
+                          // em 2026-08-18) e não colide com nenhum dos dois.
                           ROTAS_EXATAS.has(item.href)
                             ? pathname === item.href
                             : pathname.startsWith(item.href)
