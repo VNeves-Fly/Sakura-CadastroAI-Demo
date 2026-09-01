@@ -27,6 +27,7 @@ bun-debug.log*
 # env files
 .env
 .env*.local
+.env.homolog
 .env.production
 
 # credenciais de service account (GCP etc.) — nunca commitar
