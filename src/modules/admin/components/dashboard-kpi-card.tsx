@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { motion } from "motion/react";
 import { Info, Maximize2, Minimize2, type LucideIcon } from "lucide-react";
@@ -15,7 +14,13 @@ const PERIODOS: { valor: Periodo; label: string }[] = [
   { valor: "ano", label: "ANO" },
 ];
 
-const UNIDADE_PERIODO: Record<Periodo, string> = { dia: "dias", mes: "meses", ano: "anos" };
+// Texto que acompanha o valor grande — ele mostra o balde ATUAL da série
+// (hoje/este mês/este ano), não um total acumulado do período inteiro.
+const DESCRICAO_PERIODO_ATUAL: Record<Periodo, string> = {
+  dia: "hoje",
+  mes: "neste mês",
+  ano: "neste ano",
+};
 
 // Mesmo shape de SeriePeriodoItem (ver agencia-repository.ts), duck-typed
 // aqui igual antes (mesma convenção dos componentes irmãos).
@@ -28,13 +33,13 @@ interface DashboardKpiCardProps {
   icon: LucideIcon;
   titulo: string;
   // Sem janela de tempo (ex.: "novos cadastros") — o card monta o resto
-  // ("nos últimos N dias/meses/anos") a partir do período efetivo.
+  // ("hoje"/"neste mês"/"neste ano") a partir do período efetivo.
   descricaoBase: string;
   cor: string;
   series: { dia: SeriePeriodoItem[]; mes: SeriePeriodoItem[]; ano: SeriePeriodoItem[] };
   // Explica um valor que não é autoexplicativo (breakdown aberto/pendente
   // da Análise de Documentos) — desacoplado do valor grande, que agora é
-  // sempre a soma do período selecionado.
+  // sempre o balde atual (hoje/este mês/este ano) do período selecionado.
   tooltip?: ReactNode;
   expandido: boolean;
   // Um dos 3 cards "não escolhidos" enquanto outro está expandido — versão
@@ -69,13 +74,12 @@ export function DashboardKpiCard({
   // nenhuma pista visual de qual período está ativo.
   const periodoEfetivo = expandido ? periodo : "dia";
   const pontos = series[periodoEfetivo];
-  const somaPeriodo = useMemo(
-    () => pontos.reduce((acc, item) => acc + item.quantidade, 0),
-    [pontos],
-  );
-  // pontos.length (não hardcoded) segue QUANTIDADE_BALDES do backend
-  // automaticamente, mesmo que a granularidade mude lá.
-  const descricao = `${descricaoBase} nos últimos ${pontos.length} ${UNIDADE_PERIODO[periodoEfetivo]}`;
+  // Último ponto da série = o balde "atual" (bucketarPorPeriodo preenche do
+  // mais antigo pro mais recente, terminando em hoje/este mês/este ano) —
+  // o valor grande mostra esse balde, não a soma de toda a janela do
+  // gráfico (que é só o histórico/tendência ao lado).
+  const valorAtual = pontos[pontos.length - 1]?.quantidade ?? 0;
+  const descricao = `${descricaoBase} ${DESCRICAO_PERIODO_ATUAL[periodoEfetivo]}`;
 
   return (
     <motion.div
@@ -162,7 +166,7 @@ export function DashboardKpiCard({
             compacto ? "text-xl" : "text-3xl sm:text-4xl"
           }`}
         >
-          {somaPeriodo.toLocaleString("pt-BR")}
+          {valorAtual.toLocaleString("pt-BR")}
         </p>
         <div
           className={
