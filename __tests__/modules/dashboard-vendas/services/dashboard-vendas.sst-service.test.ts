@@ -3,6 +3,37 @@ import {
   dashboardVendasSstService,
 } from "@/modules/dashboard-vendas/services/dashboard-vendas.sst-service";
 
+// Congela "agora" antes dos fixtures abaixo serem construídos (rodam no
+// import do módulo, antes de qualquer hook) — sem isto, os testes usam a
+// data real da máquina, e `inicioMesIso()` do service vira igual a "hoje"
+// sempre que o teste roda no dia 1/8/15/22/29 (mesma distância de 7 dias
+// dos pontos usados por `nacIntPorDataFixture`, ver abaixo), colidindo a
+// chamada de nacInt do mês corrente com a fixture da projeção — causou os
+// falsos-negativos "reagrupa nacional/internacional" e "degrada só
+// projecao" quando rodado no dia 1 (achado real, não hipotético).
+// `doNotFake` mantém setTimeout real: o retry de 5xx em `sstGet` (via
+// `esperar`) depende de esperar de verdade, não de timer avançado à mão.
+jest.useFakeTimers({
+  doNotFake: [
+    "setTimeout",
+    "clearTimeout",
+    "setInterval",
+    "clearInterval",
+    "setImmediate",
+    "clearImmediate",
+    "nextTick",
+    "performance",
+    "queueMicrotask",
+    "requestAnimationFrame",
+    "cancelAnimationFrame",
+    "requestIdleCallback",
+    "cancelIdleCallback",
+  ],
+});
+// 30/ago (mês de 31 dias): dia-7/14/21/28 caem em 23/16/9/2 — nenhum
+// coincide com inicioMes (dia 1), e o próprio dia (30) também não é 1.
+jest.setSystemTime(new Date("2026-08-30T15:00:00.000Z"));
+
 const originalEnv = process.env;
 
 // Shapes confirmados contra o SST real (sst.flysakura.com/docs/json),
@@ -295,6 +326,10 @@ describe("dashboardVendasSstService", () => {
 
   afterEach(() => {
     process.env = originalEnv;
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
   });
 
   it("monta resumoPorPeriodo e miniKpis a partir do overview real", async () => {
