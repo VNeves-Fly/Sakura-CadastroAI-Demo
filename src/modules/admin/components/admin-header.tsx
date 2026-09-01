@@ -19,7 +19,7 @@ const ROTULOS_PAGINA: Record<string, string> = {
   "/crm/executivos": "Executivos",
   "/crm/agencias": "Agências",
   "/crm/novas-agencias": "Análise de Novas Agências",
-  "/dashboard": "Dashboard",
+  "/cadastros/dashboard": "Dashboard",
   "/cadastros/usuarios": "Usuários",
   "/cadastros/messenger": "Messenger",
   "/cadastros/eventos": "Eventos",

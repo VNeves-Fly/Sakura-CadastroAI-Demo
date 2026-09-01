@@ -48,6 +48,7 @@ import {
   type ConsultaSstItem,
   type HistoricoConsultaCreditoItem,
   type HistoricoEtapaCadastroItem,
+  type HistoricoEtapaCadastroPaginado,
   type ListarCadastrosFiltros,
   type ListarCadastrosResult,
   type OrigemGeracaoContrato,
@@ -73,6 +74,38 @@ const ETAPAS_COM_SLA = [
 // Quantidade de baldes por granularidade do seletor DIA/MÊS/ANO (ver
 // listarSeriesMovimentacoes) — 14 dias, 12 meses, 5 anos.
 const QUANTIDADE_BALDES: Record<Granularidade, number> = { dia: 14, mes: 12, ano: 5 };
+
+// Mapeamento comum de HistoricoEtapaCadastro + agencia (razaoSocial/
+// nomeFantasia) pro shape de domínio — reaproveitado por
+// listarUltimasMovimentacoesEtapa e sua versão paginada, pra não duplicar
+// os mesmos 9 campos duas vezes.
+function toHistoricoEtapaCadastroItem(linha: {
+  id: string;
+  agenciaId: string;
+  agencia: { razaoSocial: string; nomeFantasia: string | null };
+  statusAnterior: string | null;
+  statusNovo: string | null;
+  usuarioEmail: string | null;
+  origem: string | null;
+  observacao: string | null;
+  desbloqueioManual: boolean | null;
+  detalhes: string | null;
+  createdAt: Date;
+}): HistoricoEtapaCadastroItem {
+  return {
+    id: linha.id,
+    agenciaId: linha.agenciaId,
+    agenciaNome: linha.agencia.nomeFantasia ?? linha.agencia.razaoSocial,
+    statusAnterior: linha.statusAnterior,
+    statusNovo: linha.statusNovo,
+    usuarioEmail: linha.usuarioEmail,
+    origem: linha.origem,
+    observacao: linha.observacao,
+    desbloqueioManual: linha.desbloqueioManual,
+    detalhes: linha.detalhes,
+    createdAt: linha.createdAt,
+  };
+}
 
 // Mesmo formato "dd/MM" já usado em obterAnaliseContratos, estendido pra
 // mês ("MM/yyyy") e ano ("yyyy").
@@ -901,19 +934,24 @@ export class PrismaAgenciaRepository implements AgenciaRepository {
       include: { agencia: { select: { razaoSocial: true, nomeFantasia: true } } },
     });
 
-    return linhas.map((linha) => ({
-      id: linha.id,
-      agenciaId: linha.agenciaId,
-      agenciaNome: linha.agencia.nomeFantasia ?? linha.agencia.razaoSocial,
-      statusAnterior: linha.statusAnterior,
-      statusNovo: linha.statusNovo,
-      usuarioEmail: linha.usuarioEmail,
-      origem: linha.origem,
-      observacao: linha.observacao,
-      desbloqueioManual: linha.desbloqueioManual,
-      detalhes: linha.detalhes,
-      createdAt: linha.createdAt,
-    }));
+    return linhas.map(toHistoricoEtapaCadastroItem);
+  }
+
+  async listarUltimasMovimentacoesEtapaPaginado(
+    pagina: number,
+    tamanhoPagina: number,
+  ): Promise<HistoricoEtapaCadastroPaginado> {
+    const [linhas, total] = await Promise.all([
+      this.prisma.historicoEtapaCadastro.findMany({
+        orderBy: { createdAt: "desc" },
+        skip: (pagina - 1) * tamanhoPagina,
+        take: tamanhoPagina,
+        include: { agencia: { select: { razaoSocial: true, nomeFantasia: true } } },
+      }),
+      this.prisma.historicoEtapaCadastro.count(),
+    ]);
+
+    return { items: linhas.map(toHistoricoEtapaCadastroItem), total };
   }
 
   async listarSeriesMovimentacoes(filtro: FiltroSerieMovimentacao): Promise<SeriesMovimentacao> {

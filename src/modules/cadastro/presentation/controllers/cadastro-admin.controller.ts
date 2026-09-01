@@ -479,6 +479,13 @@ export const cadastroAdminController = {
     return useCase.execute();
   },
 
+  // Feed paginado do modal "Ver mais" (Últimas Movimentações do dashboard)
+  // — leitura simples sem regra de negócio, sem use case (mesmo padrão de
+  // listarNotificacoes/listarHistoricoEdicoes).
+  listarUltimasMovimentacoesEtapaPaginado(pagina: number, tamanhoPagina: number) {
+    return agenciaRepository.listarUltimasMovimentacoesEtapaPaginado(pagina, tamanhoPagina);
+  },
+
   obterCadastroComplementar(agenciaId: string) {
     const useCase = new ObterCadastroComplementarUseCase(cadastroComplementarRepository);
     return useCase.execute(agenciaId);

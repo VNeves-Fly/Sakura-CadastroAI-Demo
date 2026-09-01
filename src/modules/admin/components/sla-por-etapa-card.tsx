@@ -8,6 +8,7 @@ import {
   type SlaEtapaItem,
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import { labelStatusAgencia } from "@/modules/cadastro/utils/status-agencia-label.util";
+import { formatarSla } from "@/modules/cadastro/utils/formatar-sla.util";
 
 // Mesma ordem do pipeline (ver comentário no topo de agencia-repository.ts)
 // — `ativo`/`recusado` ficam de fora, são etapas finais sem "tempo até
@@ -49,9 +50,7 @@ export function SlaPorEtapaCard({ itens }: SlaPorEtapaCardProps) {
               <span className="text-foreground font-medium">{labelStatusAgencia(status)}</span>
               {temDados ? (
                 <span className="text-right">
-                  <span className="text-foreground font-bold">
-                    {item.mediaDias!.toFixed(1)} dias
-                  </span>
+                  <span className="text-foreground font-bold">{formatarSla(item.mediaDias!)}</span>
                   <span className="text-muted-foreground ml-1 text-xs">
                     ({item.amostras} cadastro{item.amostras > 1 ? "s" : ""})
                   </span>

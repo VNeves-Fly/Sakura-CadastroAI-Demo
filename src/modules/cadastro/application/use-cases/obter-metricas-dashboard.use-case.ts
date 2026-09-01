@@ -10,7 +10,10 @@ import {
 } from "@/modules/cadastro/domain/repositories/agencia-repository";
 
 const DIAS_NOVOS_CADASTROS = 30;
-const LIMITE_ULTIMAS_MOVIMENTACOES = 15;
+// A tela principal só mostra os 5 mais recentes (ver
+// UltimasMovimentacoesList); pra ver mais, o modal "Ver mais" busca via
+// listarUltimasMovimentacoesEtapaPaginado, não deste use case.
+const LIMITE_ULTIMAS_MOVIMENTACOES = 5;
 
 export interface DashboardMetricas {
   novosCadastros30Dias: number;
