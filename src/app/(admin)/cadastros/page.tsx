@@ -475,15 +475,6 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
         </button>
       </form>
 
-      {/* Filas — cartão único por status (KPI numérico + descrição
-          unificados em 2026-07-27), numa linha só. Clicar filtra a lista
-          por aquele status; clicar de novo na mesma remove o filtro.
-          Largura mínima por card + shrink-0 força scroll horizontal em
-          telas estreitas em vez de quebrar em várias linhas; em telas
-          largas o flex-1 distribui o espaço sobrando igualmente.
-          Escondido pra Gestor/Executivo (escopoRestrito): kpis vem de
-          obterKpis(), que é global (não filtrado por executivo/gestor) —
-          mostraria número da empresa inteira, não só do escopo deles. */}
       {escopoRestrito ? null : (
         <div className="flex gap-3 overflow-x-auto pb-1">
           {FILAS.map((fila) => {
@@ -547,9 +538,6 @@ export default async function CadastrosPage({ searchParams }: CadastrosPageProps
                   <span className="text-muted-foreground line-clamp-2 flex min-h-[2rem] items-start gap-1 text-xs font-medium tracking-wide">
                     {fila.label}
                     <Tooltip>
-                      {/* render=<span> (não <button>, default do TooltipTrigger) —
-                          este card inteiro já é um <Link>, e HTML não permite
-                          elemento interativo aninhado dentro de outro. */}
                       <TooltipTrigger render={<span className="mt-0.5 inline-flex shrink-0" />}>
                         <Info className="size-3" />
                       </TooltipTrigger>
