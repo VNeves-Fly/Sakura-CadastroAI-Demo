@@ -1424,7 +1424,14 @@ export function __limparCacheParaTestes(): void {
 
 // Seções "rápidas" — poucas chamadas, sem paginação. Separado do resto
 // pra poder ser exibido (via Suspense, ver crm/dashboard/page.tsx)
-// enquanto as seções pesadas abaixo ainda carregam.
+// enquanto as seções pesadas abaixo ainda carregam. Passa pelo mesmo
+// `comCache` (TTL 10min, ver acima) que o resto — hoje/ontem/mês/ano são
+// filtros fixos do cabeçalho, reaproveitados por qualquer usuário que abra
+// o dashboard na mesma janela de 10min, ao contrário do Personalizado
+// (obterResumoPersonalizado) que fica de fora de propósito: intervalo
+// arbitrário não cacheia bem (cada usuário pede um range diferente) e erro
+// ali precisa aparecer na hora pro usuário, não ficar mascarado por uma
+// resposta cacheada de outro range.
 async function obterResumoEDia(): Promise<
   Pick<
     DashboardVendasData,
@@ -1456,70 +1463,92 @@ async function obterResumoEDia(): Promise<
     nacIntMes,
     nacIntAno,
   ] = await Promise.all([
-    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
-      data: hoje,
-      painel: "FILIAL",
-      situacao: "ATIVOS",
-    }),
-    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
-      data: ontem,
-      painel: "FILIAL",
-      situacao: "ATIVOS",
-    }),
+    comCache(`overview:${hoje}:FILIAL:ATIVOS`, () =>
+      sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+        data: hoje,
+        painel: "FILIAL",
+        situacao: "ATIVOS",
+      }),
+    ),
+    comCache(`overview:${ontem}:FILIAL:ATIVOS`, () =>
+      sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+        data: ontem,
+        painel: "FILIAL",
+        situacao: "ATIVOS",
+      }),
+    ),
     // Ponto de comparação "LY" (last-year) de margem/rentabilidade real —
     // mesma data de calendário, 1 ano atrás. Só uma chamada: "ontem"
     // reaproveita o mesmo ponto LY de "dia" (mesma simplificação de
     // executivo-dashboard.sst-service.ts — não existe um "mesmo dia 1 ano
     // atrás, menos 1 dia" barato de buscar).
-    sstGet<RawOverviewResponse>("/api/consolidado/overview", {
-      data: anoAnterior,
-      painel: "FILIAL",
-      situacao: "ATIVOS",
-    }),
+    comCache(`overview:${anoAnterior}:FILIAL:ATIVOS`, () =>
+      sstGet<RawOverviewResponse>("/api/consolidado/overview", {
+        data: anoAnterior,
+        painel: "FILIAL",
+        situacao: "ATIVOS",
+      }),
+    ),
     // Ranking de um dia só (startDate = endDate) — antes só existiam as
     // janelas mês-a-data/ano-a-data; filtro do cabeçalho passou a dirigir
     // também os rankings (pedido do usuário, 2026-08-20), então precisa
     // de um dado por dia igual o overview já tinha.
-    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
-      startDate: hoje,
-      endDate: hoje,
-      limit: TAMANHO_RANKING,
-    }),
-    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
-      startDate: ontem,
-      endDate: ontem,
-      limit: TAMANHO_RANKING,
-    }),
-    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
-      startDate: inicioMes,
-      endDate: hoje,
-      limit: TAMANHO_RANKING,
-    }),
-    sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
-      startDate: inicioAno,
-      endDate: hoje,
-      limit: TAMANHO_RANKING,
-    }),
-    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
-      startDate: hoje,
-      endDate: hoje,
-      limit: TAMANHO_RANKING_FORNECEDORES,
-    }),
-    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
-      startDate: ontem,
-      endDate: ontem,
-      limit: TAMANHO_RANKING_FORNECEDORES,
-    }),
-    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
-      startDate: inicioMes,
-      endDate: hoje,
-      limit: TAMANHO_RANKING_FORNECEDORES,
-    }),
-    sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
-      startDate: inicioAno,
-      endDate: hoje,
-      limit: TAMANHO_RANKING_FORNECEDORES,
-    }),
+    comCache(`top-agencias:${hoje}:${hoje}`, () =>
+      sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+        startDate: hoje,
+        endDate: hoje,
+        limit: TAMANHO_RANKING,
+      }),
+    ),
+    comCache(`top-agencias:${ontem}:${ontem}`, () =>
+      sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+        startDate: ontem,
+        endDate: ontem,
+        limit: TAMANHO_RANKING,
+      }),
+    ),
+    comCache(`top-agencias:${inicioMes}:${hoje}`, () =>
+      sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+        startDate: inicioMes,
+        endDate: hoje,
+        limit: TAMANHO_RANKING,
+      }),
+    ),
+    comCache(`top-agencias:${inicioAno}:${hoje}`, () =>
+      sstGet<RawPaginado<RawTopAgencia>>("/api/agencias/top", {
+        startDate: inicioAno,
+        endDate: hoje,
+        limit: TAMANHO_RANKING,
+      }),
+    ),
+    comCache(`ranking-cias:${hoje}:${hoje}`, () =>
+      sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+        startDate: hoje,
+        endDate: hoje,
+        limit: TAMANHO_RANKING_FORNECEDORES,
+      }),
+    ),
+    comCache(`ranking-cias:${ontem}:${ontem}`, () =>
+      sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+        startDate: ontem,
+        endDate: ontem,
+        limit: TAMANHO_RANKING_FORNECEDORES,
+      }),
+    ),
+    comCache(`ranking-cias:${inicioMes}:${hoje}`, () =>
+      sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+        startDate: inicioMes,
+        endDate: hoje,
+        limit: TAMANHO_RANKING_FORNECEDORES,
+      }),
+    ),
+    comCache(`ranking-cias:${inicioAno}:${hoje}`, () =>
+      sstGet<RawPaginado<RawRankingCia>>("/api/reports/ranking-cias", {
+        startDate: inicioAno,
+        endDate: hoje,
+        limit: TAMANHO_RANKING_FORNECEDORES,
+      }),
+    ),
     // `buscarNacInt` (não `sstGet` direto) de propósito: o mês corrente
     // aqui é o mesmo intervalo que `construirVendasMensais` pede pro mês
     // em curso (ver docs/optimize.md, ponto 2) — passando pelo `comCache`
