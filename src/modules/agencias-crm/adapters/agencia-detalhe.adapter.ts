@@ -9,13 +9,7 @@ import {
   gerarVolumePorPeriodo,
 } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 import type { PeriodoVolumeAgencia } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
-import type { AgenciaDetalhe } from "@/modules/cadastro/domain/repositories/agencia-repository";
-import type { DadosReceita } from "@/modules/cadastro/domain/entities/dados-receita.entity";
-import type {
-  CadastroComercialSst,
-  CanalMargemSst,
-  VendasReaisSst,
-} from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
+import { IDENTIDADES_AGENCIAS_MOCK } from "@/modules/crm-mock/agencias.mock-data";
 import type {
   AgenciaDetalheView,
   CanalMargem,
@@ -64,10 +58,9 @@ function labelEtapa(status: string): string {
 }
 
 // participacaoPct sobre `totalAereo` (volumeNacional + volumeInternacional
-// do bloco vendas, real ou mock) — mesmo critério do lado real (ver
-// buscarTopCompanhias em agencia-detalhe.sst-service.ts), não sobre a
-// soma dos volumes mockados aqui (que são hash independente, sem relação
-// com o total aéreo mockado em construirBlocoVendas).
+// do bloco vendas, ver construirBlocoVendas), não sobre a soma dos
+// volumes mockados aqui (que são hash independente, sem relação com o
+// total aéreo mockado em construirBlocoVendas).
 function gerarTopCompanhias(base: number, totalAereo: number): TopCompanhiaAgencia[] {
   return COMPANHIAS_AEREAS.map((nome, indice) => {
     const volume = 10_000 + (hashParaNumero(`${base}-${nome}`) % ((10 - indice) * 40_000 + 5_000));
@@ -97,20 +90,11 @@ function gerarFaturas(base: number, quantidade: number): FaturaAgencia[] {
   });
 }
 
-export interface ExecutivoContexto {
-  base: string | null;
-  gestorNome: string | null;
-  executivoNome?: string | null;
-}
-
-// Margem/rentabilidade de um canal — real (SST) quando `real` existe;
-// mock determinístico como fallback (sem sicaCodigo, sem venda
-// detectada, ou integração desligada). `volumeParaMock` só é usado no
-// fallback, pra converter o `rentabLYPct` do mock (% do canal) num valor
-// absoluto — no caminho real, `rentabilidadeLY` já vem em R$ direto do
-// SST, sem precisar de volume nenhum.
+// Margem/rentabilidade de um canal — sem fonte real hoje (repositório de
+// DEMONSTRAÇÃO, nunca chama o SST): sempre mock determinístico por hash.
+// `volumeParaMock` converte o `rentabLYPct` do mock (% do canal) num
+// valor absoluto (R$).
 function construirMargemCanal(
-  real: CanalMargemSst | undefined,
   base: number,
   gerarMock: (base: number) => {
     margemPct: number;
@@ -121,22 +105,6 @@ function construirMargemCanal(
   },
   volumeParaMock: number,
 ): CanalMargem {
-  if (real) {
-    const margemVariacaoPct =
-      real.margemLYPct !== 0 ? ((real.margemPct - real.margemLYPct) / real.margemLYPct) * 100 : 0;
-    const rentabLYVariacaoPct =
-      real.rentabilidadeLY !== 0
-        ? ((real.rentabilidade - real.rentabilidadeLY) / real.rentabilidadeLY) * 100
-        : 0;
-    return {
-      margemPct: real.margemPct,
-      margemLYPct: real.margemLYPct,
-      margemVariacaoPct,
-      rentabLYValor: real.rentabilidadeLY,
-      rentabLYVariacaoPct,
-    };
-  }
-
   const mock = gerarMock(base);
   return {
     margemPct: mock.margemPct,
@@ -147,17 +115,13 @@ function construirMargemCanal(
   };
 }
 
-// Card "Volume total" por período (dia/ontem/mês real via overview,
-// pedido do usuário 2026-08-25 — ver agencia-detalhe.sst-service.ts).
-// "Ano" reaproveita os totais anuais já resolvidos (reais ou mock) de
-// construirBlocoVendas, exatos por construção — nunca precisa de
-// aproximação. Sem vendasReais, dia/ontem/mês caem no mesmo mock por hash
-// de antes (gerarVolumePorPeriodo), com o split Aéreo/Terrestre aplicado
-// via a MESMA proporção anual que o card já usava (só relocado daqui pro
-// adapter, não é lógica nova).
+// Card "Volume total" por período (dia/ontem/mês/ano) — sem fonte real
+// hoje: "Ano" reaproveita os totais anuais já resolvidos por
+// construirBlocoVendas (mesmo mock, sem dado divergente); dia/ontem/mês
+// vêm de gerarVolumePorPeriodo, com o split Aéreo/Terrestre aplicado via
+// a MESMA proporção anual que o card já usava.
 function construirPorPeriodo(
   base: number,
-  vendasReais: VendasReaisSst | null,
   totaisAno: {
     valor: number;
     volumeAereo: number;
@@ -168,10 +132,6 @@ function construirPorPeriodo(
     ticketMedioTerrestre: number;
   },
 ): Record<PeriodoVolumeAgencia, VolumeCanalPeriodoAgencia> {
-  if (vendasReais) {
-    return { ...vendasReais.porPeriodo, ano: totaisAno };
-  }
-
   const participacaoAereoPct =
     totaisAno.valor > 0 ? (totaisAno.volumeAereo / totaisAno.valor) * 100 : 0;
   const mockPorPeriodo = gerarVolumePorPeriodo(base, totaisAno.valor);
@@ -202,14 +162,11 @@ function construirPorPeriodo(
   };
 }
 
-// Bloco "vendas" + categoria — idêntico pra agência com dossiê local
-// (seed = hash do id local) ou só SST (seed = hash do código SICA, ver
-// montarAgenciaDetalheViewSst) — extraído pra não duplicar o merge com
-// vendasReais entre os dois.
-function construirBlocoVendas(
-  base: number,
-  vendasReais: VendasReaisSst | null,
-): Pick<AgenciaDetalheView, "categoria" | "vendas"> & {
+// Bloco "vendas" + categoria — sem fonte real hoje (repositório de
+// DEMONSTRAÇÃO, nunca chama o SST): 100% mock determinístico por hash,
+// reaproveitado tanto por `montarAgenciaDetalheViewMock` quanto (via
+// seed diferente) por qualquer outra tela que precise do mesmo formato.
+function construirBlocoVendas(base: number): Pick<AgenciaDetalheView, "categoria" | "vendas"> & {
   volumeAno: number;
   semVenda: boolean;
   dataUltimaCompra: string | null;
@@ -217,55 +174,32 @@ function construirBlocoVendas(
   const semVenda = base % 12 === 0;
   const categoria = semVenda ? null : CATEGORIAS[base % CATEGORIAS.length]!;
 
-  const volumeAnoMock = semVenda ? 0 : ((base % 900) + 30) * 15_000;
-  const bilhetesAnoMock = semVenda ? 0 : 30 + (base % 600);
-  const volumeNacionalMock = Math.round(volumeAnoMock * 0.55);
-  const volumeInternacionalMock = Math.round(volumeAnoMock * 0.4);
-  const volumeTerrestreMock = volumeAnoMock - volumeNacionalMock - volumeInternacionalMock;
-  const bilhetesNacionalMock = Math.round(bilhetesAnoMock * 0.72);
-  const bilhetesInternacionalMock = bilhetesAnoMock - bilhetesNacionalMock;
-  const diasSemComprarMock = semVenda ? 90 + (base % 300) : base % 400;
-  const dataUltimaCompraMock = semVenda
+  const volumeAno = semVenda ? 0 : ((base % 900) + 30) * 15_000;
+  const bilhetesAno = semVenda ? 0 : 30 + (base % 600);
+  const volumeNacional = Math.round(volumeAno * 0.55);
+  const volumeInternacional = Math.round(volumeAno * 0.4);
+  const volumeTerrestre = volumeAno - volumeNacional - volumeInternacional;
+  const bilhetesNacional = Math.round(bilhetesAno * 0.72);
+  const bilhetesInternacional = bilhetesAno - bilhetesNacional;
+  const diasSemComprar = semVenda ? 90 + (base % 300) : base % 400;
+  const dataUltimaCompra = semVenda
     ? null
-    : new Date(Date.now() - diasSemComprarMock * 86_400_000).toISOString();
+    : new Date(Date.now() - diasSemComprar * 86_400_000).toISOString();
 
-  // real (SST, agencia-detalhe.sst-service.ts) quando vendasReais existe;
-  // mock determinístico por hash como fallback (sem sicaCodigo, sem
-  // venda detectada, ou integração desligada).
-  const volumeNacional = vendasReais?.aereoNacional.volume ?? volumeNacionalMock;
-  const volumeInternacional = vendasReais?.aereoInternacional.volume ?? volumeInternacionalMock;
-  const volumeTerrestre = vendasReais?.terrestre.volume ?? volumeTerrestreMock;
-  const bilhetesNacional = vendasReais?.aereoNacional.bilhetes ?? bilhetesNacionalMock;
-  const bilhetesInternacional =
-    vendasReais?.aereoInternacional.bilhetes ?? bilhetesInternacionalMock;
-  const bilhetesAno = bilhetesNacional + bilhetesInternacional;
-  const volumeAno = volumeNacional + volumeInternacional + volumeTerrestre;
-  const servicosTerrestre = vendasReais?.terrestre.servicos ?? Math.round(bilhetesAno * 0.08);
-  // `||`, não `??`: uma data real vinda do SST nunca é string vazia, mas
-  // uma agência só-terrestre sem venda detectável pode, em tese, chegar
-  // aqui com "" (ver agencia-carteira.sst-service.ts) — trata como
-  // "sem dado real" e cai no mock, igual a receber null/undefined.
-  const dataUltimaCompra = vendasReais?.dataUltimaCompra || dataUltimaCompraMock;
+  const servicosTerrestre = Math.round(bilhetesAno * 0.08);
 
   const margemAereo = construirMargemCanal(
-    vendasReais?.margemAereo,
     base,
     gerarMargemAereo,
     volumeNacional + volumeInternacional,
   );
-  const margemTerrestre = construirMargemCanal(
-    vendasReais?.margemTerrestre,
-    base,
-    gerarMargemTerrestre,
-    volumeTerrestre,
-  );
-  const terrestreNacInt = vendasReais?.terrestreNacInt ?? gerarNacIntTerrestre(base);
+  const margemTerrestre = construirMargemCanal(base, gerarMargemTerrestre, volumeTerrestre);
+  const terrestreNacInt = gerarNacIntTerrestre(base);
   const ticketMedioAereo =
-    vendasReais?.ticketMedioAereo ??
-    (bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0);
+    bilhetesAno > 0 ? Math.round((volumeNacional + volumeInternacional) / bilhetesAno) : 0;
   const ticketMedioTerrestre =
     servicosTerrestre > 0 ? Math.round(volumeTerrestre / servicosTerrestre) : 0;
-  const porPeriodo = construirPorPeriodo(base, vendasReais, {
+  const porPeriodo = construirPorPeriodo(base, {
     valor: volumeAno,
     volumeAereo: volumeNacional + volumeInternacional,
     volumeTerrestre,
@@ -300,10 +234,8 @@ function construirBlocoVendas(
       },
       volumeTotalAno: volumeAno,
       ticketMedioAereo,
-      topCompanhias:
-        vendasReais?.topCompanhias ??
-        gerarTopCompanhias(base, volumeNacional + volumeInternacional),
-      faturas: vendasReais?.faturas ?? gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
+      topCompanhias: gerarTopCompanhias(base, volumeNacional + volumeInternacional),
+      faturas: gerarFaturas(base, semVenda ? 0 : 5 + (base % 15)),
       margemAereo,
       margemTerrestre,
       porPeriodo,
@@ -311,196 +243,41 @@ function construirBlocoVendas(
   };
 }
 
-export function montarAgenciaDetalheView(
-  detalhe: AgenciaDetalhe,
-  dadosReceita: DadosReceita | null,
-  executivoContexto: ExecutivoContexto,
-  // real (SST, agencia-detalhe.sst-service.ts) quando a agência tem
-  // sicaCodigo e a integração está ligada — `null` quando desligada/sem
-  // sicaCodigo, e todo o bloco "vendas" cai no mock por hash de antes
-  // desta integração.
-  vendasReais: VendasReaisSst | null = null,
-): AgenciaDetalheView {
-  const agencia = detalhe.agencia;
-  const base = hashParaNumero(agencia.id);
-  const blocoVendas = construirBlocoVendas(base, vendasReais);
+// Página de detalhe (/crm/agencias/[id]) — repositório de DEMONSTRAÇÃO:
+// nunca chama o SST nem o Postgres local. A identidade (razão social,
+// CNPJ, SICA, base, executivo, gestor, status) vem das 25 agências
+// fictícias canônicas de crm-mock/agencias.mock-data.ts — mesma fonte da
+// listagem (/crm/agencias) e do portfólio de /crm/executivos e
+// /crm/gestores, garantindo que o mesmo `id` mostre os mesmos dados em
+// qualquer tela. Vendas/margem/top companhias/faturas reaproveitam os
+// mesmos geradores determinísticos por hash já usados no restante do
+// adapter (`construirBlocoVendas`), com seed = hash do id da agência (não
+// do sicaCodigo — aqui os dois são o mesmo mock). `null` de retorno = id
+// não encontrado entre as identidades mock (a página trata como 404).
+export function montarAgenciaDetalheViewMock(id: string): AgenciaDetalheView | null {
+  const identidade = IDENTIDADES_AGENCIAS_MOCK.find((item) => item.id === id);
+  if (!identidade) return null;
 
-  const socios = detalhe.representantesLegais.map((representante) => ({
-    id: representante.id,
-    nome: representante.nome,
-    cpf: representante.cpf || null,
-    rg: representante.rgNumero,
-    email: representante.email || null,
-    telefone: representante.telefone || null,
-    papel: representante.administrativo ? "Sócio-Administrador" : "Sócio",
-    // Sem fonte real — Prisma não guarda % de participação societária
-    // hoje (pedido do usuário, 2026-08-21: não mockar, mostrar "—").
-    participacaoPct: null,
-    temRg: representante.rg !== null,
-    temProcuracao: representante.procuracao !== null,
-  }));
-
-  const enderecoReceita = dadosReceita?.endereco ?? null;
-  const enderecoComplementar = detalhe.complementar?.enderecoAgencia ?? null;
-  const endereco = enderecoComplementar?.logradouro
-    ? {
-        logradouro: enderecoComplementar.logradouro,
-        numero: enderecoComplementar.numero,
-        complemento: enderecoComplementar.complemento,
-        bairro: enderecoComplementar.bairro,
-        cidade: enderecoComplementar.cidade,
-        uf: enderecoComplementar.uf,
-        cep: enderecoComplementar.cep,
-      }
-    : enderecoReceita;
+  const status = identidade.ativo ? "ativo" : "recusado";
+  const base = hashParaNumero(identidade.id);
+  const blocoVendas = construirBlocoVendas(base);
 
   return {
-    id: agencia.id,
-    identificador: gerarIdentificador(agencia.razaoSocial),
-    categoria: blocoVendas.categoria,
-    temRiscoCadastral: (detalhe.analiseIa?.flagsRisco.length ?? 0) > 0,
-    ativoSistema: agencia.status === "ativo",
-    ativadoEm: agencia.createdAt.toISOString(),
-    dadosDocumentacao: {
-      empresa: {
-        nomeFantasia: agencia.nomeFantasia,
-        razaoSocial: agencia.razaoSocial,
-        cnpj: agencia.cnpj,
-        statusLabel: labelStatus(agencia.status),
-        statusClasses: classesBadgeStatus(agencia.status),
-        etapaLabel: labelEtapa(agencia.status),
-        situacaoReceita: dadosReceita?.situacaoCadastral ?? null,
-        dataAbertura: dadosReceita?.dataAbertura?.toISOString() ?? null,
-        tempoDeCnpj: dadosReceita?.dataAbertura ? tempoDecorrido(dadosReceita.dataAbertura) : null,
-        capitalSocial: dadosReceita?.capitalSocial ?? null,
-        naturezaJuridica: dadosReceita?.naturezaJuridica ?? null,
-        porte: dadosReceita?.porte ?? null,
-        optanteSimples: dadosReceita?.optanteSimples ?? null,
-        emailReceita: dadosReceita?.email ?? null,
-        telefoneReceita: dadosReceita?.telefone ?? null,
-        cnaePrincipal: (() => {
-          const principal = dadosReceita?.cnaes.find((cnae) => cnae.principal);
-          return principal?.codigo
-            ? { codigo: principal.codigo, descricao: principal.descricao ?? "" }
-            : null;
-        })(),
-        cnaesSecundarios: (dadosReceita?.cnaes ?? [])
-          .filter((cnae) => !cnae.principal && cnae.codigo)
-          .map((cnae) => ({ codigo: cnae.codigo!, descricao: cnae.descricao ?? "" })),
-      },
-      datas: {
-        dataCadastroLegado: agencia.createdAt.toISOString(),
-        tempoComoCliente: tempoDecorrido(agencia.createdAt),
-      },
-      contato: {
-        nome: agencia.nomeFantasia ?? agencia.razaoSocial,
-        email: agencia.emailContato,
-        telefone1: agencia.telefoneContato,
-        telefone1Base: executivoContexto.base,
-        telefone2: null,
-        telefoneComercial: detalhe.complementar?.telefoneComercial ?? null,
-        emailReceita: dadosReceita?.email ?? null,
-        telefoneReceita: dadosReceita?.telefone ?? null,
-      },
-      endereco,
-      socios,
-    },
-    perfilComercial: {
-      sica: agencia.sicaCodigo,
-      base: executivoContexto.base,
-      gestorNome: executivoContexto.gestorNome,
-      executivoNome: detalhe.executivoNome,
-      // Sem fonte real (segmento comercial, faturamento médio, comissão e
-      // incentivo não existem em nenhum sistema hoje) — não mockar, UI
-      // mostra "—" (pedido do usuário, 2026-08-21).
-      segmento: null,
-      mediaFaturamento: null,
-      bancoNome: detalhe.complementar?.bancoNome ?? null,
-      bancoCodigo: detalhe.complementar?.bancoCodigo ?? null,
-      bancoAgencia: detalhe.complementar?.bancoAgencia ?? null,
-      bancoConta: detalhe.complementar?.bancoConta ?? null,
-      limiteFaturado: Math.round(blocoVendas.volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
-      limiteCartao: Math.round(blocoVendas.volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
-      dataUltimaCompra: blocoVendas.dataUltimaCompra,
-      comissaoPct: null,
-      incentivoPct: null,
-      bloqCred: base % 20 === 0,
-    },
-    vendas: blocoVendas.vendas,
-  };
-}
-
-// Página de detalhe (/crm/agencias/[id]) quando o id é um código SICA —
-// 100% SST, sem tocar a tabela `Agencia` deste app (decisão do usuário,
-// 2026-08-21). Sócios, documentos, análise de risco e dados da Receita
-// Federal (CNAE, capital social, situação cadastral) não existem em
-// nenhum endpoint do SST — ficam vazios/null em vez de inventados; a UI
-// já degrada bem pra esses campos ("Nenhum sócio cadastrado.", "—",
-// "Dados bancários não informados"). `null` de retorno = código SICA não
-// existe no SST.
-export function montarAgenciaDetalheViewSst(
-  codigoEmpresa: number,
-  cadastroComercial: CadastroComercialSst,
-  executivoContexto: ExecutivoContexto,
-  vendasReais: VendasReaisSst | null = null,
-): AgenciaDetalheView | null {
-  const { baseEmpresa, cadastro } = cadastroComercial;
-  if (!baseEmpresa) return null;
-
-  const base = hashParaNumero(String(codigoEmpresa));
-  const blocoVendas = construirBlocoVendas(base, vendasReais);
-
-  const razaoSocial = cadastro?.razao_social || baseEmpresa.nome_chave || baseEmpresa.nome_fantasia;
-  const cnpjDigitos = unmaskCnpj(cadastro?.cnpj ?? baseEmpresa.CNPJ);
-  const ativoSistema = baseEmpresa.empresa_ativa === "SIM";
-
-  const endereco = cadastro?.endereco
-    ? {
-        logradouro: cadastro.endereco,
-        numero: cadastro.numero,
-        complemento: cadastro.complemento,
-        bairro: cadastro.bairro,
-        cidade: cadastro.cidade,
-        uf: cadastro.estado,
-        cep: cadastro.cep,
-      }
-    : baseEmpresa.endereco
-      ? {
-          logradouro: baseEmpresa.endereco,
-          numero: baseEmpresa.numero !== null ? String(baseEmpresa.numero) : null,
-          complemento: baseEmpresa.complemento,
-          bairro: baseEmpresa.bairro,
-          cidade: baseEmpresa.cidade,
-          uf: baseEmpresa.uf,
-          cep: baseEmpresa.CEP,
-        }
-      : null;
-
-  return {
-    id: String(codigoEmpresa),
-    identificador: gerarIdentificador(razaoSocial),
+    id: identidade.id,
+    identificador: gerarIdentificador(identidade.nome),
     categoria: blocoVendas.categoria,
     temRiscoCadastral: false,
-    ativoSistema,
-    ativadoEm: baseEmpresa.data_cadastro,
+    ativoSistema: identidade.ativo,
+    ativadoEm: identidade.entradaEm.toISOString(),
     dadosDocumentacao: {
       empresa: {
-        // `nome_chave` (não `nome_fantasia`) — é o mesmo nome que já
-        // aparece na listagem (roster de /api/agencias/ativas, mesmo
-        // valor). `nome_fantasia` no SST é outra coisa: pra agência de
-        // dono único costuma ser o nome da pessoa física (ex.: "RAFAEL
-        // SILVESTRINI FERREIRA"), não um nome fantasia de verdade —
-        // usar ele aqui deixava o nome em destaque da página diferente
-        // do nome que o usuário viu na linha da tabela.
-        nomeFantasia: baseEmpresa.nome_chave || baseEmpresa.nome_fantasia || null,
-        razaoSocial,
-        cnpj: cnpjDigitos,
-        statusLabel: ativoSistema ? "Ativo" : "Inativo",
-        statusClasses: ativoSistema
-          ? "bg-success-bg text-success-text"
-          : "bg-destructive-bg text-destructive-text",
-        etapaLabel: null,
-        situacaoReceita: null,
+        nomeFantasia: identidade.nome,
+        razaoSocial: identidade.nome,
+        cnpj: unmaskCnpj(identidade.cnpj),
+        statusLabel: labelStatus(status),
+        statusClasses: classesBadgeStatus(status),
+        etapaLabel: labelEtapa(status),
+        situacaoReceita: identidade.ativo ? "Ativa" : null,
         dataAbertura: null,
         tempoDeCnpj: null,
         capitalSocial: null,
@@ -513,55 +290,39 @@ export function montarAgenciaDetalheViewSst(
         cnaesSecundarios: [],
       },
       datas: {
-        dataCadastroLegado: baseEmpresa.data_cadastro,
-        tempoComoCliente: tempoDecorrido(new Date(baseEmpresa.data_cadastro)),
+        dataCadastroLegado: identidade.entradaEm.toISOString(),
+        tempoComoCliente: tempoDecorrido(identidade.entradaEm),
       },
       contato: {
-        nome: cadastro?.contato ?? null,
-        email: cadastro?.email || baseEmpresa.email_empresa || "",
-        telefone1: cadastro?.telefone || baseEmpresa.telefone_principal || "",
-        telefone1Base: executivoContexto.base,
+        nome: identidade.nome,
+        email: `contato@${gerarIdentificador(identidade.nome).toLowerCase().replace("ag-", "")}.com.br`,
+        telefone1: `(${11 + (base % 78)}) 9${String(1000 + (base % 8999)).padStart(4, "0")}-${String(base % 9999).padStart(4, "0")}`,
+        telefone1Base: identidade.base,
         telefone2: null,
         telefoneComercial: null,
         emailReceita: null,
         telefoneReceita: null,
       },
-      endereco,
+      endereco: null,
       socios: [],
     },
     perfilComercial: {
-      sica: String(codigoEmpresa),
-      // `base`: real do SST (`baseEmpresa.filial`, sigla de 3 letras,
-      // mesmo campo de /api/agencias/ativas.base — ver
-      // agencia-carteira.adapter.ts) — pedido do usuário, 2026-08-25.
-      // Cai pro "melhor esforço" local só se o SST não trouxer filial
-      // pra essa agência.
-      base: baseEmpresa.filial || executivoContexto.base,
-      gestorNome: executivoContexto.gestorNome,
-      // `||`, não `??`: agência sem executivo atribuído no SST devolve
-      // `codigo_executivo: 0` + `nome_executivo: ""` (string vazia, não
-      // null/undefined — confirmado por curl real, 2026-08-25, agência
-      // 6615) — trata como "sem executivo" (UI mostra "—"), igual ao
-      // resto do adapter (ver dataUltimaCompra abaixo).
-      executivoNome: executivoContexto.executivoNome || baseEmpresa.nome_executivo || null,
-      // Sem fonte real (segmento comercial, faturamento médio, comissão e
-      // incentivo não existem em nenhum sistema hoje) — não mockar, UI
-      // mostra "—" (pedido do usuário, 2026-08-21).
+      sica: identidade.sica,
+      base: identidade.base,
+      gestorNome: identidade.gestorNome,
+      executivoNome: identidade.executivoNome,
       segmento: null,
       mediaFaturamento: null,
       bancoNome: null,
       bancoCodigo: null,
       bancoAgencia: null,
       bancoConta: null,
-      // real (SST, base-empresa-cadastro) — total já soma limite + adicional.
-      limiteFaturado:
-        baseEmpresa.total_limite_cred_faturado || baseEmpresa.limite_cred_faturado || 0,
-      limiteCartao:
-        baseEmpresa.total_limite_cred_cartao_credito || baseEmpresa.limite_cred_cartao_credito || 0,
+      limiteFaturado: Math.round(blocoVendas.volumeAno * (1.1 + ((base >> 4) % 30) / 100)),
+      limiteCartao: Math.round(blocoVendas.volumeAno * (0.2 + ((base >> 6) % 15) / 100)),
       dataUltimaCompra: blocoVendas.dataUltimaCompra,
       comissaoPct: null,
       incentivoPct: null,
-      bloqCred: baseEmpresa.bloqueio_credito === "SIM",
+      bloqCred: base % 20 === 0,
     },
     vendas: blocoVendas.vendas,
   };

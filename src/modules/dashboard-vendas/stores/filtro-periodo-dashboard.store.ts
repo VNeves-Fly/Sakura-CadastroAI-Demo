@@ -19,13 +19,15 @@ import type {
 export type FiltroPeriodoDashboard = PeriodoResumo | "personalizado";
 
 // Fallback enquanto o intervalo real ainda não chegou (`personalizado.
-// dados === null` — primeiro instante depois de aplicar, erro de rede, ou
-// SST não configurado neste ambiente) — todo consumidor usa a prévia de
+// dados === null` — primeiro instante antes de aplicar um período, ou
+// erro de validação de data) — todo consumidor usa a prévia de
 // "Este mês" nesses casos, ver resolverPeriodo. Antes (2026-08-18/19) era
 // o único comportamento possível porque não existia fonte de dados pra
 // um intervalo arbitrário; agora existe (`/api/consolidado/
 // overview-intervalo`, ver dashboard-vendas.sst-service.ts), então isto
 // vira só um fallback de estado transitório/erro, não mais definitivo.
+// Projeto de demonstração — a action nunca devolve `null` (sempre mock
+// rico); só `dados: null` porque ainda não houve fetch, ou erro (exceção).
 export const PERIODO_PREVIA_PERSONALIZADO: PeriodoResumo = "mes";
 
 // Resultado (real, via SST) do último intervalo aplicado no calendário —
@@ -47,8 +49,8 @@ interface FiltroPeriodoDashboardState {
   setDataInicial: (valor: string) => void;
   setDataFinal: (valor: string) => void;
   // Chamada pelo popover ao clicar "Aplicar período" — dispara a Server
-  // Action (dashboard-vendas.actions.ts) contra o SST real
-  // (/api/consolidado/overview-intervalo + agencias/top + ranking-cias).
+  // Action (dashboard-vendas.actions.ts), que devolve dado mock rico
+  // (projeto de demonstração, ver dashboard-vendas.controller.ts).
   carregarPersonalizado: (inicioIso: string, fimIso: string) => Promise<void>;
 }
 
@@ -65,11 +67,7 @@ export const useFiltroPeriodoDashboardStore = create<FiltroPeriodoDashboardState
     try {
       const dados = await obterResumoPersonalizadoAction(inicioIso, fimIso);
       set({
-        personalizado: {
-          dados,
-          carregando: false,
-          erro: dados ? null : "SST não configurado neste ambiente.",
-        },
+        personalizado: { dados, carregando: false, erro: null },
       });
     } catch (erro) {
       set({

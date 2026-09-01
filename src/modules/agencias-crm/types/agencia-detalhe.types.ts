@@ -1,12 +1,14 @@
-// Página de Detalhe da Agência (SPEC_AGENCIAS_SAKURA.md, seção 4). Campos
-// marcados "real" abaixo vêm de Agencia/DadosReceita/RepresentanteLegal/
-// CadastroComplementar/AnaliseIaAgencia (mesmas fontes do dossiê de
-// /cadastros/:id, via cadastroAdminController.obterDetalhe +
-// obterDadosReceita), ou do SST (bloco "vendas", ver
-// agencia-detalhe.sst-service.ts) quando a agência tem sicaCodigo e a
-// integração está ligada. "Limites & comercial" não tem fonte real hoje
-// (não existe limite de crédito modelado no domínio) e segue mock
-// determinístico, documentado no adapter.
+// Página de Detalhe da Agência (SPEC_AGENCIAS_SAKURA.md, seção 4).
+// Repositório de DEMONSTRAÇÃO: nunca chama o SST nem o Postgres local —
+// todo o conteúdo desta view vem das 25 identidades fictícias canônicas
+// de crm-mock/agencias.mock-data.ts (identidade/status/executivo/gestor)
+// combinadas aos geradores determinísticos por hash já existentes
+// (vendas/margem/top companhias/faturas), ver
+// montarAgenciaDetalheViewMock em agencia-detalhe.adapter.ts. As
+// anotações "real"/"mock" abaixo, herdadas de quando a página ainda
+// integrava com SST/Postgres, foram mantidas por documentarem a FORMA
+// esperada de cada campo (o que preencheria com dado real numa integração
+// futura) — na prática, hoje todo campo é mock.
 
 import type { PeriodoVolumeAgencia } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 

@@ -1,8 +1,5 @@
-// Modelo de dados da página /crm/novas-agencias. Identidade/entrada das
-// agências vem do Prisma local (Agencia aprovada nos últimos 90 dias,
-// via HistoricoEtapaCadastro); volume/situação/1ª compra vêm do SST
-// quando SST_API_KEY está configurada, com fallback mock determinístico
-// por linha — ver novas-agencias.loader.ts/adapter.ts.
+// Modelo de dados da página /crm/novas-agencias. Demo 100% mock (sem
+// Prisma/SST) — ver novas-agencias.loader.ts/adapter.ts.
 //
 // "logou" foi removido (decisão 2026-08-25): não existe fonte real de
 // login/acesso de agência em lugar nenhum do sistema.

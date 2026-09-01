@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { obterDashboardPersonalizadoAction } from "@/modules/atribuicoes/actions/executivo-dashboard.actions";
-import type { DashboardPersonalizadoSst } from "@/modules/atribuicoes/services/executivo-dashboard.sst-service";
+import type { DashboardPersonalizadoMock } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 import type { PeriodoVendasMesHero } from "@/modules/atribuicoes/types/executivo-detalhe.types";
 
 // Filtro de período do card "Receita total" do Executivo (SPEC 3.5) —
@@ -20,7 +20,7 @@ export type FiltroPeriodoExecutivo = PeriodoVendasMesHero | "personalizado";
 export const PERIODO_PREVIA_PERSONALIZADO: PeriodoVendasMesHero = "mes";
 
 interface EstadoPersonalizadoExecutivo {
-  dados: DashboardPersonalizadoSst | null;
+  dados: DashboardPersonalizadoMock | null;
   carregando: boolean;
   erro: string | null;
 }
@@ -66,13 +66,7 @@ export const useFiltroPeriodoExecutivoStore = create<FiltroPeriodoExecutivoState
     set({ personalizado: { dados: null, carregando: true, erro: null } });
     try {
       const dados = await obterDashboardPersonalizadoAction(codigoExecutivo, inicioIso, fimIso);
-      set({
-        personalizado: {
-          dados,
-          carregando: false,
-          erro: dados ? null : "SST não configurado neste ambiente.",
-        },
-      });
+      set({ personalizado: { dados, carregando: false, erro: null } });
     } catch (erro) {
       set({
         personalizado: {

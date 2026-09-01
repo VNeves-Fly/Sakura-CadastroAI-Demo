@@ -1,10 +1,13 @@
 import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import type {
+  AgenciaCarteiraResumo,
   AgenciaSegmentoResumo,
+  CanalAgenciaCarteira,
   CanalMargemPeriodo,
   CanalMargemResumo,
   ExecutivoAgenciaResumo,
   ExecutivoDashboard,
+  FaixaRecenciaAgencia,
   LoyaltyChip,
   MargemRentabExecutivo,
   PeriodoVendasMesHero,
@@ -443,6 +446,171 @@ async function obterDashboard(
   };
 }
 
+const CANAIS_CARTEIRA: CanalAgenciaCarteira[] = ["aereo", "terrestre", "ambos", "nenhum"];
+const FAIXAS_RECENCIA: FaixaRecenciaAgencia[] = ["ate30d", "30a90d", "90a365d", "semVenda365d"];
+
+// Linha por agência da aba "Agências" (ver AgenciaCarteiraResumo) — sem
+// SICA/SST não há como filtrar o roster real por executivo, então gera uma
+// linha mock por agência já conhecida (`agencias`, vinda do banco local)
+// em vez de devolver lista vazia; mesma ideia de "nunca mostrar vazio" que
+// rege o resto deste service. `faixaRecencia` puxa pro "ativo" com mais
+// frequência (peso maior em `ate30d`) pra combinar com `vendendoUltimos30d`
+// já mockado em cima do mesmo hash.
+function gerarAgenciasCarteira(
+  agencias: ExecutivoAgenciaResumo[],
+  base: number,
+): AgenciaCarteiraResumo[] {
+  return agencias.map((agencia, indice) => {
+    const seed = hashParaNumero(agencia.id) + base + indice * 67;
+    const canal = CANAIS_CARTEIRA[seed % CANAIS_CARTEIRA.length]!;
+    const faixaRecencia =
+      seed % 5 === 0 ? FAIXAS_RECENCIA[1 + ((seed >> 2) % 3)]! : FAIXAS_RECENCIA[0]!;
+    const vendasAno = 5_000 + (seed % 500_000);
+    const vendas90d = Math.round(vendasAno * (0.15 + ((seed >> 3) % 20) / 100));
+    const vendas30d = Math.round(vendas90d * (0.25 + ((seed >> 5) % 25) / 100));
+    const bilhetesAno = Math.max(1, Math.round(vendasAno / (1_800 + (seed % 900))));
+    const bilhetes90d = Math.max(0, Math.round(bilhetesAno * (vendas90d / vendasAno)));
+    const bilhetes30d = Math.max(0, Math.round(bilhetesAno * (vendas30d / vendasAno)));
+    const vendasHojeAereo =
+      canal === "aereo" || canal === "ambos" ? Math.round(vendas30d * 0.03) : 0;
+    const vendasHojeTerrestre =
+      canal === "terrestre" || canal === "ambos" ? Math.round(vendas30d * 0.015) : 0;
+
+    return {
+      codigo: 100_000 + (seed % 900_000),
+      nome: agencia.nome,
+      cnpj: agencia.cnpj,
+      status: agencia.status,
+      canal,
+      faixaRecencia,
+      vendasAno,
+      bilhetesAno,
+      vendas90d,
+      bilhetes90d,
+      vendas30d,
+      bilhetes30d,
+      vendasHojeAereo,
+      bilhetesHojeAereo: vendasHojeAereo > 0 ? Math.max(1, Math.round(bilhetes30d * 0.03)) : 0,
+      vendasHojeTerrestre,
+      bilhetesHojeTerrestre:
+        vendasHojeTerrestre > 0 ? Math.max(1, Math.round(bilhetes30d * 0.015)) : 0,
+    };
+  });
+}
+
+// Versão enxuta pras listagens (/crm/executivos, /crm/gestores) — mesma
+// matemática de `valorMesAtual`/`acumuladoAnoValor` de `obterDashboard`,
+// mas sem precisar montar o dashboard inteiro (a listagem só tem
+// `promotorId`/`sica`, sem `agencias`/`totalAgencias` disponíveis).
+function obterVendasResumo(chave: string): { vendasMes: number; vendasAno: number } {
+  const base = hashParaNumero(chave);
+  const vendasMes = ((base % 900) + 80) * 25_000;
+  const vendasAno = Math.round(vendasMes * (6 + (base % 6)));
+  return { vendasMes, vendasAno };
+}
+
+// Nº de dias corridos entre duas datas ISO ("AAAA-MM-DD"), inclusive nas
+// duas pontas — mesma convenção de diasNoIntervalo em
+// dashboard-vendas.mock-service.ts (caso análogo do filtro "Personalizado"
+// do dashboard geral).
+function diasNoIntervalo(inicioIso: string, fimIso: string): number {
+  const inicio = Date.parse(`${inicioIso}T00:00:00Z`);
+  const fim = Date.parse(`${fimIso}T00:00:00Z`);
+  const dias = Math.round((fim - inicio) / 86_400_000) + 1;
+  return Math.max(1, dias);
+}
+
+// Escala um VendasMesHero (já mockado pro bucket "mes", ~30 dias) pelo nº
+// de dias do intervalo pedido — valor/bilhetes proporcionais, o resto
+// (agenciasVendendo/variacaoPct) continua igual (não são montantes).
+function escalarHero(hero: VendasMesHero, fator: number): VendasMesHero {
+  return {
+    ...hero,
+    valor: Math.round(hero.valor * fator),
+    bilhetes: Math.max(1, Math.round(hero.bilhetes * fator)),
+  };
+}
+
+// Escala um CanalMargemPeriodo pelo mesmo fator (valor/quantidade/
+// rentabilidade/componentes brutos proporcionais; margens/percentuais
+// continuam os mesmos, são taxas, não montantes) — mesmo critério de
+// escalarCanalResumo em dashboard-vendas.mock-service.ts.
+function escalarCanalMargemPeriodo(canal: CanalMargemPeriodo, fator: number): CanalMargemPeriodo {
+  const valor = Math.round(canal.valor * fator);
+  const quantidade = Math.round(canal.quantidade * fator);
+  const nacionalValor = Math.round(canal.nacionalValor * fator);
+  return {
+    ...canal,
+    valor,
+    quantidade,
+    rentabValor: Math.round(canal.rentabValor * fator),
+    rentabLYValor: Math.round(canal.rentabLYValor * fator),
+    ticketMedio: quantidade > 0 ? Math.round(valor / quantidade) : 0,
+    valorLY: Math.round(canal.valorLY * fator),
+    nacionalValor,
+    internacionalValor: valor - nacionalValor,
+  };
+}
+
+function escalarCanalMargemResumo(resumo: CanalMargemResumo, fator: number): CanalMargemResumo {
+  return {
+    total: escalarCanalMargemPeriodo(resumo.total, fator),
+    aereo: escalarCanalMargemPeriodo(resumo.aereo, fator),
+    terrestre: escalarCanalMargemPeriodo(resumo.terrestre, fator),
+  };
+}
+
+export interface DashboardPersonalizadoMock {
+  hero: VendasMesHero;
+  margemRentab: CanalMargemResumo;
+}
+
+// Filtro "Personalizado" (popover de data do card "Receita total", ver
+// executivo-dashboard.actions.ts/gestor-dashboard.actions.ts) — deriva do
+// mesmo bucket "mes" já mockado por `gerarHeroPorPeriodo`/
+// `gerarMargemRentabPorPeriodo` (a base de ~30 dias usada no resto do
+// dashboard), escalado linearmente pelo nº de dias do intervalo pedido.
+// Mesma estratégia de construirResumoPersonalizadoMock em
+// dashboard-vendas.mock-service.ts (caso análogo pro dashboard geral):
+// aproximação de fixture, não literalmente linear no calendário todo, mas
+// determinística e plausível.
+function obterDashboardPersonalizado(
+  chave: string,
+  inicioIso: string,
+  fimIso: string,
+): DashboardPersonalizadoMock {
+  const base = hashParaNumero(chave);
+  const { vendasMes } = obterVendasResumo(chave);
+  const bilhetesMes = Math.max(1, Math.round(vendasMes / (1_800 + (base % 900))));
+  const variacaoPct = ((base % 40) - 20) / 10;
+  const vendendoUltimos30d = 1; // sem `totalAgencias` disponível neste fluxo (só `chave`)
+
+  const heroMes = gerarHeroPorPeriodo(
+    base,
+    vendasMes,
+    bilhetesMes,
+    variacaoPct,
+    vendendoUltimos30d,
+    vendendoUltimos30d,
+  ).mes;
+  const margemRentabMes = gerarMargemRentabPorPeriodo(base, {
+    dia: heroMes,
+    ontem: heroMes,
+    mes: heroMes,
+    ano: heroMes,
+  }).mes;
+
+  const fator = diasNoIntervalo(inicioIso, fimIso) / 30;
+
+  return {
+    hero: escalarHero(heroMes, fator),
+    margemRentab: escalarCanalMargemResumo(margemRentabMes, fator),
+  };
+}
+
 export const executivoDashboardMockService = {
   obterDashboard,
+  gerarAgenciasCarteira,
+  obterVendasResumo,
+  obterDashboardPersonalizado,
 };

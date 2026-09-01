@@ -3,9 +3,9 @@
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import {
-  executivoDashboardSstService,
-  type DashboardPersonalizadoSst,
-} from "@/modules/atribuicoes/services/executivo-dashboard.sst-service";
+  executivoDashboardMockService,
+  type DashboardPersonalizadoMock,
+} from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 
 // Mesmo guard de /crm/executivos/[id]/page.tsx — Server Actions são
 // endpoints próprios (POST), não herdam o redirect da página.
@@ -22,16 +22,16 @@ async function garantirAcesso(): Promise<void> {
 // Chamada pelo popover de período do card "Receita total" (dashboard do
 // Executivo) quando o usuário aplica um intervalo personalizado — mesma
 // ideia de obterVolumePersonalizadoAction em agencias-crm, aqui filtrado
-// por `codigoExecutivo` (código SICA). `null` = SST não configurado neste
-// ambiente.
+// por `codigoExecutivo` (código SICA). Este projeto é uma DEMO — sempre
+// mock determinístico, nunca chama o SST real (ver
+// executivo-dashboard.mock-service.ts).
 export async function obterDashboardPersonalizadoAction(
   codigoExecutivo: number,
   inicioIso: string,
   fimIso: string,
-): Promise<DashboardPersonalizadoSst | null> {
+): Promise<DashboardPersonalizadoMock> {
   await garantirAcesso();
 
-  if (!process.env.SST_API_KEY) return null;
   if (!FORMATO_DATA_ISO.test(inicioIso) || !FORMATO_DATA_ISO.test(fimIso)) {
     throw new Error("Datas inválidas.");
   }
@@ -39,8 +39,8 @@ export async function obterDashboardPersonalizadoAction(
     throw new Error("Data inicial não pode ser depois da data final.");
   }
 
-  return executivoDashboardSstService.obterDashboardPersonalizado(
-    codigoExecutivo,
+  return executivoDashboardMockService.obterDashboardPersonalizado(
+    String(codigoExecutivo),
     inicioIso,
     fimIso,
   );

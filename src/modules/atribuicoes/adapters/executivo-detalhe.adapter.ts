@@ -2,6 +2,10 @@ import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util"
 import type { AgenciaResumoPromotor } from "@/modules/cadastro/domain/repositories/agencia-repository";
 import type { PromotorProps } from "@/modules/atribuicoes/domain/entities/promotor.entity";
 import type { GestorOpcao } from "@/modules/atribuicoes/types/promotor-crud.types";
+import {
+  IDENTIDADES_AGENCIAS_COMPARTILHADAS,
+  MOCK_AGENCIAS_EXECUTIVO,
+} from "@/modules/crm-mock/agencias.mock-data";
 import type {
   ExecutivoAgenciaResumo,
   ExecutivoPerfil,
@@ -53,6 +57,31 @@ export function mapAgencia(agencia: AgenciaResumoPromotor): ExecutivoAgenciaResu
     status: agencia.status,
     criadoEm: agencia.createdAt,
   };
+}
+
+// Demo (/crm/*): monta o portfólio mock de agências do executivo no shape
+// "banco local" (AgenciaResumoPromotor) que montarExecutivoPerfil/mapAgencia
+// esperam — evita duplicar esse mapeamento nas 3 páginas que precisam dele
+// (detalhe/agências/agenda do executivo). `MOCK_AGENCIAS_EXECUTIVO` (shape
+// "carteira SST") não carrega `executivoNome` — a identidade de dono vem de
+// `IDENTIDADES_AGENCIAS_COMPARTILHADAS` (mesmos ids, mesma ordem, ver
+// crm-mock/agencias.mock-data.ts), por isso filtramos ali e casamos por id.
+export function listarAgenciasMockDoExecutivo(nomeExecutivo: string): AgenciaResumoPromotor[] {
+  const idsDoExecutivo = new Set(
+    IDENTIDADES_AGENCIAS_COMPARTILHADAS.filter(
+      (identidade) => identidade.executivoNome === nomeExecutivo,
+    ).map((identidade) => identidade.id),
+  );
+
+  return MOCK_AGENCIAS_EXECUTIVO.filter((agencia) => idsDoExecutivo.has(agencia.id)).map(
+    (agencia) => ({
+      id: agencia.id,
+      razaoSocial: agencia.nome,
+      cnpj: agencia.cnpj,
+      status: agencia.status,
+      createdAt: new Date(),
+    }),
+  );
 }
 
 // Cabeçalho de perfil do executivo (SPEC seções 3) — 100% real, vem de

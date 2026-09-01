@@ -13,11 +13,11 @@ import { LoadingBall } from "@/components/ui/loading-ball";
 // Placeholder da Fast View inteira enquanto tvController.obterDados()
 // resolve via Suspense (ver page.tsx). Reproduz o chrome real de cada
 // card (ícone, cor, label, moldura) — que não depende dos dados — e só
-// troca por LoadingBall/Skeleton o que de fato vem do SST. É um painel
-// pensado pra telão (Fast View), por isso o LoadingBall (bolinha
-// pulsando) nas células/números principais em vez de um cinza genérico
-// only: reforça "isto está vivo, só ainda não chegou" em vez de "isto
-// travou".
+// troca por LoadingBall/Skeleton o que de fato vem do tv.mock-service.ts.
+// É um painel pensado pra telão (Fast View), por isso o LoadingBall
+// (bolinha pulsando) nas células/números principais em vez de um cinza
+// genérico only: reforça "isto está vivo, só ainda não chegou" em vez de
+// "isto travou".
 
 function CardValorSkeleton({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   // Molde de TvVendasCard (ver tv-vendas-card.tsx) — label/ícone reais,

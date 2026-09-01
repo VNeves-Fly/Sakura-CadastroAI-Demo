@@ -1,5 +1,8 @@
-import { gestoresController } from "@/modules/gestores/presentation/controllers/gestores.controller";
-import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
+import {
+  buscarGestorMockPorId,
+  listarExecutivosMockPorGestor,
+} from "@/modules/crm-mock/pessoas.mock-data";
+import { listarAgenciasMockDoExecutivo } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
 import type {
   ExecutivoComCarteira,
   GestorRaw,
@@ -11,29 +14,35 @@ export interface GestorComExecutivos {
 }
 
 // Carrega o gestor + a carteira completa dos executivos subordinados a ele
-// (agências reais via Promotor.gestorId) — usado por todas as abas do
-// detalhe do gestor (Dashboard/Executivos/Agenda/Agências), server-side,
-// pra não duplicar essa busca em cada page.tsx. Retorna null se o gestor
-// não existir (chamador decide se chama notFound()).
+// — usado por todas as abas do detalhe do gestor (Dashboard/Executivos/
+// Agenda/Agências), server-side, pra não duplicar essa busca em cada
+// page.tsx. Retorna null se o gestor não existir (chamador decide se chama
+// notFound()). Dados fictícios (demo): nunca lê do Postgres real, ver
+// crm-mock/pessoas.mock-data.ts / crm-mock/agencias.mock-data.ts.
 export async function carregarGestorComExecutivos(
   gestorId: string,
 ): Promise<GestorComExecutivos | null> {
-  const gestor = await gestoresController.getById(gestorId).catch(() => null);
-  if (!gestor) return null;
+  const gestorMock = buscarGestorMockPorId(gestorId);
+  if (!gestorMock) return null;
 
-  const promotores = await atribuicoesAdminController.listarPromotores();
-  const subordinados = promotores.filter((promotor) => promotor.gestorId === gestor.id);
+  const gestor: GestorRaw = {
+    id: gestorMock.id,
+    nome: gestorMock.nome,
+    email: gestorMock.email,
+    telefone: gestorMock.telefone,
+    bases: gestorMock.bases,
+  };
 
-  const executivos = await Promise.all(
-    subordinados.map(async (promotor) => ({
-      id: promotor.id,
-      nome: promotor.nome,
-      email: promotor.email,
-      sica: promotor.sica,
-      bases: promotor.bases,
-      agencias: await atribuicoesAdminController.listarAgenciasPorPromotor(promotor.id),
-    })),
-  );
+  const subordinados = listarExecutivosMockPorGestor(gestorMock.id);
+
+  const executivos: ExecutivoComCarteira[] = subordinados.map((promotor) => ({
+    id: promotor.id,
+    nome: promotor.nome,
+    email: promotor.email,
+    sica: promotor.sica,
+    bases: promotor.bases,
+    agencias: listarAgenciasMockDoExecutivo(promotor.nome),
+  }));
 
   return { gestor, executivos };
 }

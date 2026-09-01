@@ -14,6 +14,7 @@ import type {
   ProjecaoDia,
   RecenciaAgencias,
   ResumoDia,
+  ResumoPersonalizado,
   TopAgencia,
   TopFornecedor,
   VendaDiaria,
@@ -230,6 +231,78 @@ function construirMiniKpisPorPeriodo(
     };
   }
   return resultado;
+}
+
+// Nº de dias corridos entre duas datas ISO ("AAAA-MM-DD"), inclusive nas
+// duas pontas (mesma convenção "mês-a-data" do resto do arquivo) — usado
+// só pra escalar o resumo do filtro "Personalizado" (não existe intervalo
+// pré-computado pra ele, ver obterResumoPersonalizadoMock).
+function diasNoIntervalo(inicioIso: string, fimIso: string): number {
+  const inicio = Date.parse(`${inicioIso}T00:00:00Z`);
+  const fim = Date.parse(`${fimIso}T00:00:00Z`);
+  const dias = Math.round((fim - inicio) / 86_400_000) + 1;
+  return Math.max(1, dias);
+}
+
+// Escala um CanalResumo pelo mesmo fator (valor/quantidade/rentabilidade
+// proporcional; margens e participação continuam as mesmas, são taxas,
+// não montantes) — reaproveitado pra derivar o intervalo arbitrário do
+// filtro "Personalizado" a partir do bucket "mes" já existente, em vez de
+// inventar uma segunda fixture solta.
+function escalarCanalResumo(canal: ResumoDia["aereo"], fator: number): ResumoDia["aereo"] {
+  return {
+    ...canal,
+    valor: Math.round(canal.valor * fator),
+    quantidade: Math.round(canal.quantidade * fator),
+    rentabValor: Math.round(canal.rentabValor * fator * 100) / 100,
+    rentabLYValor: Math.round(canal.rentabLYValor * fator * 100) / 100,
+    nacIntDetalhe: {
+      nacional: {
+        valor: Math.round(canal.nacIntDetalhe.nacional.valor * fator),
+        bilhetes: Math.round(canal.nacIntDetalhe.nacional.bilhetes * fator),
+      },
+      internacional: {
+        valor: Math.round(canal.nacIntDetalhe.internacional.valor * fator),
+        bilhetes: Math.round(canal.nacIntDetalhe.internacional.bilhetes * fator),
+      },
+    },
+  };
+}
+
+// Deriva um ResumoDia pra um intervalo arbitrário a partir do bucket "mes"
+// (~30 dias) do mesmo resumoPorPeriodo usado no resto do dashboard —
+// escala linear pelo nº de dias pedidos, mesma base de dados/nomes, sem
+// segunda fonte solta. Só uma aproximação de fixture (o resumo real por
+// intervalo não é literalmente linear no calendário todo), mas é
+// determinístico e plausível, que é o que a demo pede.
+function construirResumoPersonalizadoMock(inicioIso: string, fimIso: string): ResumoPersonalizado {
+  const resumoPorPeriodo = construirResumoPorPeriodo();
+  const base = resumoPorPeriodo.mes;
+  const dias = diasNoIntervalo(inicioIso, fimIso);
+  const fator = dias / 30;
+
+  const resumo: ResumoDia = {
+    ...base,
+    aereo: escalarCanalResumo(base.aereo, fator),
+    terrestre: escalarCanalResumo(base.terrestre, fator),
+    rentabTotalValor: Math.round(base.rentabTotalValor * fator * 100) / 100,
+    rentabTotalLYValor: Math.round(base.rentabTotalLYValor * fator * 100) / 100,
+  };
+
+  const miniKpisBase = construirMiniKpisPorPeriodo(resumoPorPeriodo).mes;
+  const miniKpis: MiniKpis = {
+    clientesDistintos: Math.round(miniKpisBase.clientesDistintos * fator),
+    bilhetesAereo: resumo.aereo.quantidade,
+    ticketMedioAereo:
+      resumo.aereo.quantidade > 0 ? Math.round(resumo.aereo.valor / resumo.aereo.quantidade) : 0,
+  };
+
+  return {
+    resumo,
+    miniKpis,
+    ranking: construirTopAgencias(fator * 0.099),
+    fornecedores: construirTopFornecedores(fator * 0.099),
+  };
 }
 
 function construirProjecao(): ProjecaoDia {
@@ -878,5 +951,13 @@ export const dashboardVendasMockService = {
   },
   async obterProjecao() {
     return (await obterDashboardMock()).projecao;
+  },
+  // Sob demanda (filtro "Personalizado" do cabeçalho, ver
+  // dashboard-vendas.actions.ts) — não faz parte de DashboardVendasData
+  // porque não dá pra pré-computar todo intervalo de datas possível,
+  // então não passa por `obterDashboardMock()` como o resto: deriva do
+  // mesmo bucket "mes" já usado ali (ver construirResumoPersonalizadoMock).
+  async obterResumoPersonalizado(inicioIso: string, fimIso: string): Promise<ResumoPersonalizado> {
+    return construirResumoPersonalizadoMock(inicioIso, fimIso);
   },
 };

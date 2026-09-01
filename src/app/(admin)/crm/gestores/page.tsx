@@ -2,14 +2,28 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
-import { basesController } from "@/modules/bases/presentation/controllers/bases.controller";
-import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { gestoresController } from "@/modules/gestores/presentation/controllers/gestores.controller";
 import { calcularVendasPorGestor } from "@/modules/gestores/services/vendas-por-gestor.loader";
 import { GestoresListaSecao } from "@/modules/gestores/components/gestores-lista-secao";
 import { GestoresListaSkeleton } from "@/modules/gestores/components/gestores-lista-skeleton";
+import { MOCK_EXECUTIVOS, MOCK_GESTORES } from "@/modules/crm-mock/pessoas.mock-data";
+import { BASES_MOCK } from "@/modules/crm-mock/agencias.mock-data";
+import type { BaseView } from "@/modules/bases/types/base.types";
+import type { RawGestorResponse } from "@/modules/gestores/services/gestores.service";
 
 const CARGOS_GESTAO_DE_GESTORES = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
+
+// Deriva as opções de base direto das siglas fictícias em BASES_MOCK — este
+// repositório é uma demonstração e não deve consultar a tabela `Base` real
+// (ver crm-mock/agencias.mock-data.ts).
+const MOCK_BASES: BaseView[] = BASES_MOCK.map(([sigla, cidadeUf]) => {
+  const [nomeCidade, uf] = cidadeUf.split("/");
+  return {
+    id: `base-${sigla.toLowerCase()}`,
+    sigla,
+    nomeCidade: nomeCidade ?? cidadeUf,
+    uf: uf ?? "",
+  };
+});
 
 export default async function GestoresPage() {
   const session = await getServerSession(nextAuthOptions);
@@ -17,15 +31,11 @@ export default async function GestoresPage() {
     redirect("/cadastros");
   }
 
-  // Banco local (Prisma) — rápido, mantido com `await` bloqueante mesmo:
-  // a lista de gestores em si depende disso de qualquer forma. `gestoresRaw`
-  // seedava antes só via fetch client redundante em GestoresView (mesmo
-  // dado, refeito a cada navegação) — agora vem direto daqui.
-  const [basesOptions, promotores, gestoresRaw] = await Promise.all([
-    basesController.list(),
-    atribuicoesAdminController.listarPromotores(),
-    gestoresController.list(),
-  ]);
+  // Dados fictícios (demo): nunca lê do Postgres real, ver
+  // crm-mock/pessoas.mock-data.ts.
+  const basesOptions = MOCK_BASES;
+  const promotores = MOCK_EXECUTIVOS;
+  const gestoresRaw: RawGestorResponse[] = MOCK_GESTORES.map((gestor) => gestor.toJSON());
 
   // Coluna "Executivos" da lista é dado real — contagem de Promotor.gestorId
   // apontando pra cada gestor (não existe agregação pronta pra isso ainda,

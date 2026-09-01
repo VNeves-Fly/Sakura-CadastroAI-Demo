@@ -33,10 +33,9 @@ const STATUS_CLASSES: Record<FaturaAgencia["status"], string> = {
 // (centro) · Valor (centro) · Status (direita).
 const COLS = "repeat(4, minmax(0,1fr))";
 
-// Aba "Faturas" do detalhe de Agência (SPEC seção 3.7) — real via SST
-// (GET /api/agencias/faturas, ver agencia-detalhe.sst-service.ts) quando
-// a agência tem venda detectada; mock por hash como fallback (mesmo
-// critério do resto do módulo). Coluna "Cias" da versão antiga foi
+// Aba "Faturas" do detalhe de Agência (SPEC seção 3.7) — mock
+// determinístico por hash (repositório de DEMONSTRAÇÃO, nunca chama o
+// SST, ver agencia-detalhe.adapter.ts). Coluna "Cias" da versão antiga foi
 // removida (a SPEC nova só prevê Número/Vencimento/Valor/Status);
 // `fatura.cias` continua no CSV exportado, só não aparece mais na tabela
 // em tela.

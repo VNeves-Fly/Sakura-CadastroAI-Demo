@@ -1,14 +1,15 @@
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
-import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
 import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
 import { criarExecutivoHeaderStatsSlots } from "@/modules/atribuicoes/components/executivo/dashboard/executivo-header-stats";
 import {
+  listarAgenciasMockDoExecutivo,
   mapAgencia,
   montarExecutivoPerfil,
 } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
 import { ExecutivoAgendaView } from "@/modules/atribuicoes/views/executivo-agenda-view";
+import { buscarExecutivoMockPorId, MOCK_GESTORES } from "@/modules/crm-mock/pessoas.mock-data";
 
 const CARGOS_ADMIN = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
 
@@ -20,13 +21,13 @@ export default async function ExecutivoAgendaPage({ params }: { params: { id: st
     redirect("/cadastros");
   }
 
-  const promotor = await atribuicoesAdminController.buscarPromotorPorId(params.id);
+  // Dados fictícios (demo): nunca lê do Postgres real, ver
+  // crm-mock/pessoas.mock-data.ts / crm-mock/agencias.mock-data.ts.
+  const promotor = buscarExecutivoMockPorId(params.id);
   if (!promotor) notFound();
 
-  const [gestores, agencias] = await Promise.all([
-    atribuicoesAdminController.listarGestores(),
-    atribuicoesAdminController.listarAgenciasPorPromotor(params.id),
-  ]);
+  const gestores = MOCK_GESTORES;
+  const agencias = listarAgenciasMockDoExecutivo(promotor.nome);
   const gestoresPorId = new Map(
     gestores.map((gestor) => [
       gestor.id,

@@ -1,7 +1,5 @@
-import { hashParaNumero } from "@/modules/shared/utils/hash-deterministico.util";
 import { maskCnpj } from "@/modules/cadastro/utils/cnpj.util";
-import type { MetricasCarteiraSst } from "@/modules/agencias-crm/services/agencia-carteira.sst-service";
-import type { AgenciaAprovadaLocal } from "@/modules/novas-agencias/infrastructure/prisma-novas-agencias.repository";
+import type { IdentidadeAgenciaMock } from "@/modules/crm-mock/agencias.mock-data";
 import {
   formatarMoedaBrl,
   formatarMoedaAbreviada,
@@ -14,43 +12,24 @@ import type {
   SituacaoAgenciaNova,
 } from "@/modules/novas-agencias/types/novas-agencias.types";
 
-const DIAS_LIMITE_PAROU = 90; // mesma janela do rótulo "Comprando (90d)"/"Parou de comprar (+90d)"
+// Demo 100% mock (sem Prisma/SST): identidade + métricas de venda vêm
+// inteiramente de IDENTIDADES_AGENCIAS_COMPARTILHADAS, o mesmo
+// subconjunto usado por /crm/agencias — assim as duas telas convergem
+// nos mesmos ids/nomes. Ver novas-agencias.loader.ts.
+
 const UM_DIA_MS = 86_400_000;
 
-// nunca: sem venda detectada pra aquele codigoEmpresa (real "zero", não
-// mock — a agência foi consultada no SST e ele não tem registro de venda).
-export function derivarSituacao(metricas: MetricasCarteiraSst | undefined): SituacaoAgenciaNova {
-  if (!metricas || metricas.vendasAno === 0) return "nunca";
-  return metricas.diasSemComprar <= DIAS_LIMITE_PAROU ? "comprando" : "parou";
-}
+// Fator fixo e determinístico só pra simular "base histórica de agências
+// aprovadas" maior que a lista da janela — não é um dado real (não há
+// SST/Postgres nesta demo), mas precisa ser plausível e estável.
+const FATOR_BASE_APROVADAS = 3.4;
 
-interface MetricasMock {
-  vendasAno: number;
-  situacao: SituacaoAgenciaNova;
-  primeiraCompraEm: Date | null;
-}
-
-// Fallback determinístico (mesmo hash sempre gera a mesma linha) usado
-// quando o SST está desligado/falhou (metricasPorCodigo === null) OU a
-// agência nunca teve uma ConsultaSst de sucesso (sem codigoEmpresa pra
-// consultar) — nesses dois casos não temos como saber o dado real, então
-// não é seguro tratar como "nunca comprou" de verdade (diferente do caso
-// "consultamos o SST e ele não achou venda", que é sinal real).
-function gerarMetricasMock(seed: number, entradaEm: Date, hoje: Date): MetricasMock {
-  const diasDesdeEntrada = Math.max(
-    0,
-    Math.floor((hoje.getTime() - entradaEm.getTime()) / UM_DIA_MS),
-  );
-  const semVenda = seed % 3 === 0 || diasDesdeEntrada === 0;
-  if (semVenda) return { vendasAno: 0, situacao: "nunca", primeiraCompraEm: null };
-
-  const diasParaPrimeiraCompra = 1 + (seed % Math.min(30, diasDesdeEntrada));
-  const primeiraCompraEm = new Date(entradaEm.getTime() + diasParaPrimeiraCompra * UM_DIA_MS);
-  const diasSemComprar = seed % 200;
-  const situacao: SituacaoAgenciaNova = diasSemComprar <= DIAS_LIMITE_PAROU ? "comprando" : "parou";
-  const vendasAno = ((seed % 900) + 20) * 1_000;
-
-  return { vendasAno, situacao, primeiraCompraEm };
+// nunca: sem venda no ano. comprando: já teve 1ª compra e segue vendendo
+// no mês corrente. parou: já comprou alguma vez mas não vendeu no mês.
+export function derivarSituacao(identidade: IdentidadeAgenciaMock): SituacaoAgenciaNova {
+  if (identidade.vendasAno === 0) return "nunca";
+  if (identidade.primeiraCompraEm && identidade.vendasMes > 0) return "comprando";
+  return "parou";
 }
 
 interface LinhaInterna {
@@ -60,55 +39,26 @@ interface LinhaInterna {
   primeiraCompraEm: Date | null;
 }
 
-function montarLinha(
-  agencia: AgenciaAprovadaLocal,
-  metricasPorCodigo: Map<string, MetricasCarteiraSst> | null,
-  primeirasComprasPorCodigo: Map<string, string | null>,
-  hoje: Date,
-): LinhaInterna {
-  const codigoEmpresa = agencia.codigoEmpresa !== null ? String(agencia.codigoEmpresa) : null;
-  const seed = hashParaNumero(agencia.id);
-
-  let vendasAno: number;
-  let situacao: SituacaoAgenciaNova;
-  let primeiraCompraEm: Date | null;
-
-  if (metricasPorCodigo !== null && codigoEmpresa !== null) {
-    // Caminho real: consultamos o SST pra este codigoEmpresa. Ausência no
-    // mapa é sinal real de "sem venda detectada", não mock (ver
-    // derivarSituacao) — diferente de agencia-carteira.adapter.ts, que
-    // mocka mesmo com o mapa presente; aqui a semântica da tela exige
-    // distinguir "nunca comprou de verdade" de "não sabemos".
-    const metricas = metricasPorCodigo.get(codigoEmpresa);
-    situacao = derivarSituacao(metricas);
-    vendasAno = metricas?.vendasAno ?? 0;
-    const primeiraCompraIso =
-      situacao !== "nunca" ? primeirasComprasPorCodigo.get(codigoEmpresa) : null;
-    primeiraCompraEm = primeiraCompraIso ? new Date(primeiraCompraIso) : null;
-  } else {
-    // SST desligado/indisponível, ou agência sem ConsultaSst de sucesso —
-    // não sabemos o dado real, cai no mock determinístico por hash.
-    const mock = gerarMetricasMock(seed, agencia.entradaEm, hoje);
-    vendasAno = mock.vendasAno;
-    situacao = mock.situacao;
-    primeiraCompraEm = mock.primeiraCompraEm;
-  }
+function montarLinha(identidade: IdentidadeAgenciaMock): LinhaInterna {
+  const situacao = derivarSituacao(identidade);
 
   return {
     linha: {
-      id: agencia.id,
-      nome: agencia.razaoSocial.toUpperCase(),
-      meta: maskCnpj(agencia.cnpj),
-      executivo: agencia.executivoNome ?? "não definido",
-      gerente: agencia.gestorNome ?? "—",
-      entrada: formatarDataBr(agencia.entradaEm),
-      primeiraCompra: primeiraCompraEm ? formatarDataBr(primeiraCompraEm) : "—",
-      volume: formatarMoedaBrl(vendasAno),
+      id: identidade.id,
+      nome: identidade.nome.toUpperCase(),
+      meta: maskCnpj(identidade.cnpj),
+      executivo: identidade.executivoNome ?? "não definido",
+      gerente: identidade.gestorNome || "—",
+      entrada: formatarDataBr(identidade.entradaEm),
+      primeiraCompra: identidade.primeiraCompraEm
+        ? formatarDataBr(identidade.primeiraCompraEm)
+        : "—",
+      volume: formatarMoedaBrl(identidade.vendasAno),
       situacao,
     },
-    vendasAno,
-    entradaEm: agencia.entradaEm,
-    primeiraCompraEm,
+    vendasAno: identidade.vendasAno,
+    entradaEm: identidade.entradaEm,
+    primeiraCompraEm: identidade.primeiraCompraEm,
   };
 }
 
@@ -116,16 +66,8 @@ function diasEntre(inicio: Date, fim: Date): number {
   return Math.max(0, Math.round((fim.getTime() - inicio.getTime()) / UM_DIA_MS));
 }
 
-export function montarNovasAgenciasView(
-  agenciasLocais: AgenciaAprovadaLocal[],
-  metricasPorCodigo: Map<string, MetricasCarteiraSst> | null,
-  primeirasComprasPorCodigo: Map<string, string | null>,
-  totalAtivasNoSistema: number,
-  hoje: Date,
-): NovasAgenciasData {
-  const linhas = agenciasLocais.map((agencia) =>
-    montarLinha(agencia, metricasPorCodigo, primeirasComprasPorCodigo, hoje),
-  );
+export function montarNovasAgenciasView(identidades: IdentidadeAgenciaMock[]): NovasAgenciasData {
+  const linhas = identidades.map(montarLinha);
 
   const total = linhas.length;
   const nuncaCompraram = linhas.filter((l) => l.linha.situacao === "nunca").length;
@@ -144,6 +86,8 @@ export function montarNovasAgenciasView(
         )
       : 0;
 
+  const baseAprovadas = Math.round(total * FATOR_BASE_APROVADAS);
+
   return {
     funil: {
       novasAgencias: total,
@@ -152,7 +96,7 @@ export function montarNovasAgenciasView(
       nuncaCompraramPct: formatarPercentualDaBase(nuncaCompraram, total),
       comprando,
       comprandoPct: formatarPercentualDaBase(comprando, total),
-      baseAprovadas: totalAtivasNoSistema,
+      baseAprovadas,
     },
     volumeGerado: formatarMoedaAbreviada(volumeTotal),
     tempoMedioPrimeiraCompraDias: tempoMedio,

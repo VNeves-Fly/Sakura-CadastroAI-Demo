@@ -3,13 +3,9 @@
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
 import {
-  executivoDashboardSstService,
-  type DashboardPersonalizadoSst,
-} from "@/modules/atribuicoes/services/executivo-dashboard.sst-service";
-import {
-  heroVazio,
-  margemRentabVazio,
-} from "@/modules/atribuicoes/utils/executivo-dashboard-vazio.util";
+  executivoDashboardMockService,
+  type DashboardPersonalizadoMock,
+} from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 import {
   somarCanalMargemResumo,
   somarPeriodoHero,
@@ -39,41 +35,33 @@ export interface DashboardPersonalizadoGestor {
   margemRentab: CanalMargemResumoGestor;
 }
 
-// "0/vazio honesto" (nunca mock) pra um executivo sem SICA ou cuja chamada
-// ao SST falhou — mesmo critério de heroVazio/margemRentabVazio usado em
-// gestor-dashboard.controller.ts pros períodos fixos; `.mes` serve porque
-// os 4 períodos desses builders são idênticos (tudo zerado).
-const HERO_VAZIO = heroVazio().mes;
-const MARGEM_RENTAB_VAZIO = margemRentabVazio().mes;
-
-async function obterDashboardPersonalizadoDoExecutivo(
-  sica: number | null,
+// Este projeto é uma DEMO — sempre mock determinístico, nunca chama o SST
+// real (ver executivo-dashboard.mock-service.ts). Usa `id` do executivo
+// como chave do hash (em vez de `sica`) pra funcionar mesmo sem código
+// SICA cadastrado — nunca cai em "vazio".
+function obterDashboardPersonalizadoDoExecutivo(
+  executivo: { id: string; sica: number | null },
   inicioIso: string,
   fimIso: string,
-): Promise<DashboardPersonalizadoSst> {
-  if (sica == null) return { hero: HERO_VAZIO, margemRentab: MARGEM_RENTAB_VAZIO };
-  try {
-    return await executivoDashboardSstService.obterDashboardPersonalizado(sica, inicioIso, fimIso);
-  } catch {
-    return { hero: HERO_VAZIO, margemRentab: MARGEM_RENTAB_VAZIO };
-  }
+): DashboardPersonalizadoMock {
+  const chave = executivo.sica != null ? String(executivo.sica) : executivo.id;
+  return executivoDashboardMockService.obterDashboardPersonalizado(chave, inicioIso, fimIso);
 }
 
 // Chamada pelo popover de período do card "Receita total" (dashboard do
 // Gestor) quando o usuário aplica um intervalo personalizado — o Gestor
 // não tem código SICA próprio (ver docs/plano-gestores-backend.md §1), só
 // a soma agregada dos executivos subordinados, por isso recebe a lista de
-// `{id, sica}` inteira e dispara 1 chamada por executivo (mesma
-// orquestração de gestor-dashboard.controller.ts pros períodos fixos, aqui
-// pro intervalo ad-hoc). `null` = SST não configurado neste ambiente.
+// `{id, sica}` inteira e gera 1 mock por executivo (mesma orquestração de
+// gestor-dashboard.controller.ts pros períodos fixos, aqui pro intervalo
+// ad-hoc).
 export async function obterDashboardPersonalizadoGestorAction(
   executivos: { id: string; sica: number | null }[],
   inicioIso: string,
   fimIso: string,
-): Promise<DashboardPersonalizadoGestor | null> {
+): Promise<DashboardPersonalizadoGestor> {
   await garantirAcesso();
 
-  if (!process.env.SST_API_KEY) return null;
   if (!FORMATO_DATA_ISO.test(inicioIso) || !FORMATO_DATA_ISO.test(fimIso)) {
     throw new Error("Datas inválidas.");
   }
@@ -81,10 +69,8 @@ export async function obterDashboardPersonalizadoGestorAction(
     throw new Error("Data inicial não pode ser depois da data final.");
   }
 
-  const porExecutivo = await Promise.all(
-    executivos.map((executivo) =>
-      obterDashboardPersonalizadoDoExecutivo(executivo.sica, inicioIso, fimIso),
-    ),
+  const porExecutivo = executivos.map((executivo) =>
+    obterDashboardPersonalizadoDoExecutivo(executivo, inicioIso, fimIso),
   );
 
   return {

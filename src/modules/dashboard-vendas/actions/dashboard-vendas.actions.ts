@@ -22,12 +22,13 @@ async function garantirAcessoAdmin(): Promise<void> {
 // quando o usuário aplica um intervalo customizado — nunca no
 // carregamento inicial da página (ver dashboard-vendas-view.tsx), porque
 // não dá pra pré-computar todo intervalo de datas possível como os 4
-// períodos fixos de `obterResumoEDia`. `null` = SST não configurado neste
-// ambiente; erro de rede/validação sobe como exceção pro client mostrar.
+// períodos fixos de `obterResumoEDia`. Projeto de demonstração — sempre
+// devolve dado mock rico (nunca `null`); erro de validação de data ainda
+// sobe como exceção pro client mostrar.
 export async function obterResumoPersonalizadoAction(
   inicioIso: string,
   fimIso: string,
-): Promise<ResumoPersonalizado | null> {
+): Promise<ResumoPersonalizado> {
   await garantirAcessoAdmin();
 
   if (!FORMATO_DATA_ISO.test(inicioIso) || !FORMATO_DATA_ISO.test(fimIso)) {

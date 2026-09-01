@@ -5,9 +5,9 @@ import { CircleAlert, CircleCheck } from "lucide-react";
 
 interface TvHeaderProps {
   // Reflete se o último polling (ver tv-view.tsx) conseguiu buscar dado
-  // novo com sucesso — não distingue "real" de "mock" (o fallback por
-  // bloco do tv.sst-service.ts é silencioso de propósito, mesmo padrão
-  // do resto do projeto); só sinaliza problema de conectividade/API.
+  // novo com sucesso — dado sempre vem de tv.mock-service.ts (repositório
+  // de demonstração); só sinaliza problema de conectividade/API na rota
+  // de polling em si, não a origem do dado.
   syncOk: boolean;
 }
 

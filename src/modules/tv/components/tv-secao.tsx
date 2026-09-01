@@ -8,8 +8,8 @@ interface TvSecaoProps {
 // Server Component async — a page.tsx dispara tvController.obterDados()
 // sem `await` e passa a promise pra cá dentro de um <Suspense>; só este
 // componente espera ela resolver, então o Suspense troca o TvSkeleton
-// pelo painel real assim que os fetches concorrentes contra o SST
-// terminarem, sem bloquear a abertura da página (mesmo padrão de
+// pelo painel real assim que os dados mock (ver tv.mock-service.ts)
+// resolverem, sem bloquear a abertura da página (mesmo padrão de
 // AgenciasListaSecao, ver agencias-lista-secao.tsx).
 export async function TvSecao({ dadosPromise }: TvSecaoProps) {
   const dados = await dadosPromise;

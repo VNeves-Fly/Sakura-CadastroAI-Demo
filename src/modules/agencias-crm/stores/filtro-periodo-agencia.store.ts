@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { obterVolumePersonalizadoAction } from "@/modules/agencias-crm/actions/agencia-detalhe.actions";
-import type { VolumeCanalPeriodoSst } from "@/modules/agencias-crm/services/agencia-detalhe.sst-service";
+import type { VolumeCanalPeriodoAgencia } from "@/modules/agencias-crm/types/agencia-detalhe.types";
 import type { PeriodoVolumeAgencia } from "@/modules/agencias-crm/utils/canal-margem-mock.util";
 
 // Filtro de período do card "Volume total" da aba Dashboard do detalhe de
@@ -17,7 +17,7 @@ export type FiltroPeriodoAgencia = PeriodoVolumeAgencia | "personalizado";
 export const PERIODO_PREVIA_PERSONALIZADO_AGENCIA: PeriodoVolumeAgencia = "mes";
 
 interface EstadoPersonalizadoAgencia {
-  dados: VolumeCanalPeriodoSst | null;
+  dados: VolumeCanalPeriodoAgencia | null;
   carregando: boolean;
   erro: string | null;
 }

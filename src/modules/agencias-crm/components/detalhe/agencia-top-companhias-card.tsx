@@ -35,9 +35,9 @@ function resolverCorCompanhia(nome: string): string {
 }
 
 // Card "Top Companhias Aéreas" (SPEC seção 3.5.B) — `companhias` vem de
-// `vendas.topCompanhias`, real via SST (GET /api/reports/ranking-cias,
-// ver agencia-detalhe.sst-service.ts) quando a agência tem venda
-// detectada; mock por hash como fallback. Limitado às 8 primeiras.
+// `vendas.topCompanhias`, mock determinístico por hash (repositório de
+// DEMONSTRAÇÃO, nunca chama o SST, ver agencia-detalhe.adapter.ts).
+// Limitado às 8 primeiras.
 // Largura da barra = `participacaoPct` (fatia real sobre o total aéreo
 // da agência — aereoNacional + aereoInternacional, mesmo total do card
 // "Aéreo" — ver buscarTopCompanhias), não mais relativa ao 1º colocado:

@@ -2,13 +2,27 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nextAuthOptions } from "@/modules/auth/presentation/routes/next-auth.options";
-import { atribuicoesAdminController } from "@/modules/atribuicoes/presentation/controllers/atribuicoes-admin.controller";
-import { basesController } from "@/modules/bases/presentation/controllers/bases.controller";
 import { calcularVendasPorExecutivos } from "@/modules/atribuicoes/services/vendas-por-executivos.loader";
 import { PromotoresListaSecao } from "@/modules/atribuicoes/components/promotores-lista-secao";
 import { PromotoresListaSkeleton } from "@/modules/atribuicoes/components/promotores-lista-skeleton";
+import { MOCK_EXECUTIVOS, MOCK_GESTORES } from "@/modules/crm-mock/pessoas.mock-data";
+import { BASES_MOCK } from "@/modules/crm-mock/agencias.mock-data";
+import type { BaseView } from "@/modules/bases/types/base.types";
 
 const CARGOS_ADMIN = new Set(["ADMIN", "DIRETOR_ANALISTA"]);
+
+// Deriva as opções de base (select do modal de cadastro) direto das siglas
+// fictícias em BASES_MOCK — este repositório é uma demonstração e não deve
+// consultar a tabela `Base` real (ver crm-mock/agencias.mock-data.ts).
+const MOCK_BASES: BaseView[] = BASES_MOCK.map(([sigla, cidadeUf]) => {
+  const [nomeCidade, uf] = cidadeUf.split("/");
+  return {
+    id: `base-${sigla.toLowerCase()}`,
+    sigla,
+    nomeCidade: nomeCidade ?? cidadeUf,
+    uf: uf ?? "",
+  };
+});
 
 export default async function PromotoresPage() {
   const session = await getServerSession(nextAuthOptions);
@@ -20,17 +34,15 @@ export default async function PromotoresPage() {
 
   // Lista de gestores pra exibir o nome na coluna GESTOR da tabela — é
   // leitura, não seleção de vínculo, então não tem restrição por cargo.
-  // `promotoresTodos` (banco local, rápido) já vem aqui também — antes só
-  // era buscado no fetch client de /api/promotores, que travava a tabela
-  // inteira esperando o fan-out de SST junto (ver docs/otimizacao-tempo.md).
-  const [gestoresRaw, todasBases, promotoresTodos, gestorAtual] = await Promise.all([
-    atribuicoesAdminController.listarGestores(),
-    basesController.list(),
-    atribuicoesAdminController.listarPromotores(),
+  // Dados fictícios (demo): nunca lê do Postgres real, ver
+  // crm-mock/pessoas.mock-data.ts.
+  const gestoresRaw = MOCK_GESTORES;
+  const todasBases = MOCK_BASES;
+  const promotoresTodos = MOCK_EXECUTIVOS;
+  const gestorAtual =
     cargo === "GESTOR" && session?.user?.id
-      ? atribuicoesAdminController.buscarGestorPorUserId(session.user.id)
-      : Promise.resolve(null),
-  ]);
+      ? (MOCK_GESTORES.find((gestor) => gestor.userId === session.user.id) ?? null)
+      : null;
   const gestoresOptions = gestoresRaw.map((gestor) => ({
     id: gestor.id,
     nome: gestor.nome,

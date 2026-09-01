@@ -1,19 +1,12 @@
 // Orquestra a agregação do dashboard do Gestor: chama
-// executivoDashboardController pra cada executivo subordinado (cada um
-// decide mock↔real por conta própria via seu próprio `sica`, ver
-// executivo-dashboard.controller.ts) e soma os resultados com
-// agregacoes-gestor.util.ts. O Gestor não tem gate próprio de mock/real —
-// isso já vem resolvido por executivo (docs/plano-gestores-backend.md §1).
+// executivoDashboardController pra cada executivo subordinado (sempre mock
+// de demonstração, ver executivo-dashboard.controller.ts — repositório de
+// DEMO, nunca chama o SST real nem devolve vazio) e soma os resultados com
+// agregacoes-gestor.util.ts. Não existe (nem precisa existir) um
+// mock-service dedicado a Gestor: a soma do dashboard mock de cada
+// executivo subordinado já é o dashboard do Gestor.
 import { executivoDashboardController } from "@/modules/atribuicoes/presentation/controllers/executivo-dashboard.controller";
-import { executivoDashboardMockService } from "@/modules/atribuicoes/services/executivo-dashboard.mock-service";
 import { mapAgencia } from "@/modules/atribuicoes/adapters/executivo-detalhe.adapter";
-import {
-  crossCanalVazio,
-  heroVazio,
-  kpisVazios,
-  margemRentabVazio,
-  saudeCarteiraVazia,
-} from "@/modules/atribuicoes/utils/executivo-dashboard-vazio.util";
 import {
   somarCrossCanal,
   somarHeroTodosPeriodos,
@@ -23,68 +16,29 @@ import {
 } from "@/modules/gestores/utils/agregacoes-gestor.util";
 import type { ExecutivoComCarteira } from "@/modules/gestores/adapters/gestor-detalhe.adapter";
 
-// Cada chamada individual NUNCA rejeita e NUNCA representa esse executivo
-// por um item "ausente" — se o SST real falhar de forma inesperada (não é
-// o caso de "sem sica", que já cai pro "0/vazio honesto" DENTRO do
-// executivoDashboardController), cai pro mesmo "0/vazio honesto" do
-// Executivo pra essa linha não sumir nem da soma nem da tabela da Aba
-// Executivos (nunca um número mock inventado — decisão do usuário,
-// 2026-08-25, ver executivo-dashboard-vazio.util.ts).
+// `executivoDashboardController` nunca rejeita (sempre mock) — sem try/
+// catch aqui: cada item sempre resolve com dado fictício rico, nunca um
+// "ausente"/vazio que sumiria da soma ou da tabela da Aba Executivos.
 async function obterHeroKpisDoExecutivo(executivo: ExecutivoComCarteira) {
   const agencias = executivo.agencias.map(mapAgencia);
-  try {
-    const { hero, kpis, margemRentab } = await executivoDashboardController.obterHeroKpis(
-      executivo.sica,
-      executivo.id,
-      executivo.agencias.length,
-      agencias,
-    );
-    return { id: executivo.id, hero, kpis, margemRentab };
-  } catch {
-    return {
-      id: executivo.id,
-      hero: heroVazio(),
-      kpis: kpisVazios(),
-      margemRentab: margemRentabVazio(),
-    };
-  }
+  const { hero, kpis, margemRentab } = await executivoDashboardController.obterHeroKpis(
+    executivo.sica,
+    executivo.id,
+    executivo.agencias.length,
+    agencias,
+  );
+  return { id: executivo.id, hero, kpis, margemRentab };
 }
 
 async function obterCrossCanalDoExecutivo(executivo: ExecutivoComCarteira) {
   const agencias = executivo.agencias.map(mapAgencia);
-  try {
-    const resultado = await executivoDashboardController.obterCrossCanalEMiniStats(
-      executivo.sica,
-      executivo.id,
-      executivo.agencias.length,
-      agencias,
-    );
-    return { id: executivo.id, ...resultado };
-  } catch {
-    // ociosasLimite/comCredito não têm fonte real no SST hoje (mesma
-    // ressalva de executivo-dashboard.controller.ts) — únicos dois campos
-    // que ainda vêm do mock aqui, não é sobre falta de SICA/erro do SST.
-    const mock = await executivoDashboardMockService.obterDashboard(
-      executivo.id,
-      executivo.agencias.length,
-      agencias,
-    );
-    return {
-      id: executivo.id,
-      crossCanal: crossCanalVazio(executivo.agencias.length),
-      miniStats: {
-        agencias: executivo.agencias.length,
-        vendendo30d: 0,
-        vendendo30dPct: 0,
-        ociosasLimite: mock.miniStats.ociosasLimite,
-        comCredito: mock.miniStats.comCredito,
-      },
-      saudeCarteira: saudeCarteiraVazia(),
-      // sem SICA/roster real não há como listar as agências do SST — mostra
-      // vazio em vez de inventar linhas (mesma regra do Executivo).
-      agenciasCarteira: [],
-    };
-  }
+  const resultado = await executivoDashboardController.obterCrossCanalEMiniStats(
+    executivo.sica,
+    executivo.id,
+    executivo.agencias.length,
+    agencias,
+  );
+  return { id: executivo.id, ...resultado };
 }
 
 export const gestorDashboardController = {
