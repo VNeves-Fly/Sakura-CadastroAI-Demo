@@ -14,6 +14,7 @@ import {
   UserCog,
   Webhook,
   ShieldCheck,
+  ShieldAlert,
   UserPlus,
   MapPin,
   Building2,
@@ -67,6 +68,16 @@ const CARGOS_SEM_GESTAO_DE_EXECUTIVOS: Cargo[] = ["ANALISTA", "EXECUTIVO"];
 // CARGOS_NAO_ADMIN acima, aqui DIRETOR_ANALISTA também fica de fora
 // (guard real é no page.tsx — isto só evita mostrar o item).
 const CARGOS_SEM_DASHBOARD_CRM: Cargo[] = ["DIRETOR_ANALISTA", "ANALISTA", "GESTOR", "EXECUTIVO"];
+// "Análise de Risco" (grupo "Segurança") — restrito a ADMIN (pedido do
+// usuário, 2026-09-02), mesmo recorte de CARGOS_SEM_DASHBOARD_CRM mas
+// mantido separado por ser um contexto diferente (guard real é no
+// page.tsx — isto só evita mostrar o item).
+const CARGOS_SEM_ACESSO_SEGURANCA: Cargo[] = [
+  "DIRETOR_ANALISTA",
+  "ANALISTA",
+  "GESTOR",
+  "EXECUTIVO",
+];
 
 // Lista de itens extraída direto do produto real (print de referência,
 // onboarding.flysakura.com/admin/onboarding/cadastros) — só "Cadastros"
@@ -199,6 +210,17 @@ const GRUPOS_NAV: AdminNavGrupo[] = [
         href: "/cadastros/logs-email",
         icon: Mail,
         ocultoPara: CARGOS_NAO_ADMIN,
+      },
+    ],
+  },
+  {
+    label: "Segurança",
+    itens: [
+      {
+        label: "Análise de Risco",
+        href: "/seguranca/analise-de-risco",
+        icon: ShieldAlert,
+        ocultoPara: CARGOS_SEM_ACESSO_SEGURANCA,
       },
     ],
   },

@@ -38,10 +38,10 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   await seedAdminUser(prisma);
-  await seedSignatariosPadrao(prisma);
-  await seedPromotores(prisma);
-  await seedAssociacoes(prisma);
-  await seedCidadesComerciais(prisma);
+  // await seedSignatariosPadrao(prisma);
+  // await seedPromotores(prisma);
+  // await seedAssociacoes(prisma);
+  // await seedCidadesComerciais(prisma);
 }
 
 main()
